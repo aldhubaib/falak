@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import type { Channel } from "@/data/mock";
 import { toast } from "sonner";
-import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock, Timer } from "lucide-react";
+import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock } from "lucide-react";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 
 interface ChannelRightPanelProps {
@@ -23,16 +23,15 @@ interface InfoRow {
 }
 
 const buildRows = (channel: Channel, videoCount?: number, shortCount?: number): InfoRow[] => [
-  { icon: Hash, label: "Handle", value: channel.handle },
-  { icon: Calendar, label: "Added", value: "Jan 15, 2026" },
+  { icon: Hash, label: "Handle", value: channel.handle || "—" },
+  { icon: Calendar, label: "Added", value: "—" },
   { icon: Play, label: "Videos", value: String(videoCount ?? 0) },
   { icon: Zap, label: "Shorts", value: String(shortCount ?? 0) },
-  { icon: Users, label: "Subscribers", value: channel.subscribers },
-  { icon: Eye, label: "Total Views", value: channel.views },
-  { icon: TrendingUp, label: "Engagement", value: `${channel.engRate} ↑`, highlight: true },
+  { icon: Users, label: "Subscribers", value: channel.subscribers || "—" },
+  { icon: Eye, label: "Total Views", value: channel.views || "—" },
+  { icon: TrendingUp, label: "Engagement", value: channel.engRate ? `${channel.engRate} ↑` : "—", highlight: true },
   { icon: CircleDot, label: "Status", value: "● Active", status: true },
-  { icon: Clock, label: "Last sync", value: channel.lastSynced.includes(",") ? `Today · ${channel.lastSynced.split(", ")[1]}` : channel.lastSynced },
-  { icon: Timer, label: "Next sync", value: "Today · 7:59 AM" },
+  { icon: Clock, label: "Last sync", value: (() => { const s = channel.lastSynced || "—"; return s.includes(",") ? `Today · ${s.split(", ")[1]}` : s; })() },
 ];
 
 function BrandedHooksSection({
