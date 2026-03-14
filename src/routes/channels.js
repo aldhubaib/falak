@@ -1,6 +1,7 @@
 const express = require('express')
 const { z } = require('zod')
 const db = require('../lib/db')
+const { serialise } = require('../lib/serialise')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { NotFound, Forbidden, asyncWrap } = require('../middleware/errors')
 const { parseBody, parseQuery } = require('../lib/validate')
@@ -96,12 +97,8 @@ router.get('/:id', asyncWrap(async (req, res) => {
     engagement: delta(engagementRounded, lastSnap?.engagement ?? null),
   }
 
-  res.json({
-    ...channel,
-    avgViews,
-    engagement: engagementRounded,
-    deltas,
-  })
+  const payload = { ...channel, avgViews, engagement: engagementRounded, deltas }
+  res.json(serialise(payload))
 }))
 
 const listVideosQuerySchema = z.object({

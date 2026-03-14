@@ -46,6 +46,21 @@ interface ApiVideo {
   pipelineItem?: { stage: string; status: string } | null;
 }
 
+/** Derive "short" | "video" from API (videoType case-insensitive; fallback from duration ≤60s). */
+function videoType(v: ApiVideo): "short" | "video" {
+  const t = (v.videoType || "").toLowerCase();
+  if (t === "short") return "short";
+  if (t === "video") return "video";
+  if (v.duration) {
+    const m = v.duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (m) {
+      const secs = (parseInt(m[1] || "0") * 3600) + (parseInt(m[2] || "0") * 60) + parseInt(m[3] || "0");
+      return secs <= 60 ? "short" : "video";
+    }
+  }
+  return "video";
+}
+
 function mapVideo(v: ApiVideo): Video {
   const views = Number(v.viewCount) || 0;
   const likes = Number(v.likeCount) || 0;
@@ -54,7 +69,7 @@ function mapVideo(v: ApiVideo): Video {
     id: v.id,
     channelId: v.channelId,
     title: v.titleEn || v.titleAr || "",
-    type: v.videoType === "short" ? "short" : "video",
+    type: videoType(v),
     views: formatCount(views),
     likes: formatCount(likes),
     comments: "",
@@ -85,6 +100,7 @@ export default function ChannelDetail() {
     if (!id) return;
     setLoading(true);
     setNotFound(false);
+    setChannel(null);
     fetch(`/api/channels/${id}`, { credentials: "include" })
       .then((r) => {
         if (r.status === 404) {
@@ -95,9 +111,11 @@ export default function ChannelDetail() {
         return r.json();
       })
       .then((data) => {
-        if (data) {
+        if (data && typeof data.id === "string") {
           setChannel(data);
           setChannelType(data.type === "own" ? "ours" : "competition");
+        } else {
+          setNotFound(true);
         }
       })
       .catch(() => setNotFound(true))
@@ -122,12 +140,13 @@ export default function ChannelDetail() {
     return true;
   });
 
+  // All stats from DB: channel from GET /api/channels/:id (Channel + getChannelStats), videos from GET /api/channels/:id/videos
   const name = channel ? (channel.nameEn || channel.nameAr || channel.handle) : "";
   const avatarImg = channel?.avatarUrl || "/placeholder.svg";
-  const subs = channel ? formatCount(Number(channel.subscribers) || 0) : "0";
-  const views = channel ? formatCount(Number(channel.totalViews) || 0) : "0";
-  const avgViews = channel?.avgViews != null ? formatCount(channel.avgViews) : "—";
-  const engRate = channel?.engagement != null ? `${channel.engagement.toFixed(1)}%` : "—";
+  const subs = channel ? formatCount(Number(channel.subscribers) || 0) : "0";           // Channel.subscribers
+  const views = channel ? formatCount(Number(channel.totalViews) || 0) : "0";          // Channel.totalViews
+  const avgViews = channel?.avgViews != null ? formatCount(channel.avgViews) : "—";    // Video aggregate _avg(viewCount)
+  const engRate = channel?.engagement != null ? `${channel.engagement.toFixed(1)}%` : "—"; // Video (likes+comments)/views
   const deltaSubs = channel?.deltas?.subscribers;
   const deltaViews = channel?.deltas?.totalViews;
   const growthSubs = deltaSubs != null ? (deltaSubs >= 0 ? `+${deltaSubs}` : String(deltaSubs)) : "—";
@@ -137,7 +156,7 @@ export default function ChannelDetail() {
   const stats = [
     { val: subs, label: "Subscribers", change: growthSubs, up: true },
     { val: views, label: "Total Views", change: growthViews, up: true },
-    { val: String(channel?.videoCount ?? 0), label: "Videos", change: "—", up: true },
+    { val: String(channelVideos.length), label: "Videos", change: "—", up: true },
     { val: avgViews, label: "Avg. Views", change: "—", up: false },
     { val: engRate, label: "Eng. Rate", change: "—", up: true },
   ];
@@ -152,7 +171,7 @@ export default function ChannelDetail() {
         type: channelType,
         subscribers: subs,
         views,
-        videos: String(channel.videoCount ?? 0),
+        videos: String(channelVideos.length),
         avgViews,
         engRate,
         growthSubs,
@@ -165,16 +184,23 @@ export default function ChannelDetail() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center text-dim text-[13px]">
-        Loading channel…
+      <div className="flex flex-col min-h-screen items-center justify-center bg-surface">
+        <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-[13px] text-foreground">Loading channel…</p>
       </div>
     );
   }
 
   if (notFound || !channel) {
     return (
-      <div className="p-10 text-sensor">
-        Channel not found. <button onClick={() => navigate("/")} className="underline hover:text-foreground">Back to Channels</button>
+      <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
+        <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
+        <button
+          onClick={() => navigate("/")}
+          className="text-sensor hover:text-foreground underline text-[13px]"
+        >
+          Return to home
+        </button>
       </div>
     );
   }
