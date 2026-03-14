@@ -1,0 +1,247 @@
+const express = require('express')
+const { z } = require('zod')
+const db = require('../lib/db')
+const { requireAuth, requireRole } = require('../middleware/auth')
+const { NotFound, Forbidden, asyncWrap } = require('../middleware/errors')
+const { parseBody, parseQuery } = require('../lib/validate')
+const { fetchChannel, fetchRecentVideos } = require('../services/youtube')
+const { getQueue, addJob } = require('../queue/pipeline')
+
+const router = express.Router()
+router.use(requireAuth)
+
+const createChannelBodySchema = z.object({
+  input: z.string().min(1, 'input is required'),
+  projectId: z.string().min(1, 'projectId is required'),
+  type: z.string().optional(),
+})
+
+const listChannelsQuerySchema = z.object({
+  projectId: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+  cursor: z.string().optional(),
+})
+
+/** Compute avgViews and engagement from Video aggregates (no findMany of all videos). */
+async function getChannelStats (channelId) {
+  const [agg, engRow] = await Promise.all([
+    db.video.aggregate({
+      where: { channelId },
+      _avg: { viewCount: true },
+      _count: true,
+    }),
+    db.$queryRaw`
+      SELECT AVG((COALESCE("likeCount",0)::float + COALESCE("commentCount",0)::float) / NULLIF(COALESCE("viewCount",1)::float, 0) * 100) as engagement
+      FROM "Video" WHERE "channelId" = ${channelId}
+    `.then((rows) => rows[0]).catch(() => ({ engagement: null })),
+  ])
+  const count = agg._count
+  const avgViews = count && agg._avg?.viewCount != null ? Math.round(Number(agg._avg.viewCount)) : 0
+  const engagementRounded = engRow?.engagement != null ? parseFloat(Number(engRow.engagement).toFixed(1)) : 0
+  return { avgViews, engagement: engagementRounded }
+}
+
+// ── GET /api/channels?projectId=xxx&limit=50&cursor=xxx
+router.get('/', asyncWrap(async (req, res) => {
+  const { projectId, limit, cursor } = parseQuery(req.query, listChannelsQuerySchema)
+  const where = projectId ? { projectId } : {}
+  const take = limit + 1
+  const channels = await db.channel.findMany({
+    where,
+    orderBy: [{ subscribers: 'desc' }, { id: 'asc' }],
+    take,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    select: {
+      id: true, youtubeId: true, handle: true, nameAr: true, nameEn: true,
+      type: true, avatarUrl: true, status: true, subscribers: true,
+      totalViews: true, videoCount: true, uploadCadence: true,
+      lastFetchedAt: true, projectId: true, createdAt: true,
+    }
+  })
+  const hasMore = channels.length > limit
+  const list = hasMore ? channels.slice(0, limit) : channels
+  const nextCursor = hasMore ? list[list.length - 1].id : null
+  res.json({ channels: list, nextCursor, hasMore })
+}))
+
+// ── GET /api/channels/:id — single channel for detail page (read-only; avgViews/engagement from DB aggregate; deltas from last snapshot)
+router.get('/:id', asyncWrap(async (req, res) => {
+  const id = req.params.id
+  const channel = await db.channel.findUniqueOrThrow({
+    where: { id },
+    select: {
+      id: true, youtubeId: true, handle: true, nameAr: true, nameEn: true,
+      type: true, avatarUrl: true, status: true, subscribers: true,
+      totalViews: true, videoCount: true, uploadCadence: true,
+      lastFetchedAt: true, projectId: true, createdAt: true,
+    }
+  })
+
+  const [stats, lastSnap] = await Promise.all([
+    getChannelStats(id),
+    db.channelSnapshot.findFirst({
+      where: { channelId: id },
+      orderBy: { snapshotAt: 'desc' },
+      take: 1,
+    }),
+  ])
+  const { avgViews, engagement: engagementRounded } = stats
+
+  const delta = (current, prev) => (prev != null ? current - prev : null)
+  const deltas = {
+    subscribers: delta(Number(channel.subscribers), lastSnap ? Number(lastSnap.subscribers) : null),
+    totalViews: delta(Number(channel.totalViews), lastSnap ? Number(lastSnap.totalViews) : null),
+    videoCount: delta(channel.videoCount ?? 0, lastSnap?.videoCount ?? null),
+    avgViews: delta(avgViews, lastSnap?.avgViews ?? null),
+    engagement: delta(engagementRounded, lastSnap?.engagement ?? null),
+  }
+
+  res.json({
+    ...channel,
+    avgViews,
+    engagement: engagementRounded,
+    deltas,
+  })
+}))
+
+const listVideosQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+})
+
+// ── GET /api/channels/:id/videos?limit=50&offset=0 — videos for channel (with pipeline stage)
+router.get('/:id/videos', asyncWrap(async (req, res) => {
+  const { limit, offset } = parseQuery(req.query, listVideosQuerySchema)
+  const channelId = req.params.id
+  const [videos, total] = await Promise.all([
+    db.video.findMany({
+      where: { channelId },
+      orderBy: { publishedAt: 'desc' },
+      take: limit,
+      skip: offset,
+      include: {
+        pipelineItem: { select: { id: true, stage: true, status: true, error: true } }
+      }
+    }),
+    db.video.count({ where: { channelId } }),
+  ])
+  res.json({ videos, total, hasMore: offset + videos.length < total })
+}))
+
+// Helper: fetch recent videos from YouTube and create pipeline items for a channel (used on add + manual sync)
+async function importVideosForChannel(channelId) {
+  const channel = await db.channel.findUniqueOrThrow({ where: { id: channelId }, include: { project: true } })
+  if (channel.project && channel.project.status === 'paused') throw new Error('Project is paused. Set to Active to fetch videos.')
+  const videos = await fetchRecentVideos(channel.youtubeId, 50, channel.projectId)
+  for (const v of videos) {
+    await db.video.upsert({
+      where: { youtubeId: v.youtubeId },
+      create: { ...v, channelId: channel.id },
+      update: { viewCount: v.viewCount, likeCount: v.likeCount, commentCount: v.commentCount },
+    })
+  }
+  const newVideos = await db.video.findMany({
+    where: { channelId: channel.id, pipelineItem: null }
+  })
+  const queue = getQueue()
+  for (const v of newVideos) {
+    const item = await db.pipelineItem.create({ data: { videoId: v.id } })
+    if (queue) await addJob(item.id, 'import')
+  }
+  return { added: videos.length }
+}
+
+// ── POST /api/channels — add a new channel (and auto-import videos into pipeline)
+router.post('/', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+  const { input, type, projectId } = parseBody(req.body, createChannelBodySchema)
+
+  const project = await db.project.findUnique({ where: { id: projectId } })
+  if (!project) throw NotFound('Project not found')
+  if (project.status === 'paused') throw Forbidden('Project is paused. Set to Active to add channels.')
+
+  const ytData = await fetchChannel(input, projectId)
+
+  // Check for duplicate
+  const exists = await db.channel.findUnique({ where: { youtubeId: ytData.youtubeId } })
+  if (exists) return res.status(409).json({ error: 'Channel already added' })
+
+  const channel = await db.channel.create({
+    data: { ...ytData, type: type || 'competitor', projectId, lastFetchedAt: new Date() }
+  })
+
+  // Auto-import videos and create pipeline items so the pipeline starts right away
+  try {
+    await importVideosForChannel(channel.id)
+  } catch (importErr) {
+    console.warn('Auto-import videos after add channel failed:', importErr.message)
+  }
+
+  res.json(channel)
+}))
+
+// ── POST /api/channels/:id/refresh — re-fetch from YouTube; snapshot created here when channel data changes
+router.post('/:id/refresh', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const channel = await db.channel.findUniqueOrThrow({ where: { id: req.params.id }, include: { project: true } })
+    if (channel.project && channel.project.status === 'paused') return res.status(403).json({ error: 'Project is paused. Set to Active to sync.' })
+    const ytData = await fetchChannel(channel.youtubeId, channel.projectId)
+    const updated = await db.channel.update({
+      where: { id: channel.id },
+      data: { ...ytData, lastFetchedAt: new Date() }
+    })
+    const { avgViews, engagement } = await getChannelStats(updated.id)
+    await db.channelSnapshot.create({
+      data: {
+        channelId: updated.id,
+        subscribers: BigInt(updated.subscribers ?? 0),
+        totalViews: BigInt(updated.totalViews ?? 0),
+        videoCount: updated.videoCount ?? 0,
+        avgViews,
+        engagement,
+      }
+    })
+    res.json(updated)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/channels/:id/fetch-videos — pull latest videos and create pipeline items
+router.post('/:id/fetch-videos', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { added } = await importVideosForChannel(req.params.id)
+    res.json({ added, message: `Fetched ${added} videos` })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Channel not found' })
+    if (e.message && e.message.includes('paused')) return res.status(403).json({ error: 'Project is paused. Set to Active to fetch videos.' })
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── PATCH /api/channels/:id — update channel (e.g. type)
+router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { type } = req.body
+    const data = {}
+    if (type !== undefined) data.type = type
+    const channel = await db.channel.update({
+      where: { id: req.params.id },
+      data
+    })
+    res.json(channel)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── DELETE /api/channels/:id
+router.delete('/:id', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    await db.channel.delete({ where: { id: req.params.id } })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+module.exports = router

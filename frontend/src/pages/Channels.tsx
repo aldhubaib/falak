@@ -1,0 +1,299 @@
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { DeleteChannelModal } from "@/components/DeleteChannelModal";
+import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+
+type FilterType = "ours" | "competition";
+
+/** Falak API channel shape */
+interface ApiChannel {
+  id: string;
+  handle: string;
+  nameAr: string | null;
+  nameEn: string | null;
+  type: "own" | "competitor";
+  avatarUrl: string | null;
+  status: string;
+  subscribers: string;
+  totalViews: string;
+  videoCount: number;
+  lastFetchedAt: string | null;
+  projectId: string;
+}
+
+/** UI channel shape (matches original design) */
+interface Channel {
+  id: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  avatarImg: string;
+  type: "ours" | "competition";
+  subscribers: string;
+  views: string;
+  videos: string;
+  lastSynced: string;
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  return String(n);
+}
+
+function mapApiChannelToUi(api: ApiChannel): Channel {
+  const subs = Number(api.subscribers) || 0;
+  const views = Number(api.totalViews) || 0;
+  const name = api.nameEn || api.nameAr || api.handle || "Channel";
+  return {
+    id: api.id,
+    name,
+    handle: api.handle,
+    avatar: name.charAt(0).toUpperCase(),
+    avatarImg: api.avatarUrl || "/placeholder.svg",
+    type: api.type === "own" ? "ours" : "competition",
+    subscribers: formatCount(subs),
+    views: formatCount(views),
+    videos: String(api.videoCount ?? 0),
+    lastSynced: api.lastFetchedAt ? new Date(api.lastFetchedAt).toISOString() : new Date().toISOString(),
+  };
+}
+
+export default function Channels() {
+  const navigate = useNavigate();
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inputValue, setInputValue] = useState("");
+  const [inputError, setInputError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterType>("ours");
+  const [projectId, setProjectId] = useState<string | null>(null);
+
+  const fetchChannels = () => {
+    setLoading(true);
+    fetch("/api/channels", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Unauthorized"))))
+      .then((data: { channels: ApiChannel[] }) => {
+        setChannels((data.channels || []).map(mapApiChannelToUi));
+      })
+      .catch(() => setChannels([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchChannels();
+    fetch("/api/projects", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: { id: string }[]) => {
+        if (list?.length) setProjectId(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleAdd = () => {
+    const val = inputValue.trim();
+    if (!val) {
+      setInputError("Please enter a channel URL, handle, or ID");
+      return;
+    }
+    if (!projectId) {
+      setInputError("No project selected. Create a project first.");
+      return;
+    }
+    const exists = channels.some(
+      (ch) => ch.handle === val || ch.handle === `@${val}` || ch.id === val
+    );
+    if (exists) {
+      setInputError("This channel is already tracked");
+      return;
+    }
+    setInputError("");
+    fetch("/api/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        input: val,
+        projectId,
+        type: filter === "ours" ? "own" : "competitor",
+      }),
+    })
+      .then((r) => {
+        if (!r.ok) return r.json().then((e) => Promise.reject(new Error(e?.error || "Failed to add")));
+        return r.json();
+      })
+      .then(() => {
+        setInputValue("");
+        fetchChannels();
+      })
+      .catch((err) => setInputError(err.message || "Failed to add channel"));
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    fetch(`/api/channels/${deleteTarget}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+      .then((r) => {
+        if (!r.ok) return Promise.reject(new Error("Delete failed"));
+        setChannels((prev) => prev.filter((c) => c.id !== deleteTarget));
+        setDeleteTarget(null);
+      })
+      .catch(() => setInputError("Delete failed. You may need owner/admin role."));
+  };
+
+  const filteredChannels = useMemo(
+    () => channels.filter((ch) => ch.type === filter),
+    [channels, filter]
+  );
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <div className="h-12 flex items-center px-6 border-b shrink-0 max-md:px-4 border-[#151619]">
+        <h1 className="text-sm font-semibold">
+          Channels <span className="text-dim font-normal">({filteredChannels.length})</span>
+        </h1>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        <div className="px-6 pt-5 pb-1 max-md:px-4">
+          <div className="flex gap-2 max-md:flex-col items-start">
+            <div className="flex items-center bg-elevated rounded-full p-0.5 shrink-0">
+              <button
+                onClick={() => setFilter("ours")}
+                className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
+                  filter === "ours" ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
+                }`}
+              >
+                Ours
+              </button>
+              <button
+                onClick={() => setFilter("competition")}
+                className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
+                  filter === "competition" ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
+                }`}
+              >
+                Competition
+              </button>
+            </div>
+            <div className="flex-1 relative max-md:w-full">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setInputError("");
+                }}
+                placeholder="@handle or channel ID..."
+                className={`w-full pl-3 pr-3 py-2 bg-background border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-dim ${
+                  inputError ? "border-destructive/50" : "border-border focus:border-[#2a2a2e]"
+                }`}
+                style={{ borderRadius: "20px" }}
+              />
+            </div>
+            <button
+              onClick={handleAdd}
+              className="px-4 py-2 bg-[rgb(30,81,233)] text-white text-[13px] font-medium cursor-pointer whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity flex items-center gap-1.5 max-md:w-full max-md:justify-center"
+              style={{ borderRadius: "20px" }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add
+            </button>
+          </div>
+          {inputError && (
+            <p className="text-[11px] mt-1.5 text-destructive">{inputError}</p>
+          )}
+        </div>
+
+        <div className="px-6 py-4 max-md:px-4">
+          {loading ? (
+            <p className="text-dim text-[13px]">Loading channels...</p>
+          ) : (
+            <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: "12px" }}>
+              {filteredChannels.map((ch) => (
+                <div
+                  key={ch.id}
+                  className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors group border-b border-border last:border-b-0"
+                >
+                  <div className="relative shrink-0">
+                    <img
+                      src={ch.avatarImg}
+                      alt={ch.name}
+                      className="w-8 h-8 rounded-full object-cover bg-elevated"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23666'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14'%3E" + ch.avatar + "%3C/text%3E%3C/svg%3E";
+                      }}
+                    />
+                    <span
+                      className={`absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-success ring-[1.5px] ${
+                        ch.type === "ours" ? "ring-[#1e51e9]" : "ring-[#FFFF00]"
+                      }`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span
+                        className="text-[13px] font-medium text-foreground truncate cursor-pointer hover:opacity-80 transition-opacity"
+                        dir="rtl"
+                        onClick={() => navigate(`/channel/${ch.id}`)}
+                      >
+                        {ch.name}
+                      </span>
+                      <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-dim font-mono">{ch.handle}</span>
+                      <span className="text-[10px] text-dim">
+                        {formatDistanceToNow(new Date(ch.lastSynced), { addSuffix: true })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-6">
+                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-sensor">
+                      <Users className="w-3 h-3 text-dim" />
+                      {ch.subscribers}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-sensor">
+                      <Eye className="w-3 h-3 text-dim" />
+                      {ch.views}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-sensor">
+                      <PlayCircle className="w-3 h-3 text-dim" />
+                      {ch.videos}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => fetchChannels()}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(ch.id);
+                      }}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <DeleteChannelModal
+        open={!!deleteTarget}
+        channelName={channels.find((c) => c.id === deleteTarget)?.name || ""}
+        onClose={() => setDeleteTarget(null)}
+        onDelete={handleDelete}
+      />
+    </div>
+  );
+}

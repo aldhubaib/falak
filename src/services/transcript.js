@@ -1,0 +1,117 @@
+const fetch = require('node-fetch')
+const { decrypt } = require('./crypto')
+const { transcriptCache } = require('../lib/cache')
+const { trackUsage } = require('./usageTracker')
+
+const YT_TRANSCRIPT_IO_URL = 'https://www.youtube-transcript.io/api/transcripts'
+const MAX_RETRIES = 4
+const RETRY_DELAY_MS = 2000
+
+/**
+ * Fetch transcript via youtube-transcript.io only.
+ * Requires project.ytTranscriptApiKeyEncrypted — no global fallback.
+ * @param {string} youtubeVideoId - YouTube video ID (11 chars)
+ * @param {object} project - Project object (must contain ytTranscriptApiKeyEncrypted)
+ * @returns {Promise<Array|string|''>}
+ *   - Array of {text, start, duration} segments when the API returns segment-level data
+ *   - Plain string when only raw transcript text is available (fallback)
+ *   - Empty string '' when the video has no transcript
+ */
+async function fetchTranscript(youtubeVideoId, project) {
+  if (!youtubeVideoId || youtubeVideoId.length < 11) {
+    throw new Error('Invalid YouTube video ID')
+  }
+  const id = youtubeVideoId.length === 11 ? youtubeVideoId : youtubeVideoId.slice(-11)
+  const cached = transcriptCache.get(id)
+  if (cached !== undefined) return cached
+
+  if (!project?.ytTranscriptApiKeyEncrypted) {
+    throw new Error('YouTube Transcript API key not configured for this project. Go to Settings and add it.')
+  }
+  const token = decrypt(project.ytTranscriptApiKeyEncrypted)
+  let lastErr
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const text = await fetchFromYoutubeTranscriptIo(id, token)
+      const result = text !== null ? text : ''
+      transcriptCache.set(id, result)
+      trackUsage({ projectId: project.id, service: 'yttranscript', action: 'transcribe', status: 'ok' })
+      return result
+    } catch (e) {
+      lastErr = e
+      const isRetryable = e.retryable === true || e.status === 429 || (e.status >= 500 && e.status < 600)
+      if (attempt < MAX_RETRIES && isRetryable) {
+        const waitMs = e.retryAfterMs != null ? e.retryAfterMs : RETRY_DELAY_MS * Math.pow(2, attempt)
+        await sleep(waitMs)
+        continue
+      }
+      // Final failure — track before re-throwing
+      trackUsage({ projectId: project.id, service: 'yttranscript', action: 'transcribe', status: 'fail', error: e.message })
+      throw e
+    }
+  }
+  trackUsage({ projectId: project.id, service: 'yttranscript', action: 'transcribe', status: 'fail', error: lastErr?.message })
+  throw lastErr
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Call youtube-transcript.io API (uses your account tokens).
+ * @see https://www.youtube-transcript.io/api
+ */
+async function fetchFromYoutubeTranscriptIo(videoId, apiToken) {
+  const auth = 'Basic ' + apiToken
+  const res = await fetch(YT_TRANSCRIPT_IO_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': auth,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ids: [videoId] })
+  })
+  if (!res.ok) {
+    const retryAfter = res.headers.get('Retry-After')
+    const retryAfterMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : null
+    // Always read the body so we can log it and include it in the error message.
+    let body = ''
+    try { body = (await res.text()).slice(0, 500) } catch (_) {}
+    console.error(`[transcript] youtube-transcript.io ${res.status} for ${videoId}:`, body || '(empty body)')
+    let message
+    if (res.status === 401) {
+      message = `youtube-transcript.io 401 Unauthorized — check the API key in Settings. Body: ${body}`
+    } else if (res.status === 429) {
+      message = `youtube-transcript.io 429 rate limit — Retry-After: ${retryAfter ?? 'not set'}. Will retry.`
+    } else {
+      message = `youtube-transcript.io ${res.status}: ${body || '(no body)'}`
+    }
+    const err = new Error(message)
+    err.status = res.status
+    err.retryable = res.status === 429 || res.status >= 500
+    if (retryAfterMs) err.retryAfterMs = retryAfterMs
+    throw err
+  }
+  const data = await res.json()
+  const list = Array.isArray(data) ? data : (data.transcripts || data.data || [])
+  const one = list.find(t => (t.id || t.video_id) === videoId) || list[0]
+  if (!one) return null
+
+  // Prefer segment-level data — keeps timestamps for frontend rendering.
+  if (Array.isArray(one.segments) && one.segments.length > 0) {
+    return one.segments
+      .filter(s => s.text && String(s.text).trim())
+      .map(s => ({
+        text: String(s.text).trim(),
+        start: typeof s.start === 'number' ? s.start : (s.offset != null ? Number(s.offset) : 0),
+        duration: typeof s.duration === 'number' ? s.duration : 0,
+      }))
+  }
+
+  // Fallback: plain text transcript with no timing data.
+  const text = one.transcript ?? one.text ?? null
+  return text ? String(text).replace(/\s+/g, ' ').trim() : null
+}
+
+module.exports = { fetchTranscript }

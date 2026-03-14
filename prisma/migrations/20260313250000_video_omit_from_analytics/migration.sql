@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS "omitFromAnalytics" BOOLEAN NOT NULL DEFAULT false;

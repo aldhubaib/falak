@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// PROJECTS
+// ─────────────────────────────────────────────
+model Project {
+  id                          String    @id @default(cuid())
+  name                        String
+  nameAr                      String?
+  color                       String    @default("#3b82f6")
+  status                      String    @default("active")
+  youtubeApiKeyEncrypted      String?   @db.Text
+  anthropicApiKeyEncrypted    String?   @db.Text
+  perplexityApiKeyEncrypted   String?   @db.Text
+  ytTranscriptApiKeyEncrypted String?   @db.Text
+  channels                    Channel[]
+  stories                     Story[]
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// CHANNELS
+// ─────────────────────────────────────────────
+model Channel {
+  id            String    @id @default(cuid())
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  youtubeId     String    @unique
+  handle        String
+  nameAr        String
+  nameEn        String?
+  type          String    @default("competitor")
+  avatarUrl     String?
+  status        String    @default("active")
+  subscribers   BigInt    @default(0)
+  totalViews    BigInt    @default(0)
+  videoCount    Int       @default(0)
+  uploadCadence Float?
+  lastFetchedAt DateTime?
+  videos        Video[]
+  snapshots     ChannelSnapshot[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([projectId])
+}
+
+model ChannelSnapshot {
+  id          String   @id @default(cuid())
+  channelId   String
+  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  subscribers BigInt
+  totalViews  BigInt
+  videoCount  Int
+  avgViews    Int
+  engagement  Float
+  snapshotAt  DateTime @default(now())
+  @@index([channelId, snapshotAt])
+}
+
+// ─────────────────────────────────────────────
+// VIDEOS
+// ─────────────────────────────────────────────
+model Video {
+  id            String        @id @default(cuid())
+  channelId     String
+  channel       Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  youtubeId     String        @unique
+  titleAr       String?
+  titleEn       String?
+  description   String?       @db.Text
+  publishedAt   DateTime?
+  viewCount     BigInt        @default(0)
+  likeCount     BigInt        @default(0)
+  commentCount  BigInt        @default(0)
+  duration      String?
+  videoType     String    @default("video")  // 'video' | 'short'
+  thumbnailUrl  String?
+  transcription String?       @db.Text
+  analysisResult Json?       // AI analysis: Part A (classify) + Part B (insights)
+  omitFromAnalytics Boolean   @default(false)  // when true, excluded from Analytics page stats
+  pipelineItem  PipelineItem?
+  comments      Comment[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([channelId])
+  @@index([publishedAt])
+}
+
+// ─────────────────────────────────────────────
+// PIPELINE
+// ─────────────────────────────────────────────
+model PipelineItem {
+  id         String    @id @default(cuid())
+  videoId    String    @unique
+  video      Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  stage      String    @default("import")
+  status     String    @default("queued")
+  retries    Int       @default(0)
+  error      String?
+  result     Json?     // AI analysis output (summary, topics, etc.)
+  lastStage  String?   // stage at which we started (used on retry to resume from here)
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([stage, status])
+}
+
+// ─────────────────────────────────────────────
+// COMMENTS
+// ─────────────────────────────────────────────
+model Comment {
+  id          String    @id @default(cuid())
+  videoId     String
+  video       Video     @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  youtubeId   String    @unique
+  text        String    @db.Text
+  authorName  String?
+  likeCount   Int       @default(0)
+  publishedAt DateTime?
+  sentiment   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([videoId])
+}
+
+// ─────────────────────────────────────────────
+// STORIES
+// ─────────────────────────────────────────────
+model Story {
+  id              String     @id @default(cuid())
+  projectId       String
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  headline        String
+  stage           String     @default("suggestion")
+  coverageStatus  String?
+  sourceUrl       String?
+  sourceName      String?
+  sourceDate      DateTime?
+  relevanceScore  Int?
+  viralScore      Int?
+  firstMoverScore Int?
+  compositeScore  Int?
+  scriptLong      String?    @db.Text
+  scriptShort     String?    @db.Text
+  brief           Json?
+  log             StoryLog[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([projectId, stage])
+}
+
+model StoryLog {
+  id        String   @id @default(cuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  action    String
+  note      String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([storyId])
+}
+
+// ─────────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────────
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String?
+  avatarUrl     String?
+  googleId      String?    @unique
+  role          String     @default("viewer")
+  note          String?
+  isActive      Boolean    @default(true)
+  pageAccess    Json?
+  projectAccess Json?
+  storyLogs     StoryLog[]
+  sessions      Session[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+// ─────────────────────────────────────────────
+// API KEYS (encrypted at rest)
+// ─────────────────────────────────────────────
+model ApiKey {
+  id           String    @id @default(cuid())
+  service      String    @unique
+  encryptedKey String    @db.Text
+  isActive     Boolean   @default(true)
+  lastUsedAt   DateTime?
+  usageCount   Int       @default(0)
+  quotaLimit   Int?
+  quotaUsed    Int       @default(0)
+  quotaResetAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// API USAGE LOG (one row per external API call)
+// ─────────────────────────────────────────────
+model ApiUsage {
+  id         String   @id @default(cuid())
+  projectId  String
+  service    String   // 'anthropic' | 'youtube-data' | 'yttranscript' | 'perplexity'
+  action     String?  // e.g. 'analysis-classify', 'transcribe', 'videos', etc.
+  tokensUsed Int?
+  status     String   @default("ok")  // 'ok' | 'fail'
+  error      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([service])
+}
+
+// Multiple YouTube API keys (quota rotation: when one runs out, use next)
+model YoutubeApiKey {
+  id           String    @id @default(cuid())
+  label        String    @default("Key 1")
+  encryptedKey String    @db.Text
+  isActive     Boolean   @default(true)
+  lastUsedAt   DateTime?
+  usageCount   Int       @default(0)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isActive])
+}

@@ -1,0 +1,120 @@
+import type { Video } from "@/data/mock";
+import { Eye, Play, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight, Monitor, Smartphone } from "lucide-react";
+
+interface VideoTableProps {
+  videos: Video[];
+  onVideoClick: (videoId: string) => void;
+}
+
+const statusIcon: Record<string, { icon: React.ElementType; className: string; title: string }> = {
+  done: { icon: CheckCircle2, className: "text-success", title: "Done" },
+  failed: { icon: XCircle, className: "text-destructive", title: "Failed" },
+  pending: { icon: Clock, className: "text-dim", title: "Pending" },
+  analyzing: { icon: Loader2, className: "text-blue animate-spin", title: "Analyzing" },
+};
+
+export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
+  return (
+    <>
+      {/* Desktop table */}
+      <div className="hidden lg:block rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-elevated/40">
+              <th className="text-[11px] text-dim font-medium py-2.5 px-4 text-left border-b border-border">Title</th>
+              <th className="text-[11px] text-dim font-medium py-2.5 px-3 text-left border-b border-border w-10">Type</th>
+              <th className="text-[11px] text-dim font-medium py-2.5 px-3 text-left border-b border-border">Views</th>
+              <th className="text-[11px] text-dim font-medium py-2.5 px-3 text-left border-b border-border">Likes</th>
+              <th className="text-[11px] text-dim font-medium py-2.5 px-3 text-left border-b border-border">Date</th>
+              <th className="text-[11px] text-dim font-medium py-2.5 px-3 text-left border-b border-border">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {videos.map((v) => (
+              <tr
+                key={v.id}
+                onClick={() => onVideoClick(v.id)}
+                className="bg-background hover:bg-[#0d0d10] cursor-pointer transition-colors group"
+              >
+                <td className="py-2.5 px-4 border-b border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-8 rounded-lg bg-elevated shrink-0 overflow-hidden">
+                      {v.thumbnail ? (
+                        <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Play className="w-3 h-3 text-dim" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[13px] font-medium max-w-[320px] whitespace-nowrap overflow-hidden text-ellipsis block text-foreground hover:opacity-80 transition-opacity" dir="rtl">
+                      {v.title}
+                    </span>
+                    <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </div>
+                </td>
+                <td className="py-2.5 px-3 border-b border-border">
+                  <span title={v.type === "short" ? "Short" : "Video"}>
+                    {v.type === "short"
+                      ? <Smartphone className="w-3.5 h-3.5 text-dim" />
+                      : <Monitor className="w-3.5 h-3.5 text-dim" />
+                    }
+                  </span>
+                </td>
+                <td className="py-2.5 px-3 border-b border-border text-[12px] font-mono text-sensor">{v.views}</td>
+                <td className="py-2.5 px-3 border-b border-border text-[12px] font-mono text-sensor">{v.likes}</td>
+                <td className="py-2.5 px-3 border-b border-border text-[11px] font-mono text-dim">{v.date}</td>
+                <td className="py-2.5 px-3 border-b border-border">
+                  {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-4 h-4 ${s.className}`} title={s.title} />; })()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="flex flex-col lg:hidden rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+        {videos.map((v) => (
+          <div
+            key={v.id}
+            onClick={() => onVideoClick(v.id)}
+            className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors border-b border-border last:border-b-0 cursor-pointer"
+          >
+            <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
+              {v.thumbnail ? (
+                <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Play className="w-3 h-3 text-dim" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0 text-right">
+              <div className="text-[13px] font-medium truncate text-foreground mb-0.5" dir="rtl">{v.title}</div>
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-[11px] font-mono text-dim flex items-center gap-1">
+                  <Eye className="w-2.5 h-2.5" />{v.views}
+                </span>
+                <span className="text-[10px] text-dim">{v.date}</span>
+                {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between pt-3 mt-2 flex-wrap gap-2">
+        <span className="text-[11px] text-dim font-mono">Showing 1–{videos.length} of {videos.length}</span>
+        <div className="flex items-center gap-1">
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">«</button>
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">‹</button>
+          <button className="w-7 h-7 rounded-full bg-[rgb(30,81,233)] text-white text-xs font-mono flex items-center justify-center">1</button>
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">›</button>
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">»</button>
+        </div>
+      </div>
+    </>
+  );
+}
