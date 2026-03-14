@@ -128,6 +128,12 @@ export default function ChannelDetail() {
         if (data && typeof data.id === "string") {
           setChannel(data);
           setChannelType(data.type === "own" || data.type === "ours" ? "ours" : "competition");
+        }
+      })
+      .catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
     if (!id) return;
     setLoading(true);
     setNotFound(false);
