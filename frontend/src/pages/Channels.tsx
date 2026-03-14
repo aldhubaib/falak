@@ -210,6 +210,10 @@ export default function Channels() {
         <div className="px-6 py-4 max-md:px-4">
           {loading ? (
             <p className="text-dim text-[13px]">Loading channels...</p>
+          ) : filteredChannels.length === 0 ? (
+            <p className="text-dim text-[13px] py-8 text-center">
+              Please add channels to see this view.
+            </p>
           ) : (
             <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: "12px" }}>
               {filteredChannels.map((ch) => (
