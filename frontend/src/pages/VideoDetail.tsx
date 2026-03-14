@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
+import { parseDuration } from "@/lib/utils";
 import type { Video } from "@/data/mock";
 import { VideoRightPanel } from "@/components/VideoRightPanel";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
@@ -47,7 +48,7 @@ interface AnalysisData {
   topics: string[];
   keywords: string[];
   sentiment: { positive: number; negative: number; neutral: number };
-  viral: { score: number | string; hookStrength: number | string; shareability: number | string; avgWatchPct: number | string; retentionDrop: number | string; trending: boolean };
+  viral: { score: number; hookLabel: string; hookStrong: boolean; trending: boolean };
   comments: CommentRow[];
 }
 
@@ -56,6 +57,7 @@ function formatOffset(seconds: number): string {
   const s = Math.floor(seconds % 60);
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
+
 
 export default function VideoDetail() {
   const { id } = useParams();
@@ -108,7 +110,7 @@ export default function VideoDetail() {
           likes: formatCount(likesRaw),
           comments: formatCount(commentsRaw),
           date: data.publishedAt ? new Date(data.publishedAt as string).toLocaleDateString() : "",
-          duration: (data.duration as string) || "",
+          duration: parseDuration((data.duration as string) || ""),
           status,
           viewsRaw,
           likesRaw,
@@ -142,8 +144,6 @@ export default function VideoDetail() {
         const topics: string[] = Array.isArray(partA?.tags) ? (partA!.tags as unknown[]).map(String) : [];
         const keywords: string[] = Array.isArray(partA?.keywords) ? (partA!.keywords as unknown[]).map(String) : [];
 
-        const rawViral = (partB?.viral ?? ar?.viral) as Record<string, unknown> | null | undefined;
-
         // Parse comments from DB (already fetched via include in backend)
         const rawComments = Array.isArray(data.comments) ? (data.comments as Record<string, unknown>[]) : [];
         const commentRows: CommentRow[] = rawComments.map((c) => ({
@@ -165,19 +165,35 @@ export default function VideoDetail() {
           neutral = Math.max(0, 100 - positive - negative);
         }
 
+        // Viral score (0–10) derived from real signals
+        // Signal 1 (40%): positive comment ratio
+        const s1 = classifiedComments.length > 0
+          ? classifiedComments.filter(c => c.sentiment === "positive" || c.sentiment === "question").length / classifiedComments.length
+          : 0.5;
+        // Signal 2 (40%): like-to-view ratio
+        const likeRatio = viewsRaw > 0 ? (likesRaw / viewsRaw) * 100 : 0;
+        const s2 = likeRatio > 5 ? 1.0 : likeRatio > 2 ? 0.7 : likeRatio > 0.5 ? 0.4 : 0.15;
+        // Signal 3 (20%): comment-to-view ratio (engagement depth)
+        const commentRatio = viewsRaw > 0 ? (commentsRaw / viewsRaw) * 100 : 0;
+        const s3 = commentRatio > 1 ? 1.0 : commentRatio > 0.3 ? 0.6 : 0.2;
+        const viralScore = Math.round(((s1 * 0.4) + (s2 * 0.4) + (s3 * 0.2)) * 10 * 10) / 10;
+
+        // Hook strength from AI's overall sentiment verdict
+        const aiSentiment = String(partA?.sentiment ?? "neutral").toLowerCase();
+        const hookStrong = aiSentiment === "positive";
+        const hookLabel = hookStrong ? "Strong" : aiSentiment === "negative" ? "Weak" : "Moderate";
+
+        // Trending: published within 14 days AND above-average like ratio
+        const publishedDate = data.publishedAt ? new Date(data.publishedAt as string) : null;
+        const daysSince = publishedDate ? (Date.now() - publishedDate.getTime()) / (1000 * 60 * 60 * 24) : 999;
+        const trending = daysSince <= 14 && likeRatio > 2;
+
         setAnalysis({
           transcript,
           topics,
           keywords,
           sentiment: { positive, negative, neutral },
-          viral: {
-            score: rawViral?.score ?? "—",
-            hookStrength: rawViral?.hookStrength ?? "—",
-            shareability: rawViral?.shareability ?? "—",
-            avgWatchPct: rawViral?.avgWatchPct ?? "—",
-            retentionDrop: rawViral?.retentionDrop ?? "—",
-            trending: Boolean(rawViral?.trending ?? false),
-          },
+          viral: { score: viralScore, hookLabel, hookStrong, trending },
           comments: commentRows,
         });
       })
@@ -295,7 +311,9 @@ export default function VideoDetail() {
                   <div className="px-3 py-2">
                     <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Type</div>
                     <div className="flex items-center gap-1.5">
-                      <VideoTypeIcon type={video.type} className="w-3.5 h-3.5 text-dim" />
+                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${video.type === "short" ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
+                        <VideoTypeIcon type={video.type} className="w-3 h-3" />
+                      </span>
                     </div>
                   </div>
                   <span className="w-px h-8 bg-border" />
@@ -323,7 +341,9 @@ export default function VideoDetail() {
                 >
                   <div className="text-lg font-semibold font-mono tracking-tight mb-0.5">
                     {s.label === "Type" ? (
-                      <VideoTypeIcon type={video.type} className="w-5 h-5 text-foreground" />
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${video.type === "short" ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
+                        <VideoTypeIcon type={video.type} className="w-4 h-4" />
+                      </span>
                     ) : (
                       s.val
                     )}
@@ -424,27 +444,41 @@ export default function VideoDetail() {
 
             {activeTab === "Viral" && (
               <div>
-                {/* Viral stats in table grid */}
-                <div className="rounded-xl overflow-hidden border border-border mb-7" style={{ borderRadius: '12px' }}>
-                  <div className="grid grid-cols-3 max-lg:grid-cols-2">
-                    {[
-                      { val: analysis?.viral.score ?? "—", label: "Viral Score", highlight: true },
-                      { val: analysis?.viral.hookStrength ?? "—", label: "Hook Strength" },
-                      { val: analysis?.viral.shareability ?? "—", label: "Shareability" },
-                      { val: analysis?.viral.avgWatchPct ?? "—", label: "Avg Watch %" },
-                      { val: analysis?.viral.retentionDrop ?? "—", label: "Retention Drop" },
-                      { val: analysis?.viral.trending ? "Yes" : "No", label: "Trending", highlight: analysis?.viral.trending ?? false },
-                    ].map((v) => (
+                <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
+                  {/* Viral Score */}
+                  <div className="rounded-xl border border-border bg-background px-5 py-4">
+                    <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Viral Score</div>
+                    <div className="flex items-end gap-2">
+                      <span className={`text-3xl font-semibold font-mono tracking-tight ${(analysis?.viral.score ?? 0) >= 6 ? "text-success" : (analysis?.viral.score ?? 0) >= 4 ? "text-sensor" : "text-dim"}`}>
+                        {analysis?.viral.score ?? "—"}
+                      </span>
+                      <span className="text-[12px] text-dim mb-1">/ 10</span>
+                    </div>
+                    <div className="mt-3 h-1.5 bg-elevated rounded-full overflow-hidden">
                       <div
-                        key={v.label}
-                        className="bg-background px-4 py-3 border-r border-b border-border last:border-r-0 hover:bg-[#0d0d10] transition-colors"
-                      >
-                        <div className={`text-lg font-semibold font-mono tracking-tight ${v.highlight ? "text-success" : ""}`}>
-                          {String(v.val)}
-                        </div>
-                        <div className="text-[11px] text-dim mt-0.5">{v.label}</div>
-                      </div>
-                    ))}
+                        className={`h-full rounded-full transition-all ${(analysis?.viral.score ?? 0) >= 6 ? "bg-success" : (analysis?.viral.score ?? 0) >= 4 ? "bg-sensor" : "bg-dim/40"}`}
+                        style={{ width: `${((analysis?.viral.score ?? 0) as number) * 10}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-dim mt-2">Based on like ratio, comment ratio, and audience sentiment</p>
+                  </div>
+
+                  {/* Hook Strength */}
+                  <div className="rounded-xl border border-border bg-background px-5 py-4">
+                    <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Hook Strength</div>
+                    <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.hookStrong ? "text-success" : analysis?.viral.hookLabel === "Weak" ? "text-destructive" : "text-sensor"}`}>
+                      {analysis?.viral.hookLabel ?? "—"}
+                    </div>
+                    <p className="text-[11px] text-dim mt-3">Derived from AI sentiment analysis of the video content</p>
+                  </div>
+
+                  {/* Trending */}
+                  <div className="rounded-xl border border-border bg-background px-5 py-4">
+                    <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Trending</div>
+                    <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.trending ? "text-success" : "text-dim"}`}>
+                      {analysis?.viral.trending ? "Yes" : "No"}
+                    </div>
+                    <p className="text-[11px] text-dim mt-3">Published within 14 days with above-average engagement</p>
                   </div>
                 </div>
               </div>

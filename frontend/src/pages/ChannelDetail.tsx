@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
+import { parseDuration } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { ArrowLeft, Info } from "lucide-react";
@@ -75,7 +76,7 @@ function mapVideo(v: ApiVideo): Video {
     likes: formatCount(likes),
     comments: "",
     date: v.publishedAt ? new Date(v.publishedAt).toLocaleDateString() : "",
-    duration: v.duration || "",
+    duration: parseDuration(v.duration),
     status: status === "running" ? "analyzing" : status,
     viewsRaw: views,
     likesRaw: likes,
