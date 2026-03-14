@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectLayout, ProjectRootRedirect } from "@/components/ProjectLayout";
@@ -24,6 +25,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
+        <Toaster position="top-center" richColors closeButton />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProjectRootRedirect />} />

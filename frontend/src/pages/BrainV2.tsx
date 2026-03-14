@@ -116,16 +116,30 @@ export default function BrainV2() {
   const projectPath = useProjectPath();
   const [data, setData] = useState<BrainV2Data | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [reExtracting, setReExtracting] = useState(false);
   const [takenOpen, setTakenOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!projectId) return;
+    setError(null);
+    setLoading(true);
     try {
       const r = await fetch(`/api/brain-v2?projectId=${projectId}`, { credentials: "include" });
-      if (!r.ok) throw new Error("Failed to fetch Brain v2 data");
-      setData(await r.json());
-    } catch {
+      const contentType = r.headers.get("content-type");
+      const isJson = contentType?.includes("application/json");
+      const body = isJson ? await r.json().catch(() => ({})) : {};
+      if (!r.ok) {
+        const msg = r.status === 401
+          ? "Please log in again."
+          : (body.error || body.message) || `Request failed (${r.status})`;
+        setError(msg);
+        return;
+      }
+      setData(body);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Network or server error";
+      setError(msg);
       toast.error("Failed to load Brain v2 data");
     } finally {
       setLoading(false);
@@ -165,8 +179,20 @@ export default function BrainV2() {
         <div className="h-12 flex items-center px-6 border-b border-border shrink-0">
           <h1 className="text-sm font-semibold">Channel Brain v2</h1>
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-dim text-sm">No data available.</p>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
+          <p className="text-dim text-sm text-center">
+            {error || "No data available."}
+          </p>
+          <p className="text-[12px] text-dim text-center max-w-md">
+            If you just set up this project, add competitor and your channels, run the pipeline so videos are analysed, then open Brain v2 again.
+          </p>
+          <button
+            onClick={() => fetchData()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-medium text-sensor hover:bg-elevated transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
         </div>
       </div>
     );

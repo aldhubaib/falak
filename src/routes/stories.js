@@ -1,9 +1,67 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
+const { decrypt } = require('../services/crypto')
+const { fetchStorySuggestions } = require('../services/perplexity')
+const { trackUsage } = require('../services/usageTracker')
+const brainV2 = require('./brainV2')
 
 const router = express.Router()
 router.use(requireAuth)
+
+// ── POST /api/stories/fetch — call Perplexity Sonar with Brain v2 auto-search query, create suggestion stories
+router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { projectId } = req.body
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, perplexityApiKeyEncrypted: true },
+    })
+    if (!project) return res.status(404).json({ error: 'Project not found' })
+    if (!project.perplexityApiKeyEncrypted) {
+      return res.status(400).json({ error: 'Perplexity API key not set. Add it in Settings → API Keys.' })
+    }
+
+    const apiKey = decrypt(project.perplexityApiKeyEncrypted)
+    const brainData = await brainV2.getBrainV2Data(projectId)
+    const autoSearchQuery = brainData?.autoSearchQuery
+    if (!autoSearchQuery || !autoSearchQuery.trim()) {
+      return res.status(400).json({
+        error: 'No search query yet. Add competitor and your channels, run the pipeline, then try Fetch again.',
+      })
+    }
+
+    const suggestions = await fetchStorySuggestions(apiKey, autoSearchQuery)
+    const created = []
+    for (const s of suggestions) {
+      const story = await db.story.create({
+        data: {
+          projectId,
+          headline: s.headline,
+          stage: 'suggestion',
+          sourceName: 'Perplexity Sonar',
+          sourceUrl: s.sourceUrl || null,
+          brief: s.summary ? { summary: s.summary } : null,
+        },
+      })
+      created.push(story)
+    }
+
+    const tokensUsed = 2000
+    trackUsage({ projectId, service: 'perplexity', action: 'Fetch Stories', tokensUsed, status: 'ok' })
+
+    res.json({ ok: true, created: created.length, stories: created })
+  } catch (e) {
+    console.error('[stories/fetch]', e)
+    const message = e instanceof Error ? e.message : String(e)
+    if (req.body?.projectId) {
+      trackUsage({ projectId: req.body.projectId, service: 'perplexity', action: 'Fetch Stories', status: 'fail', error: message })
+    }
+    res.status(500).json({ error: message })
+  }
+})
 
 // ── GET /api/stories?projectId=xxx&stage=xxx
 router.get('/', async (req, res) => {

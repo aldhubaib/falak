@@ -34,15 +34,16 @@ function buildAutoSearchQuery({ gapWinTitles, openTitles, takenTitles, competito
 ${openSection}${gapSection}${takenSection}${competitorSection}`
 }
 
-router.get('/', async (req, res) => {
+/**
+ * Compute full Brain v2 payload (for GET /api/brain-v2 and for Stories Fetch).
+ * @param {string} projectId
+ * @returns {Promise<object>} payload with autoSearchQuery, competitorStories, etc.
+ */
+async function getBrainV2Data(projectId) {
   const requestTime = new Date()
   let debugStage = 'init'
-  try {
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
-    debugStage = 'query-competitor-videos'
-    const competitorVideos = await db.video.findMany({
+  const competitorVideos = await db.video.findMany({
       where: {
         channel: { projectId, type: 'competitor' },
         analysisResult: { not: null },
@@ -219,29 +220,38 @@ router.get('/', async (req, res) => {
     scored.sort((a, b) => b.score - a.score)
     const rankedOpportunities = scored.slice(0, 5)
 
-    const queryMeta = {
-      schemaVersion: 1,
-      provider: 'internal',
-      generatedAt: requestTime.toISOString(),
-      fallbackReason: null,
-    }
+  const queryMeta = {
+    schemaVersion: 1,
+    provider: 'internal',
+    generatedAt: requestTime.toISOString(),
+    fallbackReason: null,
+  }
 
-    res.json({
-      competitorStories: takenStories,
-      untouchedStories,
-      publishedVideos,
-      competitorChannels,
-      competitorActivity,
-      autoSearchQuery,
-      stats: { gapWins, lateCount, winRate, totalCompetitorStories: takenStories.length, untouchedCount: untouchedStories.length },
-      rankedOpportunities,
-      modelSignals: { topicMemoryCount: topicMemories.length },
-      queryMeta,
-    })
+  return {
+    competitorStories: takenStories,
+    untouchedStories,
+    publishedVideos,
+    competitorChannels,
+    competitorActivity,
+    autoSearchQuery,
+    stats: { gapWins, lateCount, winRate, totalCompetitorStories: takenStories.length, untouchedCount: untouchedStories.length },
+    rankedOpportunities,
+    modelSignals: { topicMemoryCount: topicMemories.length },
+    queryMeta,
+  }
+}
+
+router.get('/', async (req, res) => {
+  try {
+    const { projectId } = req.query
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const data = await getBrainV2Data(projectId)
+    return res.json(data)
   } catch (err) {
-    console.error('[brainV2] error', { stage: debugStage, err })
-    res.status(500).json({ error: 'Internal server error', stage: debugStage, message: err instanceof Error ? err.message : String(err) })
+    console.error('[brainV2] error', err)
+    res.status(500).json({ error: 'Internal server error', message: err instanceof Error ? err.message : String(err) })
   }
 })
 
 module.exports = router
+module.exports.getBrainV2Data = getBrainV2Data

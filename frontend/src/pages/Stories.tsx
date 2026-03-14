@@ -97,10 +97,31 @@ export default function Stories() {
   }, [loadStories]);
 
   const handleFetch = async () => {
+    if (!projectId) {
+      toast.error("Project not found. Open a project from the sidebar first.");
+      return;
+    }
     setFetching(true);
-    toast.success("Fetching new stories from Perplexity Sonar…");
-    // Re-load after a short delay to pick up any newly created stories
-    setTimeout(() => { loadStories(); setFetching(false); }, 2000);
+    toast.info("Fetching new stories from Perplexity Sonar…");
+    try {
+      const r = await fetch("/api/stories/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast.error(data.error || "Fetch failed");
+        return;
+      }
+      toast.success(data.created > 0 ? `Added ${data.created} story suggestions` : "Fetch complete — no new suggestions this time");
+      await loadStories();
+    } catch {
+      toast.error("Failed to fetch stories. Check the console for details.");
+    } finally {
+      setFetching(false);
+    }
   };
 
   if (loading) {
@@ -138,11 +159,16 @@ export default function Stories() {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50"
           >
             {fetching ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Fetching…
+              </>
             ) : (
-              <ArrowDown className="w-3 h-3" />
+              <>
+                <ArrowDown className="w-3 h-3" />
+                Fetch
+              </>
             )}
-            Fetch
           </button>
         </div>
       </div>
