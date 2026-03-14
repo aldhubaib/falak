@@ -1,5 +1,5 @@
 import type { Video } from "@/data/mock";
-import { Eye, Play, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight } from "lucide-react";
+import { Eye, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight } from "lucide-react";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 
 interface VideoTableProps {
@@ -44,7 +44,7 @@ export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
                         <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Play className="w-3 h-3 text-dim" />
+                          <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
                         </div>
                       )}
                     </div>
@@ -82,7 +82,7 @@ export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
                 <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <Play className="w-3 h-3 text-dim" />
+                  <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
                 </div>
               )}
             </div>

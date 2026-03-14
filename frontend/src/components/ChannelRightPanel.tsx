@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import type { Channel } from "@/data/mock";
 import { toast } from "sonner";
-import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Film, Zap, Users, Eye, CircleDot, Clock, Timer } from "lucide-react";
+import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock, Timer } from "lucide-react";
+import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 
 interface ChannelRightPanelProps {
   channel: Channel;
@@ -24,7 +25,7 @@ interface InfoRow {
 const buildRows = (channel: Channel, videoCount?: number, shortCount?: number): InfoRow[] => [
   { icon: Hash, label: "Handle", value: channel.handle },
   { icon: Calendar, label: "Added", value: "Jan 15, 2026" },
-  { icon: Film, label: "Videos", value: String(videoCount ?? 0) },
+  { icon: Play, label: "Videos", value: String(videoCount ?? 0) },
   { icon: Zap, label: "Shorts", value: String(shortCount ?? 0) },
   { icon: Users, label: "Subscribers", value: channel.subscribers },
   { icon: Eye, label: "Total Views", value: channel.views },
@@ -140,7 +141,13 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-1.5">
-              <row.icon className="w-3 h-3 text-dim" />
+              {row.label === "Videos" ? (
+                <VideoTypeIcon type="video" className="w-3 h-3 text-dim" />
+              ) : row.label === "Shorts" ? (
+                <VideoTypeIcon type="short" className="w-3 h-3 text-dim" />
+              ) : (
+                <row.icon className="w-3 h-3 text-dim" />
+              )}
               <span className="text-[11px] text-dim">{row.label}</span>
             </div>
             <span className={`text-[12px] font-mono font-medium ${

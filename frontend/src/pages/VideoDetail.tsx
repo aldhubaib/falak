@@ -98,6 +98,7 @@ export default function VideoDetail() {
           likesRaw,
           commentsRaw,
           thumbnail: (data.thumbnailUrl as string) || undefined,
+          youtubeId: (data.youtubeId as string) || undefined,
           pipeline: buildPipeline(pi),
         });
       })
@@ -162,11 +163,28 @@ export default function VideoDetail() {
             <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
               {/* Thumbnail left */}
               <div className="relative w-[380px] max-md:w-full shrink-0 p-3">
-                <img
-                  src={video.thumbnail}
-                  alt=""
-                  className="w-full aspect-video object-cover rounded-lg"
-                />
+                {(() => {
+                  const ytId = video.youtubeId ?? (video.thumbnail && /\/vi\/([^/]+)\//.exec(video.thumbnail)?.[1]);
+                  const imgEl = (
+                    <img
+                      src={video.thumbnail}
+                      alt=""
+                      className="w-full aspect-video object-cover rounded-xl"
+                    />
+                  );
+                  return ytId ? (
+                    <a
+                      href={`https://www.youtube.com/watch?v=${ytId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      {imgEl}
+                    </a>
+                  ) : (
+                    imgEl
+                  );
+                })()}
               </div>
               {/* Info right */}
               <div className="flex-1 flex flex-col gap-4 py-4 pr-5 pl-1 max-md:pt-0 max-md:px-4 max-md:pb-4">
@@ -266,7 +284,7 @@ export default function VideoDetail() {
                     <div className="space-y-5">
                       {a.transcript.map((seg, i) => (
                         <div key={i} className="flex gap-4">
-                          <span className="text-destructive text-[13px] font-mono shrink-0 pt-0.5">{seg.time}</span>
+                          <span className="text-foreground text-[13px] font-mono shrink-0 pt-0.5">{seg.time}</span>
                           <p className="text-sm leading-relaxed text-sensor" dir="rtl" style={{ textAlign: "right" }}>{seg.text}</p>
                         </div>
                       ))}

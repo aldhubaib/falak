@@ -65,6 +65,7 @@ export interface Video {
   likesRaw: number;
   commentsRaw: number;
   thumbnail?: string;
+  youtubeId?: string;
   pipeline: PipelineStep[];
 }
 
