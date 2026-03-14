@@ -119,6 +119,30 @@ export default function BrainV2() {
   const [error, setError] = useState<string | null>(null);
   const [reExtracting, setReExtracting] = useState(false);
   const [takenOpen, setTakenOpen] = useState(false);
+  const [creatingStoryFor, setCreatingStoryFor] = useState<string | null>(null);
+
+  const handleOpenStory = async (headline: string) => {
+    if (!projectId || creatingStoryFor) return;
+    setCreatingStoryFor(headline);
+    try {
+      const r = await fetch("/api/stories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ projectId, headline, stage: "suggestion", sourceName: "Brain v2" }),
+      });
+      const story = await r.json().catch(() => null);
+      if (r.ok && story?.id) {
+        navigate(projectPath(`/story/${story.id}`));
+      } else {
+        toast.error("Could not open story");
+      }
+    } catch {
+      toast.error("Could not open story");
+    } finally {
+      setCreatingStoryFor(null);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     if (!projectId) return;
@@ -257,18 +281,26 @@ export default function BrainV2() {
                   <span className="text-lg">🔥</span>
                   <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-success">Untouched — Your windows ({untouchedStories.length})</span>
                 </div>
-                <p className="text-[12px] text-dim mb-3">Stories found in competitor research but never produced. Act before someone else does.</p>
+                <p className="text-[12px] text-dim mb-3">Stories found in competitor research but never produced. They’re synced to AI Suggestion so you can pick and triage in Stories.</p>
                 {untouchedStories.length === 0 ? (
                   <p className="text-[12px] text-dim font-mono px-2">No untouched windows detected — all recent competitor topics have been covered or are older than 14 days.</p>
                 ) : (
                   <div className="space-y-1.5">
                     {untouchedStories.map((story) => {
                       const days = story.daysSince ?? daysOpen(story.date);
+                      const isCreating = creatingStoryFor === story.title;
                       return (
                         <div key={story.id} className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-success/[0.04] border border-success/10 hover:bg-success/[0.07] transition-colors group">
                           <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-success/15 text-success shrink-0">OPEN</span>
                           <UrgencyBadge days={days} />
-                          <span className="flex-1 text-[13px] text-right truncate font-medium">{story.title}</span>
+                          <button
+                            onClick={() => handleOpenStory(story.title)}
+                            disabled={isCreating}
+                            className="flex-1 flex items-center justify-end gap-1.5 text-[13px] font-medium text-right truncate hover:text-sensor transition-colors disabled:opacity-50 min-w-0"
+                          >
+                            <span className="truncate">{story.title}</span>
+                            {isCreating ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />}
+                          </button>
                           <span className="text-[11px] text-dim font-mono shrink-0">{story.date}</span>
                           <button onClick={() => { toast.success("Sent to AI Intelligence pipeline"); navigate(projectPath("/stories")); }} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue text-blue-foreground text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                             <Zap className="w-3 h-3" /> Produce
@@ -290,15 +322,25 @@ export default function BrainV2() {
                   <>
                     <p className="text-[12px] text-dim mb-3 ml-5.5">These exact stories are in competitor videos. If you make a video about them, you are late.</p>
                     <div className="space-y-1">
-                      {competitorStories.map((story) => (
-                        <div key={story.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface hover:bg-elevated/60 transition-colors">
-                          <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange/15 text-orange shrink-0">TAKEN</span>
-                          <div className="flex items-center gap-1 shrink-0">{story.competitors.map((c, i) => <ChannelAvatar key={i} url={c.avatarUrl} name={c.name} />)}</div>
-                          <span className="text-[11px] text-dim font-mono shrink-0">{story.competitors.length} competitor{story.competitors.length > 1 ? "s" : ""} · {story.totalViews} views</span>
-                          <span className="flex-1 text-[13px] text-right truncate">{story.title}</span>
-                          <span className="text-[11px] text-dim font-mono shrink-0">{story.date}</span>
-                        </div>
-                      ))}
+                      {competitorStories.map((story) => {
+                        const isCreating = creatingStoryFor === story.title;
+                        return (
+                          <div key={story.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface hover:bg-elevated/60 transition-colors group">
+                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-orange/15 text-orange shrink-0">TAKEN</span>
+                            <div className="flex items-center gap-1 shrink-0">{story.competitors.map((c, i) => <ChannelAvatar key={i} url={c.avatarUrl} name={c.name} />)}</div>
+                            <span className="text-[11px] text-dim font-mono shrink-0">{story.competitors.length} competitor{story.competitors.length > 1 ? "s" : ""} · {story.totalViews} views</span>
+                            <button
+                              onClick={() => handleOpenStory(story.title)}
+                              disabled={isCreating}
+                              className="flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate hover:text-sensor transition-colors disabled:opacity-50 min-w-0"
+                            >
+                              <span className="truncate">{story.title}</span>
+                              {isCreating ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />}
+                            </button>
+                            <span className="text-[11px] text-dim font-mono shrink-0">{story.date}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -312,7 +354,7 @@ export default function BrainV2() {
               ) : (
                 <div className="space-y-1">
                   {publishedVideos.map((video) => (
-                    <div key={video.id} className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-surface hover:bg-elevated/60 transition-colors">
+                    <div key={video.id} className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-surface hover:bg-elevated/60 transition-colors group">
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -331,7 +373,13 @@ export default function BrainV2() {
                         <div className="flex items-center gap-1.5 text-[11px] text-dim font-mono"><ThumbsUp className="w-3 h-3" /> {video.likes}</div>
                         <div className="flex items-center gap-1.5 text-[11px] text-dim font-mono"><MessageSquare className="w-3 h-3" /> {video.comments}</div>
                       </div>
-                      <span className="flex-1 text-[13px] text-right truncate">{video.title}</span>
+                      <button
+                        onClick={() => navigate(projectPath(`/video/${video.id}`))}
+                        className="flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate hover:text-sensor transition-colors min-w-0"
+                      >
+                        <span className="truncate">{video.title}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+                      </button>
                       <span className="text-[11px] text-dim font-mono shrink-0">{video.date}</span>
                       {video.result === "gap_win" ? (
                         <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-success/15 text-success shrink-0"><Trophy className="w-3 h-3" /> Gap Win</span>

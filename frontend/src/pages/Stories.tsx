@@ -280,10 +280,10 @@ export default function Stories() {
                               Late
                             </span>
                           )}
-                          <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                        <span className="text-[13px] font-medium leading-snug flex-1 ml-2">
+                        <span className="text-[13px] font-medium leading-snug flex-1 ml-2 flex items-center justify-end gap-1.5 group-hover:text-sensor transition-colors">
                           {story.headline}
+                          <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-dim group-hover:text-sensor transition-colors" />
                         </span>
                       </div>
                       {sourceLabel && (

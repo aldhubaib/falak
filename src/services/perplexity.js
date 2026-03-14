@@ -68,6 +68,9 @@ async function fetchStorySuggestions(apiKey, autoSearchQuery) {
   const { text } = await queryPerplexity(apiKey, prompt, { maxTokens: 4096 })
 
   const parsed = parseStoriesFromResponse(text)
+  if (parsed.length === 0 && text) {
+    console.warn('[perplexity] No suggestions parsed. Length:', text.length, 'Snippet:', text.slice(0, 400).replace(/\n/g, ' '))
+  }
   return parsed
 }
 
@@ -108,22 +111,36 @@ function parseStoriesFromResponse(text) {
 }
 
 /**
- * Fallback: extract lines that look like headlines (numbered or bullet list).
+ * Fallback: extract lines that look like headlines (numbered, bullet, or any substantial line).
  */
 function fallbackParseHeadlines(text) {
   const lines = text.split(/\n/).map((s) => s.trim()).filter(Boolean)
   const out = []
   for (const line of lines) {
-    // Numbered: "1. Headline" or "1) Headline"
-    const numbered = line.match(/^\d+[.)]\s*(.+)$/)
-    // Bullet: "• Headline" or "- Headline" or "* Headline"
-    const bullet = line.match(/^[•\-*]\s*(.+)$/)
-    const raw = (numbered?.[1] ?? bullet?.[1] ?? line).trim()
-    // Skip if it looks like JSON or a URL or too short
-    if (raw.length < 4 || raw.startsWith('{') || raw.startsWith('[') || /^https?:\/\//i.test(raw)) continue
+    // Numbered: "1. Headline" or "1) Headline" or "١. Headline" (Arabic numerals)
+    const numbered = line.match(/^[\d\u0660-\u0669]+[.)]\s*(.+)$/)
+    // Bullet: "• Headline" or "- Headline" or "* Headline" or "–" or "—"
+    const bullet = line.match(/^[•\-*–—]\s*(.+)$/)
+    // "1- Headline" or "أ- Headline" (letter/number dash)
+    const dash = line.match(/^[\w\u0600-\u06FF]+\s*[-–—]\s*(.+)$/)
+    const raw = (numbered?.[1] ?? bullet?.[1] ?? dash?.[1] ?? line).trim()
+    // Skip JSON, URLs, code, too short, or pure punctuation
+    if (raw.length < 8) continue
+    if (raw.startsWith('{') || raw.startsWith('[') || raw.startsWith('`')) continue
+    if (/^https?:\/\//i.test(raw)) continue
+    if (/^[\s\-\*\.\d\u0660-\u0669]+$/.test(raw)) continue
     out.push({ headline: raw.slice(0, 300), summary: null, sourceUrl: null })
   }
-  return out.slice(0, 12)
+  // If we got nothing from list patterns, use any non-tiny line as a headline (prose response)
+  if (out.length === 0) {
+    for (const line of lines) {
+      const t = line.trim()
+      if (t.length >= 15 && t.length <= 400 && !t.startsWith('{') && !t.startsWith('[') && !/^https?:\/\//i.test(t)) {
+        out.push({ headline: t.slice(0, 300), summary: null, sourceUrl: null })
+      }
+    }
+  }
+  return out.slice(0, 15)
 }
 
 module.exports = { queryPerplexity, fetchStorySuggestions, parseStoriesFromResponse }

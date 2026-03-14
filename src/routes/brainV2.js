@@ -241,11 +241,37 @@ async function getBrainV2Data(projectId) {
   }
 }
 
+/**
+ * Ensure every untouched item exists as a Story in stage 'suggestion'. Called when Brain v2 data is loaded.
+ */
+async function syncUntouchedToStories(projectId, untouchedStories) {
+  if (!untouchedStories?.length) return
+  for (const item of untouchedStories) {
+    const headline = (item.title || '').trim()
+    if (!headline) continue
+    const existing = await db.story.findFirst({
+      where: { projectId, headline },
+      select: { id: true },
+    })
+    if (!existing) {
+      await db.story.create({
+        data: {
+          projectId,
+          headline,
+          stage: 'suggestion',
+          sourceName: 'Brain v2',
+        },
+      }).catch((e) => console.error('[brainV2] sync story create', e.message))
+    }
+  }
+}
+
 router.get('/', async (req, res) => {
   try {
     const { projectId } = req.query
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
     const data = await getBrainV2Data(projectId)
+    await syncUntouchedToStories(projectId, data.untouchedStories)
     return res.json(data)
   } catch (err) {
     console.error('[brainV2] error', err)
