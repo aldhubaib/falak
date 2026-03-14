@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PageError } from "@/components/PageError";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectLayout, ProjectRootRedirect } from "@/components/ProjectLayout";
 import Login from "./pages/Login";
@@ -22,18 +23,26 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-  static getDerivedStateFromError = () => ({ hasError: true });
+class AppErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  state = { hasError: false, error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
   render() {
     if (this.state.hasError) {
+      const err = this.state.error;
       return (
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "system-ui", background: "#0d0d0d", color: "#a0a0a0", textAlign: "center" }}>
-          <div>
-            <h1 style={{ fontSize: 18, marginBottom: 8 }}>Something went wrong</h1>
-            <p style={{ fontSize: 13, marginBottom: 16 }}>Try refreshing the page. If it keeps happening, check the browser console and your deployment (e.g. Railway build logs).</p>
-            <a href="/" style={{ color: "#7c9eff", fontSize: 13 }}>Go to home</a>
-          </div>
+        <div className="min-h-screen flex items-center justify-center bg-surface p-6">
+          <PageError
+            title="Something went wrong"
+            message={err?.message ?? "An unexpected error occurred. Try refreshing the page."}
+            detail={err?.stack}
+            onRetry={() => this.setState({ hasError: false, error: null })}
+            showHome
+          />
         </div>
       );
     }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { ArrowDown, ArrowUpRight, Loader2 } from "lucide-react";
+import { PageError } from "@/components/PageError";
 
 const STORIES_PAGE_SIZE = 50;
 import { toast } from "sonner";
@@ -67,7 +68,6 @@ export default function Stories() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const projectPath = useProjectPath();
-
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
@@ -79,9 +79,11 @@ export default function Stories() {
     firstMoverPct: number;
   } | null>(null);
   const [storiesDisplayLimit, setStoriesDisplayLimit] = useState(STORIES_PAGE_SIZE);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const storyListScrollRef = useRef<HTMLDivElement>(null);
 
   const loadStories = useCallback(async () => {
+    setLoadError(null);
     if (!projectId) return;
     try {
       const [storiesRes, summaryRes] = await Promise.all([
@@ -90,8 +92,10 @@ export default function Stories() {
       ]);
       if (storiesRes.ok) setStories(await storiesRes.json());
       if (summaryRes.ok) setSummary(await summaryRes.json());
-    } catch {
-      toast.error("Failed to load stories");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to load stories";
+      setLoadError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -128,6 +132,24 @@ export default function Stories() {
       setFetching(false);
     }
   };
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+          <h1 className="text-sm font-semibold">AI Intelligence</h1>
+        </div>
+        <div className="flex-1">
+          <PageError
+            title="Could not load stories"
+            message={loadError}
+            onRetry={() => { setLoadError(null); loadStories(); }}
+            showHome
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

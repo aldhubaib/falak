@@ -127,6 +127,9 @@ const useViteBuild = require('fs').existsSync(frontendDist)
 const staticDir = useViteBuild ? frontendDist : path.join(__dirname, '../public')
 const fallbackIndex = useViteBuild ? path.join(frontendDist, 'index.html') : path.join(__dirname, '../public/index.html')
 logger.info({ useViteBuild, staticDir: staticDir.replace(process.cwd(), '.') }, 'Serving frontend from')
+if (process.env.NODE_ENV === 'production' && !useViteBuild) {
+  logger.warn('Production has no frontend/dist — SPA may show blank or wrong page. Run: npm run build')
+}
 app.use(express.static(staticDir, { index: false }))
 // SPA catch-all — serve index.html for non-API, non-asset GETs so /p/:id/stories etc. load
 app.get('*', (req, res, next) => {
