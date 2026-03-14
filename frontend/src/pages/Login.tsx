@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
+
+// Static fallback thumbnails (used only if the API returns nothing)
 import s1 from "@/assets/stories/s1.jpg";
 import s2 from "@/assets/stories/s2.jpg";
 import s3 from "@/assets/stories/s3.jpg";
@@ -9,31 +11,72 @@ import s4 from "@/assets/stories/s4.jpg";
 import s5 from "@/assets/stories/s5.jpg";
 import s6 from "@/assets/stories/s6.jpg";
 
+const FALLBACKS = [s1, s2, s3, s4, s5, s6];
+
 const errorMessages: Record<string, string> = {
-  no_code: "Login was cancelled or no code received.",
+  no_code:      "Login was cancelled or no code received.",
   oauth_failed: "Google sign-in failed. Please try again.",
-  access_denied: "Your account is not allowed. Contact the project owner.",
-  disabled: "Your account has been disabled.",
+  access_denied:"Your account is not allowed. Contact the project owner.",
+  disabled:     "Your account has been disabled.",
 };
 
-export default function Login() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+/** Fisher-Yates shuffle — returns a new shuffled array */
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
+/** Pick N items round-robin from array (fills columns) */
+function fill(arr: string[], n: number): string[] {
+  if (!arr.length) return [];
+  return Array.from({ length: n }, (_, i) => arr[i % arr.length]);
+}
+
+export default function Login() {
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [col1, setCol1]             = useState<string[]>([]);
+  const [col2, setCol2]             = useState<string[]>([]);
+  const navigate                    = useNavigate();
+  const [searchParams]              = useSearchParams();
+
+  // ── Handle OAuth error params ───────────────────────────────────────────
   useEffect(() => {
-    const err = searchParams.get("error");
+    const err  = searchParams.get("error");
     const hint = searchParams.get("hint");
     if (err) setError(hint ? decodeURIComponent(hint) : errorMessages[err] || "Something went wrong.");
   }, [searchParams]);
 
+  // ── Redirect if already logged in ──────────────────────────────────────
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => { if (r.ok) navigate("/", { replace: true }); })
       .catch(() => {});
   }, [navigate]);
 
+  // ── Fetch real thumbnails from "ours" channels ──────────────────────────
+  useEffect(() => {
+    fetch("/api/public/thumbnails")
+      .then((r) => r.ok ? r.json() : { urls: [] })
+      .then(({ urls }: { urls: string[] }) => {
+        // If backend has thumbnails, shuffle randomly — different every load
+        const pool = urls.length >= 6 ? shuffle(urls) : shuffle(FALLBACKS);
+        // Each column gets 8 tiles (enough for seamless scroll loop)
+        setCol1(fill(pool, 8));
+        setCol2(fill(shuffle(pool), 8)); // shuffle again for variety in col2
+      })
+      .catch(() => {
+        const pool = shuffle(FALLBACKS);
+        setCol1(fill(pool, 8));
+        setCol2(fill(shuffle(pool), 8));
+      });
+  }, []); // run once per mount — new random order every page load
+
+  // ── Google sign-in ──────────────────────────────────────────────────────
   const handleLogin = () => {
     setLoading(true);
     setError(null);
@@ -48,10 +91,7 @@ export default function Login() {
       })
       .then((data) => {
         const url = data?.url;
-        if (url && typeof url === "string") {
-          window.location.href = url;
-          return;
-        }
+        if (url && typeof url === "string") { window.location.href = url; return; }
         throw new Error("No login URL returned. Check Railway Variables: GOOGLE_CLIENT_ID, APP_URL.");
       })
       .catch((err) => {
@@ -60,13 +100,11 @@ export default function Login() {
       });
   };
 
-  const col1 = [s5, s1, s4, s2, s5, s1, s4, s2];
-  const col2 = [s3, s6, s5, s1, s3, s6, s5, s1];
-
   return (
     <div className="flex h-screen overflow-hidden bg-[#070707]">
-      {/* Left — Scrolling stories (1/3) */}
+      {/* Left — Scrolling thumbnails from our channels (1/3) */}
       <div className="hidden lg:block w-1/3 relative overflow-hidden">
+        {/* Gradient overlays */}
         <div className="absolute inset-0 bg-[#070707]/20 z-10 pointer-events-none" />
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#070707] to-transparent z-20 pointer-events-none" />
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#070707] to-transparent z-20 pointer-events-none" />
@@ -75,18 +113,28 @@ export default function Login() {
         <div className="flex gap-3 p-3 h-full">
           {[col1, col2].map((col, colIdx) => (
             <div key={colIdx} className="flex-1 overflow-hidden">
-              <div
-                className={colIdx % 2 === 0 ? "animate-scroll-up" : "animate-scroll-down"}
-                style={{ animationDuration: `${30 + colIdx * 10}s` }}
-              >
-                <div className="flex flex-col gap-3">
-                  {col.map((img, i) => (
-                    <div key={i} className="rounded-xl overflow-hidden shrink-0 aspect-[9/16]">
-                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+              {col.length > 0 && (
+                <div
+                  className={colIdx % 2 === 0 ? "animate-scroll-up" : "animate-scroll-down"}
+                  style={{ animationDuration: `${30 + colIdx * 10}s` }}
+                >
+                  {/* Duplicate tiles for seamless loop */}
+                  {[col, col].map((tiles, pass) => (
+                    <div key={pass} className="flex flex-col gap-3">
+                      {tiles.map((src, i) => (
+                        <div key={`${pass}-${i}`} className="rounded-xl overflow-hidden shrink-0 aspect-[9/16]">
+                          <img
+                            src={src}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -94,9 +142,13 @@ export default function Login() {
 
       {/* Right — Login form (2/3) */}
       <div className="flex-1 flex items-center justify-center relative">
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: "radial-gradient(ellipse 80% 60% at 50% -10%, hsl(var(--primary) / 0.06) 0%, transparent 60%)",
-        }} />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 80% 60% at 50% -10%, hsl(var(--primary) / 0.06) 0%, transparent 60%)",
+          }}
+        />
 
         <div className="relative z-10 w-full max-w-[360px] mx-6">
           <div className="flex flex-col items-center mb-8">
@@ -105,7 +157,9 @@ export default function Login() {
               Sign in to Falak
             </h1>
             <p className="text-sm text-dim text-center leading-relaxed">
-              YouTube channel intelligence<br />for Arabic content creators
+              YouTube channel intelligence
+              <br />
+              for Arabic content creators
             </p>
           </div>
 
@@ -143,14 +197,13 @@ export default function Login() {
                 <div className="w-1.5 h-1.5 rounded-full bg-primary" />
               </div>
               <p className="text-[12px] text-dim leading-relaxed">
-                Access is restricted to <span className="text-sensor font-medium">approved accounts</span> only.
+                Access is restricted to{" "}
+                <span className="text-sensor font-medium">approved accounts</span> only.
               </p>
             </div>
           </div>
 
-          <p className="mt-6 text-[11px] text-dim text-center font-mono">
-            falak · v2.0
-          </p>
+          <p className="mt-6 text-[11px] text-dim text-center font-mono">falak · v2.0</p>
         </div>
       </div>
     </div>

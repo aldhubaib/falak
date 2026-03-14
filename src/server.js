@@ -56,6 +56,27 @@ app.use('/api/admin',     admin)
 app.use('/api/projects',  projects)
 app.use('/api/brain',     require('./routes/brain'))
 
+// ── Public thumbnails — no auth required (used by login page) ─────────────
+app.get('/api/public/thumbnails', async (req, res) => {
+  try {
+    // Return up to 30 thumbnails from "ours" channels, ordered by most views
+    const videos = await db.video.findMany({
+      where: {
+        thumbnailUrl: { not: null },
+        channel: { type: 'ours' },
+      },
+      select: { thumbnailUrl: true },
+      orderBy: { viewCount: 'desc' },
+      take: 60,
+    })
+    const urls = videos.map(v => v.thumbnailUrl).filter(Boolean)
+    res.set('Cache-Control', 'public, max-age=300')
+    res.json({ urls })
+  } catch (e) {
+    res.json({ urls: [] })
+  }
+})
+
 // ── Central error handler (must be after routes) ─────────────
 const { errorHandler } = require('./middleware/errors')
 app.use(errorHandler)
