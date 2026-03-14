@@ -13,7 +13,7 @@ interface ApiChannel {
   handle: string;
   nameAr: string | null;
   nameEn: string | null;
-  type: "own" | "competitor";
+  type: "ours" | "competitor";
   avatarUrl: string | null;
   status: string;
   subscribers: string;
@@ -53,7 +53,7 @@ function mapApiChannelToUi(api: ApiChannel): Channel {
     handle: api.handle,
     avatar: name.charAt(0).toUpperCase(),
     avatarImg: api.avatarUrl || "/placeholder.svg",
-    type: api.type === "own" ? "ours" : "competition",
+    type: api.type === "ours" ? "ours" : "competition",
     subscribers: formatCount(subs),
     views: formatCount(views),
     videos: String(api.videoCount ?? 0),
@@ -118,7 +118,7 @@ export default function Channels() {
       body: JSON.stringify({
         input: val,
         projectId,
-        type: filter === "ours" ? "own" : "competitor",
+        type: filter === "ours" ? "ours" : "competitor",
       }),
     })
       .then((r) => {
