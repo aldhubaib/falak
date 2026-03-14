@@ -1,5 +1,6 @@
 import type { Video } from "@/data/mock";
-import { Eye, Play, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight, Zap } from "lucide-react";
+import { Eye, Play, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight } from "lucide-react";
+import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 
 interface VideoTableProps {
   videos: Video[];
@@ -54,12 +55,7 @@ export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
                   </div>
                 </td>
                 <td className="py-2.5 px-3 border-b border-border">
-                  <span title={v.type === "short" ? "Short" : "Video"}>
-                    {v.type === "short"
-                      ? <Zap className="w-3.5 h-3.5 text-dim" />
-                      : <Play className="w-3.5 h-3.5 text-dim" />
-                    }
-                  </span>
+                  <VideoTypeIcon type={v.type} className="w-3.5 h-3.5 text-dim" />
                 </td>
                 <td className="py-2.5 px-3 border-b border-border text-[12px] font-mono text-sensor">{v.views}</td>
                 <td className="py-2.5 px-3 border-b border-border text-[12px] font-mono text-sensor">{v.likes}</td>

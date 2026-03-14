@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
+import { ProjectLayout, ProjectRootRedirect } from "@/components/ProjectLayout";
 import Login from "./pages/Login";
 import Channels from "./pages/Channels";
 import ChannelDetail from "./pages/ChannelDetail";
@@ -24,18 +25,21 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Channels />} />
-            <Route path="/channel/:id" element={<ChannelDetail />} />
-            <Route path="/video/:id" element={<VideoDetail />} />
-            <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/monitor" element={<Monitor />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/stories" element={<Stories />} />
-            <Route path="/brain" element={<Brain />} />
-            <Route path="/story/:id" element={<StoryDetail />} />
-            <Route path="/settings" element={<Settings />} />
+          <Route path="/" element={<ProjectRootRedirect />} />
+          <Route path="/p/:projectId" element={<ProjectLayout />}>
+            <Route element={<AppLayout />}>
+              <Route index element={<Channels />} />
+              <Route path="channel/:id" element={<ChannelDetail />} />
+              <Route path="video/:id" element={<VideoDetail />} />
+              <Route path="pipeline" element={<Pipeline />} />
+              <Route path="monitor" element={<Monitor />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="admin" element={<Admin />} />
+              <Route path="stories" element={<Stories />} />
+              <Route path="brain" element={<Brain />} />
+              <Route path="story/:id" element={<StoryDetail />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

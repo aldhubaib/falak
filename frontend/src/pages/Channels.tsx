@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import { DeleteChannelModal } from "@/components/DeleteChannelModal";
 import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -62,6 +63,7 @@ function mapApiChannelToUi(api: ApiChannel): Channel {
 
 export default function Channels() {
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState("");
@@ -241,7 +243,7 @@ export default function Channels() {
                       <span
                         className="text-[13px] font-medium text-foreground truncate cursor-pointer hover:opacity-80 transition-opacity"
                         dir="rtl"
-                        onClick={() => navigate(`/channel/${ch.id}`)}
+                        onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
                       >
                         {ch.name}
                       </span>

@@ -2,6 +2,7 @@ const express = require('express')
 const rateLimit = require('express-rate-limit')
 const { z } = require('zod')
 const db = require('../lib/db')
+const { serialise } = require('../lib/serialise')
 const { requireAuth } = require('../middleware/auth')
 const { NotFound } = require('../middleware/errors')
 const { parseBody } = require('../lib/validate')
@@ -33,7 +34,7 @@ router.get('/:id', async (req, res) => {
     },
   })
   if (!video) throw NotFound('Video not found')
-  res.json(video)
+  res.json(serialise(video))
 })
 
 // ── POST /api/videos/:id/refetch-comments — re-fetch top 100 comments from YouTube and upsert (strict rate limit)

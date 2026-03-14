@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { storiesMock, Story } from "@/data/storiesMock";
@@ -38,6 +39,7 @@ function MiniScores({ story }: { story: Story }) {
 
 export default function Stories() {
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const [stories] = useState<Story[]>(storiesMock);
   const [activeStage, setActiveStage] = useState<Stage>("suggestion");
 
@@ -135,7 +137,7 @@ export default function Stories() {
                 stageStories.map((story) => (
                   <button
                     key={story.id}
-                    onClick={() => navigate(`/story/${story.id}`)}
+                    onClick={() => navigate(projectPath(`/story/${story.id}`))}
                     className="w-full px-4 py-3.5 border-t border-border text-right hover:bg-[#0d0d10] transition-colors group"
                   >
                     <div className="flex items-start justify-between mb-1.5">

@@ -5,7 +5,7 @@ import { LayoutGrid, GitBranch, Circle, TrendingUp, Sparkles, CircleDot, Setting
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
-  { icon: LayoutGrid, label: "Channels", path: "/" },
+  { icon: LayoutGrid, label: "Channels", path: "" },
   { icon: GitBranch, label: "Pipeline", path: "/pipeline" },
   { icon: Activity, label: "Monitor", path: "/monitor" },
   { icon: TrendingUp, label: "Analytics", path: "/analytics" },
@@ -25,6 +25,7 @@ const projects = [
 ];
 
 interface AppSidebarProps {
+  projectId: string;
   onClose?: () => void;
   isMobile?: boolean;
   collapsed?: boolean;
@@ -32,9 +33,10 @@ interface AppSidebarProps {
   onTogglePin?: () => void;
 }
 
-export function AppSidebar({ onClose, isMobile, collapsed = false, pinned = false, onTogglePin }: AppSidebarProps) {
+export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pinned = false, onTogglePin }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const base = `/p/${projectId}`;
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -56,8 +58,8 @@ export function AppSidebar({ onClose, isMobile, collapsed = false, pinned = fals
   const switcherRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => {
-    if (path === "/") return location.pathname === "/" || location.pathname.startsWith("/channel");
-    return location.pathname.startsWith(path);
+    if (path === "" || path === "/") return location.pathname === base || location.pathname.startsWith(`${base}/channel`);
+    return location.pathname === `${base}${path}` || location.pathname.startsWith(`${base}${path}/`);
   };
 
   useEffect(() => {
@@ -166,11 +168,12 @@ export function AppSidebar({ onClose, isMobile, collapsed = false, pinned = fals
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
+          const target = `${base}${item.path}`;
           const btn = (
             <button
               key={item.path}
               onClick={() => {
-                navigate(item.path);
+                navigate(target);
                 onClose?.();
               }}
               className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 ${
@@ -198,11 +201,12 @@ export function AppSidebar({ onClose, isMobile, collapsed = false, pinned = fals
         {adminItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
+          const target = `${base}${item.path}`;
           const btn = (
             <button
               key={item.path}
               onClick={() => {
-                navigate(item.path);
+                navigate(target);
                 onClose?.();
               }}
               className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 ${

@@ -10,6 +10,7 @@ interface ChannelRightPanelProps {
   videoCount?: number;
   shortCount?: number;
   onTypeChange?: (type: "ours" | "competition") => void;
+  onBrandedHooksSaved?: () => void;
 }
 
 interface InfoRow {
@@ -33,9 +34,43 @@ const buildRows = (channel: Channel, videoCount?: number, shortCount?: number): 
   { icon: Timer, label: "Next sync", value: "Today · 7:59 AM" },
 ];
 
-function BrandedHooksSection() {
-  const [hookStart, setHookStart] = useState("");
-  const [hookEnd, setHookEnd] = useState("");
+function BrandedHooksSection({
+  channelId,
+  startHook: initialStartHook,
+  endHook: initialEndHook,
+  onSaved,
+}: {
+  channelId: string;
+  startHook: string;
+  endHook: string;
+  onSaved?: () => void;
+}) {
+  const [hookStart, setHookStart] = useState(initialStartHook);
+  const [hookEnd, setHookEnd] = useState(initialEndHook);
+  const [saving, setSaving] = useState(false);
+
+  // Sync from parent when panel opens or channel refetches
+  useEffect(() => {
+    setHookStart(initialStartHook);
+    setHookEnd(initialEndHook);
+  }, [initialStartHook, initialEndHook]);
+
+  const handleSave = () => {
+    setSaving(true);
+    fetch(`/api/channels/${channelId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ startHook: hookStart.trim() || null, endHook: hookEnd.trim() || null }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to save");
+        toast.success("Branded hooks saved");
+        onSaved?.();
+      })
+      .catch(() => toast.error("Failed to save branded hooks"))
+      .finally(() => setSaving(false));
+  };
 
   return (
     <div className="px-4 py-3 border-t border-border space-y-2.5">
@@ -61,18 +96,17 @@ function BrandedHooksSection() {
         />
       </div>
       <button
-        onClick={() => {
-          toast.success("Branded hooks saved");
-        }}
-        className="w-full py-2 text-[12px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full py-2 text-[12px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
       >
-        Save
+        {saving ? "Saving…" : "Save"}
       </button>
     </div>
   );
 }
 
-export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onTypeChange }: ChannelRightPanelProps) {
+export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onTypeChange, onBrandedHooksSaved }: ChannelRightPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -147,9 +181,14 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
         </div>
       </div>
 
-      {/* Branded Hooks — only for "ours" channels */}
+      {/* Branded Hooks — only for "ours" channels; saved to DB */}
       {channel.type === "ours" && (
-        <BrandedHooksSection />
+        <BrandedHooksSection
+          channelId={channel.id}
+          startHook={channel.startHook ?? ""}
+          endHook={channel.endHook ?? ""}
+          onSaved={onBrandedHooksSaved}
+        />
       )}
 
       {/* Actions */}

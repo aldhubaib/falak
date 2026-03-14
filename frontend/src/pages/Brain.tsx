@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Copy, Check, RefreshCw, Eye, ThumbsUp, MessageSquare, Trophy, ChevronDown, ArrowUpRight, Zap, Smartphone, Monitor } from "lucide-react";
+import { Copy, Check, RefreshCw, Eye, ThumbsUp, MessageSquare, Trophy, ChevronDown, ArrowUpRight, Zap } from "lucide-react";
+import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 import { toast } from "sonner";
 import {
   competitorStories,
@@ -43,6 +45,7 @@ function UrgencyBadge({ days }: { days: number }) {
 
 export default function Brain() {
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const [takenOpen, setTakenOpen] = useState(false);
 
   const gapWins = publishedVideos.filter((v) => v.result === "gap_win").length;
@@ -114,7 +117,7 @@ export default function Brain() {
                         <button
                           onClick={() => {
                             toast.success("Sent to AI Intelligence pipeline");
-                            navigate("/stories");
+                            navigate(projectPath("/stories"));
                           }}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue text-blue-foreground text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                         >
@@ -180,7 +183,7 @@ export default function Brain() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => navigate(`/channel/${video.channelId}`)}
+                            onClick={() => navigate(projectPath(`/channel/${video.channelId}`))}
                             className="shrink-0 hover:opacity-80 transition-opacity"
                           >
                             <img src={video.channelAvatar} alt={video.channelName} className="w-7 h-7 rounded-full object-cover border border-border" />
@@ -189,15 +192,11 @@ export default function Brain() {
                         <TooltipContent side="top"><p>{video.channelName}</p></TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                    {/* Type badge */}
-                    <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                    {/* Type badge — icon only (global default: Play = video, Zap = short) */}
+                    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full shrink-0 ${
                       video.type === "short" ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"
                     }`}>
-                      {video.type === "short" ? (
-                        <span className="inline-flex items-center gap-1"><Smartphone className="w-3 h-3" /> Short</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1"><Monitor className="w-3 h-3" /> Video</span>
-                      )}
+                      <VideoTypeIcon type={video.type} className="w-3.5 h-3.5" />
                     </span>
                     {/* Metrics */}
                     <div className="flex items-center gap-3 shrink-0">

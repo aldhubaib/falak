@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import { RotateCw, Pause, Circle, ChevronDown, AlertTriangle, ArrowUpRight, Search, X } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -267,11 +268,12 @@ function StageColumn({ stage }: { stage: PipelineStageData }) {
 
 function PipelineItemRow({ item, isFailed }: { item: PipelineItem; isFailed: boolean }) {
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const channel = channels.find((c) => c.id === item.channelId);
 
   return (
     <div
-      onClick={() => item.videoId && navigate(`/video/${item.videoId}`)}
+      onClick={() => item.videoId && navigate(projectPath(`/video/${item.videoId}`))}
       className={`px-4 py-3 border-t border-border hover:bg-surface/50 transition-colors group ${item.videoId ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between mb-2">

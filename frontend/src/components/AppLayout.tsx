@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { Menu } from "lucide-react";
 
 export function AppLayout() {
+  const { projectId } = useParams();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
@@ -26,6 +27,7 @@ export function AppLayout() {
         onMouseLeave={() => setHovered(false)}
       >
         <AppSidebar
+          projectId={projectId ?? ""}
           collapsed={!expanded}
           pinned={pinned}
           onTogglePin={() => setPinned(!pinned)}
@@ -63,7 +65,7 @@ export function AppLayout() {
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <AppSidebar isMobile onClose={() => setDrawerOpen(false)} />
+        <AppSidebar projectId={projectId ?? ""} isMobile onClose={() => setDrawerOpen(false)} />
       </div>
 
       {/* Main content */}

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { ArrowLeft, Info } from "lucide-react";
@@ -87,6 +88,7 @@ function mapVideo(v: ApiVideo): Video {
 export default function ChannelDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const [channel, setChannel] = useState<ApiChannel | null>(null);
   const [channelVideos, setChannelVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +97,19 @@ export default function ChannelDetail() {
   const [panelVisible, setPanelVisible] = useState(false);
   const [channelType, setChannelType] = useState<"ours" | "competition">("ours");
   const closePanel = useCallback(() => setPanelVisible(false), []);
+
+  const refetchChannel = useCallback(() => {
+    if (!id) return;
+    fetch(`/api/channels/${id}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && typeof data.id === "string") {
+          setChannel(data);
+          setChannelType(data.type === "own" ? "ours" : "competition");
+        }
+      })
+      .catch(() => {});
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -179,6 +194,8 @@ export default function ChannelDetail() {
         country: "",
         joinedDate,
         lastSynced,
+        startHook: (channel as { startHook?: string | null }).startHook ?? "",
+        endHook: (channel as { endHook?: string | null }).endHook ?? "",
       }
     : null;
 
@@ -196,7 +213,7 @@ export default function ChannelDetail() {
       <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(projectPath(""))}
           className="text-sensor hover:text-foreground underline text-[13px]"
         >
           Return to home
@@ -209,7 +226,7 @@ export default function ChannelDetail() {
     <div className="flex flex-col min-h-screen">
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(projectPath(""))}
           className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -308,7 +325,7 @@ export default function ChannelDetail() {
               );
             })()}
 
-            <VideoTable videos={filteredVideos} onVideoClick={(vid) => navigate(`/video/${vid}`)} />
+            <VideoTable videos={filteredVideos} onVideoClick={(vid) => navigate(projectPath(`/video/${vid}`))} />
           </div>
         </div>
 
@@ -320,6 +337,7 @@ export default function ChannelDetail() {
             videoCount={channelVideos.filter((v) => v.type === "video").length}
             shortCount={channelVideos.filter((v) => v.type === "short").length}
             onTypeChange={setChannelType}
+            onBrandedHooksSaved={refetchChannel}
           />
         )}
       </div>

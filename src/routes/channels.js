@@ -75,6 +75,7 @@ router.get('/:id', asyncWrap(async (req, res) => {
       type: true, avatarUrl: true, status: true, subscribers: true,
       totalViews: true, videoCount: true, uploadCadence: true,
       lastFetchedAt: true, projectId: true, createdAt: true,
+      startHook: true, endHook: true,
     }
   })
 
@@ -215,17 +216,19 @@ router.post('/:id/fetch-videos', requireRole('owner', 'admin', 'editor'), async 
   }
 })
 
-// ── PATCH /api/channels/:id — update channel (e.g. type)
+// ── PATCH /api/channels/:id — update channel (e.g. type, branded hooks)
 router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { type } = req.body
+    const { type, startHook, endHook } = req.body
     const data = {}
     if (type !== undefined) data.type = type
+    if (startHook !== undefined) data.startHook = startHook === '' ? null : startHook
+    if (endHook !== undefined) data.endHook = endHook === '' ? null : endHook
     const channel = await db.channel.update({
       where: { id: req.params.id },
       data
     })
-    res.json(channel)
+    res.json(serialise(channel))
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

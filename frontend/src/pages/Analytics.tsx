@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   analyticsStats,
   fieldComparison,
@@ -304,6 +305,7 @@ function getAvatarForDropdown(name: string) {
 
 function ChannelAvatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const info = getChannelInfo(name);
   const px = size === "sm" ? "w-5 h-5" : "w-7 h-7";
   const fallbackPx = size === "sm" ? "w-5 h-5 text-[8px]" : "w-7 h-7 text-[10px]";
@@ -315,7 +317,7 @@ function ChannelAvatar({ name, size = "md" }: { name: string; size?: "sm" | "md"
           className={`shrink-0 cursor-pointer`}
           onClick={(e) => {
             e.stopPropagation();
-            if (info) navigate(`/channel/${info.id}`);
+            if (info) navigate(projectPath(`/channel/${info.id}`));
           }}
         >
           {info ? (

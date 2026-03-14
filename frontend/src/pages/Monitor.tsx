@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import { Circle, Pause, RotateCw, Search, ChevronDown, ArrowUpRight } from "lucide-react";
 import { monitorHealth, monitorCadence, monitorQuota, monitorChannels } from "@/data/monitorMock";
 
@@ -7,6 +8,7 @@ const filterTabs = ["All", "Active", "Regular", "Slow", "Inactive"];
 
 export default function Monitor() {
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [countdown, setCountdown] = useState(21);
@@ -198,7 +200,7 @@ export default function Monitor() {
             {filtered.map((ch) => (
               <div
                 key={ch.id}
-                onClick={() => navigate(`/channel/${ch.id}`)}
+                onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
                 className="grid grid-cols-[1fr_70px_90px_90px_90px_90px_80px_80px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center"
               >
                 <div className="flex items-center gap-2.5">
@@ -245,7 +247,7 @@ export default function Monitor() {
             {filtered.map((ch) => (
               <div
                 key={ch.id}
-                onClick={() => navigate(`/channel/${ch.id}`)}
+                onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
                 className="rounded-xl bg-background p-4 cursor-pointer active:bg-[#0d0d10] transition-colors"
               >
                 <div className="flex items-center gap-3 mb-3">

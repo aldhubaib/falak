@@ -1,32 +1,136 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { videos, channels, videoAnalysis } from "@/data/mock";
+import { useProjectPath } from "@/hooks/useProjectPath";
+import { videoAnalysis } from "@/data/mock";
+import type { Video } from "@/data/mock";
 import { VideoRightPanel } from "@/components/VideoRightPanel";
-import { ArrowLeft, Info, SmilePlus, HelpCircle, Meh, CheckCircle2, XCircle, RotateCw, Clock, Loader2, Play, Zap, Calendar } from "lucide-react";
+import { VideoTypeIcon } from "@/components/VideoTypeIcon";
+import { ArrowLeft, Info, SmilePlus, HelpCircle, Meh, CheckCircle2, XCircle, RotateCw, Clock, Loader2, Calendar } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const tabList = ["Overview", "Sentiment", "Viral", "Comments", "Pipeline", "History"];
 
+const STAGE_ORDER = ["import", "transcribe", "comments", "analyzing", "done", "failed"] as const;
+const STAGE_LABELS: Record<string, string> = {
+  import: "Import",
+  transcribe: "Transcription",
+  comments: "Comments",
+  analyzing: "AI Analysis",
+  done: "Done",
+  failed: "Failed",
+};
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  return String(n);
+}
+
+function buildPipeline(pi: { stage: string; status: string; error?: string | null; retries?: number; startedAt?: string | null; finishedAt?: string | null } | null): { name: string; status: "done" | "failed" | "running" | "waiting"; time?: string; retries?: number; error?: string }[] {
+  if (!pi) return STAGE_ORDER.filter((s) => s !== "failed").map((name) => ({ name: STAGE_LABELS[name] || name, status: "waiting" as const }));
+  const currentIdx = STAGE_ORDER.indexOf(pi.stage as typeof STAGE_ORDER[number]);
+  const statusMap = (s: string) => (s === "running" ? "running" : s === "failed" ? "failed" : s === "done" ? "done" : "waiting");
+  return STAGE_ORDER.filter((s) => s !== "failed").map((stageKey, i) => {
+    const name = STAGE_LABELS[stageKey] || stageKey;
+    const isCurrent = pi.stage === stageKey;
+    const status = isCurrent ? statusMap(pi.status) : i < currentIdx ? "done" : "waiting";
+    const time = isCurrent && (pi.finishedAt || pi.startedAt)
+      ? new Date((pi.finishedAt || pi.startedAt)!).toLocaleString()
+      : undefined;
+    return { name, status, time: time || undefined, retries: isCurrent ? pi.retries : undefined, error: isCurrent ? (pi.error || undefined) : undefined };
+  });
+}
+
 export default function VideoDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const video = videos.find((v) => v.id === id);
-  const channel = video ? channels.find((c) => c.id === video.channelId) : null;
+  const projectPath = useProjectPath();
+  const [video, setVideo] = useState<Video | null>(null);
+  const [channel, setChannel] = useState<{ id: string; name: string; handle: string; avatarUrl: string | null } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
   const [panelVisible, setPanelVisible] = useState(false);
   const closePanel = useCallback(() => setPanelVisible(false), []);
   const a = videoAnalysis;
 
-  if (!video || !channel) {
-    return <div className="p-10 text-sensor">Video not found</div>;
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    setNotFound(false);
+    setVideo(null);
+    setChannel(null);
+    fetch(`/api/videos/${id}`, { credentials: "include" })
+      .then((r) => {
+        if (r.status === 404) {
+          setNotFound(true);
+          return null;
+        }
+        if (!r.ok) throw new Error("Failed to load video");
+        return r.json();
+      })
+      .then((data: Record<string, unknown>) => {
+        if (!data || typeof data.id !== "string") return;
+        const ch = data.channel as { id: string; handle: string; nameAr?: string; nameEn?: string; avatarUrl?: string | null } | undefined;
+        const pi = data.pipelineItem as { stage: string; status: string; error?: string | null; retries?: number; startedAt?: string | null; finishedAt?: string | null } | null;
+        const viewsRaw = Number(data.viewCount) || 0;
+        const likesRaw = Number(data.likeCount) || 0;
+        const commentsRaw = Number(data.commentCount) || 0;
+        const status = (pi?.status === "running" ? "analyzing" : pi?.status === "done" ? "done" : pi?.status === "failed" ? "failed" : "pending") as Video["status"];
+        setChannel(ch ? {
+          id: ch.id,
+          name: (ch.nameEn || ch.nameAr || ch.handle) || "",
+          handle: ch.handle,
+          avatarUrl: ch.avatarUrl ?? null,
+        } : null);
+        setVideo({
+          id: data.id as string,
+          channelId: (data.channelId as string) || (ch?.id ?? ""),
+          title: (data.titleEn || data.titleAr || "") as string,
+          type: (data.videoType === "short" ? "short" : "video") as "video" | "short",
+          views: formatCount(viewsRaw),
+          likes: formatCount(likesRaw),
+          comments: formatCount(commentsRaw),
+          date: data.publishedAt ? new Date(data.publishedAt as string).toLocaleDateString() : "",
+          duration: (data.duration as string) || "",
+          status,
+          viewsRaw,
+          likesRaw,
+          commentsRaw,
+          thumbnail: (data.thumbnailUrl as string) || undefined,
+          pipeline: buildPipeline(pi),
+        });
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center bg-surface">
+        <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-[13px] text-foreground">Loading video…</p>
+      </div>
+    );
   }
 
-  const stats = [
+  if (notFound || !video || !channel) {
+    return (
+      <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
+        <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
+        <button onClick={() => navigate(projectPath(""))} className="text-sensor hover:text-foreground underline text-[13px]">
+          Return to home
+        </button>
+      </div>
+    );
+  }
+
+  const stats: { val?: string; label: string }[] = [
     { val: video.views, label: "Views" },
     { val: video.likes, label: "Likes" },
     { val: video.comments, label: "Comments" },
     { val: video.duration, label: "Duration" },
-    { val: video.type === "short" ? "Short" : "Video", label: "Type" },
+    { label: "Type" },
   ];
 
   return (
@@ -34,7 +138,7 @@ export default function VideoDetail() {
       {/* Top bar */}
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <button
-          onClick={() => navigate(`/channel/${channel.id}`)}
+          onClick={() => navigate(projectPath(`/channel/${channel.id}`))}
           className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -94,10 +198,7 @@ export default function VideoDetail() {
                   <div className="px-3 py-2">
                     <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Type</div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-dim">
-                        {video.type === "short" ? <Zap className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                      </span>
-                      <span className="text-[12px] text-sensor font-medium">{video.type === "short" ? "Short" : "Video"}</span>
+                      <VideoTypeIcon type={video.type} className="w-3.5 h-3.5 text-dim" />
                     </div>
                   </div>
                   <span className="w-px h-8 bg-border" />
@@ -123,7 +224,13 @@ export default function VideoDetail() {
                     i === stats.length - 1 ? "max-lg:col-span-2 max-lg:border-r-0" : ""
                   }`}
                 >
-                  <div className="text-lg font-semibold font-mono tracking-tight mb-0.5">{s.val}</div>
+                  <div className="text-lg font-semibold font-mono tracking-tight mb-0.5">
+                    {s.label === "Type" ? (
+                      <VideoTypeIcon type={video.type} className="w-5 h-5 text-foreground" />
+                    ) : (
+                      s.val
+                    )}
+                  </div>
                   <div className="text-[11px] text-dim">{s.label}</div>
                 </div>
               ))}

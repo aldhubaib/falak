@@ -45,6 +45,8 @@ model Channel {
   videoCount    Int       @default(0)
   uploadCadence Float?
   lastFetchedAt DateTime?
+  startHook     String?   // Branded start hook (ours only)
+  endHook       String?   // Branded end hook (ours only)
   videos        Video[]
   snapshots     ChannelSnapshot[]
   createdAt     DateTime  @default(now())

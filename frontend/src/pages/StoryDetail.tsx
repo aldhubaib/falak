@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useProjectPath } from "@/hooks/useProjectPath";
 import { Copy, Check, ExternalLink, Trophy, Eye, ThumbsUp, MessageSquare, Link2, XCircle, ArrowLeft, ArrowUpRight, ChevronDown, Sparkles, Pencil, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { storiesMock, Story } from "@/data/storiesMock";
@@ -45,6 +46,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 export default function StoryDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const projectPath = useProjectPath();
   const [stories, setStories] = useState<Story[]>(storiesMock);
   const [youtubeInput, setYoutubeInput] = useState("");
   const [selectedChannel, setSelectedChannel] = useState<string>("");
@@ -67,7 +69,7 @@ export default function StoryDetail() {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
-          <button onClick={() => navigate("/stories")} className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors">
+          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Stories
           </button>
@@ -91,7 +93,7 @@ export default function StoryDetail() {
       {/* Top bar */}
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/stories")} className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors">
+          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors">
             <ArrowLeft className="w-4 h-4" />
             AI Intelligence
           </button>
@@ -148,7 +150,7 @@ export default function StoryDetail() {
                   <button onClick={() => moveStory("liked")} className="flex-1 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity">
                     Save to Liked
                   </button>
-                  <button onClick={() => { setStories((p) => p.filter((s) => s.id !== id)); navigate("/stories"); toast("Passed"); }} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">
+                  <button onClick={() => { setStories((p) => p.filter((s) => s.id !== id)); navigate(projectPath("/stories")); toast("Passed"); }} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">
                     Pass
                   </button>
                 </div>
@@ -171,7 +173,7 @@ export default function StoryDetail() {
                           key={s.id}
                           type="button"
                           onClick={() => {
-                            if (!isCurrent) navigate(`/story/${s.id}`);
+                            if (!isCurrent) navigate(projectPath(`/story/${s.id}`));
                           }}
                           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] transition-colors group ${
                             isCurrent
@@ -362,7 +364,7 @@ export default function StoryDetail() {
                     <div className="rounded-xl bg-background p-5 flex items-center gap-3">
                       <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Channel</div>
                       <button
-                        onClick={() => navigate(`/channel/${ch.id}`)}
+                        onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
                         className="group relative flex items-center gap-2"
                       >
                         <img src={ch.avatarImg} alt={ch.name} className="w-8 h-8 rounded-full object-cover" />
