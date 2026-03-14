@@ -241,7 +241,7 @@ function StageColumn({
   return (
     <div
       className="rounded-xl border border-border overflow-hidden flex flex-col"
-      style={items.length > 0 ? { height: '420px' } : undefined}
+      style={{ height: "420px" }}
     >
       {/* Stage header */}
       <div className="px-4 py-3 bg-background shrink-0 border-b border-border">

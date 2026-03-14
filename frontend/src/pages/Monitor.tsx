@@ -407,8 +407,8 @@ export default function Monitor() {
                 <>
                   {/* Desktop Table */}
                   <div className="rounded-xl border border-border overflow-hidden max-sm:hidden">
-                    <div className="grid grid-cols-[1fr_70px_100px_100px_90px_80px_80px] px-4 py-2.5 bg-background border-b border-border">
-                      {["CHANNEL", "STATUS", "LAST CHECK", "LAST VIDEO", "NEXT CHECK", "CADENCE", "VIDEOS"].map((h) => (
+                    <div className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-2.5 bg-background border-b border-border">
+                      {["CHANNEL", "STATUS", "LAST CHECK", "LAST VIDEO", "NEXT CHECK"].map((h) => (
                         <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
                       ))}
                     </div>
@@ -416,7 +416,7 @@ export default function Monitor() {
                       <div
                         key={ch.id}
                         onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
-                        className="grid grid-cols-[1fr_70px_100px_100px_90px_80px_80px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center"
+                        className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center"
                       >
                         <div className="flex items-center gap-2.5">
                           {ch.avatarUrl ? (
@@ -438,10 +438,6 @@ export default function Monitor() {
                         <span className="text-[12px] text-dim font-mono">{ch.lastCheck}</span>
                         <span className={`text-[12px] font-mono ${ch.isStale ? "text-orange" : "text-dim"}`}>{ch.lastVideo}</span>
                         <span className="text-[12px] text-dim font-mono">{ch.nextCheck}</span>
-                        <span className={`text-[12px] font-mono ${ch.cadenceType === "owned" ? "text-orange" : "text-dim"}`}>
-                          {ch.cadence} {ch.cadenceType === "owned" ? "· owned" : "· auto"}
-                        </span>
-                        <span className="text-[12px] text-dim font-mono">{ch.totalVideos.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>

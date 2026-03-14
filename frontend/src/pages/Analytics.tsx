@@ -522,6 +522,22 @@ function TrendChart({
     ch: chMap.get(c.id),
   }));
 
+  const series = [
+    ...ourSeries.map((s) => ({ ...s, tone: "you" as const })),
+    ...compSeries.map((s) => ({ ...s, tone: "competitor" as const })),
+  ];
+
+  const [hovered, setHovered] = useState<{
+    seriesId: string;
+    monthIndex: number;
+    x: number;
+    y: number;
+    monthLabel: string;
+    channelName: string;
+    value: number;
+    tone: "you" | "competitor";
+  } | null>(null);
+
   const allValues = [...ourSeries, ...compSeries].flatMap((s) => s.values);
   const maxVal = Math.max(...allValues, 1);
 
@@ -534,6 +550,42 @@ function TrendChart({
 
   const getX = (i: number) => pad.left + (i / Math.max(months.length - 1, 1)) * chartW;
   const getY = (v: number) => pad.top + chartH - (v / maxVal) * chartH;
+
+  const closestMonthIndex = (x: number) => {
+    let closest = 0;
+    let minDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < months.length; i += 1) {
+      const dist = Math.abs(getX(i) - x);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = i;
+      }
+    }
+    return closest;
+  };
+
+  const handleHover = (
+    e: React.MouseEvent<SVGPathElement | SVGCircleElement>,
+    s: (typeof series)[number],
+    forcedIndex?: number,
+  ) => {
+    const svg = e.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const localX = e.clientX - rect.left;
+    const idx = typeof forcedIndex === "number" ? forcedIndex : closestMonthIndex(localX);
+    const value = s.values[idx] ?? 0;
+    setHovered({
+      seriesId: s.id,
+      monthIndex: idx,
+      x: getX(idx),
+      y: getY(value),
+      monthLabel: months[idx] || "",
+      channelName: s.name,
+      value,
+      tone: s.tone,
+    });
+  };
 
   const makePath = (values: number[]) =>
     values
@@ -549,98 +601,157 @@ function TrendChart({
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        className="w-full min-w-[700px]"
-        style={{ height: "280px" }}
-      >
-        {/* Y axis lines */}
-        {yTicks.map((v) => (
-          <g key={v}>
-            <line
-              x1={pad.left}
-              y1={getY(v)}
-              x2={svgWidth - pad.right}
-              y2={getY(v)}
-              stroke="hsl(var(--border))"
-              strokeWidth="0.5"
-            />
+      <div className="relative min-w-[700px]">
+        <svg
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          className="w-full"
+          style={{ height: "280px" }}
+          onMouseLeave={() => setHovered(null)}
+        >
+          {/* Y axis lines */}
+          {yTicks.map((v) => (
+            <g key={v}>
+              <line
+                x1={pad.left}
+                y1={getY(v)}
+                x2={svgWidth - pad.right}
+                y2={getY(v)}
+                stroke="hsl(var(--border))"
+                strokeWidth="0.5"
+              />
+              <text
+                x={pad.left - 8}
+                y={getY(v) + 4}
+                textAnchor="end"
+                className="fill-dim"
+                fontSize="10"
+                fontFamily="monospace"
+              >
+                {trendTab === "Videos" ? v : fmtNum(v)}
+              </text>
+            </g>
+          ))}
+
+          {/* X axis labels */}
+          {months.map((m, i) => (
             <text
-              x={pad.left - 8}
-              y={getY(v) + 4}
-              textAnchor="end"
+              key={m}
+              x={getX(i)}
+              y={svgHeight - 10}
+              textAnchor="middle"
               className="fill-dim"
               fontSize="10"
               fontFamily="monospace"
             >
-              {trendTab === "Videos" ? v : fmtNum(v)}
+              {m}
             </text>
-          </g>
-        ))}
+          ))}
 
-        {/* X axis labels */}
-        {months.map((m, i) => (
-          <text
-            key={m}
-            x={getX(i)}
-            y={svgHeight - 10}
-            textAnchor="middle"
-            className="fill-dim"
-            fontSize="10"
-            fontFamily="monospace"
+          {hovered && (
+            <line
+              x1={getX(hovered.monthIndex)}
+              y1={pad.top}
+              x2={getX(hovered.monthIndex)}
+              y2={pad.top + chartH}
+              stroke="hsl(var(--border))"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+          )}
+
+          {series.map((s) => {
+            const active = hovered?.seriesId === s.id;
+            const dimmed = hovered && !active;
+            const stroke = s.tone === "you" ? "hsl(var(--blue))" : "hsl(var(--dim))";
+            const width = s.tone === "you" ? 2.5 : 1.25;
+            const opacity = s.tone === "you" ? 1 : 0.35;
+            return (
+              <g key={s.id}>
+                <path
+                  d={makePath(s.values)}
+                  fill="none"
+                  stroke={stroke}
+                  strokeWidth={width}
+                  strokeOpacity={dimmed ? 0.12 : opacity}
+                  style={{ transition: "stroke-opacity 120ms ease" }}
+                />
+                <path
+                  d={makePath(s.values)}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth="14"
+                  onMouseMove={(e) => handleHover(e, s)}
+                />
+                {s.values.map((v, i) => {
+                  const pointActive = active && hovered?.monthIndex === i;
+                  return (
+                    <circle
+                      key={`${s.id}-${i}`}
+                      cx={getX(i)}
+                      cy={getY(v)}
+                      r={pointActive ? 4.5 : s.tone === "you" ? 3 : 2.5}
+                      fill={s.tone === "you" ? "hsl(var(--blue))" : "hsl(var(--dim))"}
+                      fillOpacity={dimmed ? 0.12 : s.tone === "you" ? 1 : 0.45}
+                      style={{ transition: "r 120ms ease, fill-opacity 120ms ease" }}
+                      onMouseMove={(e) => handleHover(e, s, i)}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
+
+          {/* YOU labels on right */}
+          {ourSeries.map((c) => {
+            const lastVal = c.values[c.values.length - 1] ?? 0;
+            return (
+              <text
+                key={c.id}
+                x={svgWidth - pad.right + 8}
+                y={getY(lastVal) + 4}
+                className="fill-blue"
+                fontSize="10"
+                fontFamily="monospace"
+                fontWeight="600"
+              >
+                YOU
+              </text>
+            );
+          })}
+        </svg>
+
+        {hovered && (
+          <div
+            className="absolute z-10 pointer-events-none rounded-lg border border-border/60 bg-background/95 px-2.5 py-1.5 shadow-lg"
+            style={{
+              left: Math.min(Math.max(hovered.x + 12, 8), svgWidth - 190),
+              top: Math.max(hovered.y - 56, 8),
+            }}
           >
-            {m}
-          </text>
-        ))}
-
-        {/* Competitor lines */}
-        {compSeries.map((c) => (
-          <path
-            key={c.id}
-            d={makePath(c.values)}
-            fill="none"
-            stroke="hsl(var(--dim))"
-            strokeWidth="1"
-            strokeOpacity="0.3"
-          />
-        ))}
-
-        {/* Our channel lines */}
-        {ourSeries.map((c) => (
-          <g key={c.id}>
-            <path d={makePath(c.values)} fill="none" stroke="hsl(var(--blue))" strokeWidth="2.5" />
-            {c.values.map((v, i) => (
-              <circle key={i} cx={getX(i)} cy={getY(v)} r="3" fill="hsl(var(--blue))" />
-            ))}
-          </g>
-        ))}
-
-        {/* YOU labels on right */}
-        {ourSeries.map((c) => {
-          const lastVal = c.values[c.values.length - 1] ?? 0;
-          return (
-            <text
-              key={c.id}
-              x={svgWidth - pad.right + 8}
-              y={getY(lastVal) + 4}
-              className="fill-blue"
-              fontSize="10"
-              fontFamily="monospace"
-              fontWeight="600"
-            >
-              YOU
-            </text>
-          );
-        })}
-      </svg>
+            <div className="text-[10px] text-dim font-mono">{hovered.monthLabel}</div>
+            <div className={`text-[11px] font-mono ${hovered.tone === "you" ? "text-blue" : "text-sensor"}`}>
+              {hovered.channelName}
+            </div>
+            <div className="text-[12px] font-semibold font-mono">
+              {trendTab}: {trendTab === "Videos" ? hovered.value : fmtNum(hovered.value)}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3 flex-wrap">
         <span className="text-[10px] text-blue font-mono uppercase tracking-widest">
           YOUR CHANNELS
         </span>
-        {ourSeries.map((c) => (
-          <span key={c.id} className="flex items-center gap-1.5 text-[11px] font-mono">
+        {ourSeries.map((c) => {
+          const active = hovered?.seriesId === c.id;
+          const dimmed = hovered && !active;
+          return (
+          <span
+            key={c.id}
+            className={`flex items-center gap-1.5 text-[11px] font-mono rounded-md px-1.5 py-0.5 transition-colors ${active ? "bg-blue/10 text-blue" : dimmed ? "opacity-45" : ""}`}
+          >
             <span className="w-3 h-0.5 bg-blue rounded-full inline-block" />
             <ChannelAvatar
               name={c.name}
@@ -648,13 +759,20 @@ function TrendChart({
               channelId={c.id}
               size="sm"
             />
+            <span className="max-w-[140px] truncate">{c.name}</span>
           </span>
-        ))}
+        );})}
         <span className="text-[10px] text-dim font-mono uppercase tracking-widest ml-4">
           COMPETITORS
         </span>
-        {compSeries.map((c) => (
-          <span key={c.id} className="flex items-center gap-1.5 text-[11px] font-mono text-dim">
+        {compSeries.map((c) => {
+          const active = hovered?.seriesId === c.id;
+          const dimmed = hovered && !active;
+          return (
+          <span
+            key={c.id}
+            className={`flex items-center gap-1.5 text-[11px] font-mono text-dim rounded-md px-1.5 py-0.5 transition-colors ${active ? "bg-surface text-sensor" : dimmed ? "opacity-45" : ""}`}
+          >
             <span className="w-3 h-0.5 bg-dim/40 rounded-full inline-block" />
             <ChannelAvatar
               name={c.name}
@@ -662,8 +780,9 @@ function TrendChart({
               channelId={c.id}
               size="sm"
             />
+            <span className="max-w-[140px] truncate">{c.name}</span>
           </span>
-        ))}
+        );})}
       </div>
     </div>
   );
