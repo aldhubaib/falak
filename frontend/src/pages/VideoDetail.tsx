@@ -142,11 +142,6 @@ export default function VideoDetail() {
         const topics: string[] = Array.isArray(partA?.tags) ? (partA!.tags as unknown[]).map(String) : [];
         const keywords: string[] = Array.isArray(partA?.keywords) ? (partA!.keywords as unknown[]).map(String) : [];
 
-        const rawSentiment = (partB?.commentSentiment ?? partA?.sentiment) as Record<string, unknown> | null | undefined;
-        const positive = Math.round(Number(rawSentiment?.positive ?? rawSentiment?.pos ?? 0));
-        const negative = Math.round(Number(rawSentiment?.negative ?? rawSentiment?.neg ?? 0));
-        const neutral = Math.max(0, 100 - positive - negative);
-
         const rawViral = (partB?.viral ?? ar?.viral) as Record<string, unknown> | null | undefined;
 
         // Parse comments from DB (already fetched via include in backend)
@@ -158,6 +153,17 @@ export default function VideoDetail() {
           likes: Number(c.likeCount) || 0,
           sentiment: String(c.sentiment || "neutral"),
         }));
+
+        // Calculate sentiment percentages from actual classified comment sentiments
+        const classifiedComments = commentRows.filter(c => c.sentiment && c.sentiment !== "null");
+        let positive = 0, negative = 0, neutral = 0;
+        if (classifiedComments.length > 0) {
+          const posCount = classifiedComments.filter(c => c.sentiment === "positive" || c.sentiment === "question").length;
+          const negCount = classifiedComments.filter(c => c.sentiment === "negative").length;
+          positive = Math.round((posCount / classifiedComments.length) * 100);
+          negative = Math.round((negCount / classifiedComments.length) * 100);
+          neutral = Math.max(0, 100 - positive - negative);
+        }
 
         setAnalysis({
           transcript,
