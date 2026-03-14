@@ -234,6 +234,16 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
   }
 })
 
+// ── DELETE /api/channels/all — delete every channel (owner/admin only)
+router.delete('/all', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const result = await db.channel.deleteMany({})
+    res.json({ ok: true, deleted: result.count })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── DELETE /api/channels/:id
 router.delete('/:id', requireRole('owner', 'admin'), async (req, res) => {
   try {

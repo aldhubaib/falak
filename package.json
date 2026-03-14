@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "worker": "node src/worker.js",
     "build": "prisma generate && (cd frontend && npm install && npm run build)",
-    "build:server": "prisma generate"
+    "build:server": "prisma generate",
+    "delete-all-channels": "node scripts/delete-all-channels.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
