@@ -53,13 +53,9 @@ async function queryPerplexity(apiKey, userPrompt, opts = {}) {
  */
 const JSON_INSTRUCTION = `
 
-Respond with a JSON array of story objects. Each object must have:
-- "headline" (string): title of the story
-- "summary" (string): 1-2 sentence summary
-- "sourceUrl" (string, optional): link to source
-
-Output only the JSON array, no other text. Example:
-[{"headline":"...","summary":"...","sourceUrl":"..."}]`
+Reply with a valid JSON array only. Each item: {"headline":"...", "summary":"...", "sourceUrl":"..."}.
+Use "headline" for the story title, "summary" for 1-2 sentences, "sourceUrl" for link (or null).
+No other text—just the JSON array.`
 
 /**
  * Fetch story suggestions from Perplexity and return parsed array.
@@ -76,28 +72,58 @@ async function fetchStorySuggestions(apiKey, autoSearchQuery) {
 }
 
 /**
- * Extract JSON array of stories from response. Tolerates markdown or extra text.
+ * Extract JSON array of stories from response. Tolerates markdown code blocks and extra text.
  */
 function parseStoriesFromResponse(text) {
   if (!text || typeof text !== 'string') return []
 
-  // Try to find a JSON array in the response (last [ ... ] often)
-  const arrayMatch = text.match(/\[[\s\S]*\]/)
-  if (!arrayMatch) return []
-
-  try {
-    const arr = JSON.parse(arrayMatch[0])
-    if (!Array.isArray(arr)) return []
-    return arr
-      .filter((item) => item && typeof item.headline === 'string' && item.headline.trim())
-      .map((item) => ({
-        headline: String(item.headline).trim(),
-        summary: item.summary != null ? String(item.summary).trim() : null,
-        sourceUrl: item.sourceUrl != null ? String(item.sourceUrl).trim() || null : null,
-      }))
-  } catch {
-    return []
+  let jsonStr = text
+  // Unwrap markdown code block if present
+  const codeBlock = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (codeBlock) jsonStr = codeBlock[1].trim()
+  // Find first/largest JSON array
+  const arrayMatch = jsonStr.match(/\[[\s\S]*\]/)
+  if (arrayMatch) {
+    try {
+      const arr = JSON.parse(arrayMatch[0])
+      if (!Array.isArray(arr)) return fallbackParseHeadlines(text)
+      const items = arr
+        .filter((item) => item && (typeof item.headline === 'string' || typeof item.title === 'string'))
+        .map((item) => {
+          const headline = (item.headline ?? item.title ?? '').trim()
+          if (!headline) return null
+          return {
+            headline,
+            summary: item.summary != null ? String(item.summary).trim() : null,
+            sourceUrl: item.sourceUrl != null ? String(item.sourceUrl).trim() || null : item.url ? String(item.url).trim() : null,
+          }
+        })
+        .filter(Boolean)
+      if (items.length > 0) return items
+    } catch {
+      // fall through to fallback
+    }
   }
+  return fallbackParseHeadlines(text)
+}
+
+/**
+ * Fallback: extract lines that look like headlines (numbered or bullet list).
+ */
+function fallbackParseHeadlines(text) {
+  const lines = text.split(/\n/).map((s) => s.trim()).filter(Boolean)
+  const out = []
+  for (const line of lines) {
+    // Numbered: "1. Headline" or "1) Headline"
+    const numbered = line.match(/^\d+[.)]\s*(.+)$/)
+    // Bullet: "• Headline" or "- Headline" or "* Headline"
+    const bullet = line.match(/^[•\-*]\s*(.+)$/)
+    const raw = (numbered?.[1] ?? bullet?.[1] ?? line).trim()
+    // Skip if it looks like JSON or a URL or too short
+    if (raw.length < 4 || raw.startsWith('{') || raw.startsWith('[') || /^https?:\/\//i.test(raw)) continue
+    out.push({ headline: raw.slice(0, 300), summary: null, sourceUrl: null })
+  }
+  return out.slice(0, 12)
 }
 
 module.exports = { queryPerplexity, fetchStorySuggestions, parseStoriesFromResponse }
