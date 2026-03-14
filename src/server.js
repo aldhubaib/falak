@@ -59,7 +59,7 @@ app.use('/api/brain',     require('./routes/brain'))
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {
   try {
-    // Return up to 30 thumbnails from "ours" channels, ordered by most views
+    // First try: videos from "ours"/"own" channels with thumbnails
     const videos = await db.video.findMany({
       where: {
         thumbnailUrl: { not: null },
@@ -69,8 +69,20 @@ app.get('/api/public/thumbnails', async (req, res) => {
       orderBy: { viewCount: 'desc' },
       take: 60,
     })
-    const urls = videos.map(v => v.thumbnailUrl).filter(Boolean)
-    res.set('Cache-Control', 'public, max-age=300')
+    let urls = videos.map(v => v.thumbnailUrl).filter(Boolean)
+
+    // Fallback: if no "ours" videos have thumbnails yet, return any channel's thumbnails
+    if (urls.length === 0) {
+      const allVideos = await db.video.findMany({
+        where: { thumbnailUrl: { not: null } },
+        select: { thumbnailUrl: true },
+        orderBy: { viewCount: 'desc' },
+        take: 60,
+      })
+      urls = allVideos.map(v => v.thumbnailUrl).filter(Boolean)
+    }
+
+    res.set('Cache-Control', 'public, max-age=60')
     res.json({ urls })
   } catch (e) {
     res.json({ urls: [] })
@@ -131,9 +143,23 @@ async function seedApiKeys() {
   }
 }
 
+// ── One-time migration: normalise channel type 'own' → 'ours' ──────────────
+async function migrateChannelTypes() {
+  try {
+    const { count } = await db.channel.updateMany({
+      where: { type: 'own' },
+      data: { type: 'ours' },
+    })
+    if (count > 0) logger.info(`[migrate] Renamed ${count} channel(s) type 'own' → 'ours'`)
+  } catch (e) {
+    logger.warn('[migrate] Channel type migration failed:', e.message)
+  }
+}
+
 // ── Start ─────────────────────────────────────────────────────
 async function main() {
   await seedApiKeys()
+  await migrateChannelTypes()
   app.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Falak running')
     // Start the pipeline worker in-process.
