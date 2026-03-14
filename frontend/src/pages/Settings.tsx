@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
 import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ interface ApiKeyDef {
 }
 
 interface UsageLog {
+  id: string;
   time: string;
   apiName: string;
   apiIcon: "ai" | "data" | "search" | "transcript";
@@ -98,8 +100,63 @@ export default function Settings() {
   const [newYtValue, setNewYtValue] = useState("");
   const [addingYt, setAddingYt] = useState(false);
   const [removingYt, setRemovingYt] = useState<Record<string, boolean>>({});
-  // Usage logs
+  // Usage logs — paginated (50 per page, infinite scroll)
   const [usageLogs, setUsageLogs] = useState<UsageLog[]>([]);
+  const [usageCursor, setUsageCursor] = useState<string | null>(null);
+  const [usageHasMore, setUsageHasMore] = useState(false);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageInitialLoaded, setUsageInitialLoaded] = useState(false);
+  const usageScrollRef = useRef<HTMLDivElement>(null);
+
+  const fetchUsagePage = useCallback(async (cursor: string | null, replace: boolean) => {
+    if (!projectId || usageLoading) return;
+    setUsageLoading(true);
+    try {
+      const url = `/api/projects/${projectId}/usage?limit=50${cursor ? `&cursor=${cursor}` : ""}`;
+      const r = await fetch(url, { credentials: "include" });
+      const data = await r.json();
+      const rows: { id: string; ts: string; api: string; action: string; tokens: number | null; status: string }[] =
+        data.rows ?? [];
+      const mapped: UsageLog[] = rows.map((r) => {
+        const { name, icon } = mapService(r.api || "");
+        return {
+          id: r.id,
+          time: r.ts ? fmtDateTime(r.ts) : "—",
+          apiName: name, apiIcon: icon,
+          action: r.action || "—",
+          tokens: r.tokens ?? null,
+          status: r.status === "ok" ? "Pass" : "Fail",
+        };
+      });
+      setUsageLogs((prev) => replace ? mapped : [...prev, ...mapped]);
+      setUsageCursor(data.nextCursor ?? null);
+      setUsageHasMore(data.hasMore ?? false);
+    } catch {
+      // silent
+    } finally {
+      setUsageLoading(false);
+      setUsageInitialLoaded(true);
+    }
+  }, [projectId, usageLoading]);
+
+  // Initial load
+  useEffect(() => {
+    if (projectId) fetchUsagePage(null, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Infinite scroll: when user hits bottom of the 500px container, load next page
+  useEffect(() => {
+    const el = usageScrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) {
+        fetchUsagePage(usageCursor, false);
+      }
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [usageHasMore, usageLoading, usageCursor, fetchUsagePage]);
 
   // Load key status + YouTube keys
   useEffect(() => {
@@ -114,27 +171,6 @@ export default function Settings() {
       })
       .catch(() => {});
   }, []);
-
-  // Load usage logs
-  useEffect(() => {
-    if (!projectId) return;
-    fetch(`/api/projects/${projectId}/usage`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: { ts: string; api: string; action: string; tokens: number | null; status: string }[]) => {
-        if (!Array.isArray(rows)) return;
-        setUsageLogs(rows.map((r) => {
-          const { name, icon } = mapService(r.api || "");
-          return {
-            time: r.ts ? fmtDateTime(r.ts) : "—",
-            apiName: name, apiIcon: icon,
-            action: r.action || "—",
-            tokens: r.tokens ?? null,
-            status: r.status === "ok" ? "Pass" : "Fail",
-          };
-        }));
-      })
-      .catch(() => {});
-  }, [projectId]);
 
   // Save single key
   const handleSave = (service: string, name: string) => {
@@ -359,44 +395,71 @@ export default function Settings() {
           <div className="rounded-xl bg-background p-5">
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
 
-            {usageLogs.length === 0 ? (
+            {usageInitialLoaded && usageLogs.length === 0 ? (
               <p className="text-[13px] text-dim">No API calls recorded yet for this project.</p>
             ) : (
               <>
+                {/* Desktop table — fixed 500px, scrollable */}
                 <div className="rounded-xl border border-border overflow-hidden max-sm:hidden">
-                  <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-surface/20 border-b border-border">
+                  <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-surface/20 border-b border-border sticky top-0 z-10">
                     {["TIME", "API NAME", "ACTION", "TOKENS / UNITS", "STATUS"].map((h) => (
                       <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
                     ))}
                   </div>
-                  {usageLogs.map((log, i) => {
-                    const LogIcon = iconMap[log.apiIcon];
-                    const nameColor = apiNameColorMap[log.apiName] || "text-dim";
-                    return (
-                      <div key={i} className={`grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-3 items-center ${i < usageLogs.length - 1 ? "border-b border-border" : ""}`}>
-                        <span className="text-[12px] text-dim font-mono">{log.time}</span>
-                        <div className="flex items-center gap-2">
-                          <LogIcon className={`w-4 h-4 ${iconColorMap[log.apiIcon]}`} />
-                          <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
+                  <div
+                    ref={usageScrollRef}
+                    className="overflow-y-auto"
+                    style={{ maxHeight: 500 }}
+                  >
+                    {usageLogs.map((log, i) => {
+                      const LogIcon = iconMap[log.apiIcon];
+                      const nameColor = apiNameColorMap[log.apiName] || "text-dim";
+                      return (
+                        <div key={log.id} className={`grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-3 items-center ${i < usageLogs.length - 1 ? "border-b border-border" : ""}`}>
+                          <span className="text-[12px] text-dim font-mono">{log.time}</span>
+                          <div className="flex items-center gap-2">
+                            <LogIcon className={`w-4 h-4 ${iconColorMap[log.apiIcon]}`} />
+                            <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
+                          </div>
+                          <span className="text-[12px] text-dim font-mono">{log.action}</span>
+                          <span className="text-[12px] text-dim font-mono text-right pr-4">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
+                          <div className="flex items-center justify-end">
+                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
+                              ● {log.status}
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-[12px] text-dim font-mono">{log.action}</span>
-                        <span className="text-[12px] text-dim font-mono text-right pr-4">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
-                        <div className="flex items-center justify-end">
-                          <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
-                            ● {log.status}
-                          </span>
-                        </div>
+                      );
+                    })}
+                    {usageLoading && (
+                      <div className="flex items-center justify-center py-4 border-t border-border">
+                        <Loader2 className="w-4 h-4 animate-spin text-dim" />
                       </div>
-                    );
-                  })}
+                    )}
+                    {!usageLoading && usageHasMore && (
+                      <div className="flex items-center justify-center py-3 border-t border-border">
+                        <span className="text-[11px] text-dim font-mono">Scroll down to load more</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="sm:hidden space-y-2">
-                  {usageLogs.map((log, i) => {
+                {/* Mobile cards — fixed 500px, scrollable */}
+                <div
+                  className="sm:hidden space-y-2 overflow-y-auto"
+                  style={{ maxHeight: 500 }}
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) {
+                      fetchUsagePage(usageCursor, false);
+                    }
+                  }}
+                >
+                  {usageLogs.map((log) => {
                     const LogIcon = iconMap[log.apiIcon];
                     const nameColor = apiNameColorMap[log.apiName] || "text-dim";
                     return (
-                      <div key={i} className="rounded-xl border border-border p-3.5">
+                      <div key={log.id} className="rounded-xl border border-border p-3.5">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <LogIcon className={`w-3.5 h-3.5 ${iconColorMap[log.apiIcon]}`} />
@@ -423,6 +486,11 @@ export default function Settings() {
                       </div>
                     );
                   })}
+                  {usageLoading && (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-4 h-4 animate-spin text-dim" />
+                    </div>
+                  )}
                 </div>
               </>
             )}

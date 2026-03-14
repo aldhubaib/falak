@@ -341,26 +341,35 @@ projects.delete('/:id', requireRole('owner'), async (req, res) => {
   }
 })
 
-// GET /api/projects/:id/usage — last 200 API usage records for the project
-// Returns rows shaped for the UsageDashboard table in SettingsPage.
+// GET /api/projects/:id/usage?limit=50&cursor=<lastId>
+// Returns paginated API usage records, newest first.
 projects.get('/:id/usage', requireRole('owner', 'admin'), async (req, res) => {
   try {
+    const limit  = Math.min(parseInt(req.query.limit || '50', 10), 100)
+    const cursor = req.query.cursor || null          // ID of the last item from previous page
+
     const rows = await db.apiUsage.findMany({
       where: { projectId: req.params.id },
       orderBy: { createdAt: 'desc' },
-      take: 200,
+      take: limit + 1,                               // fetch one extra to detect hasMore
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     })
-    // Shape for the frontend UsageDashboard (matches the row keys it already reads)
-    const shaped = rows.map(r => ({
-      id: r.id,
-      ts: new Date(r.createdAt).toISOString(),
-      api: r.service,          // 'anthropic' | 'youtube-data' | 'yttranscript' | 'perplexity'
+
+    const hasMore = rows.length > limit
+    const page    = hasMore ? rows.slice(0, limit) : rows
+    const nextCursor = hasMore ? page[page.length - 1].id : null
+
+    const shaped = page.map(r => ({
+      id:     r.id,
+      ts:     new Date(r.createdAt).toISOString(),
+      api:    r.service,
       action: r.action || '—',
       tokens: r.tokensUsed,
-      status: r.status,        // 'ok' | 'fail'
-      error: r.error,
+      status: r.status,
+      error:  r.error,
     }))
-    res.json(shaped)
+
+    res.json({ rows: shaped, nextCursor, hasMore })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
