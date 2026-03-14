@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
-// Static fallback thumbnails (used only if the API returns nothing)
+// Static fallback images — only used when the DB has no "ours" channel thumbnails
 import s1 from "@/assets/stories/s1.jpg";
 import s2 from "@/assets/stories/s2.jpg";
 import s3 from "@/assets/stories/s3.jpg";
@@ -37,12 +37,12 @@ function fill(arr: string[], n: number): string[] {
 }
 
 export default function Login() {
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [col1, setCol1]             = useState<string[]>([]);
-  const [col2, setCol2]             = useState<string[]>([]);
-  const navigate                    = useNavigate();
-  const [searchParams]              = useSearchParams();
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [col1, setCol1]         = useState<string[]>([]);
+  const [col2, setCol2]         = useState<string[]>([]);
+  const navigate                = useNavigate();
+  const [searchParams]          = useSearchParams();
 
   // ── Handle OAuth error params ───────────────────────────────────────────
   useEffect(() => {
@@ -58,23 +58,22 @@ export default function Login() {
       .catch(() => {});
   }, [navigate]);
 
-  // ── Fetch real thumbnails from "ours" channels ──────────────────────────
+  // ── Fetch real thumbnails from "ours" channels; fall back to static images ──
   useEffect(() => {
     fetch("/api/public/thumbnails")
       .then((r) => r.ok ? r.json() : { urls: [] })
       .then(({ urls }: { urls: string[] }) => {
-        // If backend has thumbnails, shuffle randomly — different every load
-        const pool = urls.length >= 6 ? shuffle(urls) : shuffle(FALLBACKS);
-        // Each column gets 8 tiles (enough for seamless scroll loop)
+        // Use real thumbnails if the DB has at least 6; otherwise use fallbacks
+        const pool = urls.length >= 6 ? shuffle(urls) : shuffle(FALLBACKS as unknown as string[]);
         setCol1(fill(pool, 8));
-        setCol2(fill(shuffle(pool), 8)); // shuffle again for variety in col2
+        setCol2(fill(shuffle(pool), 8)); // shuffle again for column variety
       })
       .catch(() => {
-        const pool = shuffle(FALLBACKS);
+        const pool = shuffle(FALLBACKS as unknown as string[]);
         setCol1(fill(pool, 8));
         setCol2(fill(shuffle(pool), 8));
       });
-  }, []); // run once per mount — new random order every page load
+  }, []); // runs once per page load — new random order every visit
 
   // ── Google sign-in ──────────────────────────────────────────────────────
   const handleLogin = () => {
