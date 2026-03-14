@@ -1,27 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
-import { Copy, Check, ExternalLink, Trophy, Eye, ThumbsUp, MessageSquare, Link2, XCircle, ArrowLeft, ArrowUpRight, ChevronDown, Sparkles, Pencil, RefreshCw } from "lucide-react";
+import {
+  Copy, Check, ExternalLink, Trophy, Eye, ThumbsUp, MessageSquare,
+  Link2, ArrowLeft, ArrowUpRight, ChevronDown, Sparkles, Pencil,
+  RefreshCw, Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
-import { storiesMock, Story } from "@/data/storiesMock";
-import { channels } from "@/data/mock";
+import type { ApiStory, Stage } from "./Stories";
 
-type Stage = "suggestion" | "liked" | "approved" | "filmed" | "publish" | "done";
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const stages: { key: Stage; label: string }[] = [
+interface ApiChannel {
+  id: string;
+  nameAr: string | null;
+  nameEn: string | null;
+  handle: string;
+  avatarUrl: string | null;
+  type: string;
+}
+
+interface StoryWithLog extends ApiStory {
+  log: {
+    id: string;
+    action: string;
+    note: string | null;
+    createdAt: string;
+    user: { name: string | null; avatarUrl: string | null } | null;
+  }[];
+}
+
+// Brief JSON shape stored in DB
+interface StoryBrief {
+  suggestedTitle?: string;
+  openingHook?: string;
+  hookStart?: string;
+  hookEnd?: string;
+  script?: string;
+  scriptFormat?: "short" | "long";
+  channelId?: string;
+  youtubeUrl?: string;
+  views?: number;
+  likes?: number;
+  comments?: number;
+  gapWin?: boolean;
+  producedFormats?: ("short" | "long")[];
+}
+
+const STAGES: { key: Stage; label: string }[] = [
   { key: "suggestion", label: "AI Suggestion" },
-  { key: "liked", label: "Liked" },
-  { key: "approved", label: "Approved" },
-  { key: "filmed", label: "Filmed" },
-  { key: "publish", label: "Publish" },
-  { key: "done", label: "Done" },
+  { key: "liked",      label: "Liked" },
+  { key: "approved",   label: "Approved" },
+  { key: "filmed",     label: "Filmed" },
+  { key: "publish",    label: "Publish" },
+  { key: "done",       label: "Done" },
 ];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); toast.success("Copied"); setTimeout(() => setCopied(false), 1500); }}
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        toast.success("Copied");
+        setTimeout(() => setCopied(false), 1500);
+      }}
       className="text-[11px] text-dim hover:text-sensor font-mono flex items-center gap-1 transition-colors shrink-0"
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
@@ -31,7 +77,8 @@ function CopyBtn({ text }: { text: string }) {
 }
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
-  const color = label === "Relevance" ? "bg-purple" : label === "Virality" ? "bg-blue" : "bg-success";
+  const color =
+    label === "Relevance" ? "bg-purple" : label === "Virality" ? "bg-blue" : "bg-success";
   return (
     <div className="flex-1 px-5 py-4 bg-background border-r border-background last:border-r-0">
       <div className="text-[10px] text-dim font-mono uppercase tracking-wider">{label}</div>
@@ -43,33 +90,144 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
+function chName(ch: ApiChannel) {
+  return ch.nameAr || ch.nameEn || ch.handle;
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function StoryDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id, projectId } = useParams<{ id: string; projectId: string }>();
   const navigate = useNavigate();
   const projectPath = useProjectPath();
-  const [stories, setStories] = useState<Story[]>(storiesMock);
+
+  // ── Server state ──────────────────────────────────────────────────────────
+  const [story, setStory] = useState<StoryWithLog | null>(null);
+  const [ourChannels, setOurChannels] = useState<ApiChannel[]>([]);
+  const [likedStories, setLikedStories] = useState<ApiStory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // ── UI state (synced with brief JSON) ────────────────────────────────────
+  const [brief, setBrief] = useState<StoryBrief>({});
   const [youtubeInput, setYoutubeInput] = useState("");
-  const [selectedChannel, setSelectedChannel] = useState<string>("");
   const [channelDropOpen, setChannelDropOpen] = useState(false);
-  const [scriptFormat, setScriptFormat] = useState<"short" | "long">("short");
   const [scriptOpen, setScriptOpen] = useState(true);
-  const [scriptSaved, setScriptSaved] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
-  const [titleInput, setTitleInput] = useState("");
-  const [hookInput, setHookInput] = useState("");
-  const [hookStartInput, setHookStartInput] = useState("");
-  const [hookEndInput, setHookEndInput] = useState("");
-  const [scriptInput, setScriptInput] = useState("");
   const [editingYoutubeUrl, setEditingYoutubeUrl] = useState(false);
 
-  const story = stories.find((s) => s.id === id);
-  const likedStories = stories.filter((s) => s.stage === "liked").sort((a, b) => b.totalScore - a.totalScore);
+  // ── Fetch story + channels + liked peers ─────────────────────────────────
+  const loadStory = useCallback(async () => {
+    if (!id || !projectId) return;
+    try {
+      const [storyRes, channelsRes, likedRes] = await Promise.all([
+        fetch(`/api/stories/${id}`, { credentials: "include" }),
+        fetch(`/api/channels?projectId=${projectId}&type=ours`, { credentials: "include" }),
+        fetch(`/api/stories?projectId=${projectId}&stage=liked`, { credentials: "include" }),
+      ]);
+
+      if (storyRes.ok) {
+        const s: StoryWithLog = await storyRes.json();
+        setStory(s);
+        // Hydrate brief from DB
+        const b: StoryBrief = (s.brief as StoryBrief) || {};
+        setBrief(b);
+        if (b.youtubeUrl) setYoutubeInput(b.youtubeUrl);
+      }
+      if (channelsRes.ok) {
+        const data = await channelsRes.json();
+        const list: ApiChannel[] = Array.isArray(data) ? data : (data.channels ?? []);
+        setOurChannels(list.filter((c: ApiChannel) => c.type === "ours"));
+      }
+      if (likedRes.ok) {
+        setLikedStories(await likedRes.json());
+      }
+    } catch {
+      toast.error("Failed to load story");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, projectId]);
+
+  useEffect(() => {
+    loadStory();
+  }, [loadStory]);
+
+  // ── Persist helpers ───────────────────────────────────────────────────────
+
+  /** PATCH story with arbitrary fields, returns updated story */
+  const patchStory = useCallback(
+    async (fields: Record<string, unknown>): Promise<StoryWithLog | null> => {
+      if (!id) return null;
+      setSaving(true);
+      try {
+        const r = await fetch(`/api/stories/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fields),
+        });
+        if (!r.ok) throw new Error(await r.text());
+        const updated: StoryWithLog = await r.json();
+        setStory(updated);
+        return updated;
+      } catch {
+        toast.error("Failed to save");
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [id]
+  );
+
+  /** Persist brief JSON to DB */
+  const saveBrief = useCallback(
+    async (newBrief: StoryBrief) => {
+      setBrief(newBrief);
+      await patchStory({ brief: newBrief });
+    },
+    [patchStory]
+  );
+
+  /** Move to a new stage — persists and updates local state */
+  const moveStage = useCallback(
+    async (to: Stage) => {
+      const updated = await patchStory({ stage: to });
+      if (updated) toast.success(`Moved to ${STAGES.find((s) => s.key === to)?.label}`);
+    },
+    [patchStory]
+  );
+
+  // ── Loading / not found ───────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+          <button
+            onClick={() => navigate(projectPath("/stories"))}
+            className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            AI Intelligence
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-5 h-5 animate-spin text-dim" />
+        </div>
+      </div>
+    );
+  }
 
   if (!story) {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
-          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors">
+          <button
+            onClick={() => navigate(projectPath("/stories"))}
+            className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             Back to Stories
           </button>
@@ -82,27 +240,80 @@ export default function StoryDetail() {
   }
 
   const activeStage = story.stage;
+  const isFirst = story.coverageStatus === "first";
+  const isLate = story.coverageStatus === "late";
+  const scriptFormat = brief.scriptFormat ?? "short";
+  const selectedChannel = brief.channelId ?? "";
+  const assignedChannel = ourChannels.find((c) => c.id === selectedChannel) ?? null;
+  const scriptSaved = !!(brief.script !== undefined && brief.script !== null);
 
-  const moveStory = (to: Stage) => {
-    setStories((prev) => prev.map((s) => (s.id === id ? { ...s, stage: to } : s)));
-    toast.success(`Moved to ${stages.find((s) => s.key === to)?.label}`);
-  };
+  // Sorted liked peers by composite score desc
+  const likedSorted = [...likedStories].sort(
+    (a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0)
+  );
+
+  const fmt = (n?: number) =>
+    !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
+
+  // ── Script fields ─────────────────────────────────────────────────────────
+
+  const SCRIPT_FIELDS: {
+    key: keyof StoryBrief;
+    label: string;
+    placeholder: string;
+    type: "input" | "textarea";
+  }[] = [
+    {
+      key: "suggestedTitle",
+      label: "Suggested Title",
+      placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...",
+      type: "input",
+    },
+    {
+      key: "openingHook",
+      label: "Opening Hook (first 10 sec)",
+      placeholder: "الجملة الأولى التي تجذب المشاهد...",
+      type: "input",
+    },
+    {
+      key: "hookStart",
+      label: "Branded Hook Start",
+      placeholder: "e.g. أهلاً وسهلاً بكم في قناة...",
+      type: "input",
+    },
+    {
+      key: "script",
+      label: "Script — with timestamps",
+      placeholder: scriptFormat === "short" ? "00:00 هوك\n00:15 المحتوى..." : "00:00 مقدمة\n01:30 القصة تبدأ...",
+      type: "textarea",
+    },
+    {
+      key: "hookEnd",
+      label: "Branded Hook End",
+      placeholder: "e.g. لا تنسوا الاشتراك وتفعيل الجرس...",
+      type: "input",
+    },
+  ];
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors">
+          <button
+            onClick={() => navigate(projectPath("/stories"))}
+            className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             AI Intelligence
           </button>
           <span className="text-[11px] text-dim font-mono">/</span>
-          <span className="text-[13px] font-medium truncate max-w-[400px]">{story.title}</span>
+          <span className="text-[13px] font-medium truncate max-w-[400px]">{story.headline}</span>
         </div>
         <div className="flex items-center gap-2">
+          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-dim" />}
           <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-primary/15 text-primary">
-            {stages.find((s) => s.key === activeStage)?.label}
+            {STAGES.find((s) => s.key === activeStage)?.label}
           </span>
         </div>
       </div>
@@ -111,62 +322,95 @@ export default function StoryDetail() {
         <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6 space-y-6">
           {/* Title */}
           <div>
-            <h1 className="text-xl font-bold text-right leading-relaxed">{story.title}</h1>
-            <div className="text-[11px] text-dim font-mono mt-2">{story.source} · {story.sourceDate}</div>
+            <h1 className="text-xl font-bold text-right leading-relaxed">{story.headline}</h1>
+            <div className="text-[11px] text-dim font-mono mt-2">
+              {[story.sourceName, story.sourceDate?.split("T")[0]].filter(Boolean).join(" · ")}
+            </div>
           </div>
 
           {/* Scores row */}
           <div className="flex rounded-xl overflow-hidden">
-            <ScoreBar label="Relevance" value={story.relevance} />
-            <ScoreBar label="Virality" value={story.virality} />
-            <ScoreBar label="First Mover" value={story.firstMover} />
+            <ScoreBar label="Relevance"   value={story.relevanceScore ?? 0} />
+            <ScoreBar label="Virality"    value={story.viralScore ?? 0} />
+            <ScoreBar label="First Mover" value={story.firstMoverScore ?? 0} />
             <div className="px-5 py-4 bg-background min-w-[120px]">
               <div className="text-[10px] text-dim font-mono uppercase tracking-wider">Total</div>
-              <div className="text-2xl font-semibold font-mono tracking-tight mt-1">{story.totalScore}</div>
+              <div className="text-2xl font-semibold font-mono tracking-tight mt-1">
+                {story.compositeScore ?? 0}
+              </div>
             </div>
           </div>
 
-          {/* AI Analysis */}
-          {story.aiAnalysis && (
+          {/* AI Analysis (from brief) */}
+          {brief.suggestedTitle && (
             <div className="rounded-xl bg-background p-5">
               <div className="flex items-center gap-2 mb-3">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest">AI Analysis</div>
-                {story.isFirstMover ? (
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success">1st</span>
-                ) : story.isLate ? (
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange">Late</span>
-                ) : null}
+                <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                  AI Analysis
+                </div>
+                {isFirst && (
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success">
+                    1st
+                  </span>
+                )}
+                {isLate && (
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange">
+                    Late
+                  </span>
+                )}
               </div>
-              <p className="text-[13px] text-sensor leading-relaxed text-right">{story.aiAnalysis}</p>
+              <p className="text-[13px] text-sensor leading-relaxed text-right">
+                {brief.suggestedTitle}
+              </p>
             </div>
           )}
 
           {/* Stage-specific content */}
           <div className="space-y-5">
-            {/* SUGGESTION */}
+
+            {/* ── SUGGESTION ────────────────────────────────────────────── */}
             {activeStage === "suggestion" && (
-              <>
-                <div className="flex gap-2">
-                  <button onClick={() => moveStory("liked")} className="flex-1 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity">
-                    Save to Liked
-                  </button>
-                  <button onClick={() => { setStories((p) => p.filter((s) => s.id !== id)); navigate(projectPath("/stories")); toast("Passed"); }} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">
-                    Pass
-                  </button>
-                </div>
-              </>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => moveStage("liked")}
+                  className="flex-1 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
+                >
+                  Save to Liked
+                </button>
+                <button
+                  onClick={async () => {
+                    const r = await fetch(`/api/stories/${id}`, {
+                      method: "DELETE",
+                      credentials: "include",
+                    });
+                    if (r.ok) {
+                      toast("Passed");
+                      navigate(projectPath("/stories"));
+                    } else {
+                      toast.error("Failed to pass story");
+                    }
+                  }}
+                  className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors"
+                >
+                  Pass
+                </button>
+              </div>
             )}
 
-            {/* LIKED */}
+            {/* ── LIKED ─────────────────────────────────────────────────── */}
             {activeStage === "liked" && (
               <>
+                {/* Ranking among liked peers */}
                 <div className="rounded-xl bg-background p-5">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">Ranking</div>
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
+                    Ranking
+                  </div>
                   <div className="text-[13px] font-semibold mb-3">
-                    Ranked #{likedStories.findIndex((s) => s.id === id) + 1} of {likedStories.length} liked — Score {story.totalScore}
+                    Ranked #{likedSorted.findIndex((s) => s.id === id) + 1} of{" "}
+                    {likedSorted.length} liked — Score {story.compositeScore ?? 0}
                   </div>
                   <div className="space-y-1">
-                    {likedStories.map((s, i) => {
+                    {likedSorted.map((s, i) => {
                       const isCurrent = s.id === id;
                       return (
                         <button
@@ -182,13 +426,20 @@ export default function StoryDetail() {
                           }`}
                         >
                           <span className="font-mono w-5">#{i + 1}</span>
-                          {s.isFirstMover ? (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success shrink-0">1st</span>
-                          ) : s.isLate ? (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange shrink-0">Late</span>
-                          ) : null}
-                          <span className="flex-1 truncate text-right transition-colors group-hover:text-foreground">{s.title}</span>
-                          <span className="font-mono font-medium">{s.totalScore}</span>
+                          {s.coverageStatus === "first" && (
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success shrink-0">
+                              1st
+                            </span>
+                          )}
+                          {s.coverageStatus === "late" && (
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange shrink-0">
+                              Late
+                            </span>
+                          )}
+                          <span className="flex-1 truncate text-right transition-colors group-hover:text-foreground">
+                            {s.headline}
+                          </span>
+                          <span className="font-mono font-medium">{s.compositeScore ?? 0}</span>
                           {!isCurrent && (
                             <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                           )}
@@ -197,156 +448,119 @@ export default function StoryDetail() {
                     })}
                   </div>
                 </div>
+
                 {/* Channel selector */}
                 <div className="rounded-xl bg-background p-5">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">Assign to Channel</div>
-                  {(() => {
-                    const ourChannels = channels.filter((c) => c.type === "ours").filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
-                    const selected = ourChannels.find((c) => c.id === selectedChannel);
-                    const [dropOpen, setDropOpen] = [channelDropOpen, setChannelDropOpen];
-                    return (
-                      <div className="relative">
-                        <button
-                          onClick={() => setDropOpen(!dropOpen)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 bg-surface border border-border rounded-full text-[13px] font-medium focus:outline-none focus:border-primary/40"
-                        >
-                          {selected ? (
-                            <>
-                              <img src={selected.avatarImg} alt={selected.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                              <span className="flex-1 text-right">{selected.name}</span>
-                            </>
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
+                    Assign to Channel
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => setChannelDropOpen(!channelDropOpen)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 bg-surface border border-border rounded-full text-[13px] font-medium focus:outline-none focus:border-primary/40"
+                    >
+                      {assignedChannel ? (
+                        <>
+                          {assignedChannel.avatarUrl ? (
+                            <img
+                              src={assignedChannel.avatarUrl}
+                              alt={chName(assignedChannel)}
+                              className="w-6 h-6 rounded-full object-cover shrink-0"
+                            />
                           ) : (
-                            <span className="flex-1 text-right text-dim">Select one of your channels…</span>
-                          )}
-                          <ChevronDown className={`w-4 h-4 text-dim shrink-0 transition-transform ${dropOpen ? "rotate-180" : ""}`} />
-                        </button>
-                        {dropOpen && (
-                          <div className="absolute z-10 mt-1.5 w-full rounded-xl bg-elevated border border-border overflow-hidden shadow-lg">
-                            {ourChannels.map((c) => (
-                              <button
-                                key={c.id}
-                                onClick={() => { setSelectedChannel(c.id); setDropOpen(false); }}
-                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-surface ${selectedChannel === c.id ? "bg-blue/10" : ""}`}
-                              >
-                                <img src={c.avatarImg} alt={c.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                                <span className="flex-1 text-right font-medium">{c.name}</span>
-                                {selectedChannel === c.id && <Check className="w-3.5 h-3.5 text-blue shrink-0" />}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Script Box — single box with format toggle */}
-                <div className="rounded-xl bg-background overflow-hidden">
-                  <button
-                    onClick={() => setScriptOpen(!scriptOpen)}
-                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-elevated/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
-                      {scriptSaved && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-success/15 text-success">Saved</span>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toast("AI script generation coming soon…"); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Generate with AI
-                      </button>
-                      <ChevronDown className={`w-4 h-4 text-dim transition-transform ${scriptOpen ? "rotate-180" : ""}`} />
-                    </div>
-                  </button>
-                  {scriptOpen && (
-                    <div className="px-5 pb-5 space-y-4">
-                      {/* Format toggle */}
-                      <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
-                        <button
-                          onClick={() => { if (!scriptSaved) { setScriptFormat("short"); } }}
-                          className={`px-4 py-1.5 text-[11px] font-semibold rounded-full transition-colors ${scriptFormat === "short" ? "bg-foreground/10 text-foreground" : "text-dim hover:text-sensor"}`}
-                        >
-                          Short (1–2 min)
-                        </button>
-                        <button
-                          onClick={() => { if (!scriptSaved) { setScriptFormat("long"); } }}
-                          className={`px-4 py-1.5 text-[11px] font-semibold rounded-full transition-colors ${scriptFormat === "long" ? "bg-foreground/10 text-foreground" : "text-dim hover:text-sensor"}`}
-                        >
-                          Video (20–40 min)
-                        </button>
-                      </div>
-
-                      {([
-                        { key: "title", label: "Suggested Title", value: titleInput, setter: setTitleInput, placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...", type: "input" as const },
-                        { key: "hook", label: "Opening Hook (first 10 sec)", value: hookInput, setter: setHookInput, placeholder: "الجملة الأولى التي تجذب المشاهد...", type: "input" as const },
-                        { key: "hookStart", label: "Branded Hook Start", value: hookStartInput, setter: setHookStartInput, placeholder: "e.g. أهلاً وسهلاً بكم في قناة...", type: "input" as const },
-                        { key: "script", label: "Script — with timestamps", value: scriptInput, setter: setScriptInput, placeholder: scriptFormat === "short" ? "00:00 هوك\n00:15 المحتوى..." : "00:00 مقدمة\n01:30 القصة تبدأ...", type: "textarea" as const },
-                        { key: "hookEnd", label: "Branded Hook End", value: hookEndInput, setter: setHookEndInput, placeholder: "e.g. لا تنسوا الاشتراك وتفعيل الجرس...", type: "input" as const },
-                      ]).map((field) => {
-                        const isEditing = !scriptSaved || editingField === field.key;
-                        return (
-                          <div key={field.key}>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <label className="text-[10px] text-dim font-mono uppercase tracking-wider">{field.label}</label>
-                              {scriptSaved && editingField !== field.key && field.value && (
-                                <button onClick={() => setEditingField(field.key)} className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors">
-                                  <Pencil className="w-3 h-3" /> Edit
-                                </button>
-                              )}
-                              {scriptSaved && editingField === field.key && (
-                                <button onClick={() => { setEditingField(null); toast.success("Field updated"); }} className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors">Done</button>
-                              )}
+                            <div className="w-6 h-6 rounded-full bg-elevated shrink-0 flex items-center justify-center text-[9px] font-mono text-dim uppercase">
+                              {chName(assignedChannel).slice(0, 2)}
                             </div>
-                            {isEditing ? (
-                              field.type === "textarea" ? (
-                                <textarea value={field.value} onChange={(e) => field.setter(e.target.value)} placeholder={field.placeholder} rows={scriptFormat === "short" ? 3 : 5} className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y" />
-                              ) : (
-                                <input type="text" value={field.value} onChange={(e) => field.setter(e.target.value)} placeholder={field.placeholder} className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 text-right" />
-                              )
+                          )}
+                          <span className="flex-1 text-right">{chName(assignedChannel)}</span>
+                        </>
+                      ) : (
+                        <span className="flex-1 text-right text-dim">
+                          Select one of your channels…
+                        </span>
+                      )}
+                      <ChevronDown
+                        className={`w-4 h-4 text-dim shrink-0 transition-transform ${channelDropOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {channelDropOpen && (
+                      <div className="absolute z-10 mt-1.5 w-full rounded-xl bg-elevated border border-border overflow-hidden shadow-lg">
+                        {ourChannels.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => {
+                              saveBrief({ ...brief, channelId: c.id });
+                              setChannelDropOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-surface ${
+                              selectedChannel === c.id ? "bg-blue/10" : ""
+                            }`}
+                          >
+                            {c.avatarUrl ? (
+                              <img
+                                src={c.avatarUrl}
+                                alt={chName(c)}
+                                className="w-6 h-6 rounded-full object-cover shrink-0"
+                              />
                             ) : (
-                              <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] text-right min-h-[38px]">
-                                {field.type === "textarea" ? <pre className="whitespace-pre-wrap font-mono text-[13px]">{field.value || <span className="text-dim">—</span>}</pre> : (field.value || <span className="text-dim">—</span>)}
+                              <div className="w-6 h-6 rounded-full bg-elevated shrink-0 flex items-center justify-center text-[9px] font-mono text-dim uppercase">
+                                {chName(c).slice(0, 2)}
                               </div>
                             )}
-                          </div>
-                        );
-                      })}
-                      {!scriptSaved && (
-                        <button onClick={() => { setScriptSaved(true); setEditingField(null); toast.success("Script saved"); }} className="w-full py-2.5 text-[13px] font-semibold rounded-full bg-blue text-blue-foreground hover:opacity-90 transition-opacity">Save</button>
-                      )}
-                    </div>
-                  )}
+                            <span className="flex-1 text-right font-medium">{chName(c)}</span>
+                            {selectedChannel === c.id && (
+                              <Check className="w-3.5 h-3.5 text-blue shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
+                {/* Script box */}
+                <ScriptBox
+                  brief={brief}
+                  scriptSaved={scriptSaved}
+                  scriptOpen={scriptOpen}
+                  setScriptOpen={setScriptOpen}
+                  editingField={editingField}
+                  setEditingField={setEditingField}
+                  onSave={async (newBrief) => {
+                    await saveBrief({ ...newBrief, script: newBrief.script ?? "" });
+                    toast.success("Script saved");
+                  }}
+                  onFieldDone={(key) => { setEditingField(null); saveBrief({ ...brief }); }}
+                  onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
+                  scriptFields={SCRIPT_FIELDS}
+                />
+
+                {/* Approve / Pass */}
                 {(() => {
-                  const hasContent = titleInput.trim() || hookInput.trim() || hookStartInput.trim() || scriptInput.trim() || hookEndInput.trim();
-                  const canApprove = !!selectedChannel && !!hasContent;
+                  const hasContent = !!(
+                    brief.script?.trim() || brief.suggestedTitle?.trim() || brief.openingHook?.trim()
+                  );
+                  const canApprove = !!selectedChannel && hasContent;
                   return (
                     <div className="flex gap-2">
                       <button
                         disabled={!canApprove}
-                        onClick={() => {
-                          const parseScript = (raw: string) => raw.trim() ? raw.trim().split("\n").map((line) => {
-                            const match = line.match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)/);
-                            return match ? { time: match[1], text: match[2] } : { time: "", text: line };
-                          }) : undefined;
-                          const parsed = parseScript(scriptInput);
-                          setStories((prev) => prev.map((s) => s.id === id ? {
-                            ...s,
-                            channelId: selectedChannel,
-                            stage: "approved" as Stage,
-                            ...(scriptFormat === "long" ? { script: parsed || s.script } : { shortScript: parsed }),
-                          } : s));
-                          toast.success(`Moved to ${stages.find((s) => s.key === "approved")?.label}`);
+                        onClick={async () => {
+                          await patchStory({ stage: "approved", brief });
+                          toast.success("Moved to Approved");
                         }}
-                        className={`flex-1 px-4 py-2.5 text-[13px] font-semibold rounded-full transition-opacity ${canApprove ? "bg-blue text-blue-foreground hover:opacity-90" : "bg-blue/30 text-blue-foreground/40 cursor-not-allowed"}`}
+                        className={`flex-1 px-4 py-2.5 text-[13px] font-semibold rounded-full transition-opacity ${
+                          canApprove
+                            ? "bg-blue text-blue-foreground hover:opacity-90"
+                            : "bg-blue/30 text-blue-foreground/40 cursor-not-allowed"
+                        }`}
                       >
                         Approve
                       </button>
-                      <button onClick={() => moveStory("suggestion")} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">
+                      <button
+                        onClick={() => moveStage("suggestion")}
+                        className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors"
+                      >
                         Pass
                       </button>
                     </div>
@@ -355,88 +569,58 @@ export default function StoryDetail() {
               </>
             )}
 
-            {/* APPROVED / FILMED / PUBLISH — same layout as liked, fields already filled */}
+            {/* ── APPROVED / FILMED / PUBLISH ───────────────────────────── */}
             {(activeStage === "approved" || activeStage === "filmed" || activeStage === "publish") && (
               <>
-                {story.channelId && (() => {
-                  const ch = channels.find((c) => c.id === story.channelId);
-                  return ch ? (
-                    <div className="rounded-xl bg-background p-5 flex items-center gap-3">
-                      <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Channel</div>
-                      <button
-                        onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
-                        className="group relative flex items-center gap-2"
-                      >
-                        <img src={ch.avatarImg} alt={ch.name} className="w-8 h-8 rounded-full object-cover" />
-                        <span className="absolute left-10 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-elevated text-[12px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                          {ch.name}
-                        </span>
-                      </button>
+                {/* Assigned channel */}
+                {assignedChannel && (
+                  <div className="rounded-xl bg-background p-5 flex items-center gap-3">
+                    <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                      Channel
                     </div>
-                  ) : null;
-                })()}
-
-                {/* Same script box — saved state */}
-                <div className="rounded-xl bg-background overflow-hidden">
-                  <button
-                    onClick={() => setScriptOpen(!scriptOpen)}
-                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-elevated/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue/15 text-blue">
-                        {scriptFormat === "short" ? "Short" : "Video"}
+                    <button
+                      onClick={() => navigate(projectPath(`/channel/${assignedChannel.id}`))}
+                      className="group relative flex items-center gap-2"
+                    >
+                      {assignedChannel.avatarUrl ? (
+                        <img
+                          src={assignedChannel.avatarUrl}
+                          alt={chName(assignedChannel)}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-elevated flex items-center justify-center text-[10px] font-mono text-dim uppercase">
+                          {chName(assignedChannel).slice(0, 2)}
+                        </div>
+                      )}
+                      <span className="absolute left-10 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-elevated text-[12px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        {chName(assignedChannel)}
                       </span>
-                      {scriptSaved && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-success/15 text-success">Saved</span>}
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-dim transition-transform ${scriptOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {scriptOpen && (
-                    <div className="px-5 pb-5 space-y-4">
-                      {([
-                        { key: "title", label: "Suggested Title", value: titleInput, setter: setTitleInput, type: "input" as const },
-                        { key: "hook", label: "Opening Hook (first 10 sec)", value: hookInput, setter: setHookInput, type: "input" as const },
-                        { key: "hookStart", label: "Branded Hook Start", value: hookStartInput, setter: setHookStartInput, type: "input" as const },
-                        { key: "script", label: "Script — with timestamps", value: scriptInput, setter: setScriptInput, type: "textarea" as const },
-                        { key: "hookEnd", label: "Branded Hook End", value: hookEndInput, setter: setHookEndInput, type: "input" as const },
-                      ]).map((field) => {
-                        const isEditing = editingField === field.key;
-                        return (
-                          <div key={field.key}>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <label className="text-[10px] text-dim font-mono uppercase tracking-wider">{field.label}</label>
-                              <div className="flex items-center gap-2">
-                                {field.value && !isEditing && <CopyBtn text={field.value} />}
-                                {!isEditing && field.value && (
-                                  <button onClick={() => setEditingField(field.key)} className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors">
-                                    <Pencil className="w-3 h-3" /> Edit
-                                  </button>
-                                )}
-                                {isEditing && (
-                                  <button onClick={() => { setEditingField(null); toast.success("Field updated"); }} className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors">Done</button>
-                                )}
-                              </div>
-                            </div>
-                            {isEditing ? (
-                              field.type === "textarea" ? (
-                                <textarea value={field.value} onChange={(e) => field.setter(e.target.value)} rows={scriptFormat === "short" ? 3 : 5} className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y" />
-                              ) : (
-                                <input type="text" value={field.value} onChange={(e) => field.setter(e.target.value)} className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 text-right" />
-                              )
-                            ) : (
-                              <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] text-right min-h-[38px]">
-                                {field.type === "textarea" ? <pre className="whitespace-pre-wrap font-mono text-[13px]">{field.value || <span className="text-dim">—</span>}</pre> : (field.value || <span className="text-dim">—</span>)}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                    </button>
+                  </div>
+                )}
+
+                {/* Script box — saved state */}
+                <ScriptBoxSaved
+                  brief={brief}
+                  scriptOpen={scriptOpen}
+                  setScriptOpen={setScriptOpen}
+                  editingField={editingField}
+                  setEditingField={setEditingField}
+                  onFieldDone={(key) => {
+                    setEditingField(null);
+                    saveBrief({ ...brief });
+                    toast.success("Field updated");
+                  }}
+                  onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
+                  scriptFields={SCRIPT_FIELDS}
+                />
 
                 {activeStage === "approved" && (
-                  <button onClick={() => moveStory("filmed")} className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity">
+                  <button
+                    onClick={() => moveStage("filmed")}
+                    className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
+                  >
                     + Mark as Filmed
                   </button>
                 )}
@@ -447,7 +631,9 @@ export default function StoryDetail() {
                       {scriptFormat === "short" ? "Add YouTube Short URL" : "Add YouTube Video URL"}
                     </div>
                     <p className="text-[12px] text-dim leading-relaxed mb-4">
-                      Paste the published {scriptFormat === "short" ? "short" : "video"} URL to record performance and check Brain coverage.
+                      Paste the published{" "}
+                      {scriptFormat === "short" ? "short" : "video"} URL to record performance and
+                      check Brain coverage.
                     </p>
                     <div className="flex items-center gap-2.5">
                       <div className="relative flex-1">
@@ -456,17 +642,33 @@ export default function StoryDetail() {
                           type="url"
                           value={youtubeInput}
                           onChange={(e) => setYoutubeInput(e.target.value)}
-                          placeholder={scriptFormat === "short" ? "https://youtube.com/shorts/..." : "https://youtube.com/watch?v=..."}
+                          placeholder={
+                            scriptFormat === "short"
+                              ? "https://youtube.com/shorts/..."
+                              : "https://youtube.com/watch?v=..."
+                          }
                           className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-surface border border-border rounded-full text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
                         />
                       </div>
                       <button
-                        onClick={() => {
-                          if (!youtubeInput.trim()) { toast.error("Please paste a YouTube URL"); return; }
-                          const currentFormats = stories.find((st) => st.id === id)?.producedFormats || [];
-                          const newFormat: "short" | "long" = scriptFormat;
-                          const updatedFormats = currentFormats.includes(newFormat) ? currentFormats : [...currentFormats, newFormat];
-                          setStories((prev) => prev.map((s) => s.id === id ? { ...s, youtubeUrl: youtubeInput.trim(), stage: "done" as Stage, views: 0, likes: 0, comments: 0, gapWin: false, producedFormats: updatedFormats } : s));
+                        onClick={async () => {
+                          if (!youtubeInput.trim()) {
+                            toast.error("Please paste a YouTube URL");
+                            return;
+                          }
+                          const produced = brief.producedFormats ?? [];
+                          const newFmt: "short" | "long" = scriptFormat === "short" ? "short" : "long";
+                          const newProduced = produced.includes(newFmt)
+                            ? produced
+                            : [...produced, newFmt];
+                          await patchStory({
+                            stage: "done",
+                            brief: {
+                              ...brief,
+                              youtubeUrl: youtubeInput.trim(),
+                              producedFormats: newProduced,
+                            },
+                          });
                           setYoutubeInput("");
                           toast.success("Moved to Done");
                         }}
@@ -480,8 +682,13 @@ export default function StoryDetail() {
 
                 {activeStage === "publish" && (
                   <div className="rounded-xl bg-background p-5">
-                    <p className="text-[12px] text-dim font-mono mb-4">Final details to confirm before marking done.</p>
-                    <button onClick={() => moveStory("done")} className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity">
+                    <p className="text-[12px] text-dim font-mono mb-4">
+                      Final details to confirm before marking done.
+                    </p>
+                    <button
+                      onClick={() => moveStage("done")}
+                      className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
+                    >
                       Mark as Done
                     </button>
                   </div>
@@ -489,61 +696,79 @@ export default function StoryDetail() {
               </>
             )}
 
-            {/* DONE */}
+            {/* ── DONE ──────────────────────────────────────────────────── */}
             {activeStage === "done" && (
               <>
-                {story.gapWin && (
+                {brief.gapWin && (
                   <div className="rounded-xl bg-success/10 border border-success/20 px-5 py-4 flex items-center gap-3">
                     <Trophy className="w-5 h-5 text-success shrink-0" />
                     <div>
                       <div className="text-[14px] font-semibold text-success">Gap Win</div>
-                      <div className="text-[12px] text-success/80">You were first and the audience responded!</div>
+                      <div className="text-[12px] text-success/80">
+                        You were first and the audience responded!
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Produced Formats badges */}
-                {story.producedFormats && story.producedFormats.length > 0 && (
+                {/* Produced formats */}
+                {brief.producedFormats && brief.producedFormats.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Produced</span>
-                    {story.producedFormats.map((f) => (
-                      <span key={f} className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue">
+                    <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                      Produced
+                    </span>
+                    {brief.producedFormats.map((f) => (
+                      <span
+                        key={f}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue"
+                      >
                         {f === "short" ? "Short" : "Long Video"}
                       </span>
                     ))}
                   </div>
                 )}
 
+                {/* Video performance */}
                 <div>
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">Video Performance</div>
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
+                    Video Performance
+                  </div>
                   <div className="flex rounded-xl overflow-hidden">
                     {[
-                      { icon: Eye, val: story.views, label: "Views" },
-                      { icon: ThumbsUp, val: story.likes, label: "Likes" },
-                      { icon: MessageSquare, val: story.comments, label: "Comments" },
-                    ].map((m) => {
-                      const fmt = (n?: number) => !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
-                      return (
-                        <div key={m.label} className="flex-1 px-4 py-3 bg-background border-r border-background last:border-r-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <m.icon className="w-3.5 h-3.5 text-dim" />
-                            <span className="text-[10px] text-dim font-mono uppercase">{m.label}</span>
-                          </div>
-                          <div className="text-xl font-semibold font-mono tracking-tight">{fmt(m.val)}</div>
+                      { icon: Eye,            val: brief.views,    label: "Views" },
+                      { icon: ThumbsUp,       val: brief.likes,    label: "Likes" },
+                      { icon: MessageSquare,  val: brief.comments, label: "Comments" },
+                    ].map((m) => (
+                      <div
+                        key={m.label}
+                        className="flex-1 px-4 py-3 bg-background border-r border-background last:border-r-0"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <m.icon className="w-3.5 h-3.5 text-dim" />
+                          <span className="text-[10px] text-dim font-mono uppercase">
+                            {m.label}
+                          </span>
                         </div>
-                      );
-                    })}
+                        <div className="text-xl font-semibold font-mono tracking-tight">
+                          {fmt(m.val)}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Original Scores</div>
+                {/* Original scores */}
+                <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                  Original Scores
+                </div>
                 <div className="flex rounded-xl overflow-hidden">
-                  <ScoreBar label="Relevance" value={story.relevance} />
-                  <ScoreBar label="Virality" value={story.virality} />
-                  <ScoreBar label="First Mover" value={story.firstMover} />
+                  <ScoreBar label="Relevance"   value={story.relevanceScore ?? 0} />
+                  <ScoreBar label="Virality"    value={story.viralScore ?? 0} />
+                  <ScoreBar label="First Mover" value={story.firstMoverScore ?? 0} />
                 </div>
 
-                {story.youtubeUrl && (
+                {/* YouTube URL */}
+                {brief.youtubeUrl && (
                   <div className="rounded-xl bg-background p-5">
                     <div className="flex items-center justify-between mb-3">
                       <label className="text-[10px] text-dim font-mono uppercase tracking-widest">
@@ -552,11 +777,19 @@ export default function StoryDetail() {
                       <div className="flex items-center gap-2">
                         {!editingYoutubeUrl && (
                           <>
-                            <a href={story.youtubeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-blue hover:opacity-80 transition-opacity">
+                            <a
+                              href={brief.youtubeUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[10px] text-blue hover:opacity-80 transition-opacity"
+                            >
                               <ExternalLink className="w-3 h-3" /> Open
                             </a>
                             <button
-                              onClick={() => { setYoutubeInput(story.youtubeUrl || ""); setEditingYoutubeUrl(true); }}
+                              onClick={() => {
+                                setYoutubeInput(brief.youtubeUrl ?? "");
+                                setEditingYoutubeUrl(true);
+                              }}
                               className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
                             >
                               <Pencil className="w-3 h-3" /> Edit
@@ -564,12 +797,20 @@ export default function StoryDetail() {
                           </>
                         )}
                         {editingYoutubeUrl && (
-                          <button onClick={() => {
-                            if (!youtubeInput.trim()) { toast.error("URL cannot be empty"); return; }
-                            setStories((prev) => prev.map((s) => s.id === id ? { ...s, youtubeUrl: youtubeInput.trim() } : s));
-                            setEditingYoutubeUrl(false);
-                            toast.success("URL updated");
-                          }} className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors">Done</button>
+                          <button
+                            onClick={async () => {
+                              if (!youtubeInput.trim()) {
+                                toast.error("URL cannot be empty");
+                                return;
+                              }
+                              await saveBrief({ ...brief, youtubeUrl: youtubeInput.trim() });
+                              setEditingYoutubeUrl(false);
+                              toast.success("URL updated");
+                            }}
+                            className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
+                          >
+                            Done
+                          </button>
                         )}
                       </div>
                     </div>
@@ -582,40 +823,34 @@ export default function StoryDetail() {
                       />
                     ) : (
                       <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] font-mono text-sensor truncate">
-                        {story.youtubeUrl}
+                        {brief.youtubeUrl}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Produce Again CTA */}
+                {/* Produce Another Format */}
                 {(() => {
-                  const produced = story.producedFormats || [];
-                  const canProduceShort = !produced.includes("short");
-                  const canProduceLong = !produced.includes("long");
-                  if (!canProduceShort && !canProduceLong) return null;
+                  const produced = brief.producedFormats ?? [];
+                  const canShort = !produced.includes("short");
+                  const canLong = !produced.includes("long");
+                  if (!canShort && !canLong) return null;
                   return (
                     <div className="rounded-xl bg-background p-5 space-y-3">
-                      <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Produce Another Format</div>
-                      <p className="text-[12px] text-dim leading-relaxed">This story performed well. Produce it in another format to maximize reach.</p>
+                      <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                        Produce Another Format
+                      </div>
+                      <p className="text-[12px] text-dim leading-relaxed">
+                        This story performed well. Produce it in another format to maximize reach.
+                      </p>
                       <div className="flex gap-2">
-                        {canProduceShort && (
+                        {canShort && (
                           <button
-                            onClick={() => {
-                              setStories((prev) => prev.map((s) => s.id === id ? {
-                                ...s,
-                                stage: "approved" as Stage,
-                                producedFormats: [...(s.producedFormats || [])],
-                              } : s));
-                              setScriptFormat("short");
-                              setScriptOpen(true);
-                              setScriptSaved(false);
-                              setEditingField(null);
-                              setTitleInput("");
-                              setHookInput("");
-                              setHookStartInput("");
-                              setHookEndInput("");
-                              setScriptInput("");
+                            onClick={async () => {
+                              await patchStory({
+                                stage: "approved",
+                                brief: { ...brief, scriptFormat: "short" },
+                              });
                               toast.success("Restarted pipeline for Short format");
                             }}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
@@ -624,23 +859,13 @@ export default function StoryDetail() {
                             Produce as Short
                           </button>
                         )}
-                        {canProduceLong && (
+                        {canLong && (
                           <button
-                            onClick={() => {
-                              setStories((prev) => prev.map((s) => s.id === id ? {
-                                ...s,
-                                stage: "approved" as Stage,
-                                producedFormats: [...(s.producedFormats || [])],
-                              } : s));
-                              setScriptFormat("long");
-                              setScriptOpen(true);
-                              setScriptSaved(false);
-                              setEditingField(null);
-                              setTitleInput("");
-                              setHookInput("");
-                              setHookStartInput("");
-                              setHookEndInput("");
-                              setScriptInput("");
+                            onClick={async () => {
+                              await patchStory({
+                                stage: "approved",
+                                brief: { ...brief, scriptFormat: "long" },
+                              });
                               toast.success("Restarted pipeline for Long Video format");
                             }}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
@@ -658,6 +883,261 @@ export default function StoryDetail() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Script box (editable — unsaved) ─────────────────────────────────────────
+
+function ScriptBox({
+  brief,
+  scriptSaved,
+  scriptOpen,
+  setScriptOpen,
+  editingField,
+  setEditingField,
+  onSave,
+  onFieldDone,
+  onBriefChange,
+  scriptFields,
+}: {
+  brief: StoryBrief;
+  scriptSaved: boolean;
+  scriptOpen: boolean;
+  setScriptOpen: (v: boolean) => void;
+  editingField: string | null;
+  setEditingField: (v: string | null) => void;
+  onSave: (b: StoryBrief) => Promise<void>;
+  onFieldDone: (key: string) => void;
+  onBriefChange: (key: keyof StoryBrief, val: string) => void;
+  scriptFields: { key: keyof StoryBrief; label: string; placeholder: string; type: "input" | "textarea" }[];
+}) {
+  return (
+    <div className="rounded-xl bg-background overflow-hidden">
+      <button
+        onClick={() => setScriptOpen(!scriptOpen)}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-elevated/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
+          {scriptSaved && (
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-success/15 text-success">
+              Saved
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toast("AI script generation coming soon…");
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Generate with AI
+          </button>
+          <ChevronDown
+            className={`w-4 h-4 text-dim transition-transform ${scriptOpen ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+      {scriptOpen && (
+        <div className="px-5 pb-5 space-y-4">
+          {/* Format toggle */}
+          <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
+            {(["short", "long"] as const).map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => onBriefChange("scriptFormat", fmt)}
+                className={`px-4 py-1.5 text-[11px] font-semibold rounded-full transition-colors ${
+                  (brief.scriptFormat ?? "short") === fmt
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-dim hover:text-sensor"
+                }`}
+              >
+                {fmt === "short" ? "Short (1–2 min)" : "Video (20–40 min)"}
+              </button>
+            ))}
+          </div>
+
+          {scriptFields.map((field) => {
+            const val = (brief[field.key] as string) ?? "";
+            const isEditing = !scriptSaved || editingField === field.key;
+            return (
+              <div key={String(field.key)}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
+                    {field.label}
+                  </label>
+                  {scriptSaved && editingField !== field.key && val && (
+                    <button
+                      onClick={() => setEditingField(String(field.key))}
+                      className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" /> Edit
+                    </button>
+                  )}
+                  {scriptSaved && editingField === field.key && (
+                    <button
+                      onClick={() => onFieldDone(String(field.key))}
+                      className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
+                    >
+                      Done
+                    </button>
+                  )}
+                </div>
+                {isEditing ? (
+                  field.type === "textarea" ? (
+                    <textarea
+                      value={val}
+                      onChange={(e) => onBriefChange(field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                      rows={(brief.scriptFormat ?? "short") === "short" ? 3 : 5}
+                      className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={val}
+                      onChange={(e) => onBriefChange(field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                      className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 text-right"
+                    />
+                  )
+                ) : (
+                  <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] text-right min-h-[38px]">
+                    {field.type === "textarea" ? (
+                      <pre className="whitespace-pre-wrap font-mono text-[13px]">
+                        {val || <span className="text-dim">—</span>}
+                      </pre>
+                    ) : (
+                      val || <span className="text-dim">—</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {!scriptSaved && (
+            <button
+              onClick={() => onSave(brief)}
+              className="w-full py-2.5 text-[13px] font-semibold rounded-full bg-blue text-blue-foreground hover:opacity-90 transition-opacity"
+            >
+              Save
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Script box (read-only with edit per field) ───────────────────────────────
+
+function ScriptBoxSaved({
+  brief,
+  scriptOpen,
+  setScriptOpen,
+  editingField,
+  setEditingField,
+  onFieldDone,
+  onBriefChange,
+  scriptFields,
+}: {
+  brief: StoryBrief;
+  scriptOpen: boolean;
+  setScriptOpen: (v: boolean) => void;
+  editingField: string | null;
+  setEditingField: (v: string | null) => void;
+  onFieldDone: (key: string) => void;
+  onBriefChange: (key: keyof StoryBrief, val: string) => void;
+  scriptFields: { key: keyof StoryBrief; label: string; placeholder: string; type: "input" | "textarea" }[];
+}) {
+  const scriptFormat = brief.scriptFormat ?? "short";
+  return (
+    <div className="rounded-xl bg-background overflow-hidden">
+      <button
+        onClick={() => setScriptOpen(!scriptOpen)}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-elevated/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue/15 text-blue">
+            {scriptFormat === "short" ? "Short" : "Video"}
+          </span>
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-success/15 text-success">
+            Saved
+          </span>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-dim transition-transform ${scriptOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+      {scriptOpen && (
+        <div className="px-5 pb-5 space-y-4">
+          {scriptFields.map((field) => {
+            const val = (brief[field.key] as string) ?? "";
+            const isEditing = editingField === field.key;
+            return (
+              <div key={String(field.key)}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
+                    {field.label}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {val && !isEditing && <CopyBtn text={val} />}
+                    {!isEditing && val && (
+                      <button
+                        onClick={() => setEditingField(String(field.key))}
+                        className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
+                      >
+                        <Pencil className="w-3 h-3" /> Edit
+                      </button>
+                    )}
+                    {isEditing && (
+                      <button
+                        onClick={() => onFieldDone(String(field.key))}
+                        className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
+                      >
+                        Done
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {isEditing ? (
+                  field.type === "textarea" ? (
+                    <textarea
+                      value={val}
+                      onChange={(e) => onBriefChange(field.key, e.target.value)}
+                      rows={scriptFormat === "short" ? 3 : 5}
+                      className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={val}
+                      onChange={(e) => onBriefChange(field.key, e.target.value)}
+                      className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 text-right"
+                    />
+                  )
+                ) : (
+                  <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] text-right min-h-[38px]">
+                    {field.type === "textarea" ? (
+                      <pre className="whitespace-pre-wrap font-mono text-[13px]">
+                        {val || <span className="text-dim">—</span>}
+                      </pre>
+                    ) : (
+                      val || <span className="text-dim">—</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
