@@ -34,8 +34,15 @@ app.use(helmet({ contentSecurityPolicy: false })) // CSP off — single HTML app
 app.use(compression())
 app.use(cookieParser())
 app.use(express.json())
+// CORS: allow exact APP_URL; also allow request origin if same host (e.g. Railway URL with/without www)
 app.use(cors({
-  origin: config.APP_URL,
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true) // same-origin or non-browser
+    const appHost = new URL(config.APP_URL).host
+    const originHost = (() => { try { return new URL(origin).host } catch { return '' } })()
+    if (origin === config.APP_URL || originHost === appHost) return cb(null, true)
+    return cb(null, config.APP_URL)
+  },
   credentials: true,
 }))
 
@@ -120,11 +127,13 @@ const useViteBuild = require('fs').existsSync(frontendDist)
 const staticDir = useViteBuild ? frontendDist : path.join(__dirname, '../public')
 const fallbackIndex = useViteBuild ? path.join(frontendDist, 'index.html') : path.join(__dirname, '../public/index.html')
 app.use(express.static(staticDir))
-// SPA catch-all — must be last; serve index.html for all non-API routes
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(fallbackIndex)
-  }
+// SPA catch-all — serve index.html for non-API, non-asset GETs so /p/:id/stories etc. load
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path === '/health') return next()
+  // Don't override static files (e.g. /assets/xxx from Vite build)
+  if (req.path.startsWith('/assets/') || req.path.startsWith('/favicon') || /\.(js|css|ico|png|svg|woff2?)$/i.test(req.path)) return next()
+  res.set('Cache-Control', 'no-store')
+  res.sendFile(fallbackIndex, (err) => { if (err) next(err) })
 })
 
 // ── Seed API keys from env (e.g. ANTHROPIC_API_KEY on Railway) ──
