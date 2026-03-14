@@ -3,8 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Copy, Check, RefreshCw, Eye, ThumbsUp, MessageSquare, Trophy, ChevronDown, ArrowUpRight, Zap, Loader2 } from "lucide-react";
+import { nowGMT3 } from "@/lib/utils";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
-import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ function CopyBtn({ text }: { text: string }) {
 }
 
 function daysOpen(dateStr: string): number {
-  const now = new Date();
+  const now = nowGMT3();
   const d = new Date(dateStr);
   return Math.max(0, Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)));
 }

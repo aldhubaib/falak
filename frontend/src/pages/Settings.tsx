@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { fmtDateTime } from "@/lib/utils";
 import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -125,7 +125,7 @@ export default function Settings() {
         setUsageLogs(rows.map((r) => {
           const { name, icon } = mapService(r.api || "");
           return {
-            time: r.ts ? new Date(r.ts).toLocaleString() : "—",
+            time: r.ts ? fmtDateTime(r.ts) : "—",
             apiName: name, apiIcon: icon,
             action: r.action || "—",
             tokens: r.tokens ?? null,

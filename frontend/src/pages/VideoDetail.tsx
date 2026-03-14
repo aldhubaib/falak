@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
-import { parseDuration } from "@/lib/utils";
+import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import type { Video } from "@/data/mock";
 import { VideoRightPanel } from "@/components/VideoRightPanel";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
@@ -35,7 +35,7 @@ function buildPipeline(pi: { stage: string; status: string; error?: string | nul
     const isCurrent = pi.stage === stageKey;
     const status = isCurrent ? statusMap(pi.status) : i < currentIdx ? "done" : "waiting";
     const time = isCurrent && (pi.finishedAt || pi.startedAt)
-      ? new Date((pi.finishedAt || pi.startedAt)!).toLocaleString()
+      ? fmtDateTime(pi.finishedAt || pi.startedAt)
       : undefined;
     return { name, status, time: time || undefined, retries: isCurrent ? pi.retries : undefined, error: isCurrent ? (pi.error || undefined) : undefined };
   });
@@ -109,7 +109,7 @@ export default function VideoDetail() {
           views: formatCount(viewsRaw),
           likes: formatCount(likesRaw),
           comments: formatCount(commentsRaw),
-          date: data.publishedAt ? new Date(data.publishedAt as string).toLocaleDateString() : "",
+          date: data.publishedAt ? fmtDate(data.publishedAt as string) : "",
           duration: parseDuration((data.duration as string) || ""),
           status,
           viewsRaw,
@@ -149,7 +149,7 @@ export default function VideoDetail() {
         const commentRows: CommentRow[] = rawComments.map((c) => ({
           author: String(c.authorName || ""),
           text: String(c.text || ""),
-          date: c.publishedAt ? new Date(c.publishedAt as string).toLocaleDateString() : "",
+          date: c.publishedAt ? fmtDate(c.publishedAt as string) : "",
           likes: Number(c.likeCount) || 0,
           sentiment: String(c.sentiment || "neutral"),
         }));

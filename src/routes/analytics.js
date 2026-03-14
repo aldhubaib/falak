@@ -155,15 +155,21 @@ function fmtViews(n) {
  * data[i] = number of videos published in month i
  */
 function buildMonthlyTrend(stats) {
+  const TZ = 'Asia/Riyadh'
   const now = new Date()
-  // Build 12 month labels (oldest → newest)
+  // Build 12 month labels (oldest → newest) in GMT+3
   const buckets = []
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    // Use GMT+3 for label so it matches the frontend bucket comparison
+    const label = d.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: TZ })
+    // year/month for bucketing — use the GMT+3 date
+    const localStr = d.toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: TZ })
+    const localDate = new Date(localStr)
     buckets.push({
-      year: d.getFullYear(),
-      month: d.getMonth(), // 0-indexed
-      label: d.toLocaleString('en-US', { month: 'short', year: '2-digit' }),
+      year:  localDate.getFullYear(),
+      month: localDate.getMonth(),
+      label,
     })
   }
 
@@ -171,8 +177,11 @@ function buildMonthlyTrend(stats) {
     const counts = buckets.map(b => {
       return (ch.videos || []).filter(v => {
         if (!v.publishedAt) return false
+        // Convert publishedAt to GMT+3 for bucket comparison
         const pd = new Date(v.publishedAt)
-        return pd.getFullYear() === b.year && pd.getMonth() === b.month
+        const localStr = pd.toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: TZ })
+        const localDate = new Date(localStr)
+        return localDate.getFullYear() === b.year && localDate.getMonth() === b.month
       }).length
     })
     return {

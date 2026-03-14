@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
-import { parseDuration } from "@/lib/utils";
+import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { ArrowLeft, Info } from "lucide-react";
@@ -76,7 +76,7 @@ function mapVideo(v: ApiVideo): Video {
     views: formatCount(views),
     likes: formatCount(likes),
     comments: "",
-    date: v.publishedAt ? new Date(v.publishedAt).toLocaleDateString() : "",
+    date: v.publishedAt ? fmtDate(v.publishedAt) : "",
     duration: parseDuration(v.duration),
     status: status === "running" ? "analyzing" : status,
     viewsRaw: views,
@@ -188,7 +188,7 @@ export default function ChannelDetail() {
   const deltaViews = channel?.deltas?.totalViews;
   const growthSubs = deltaSubs != null ? (deltaSubs >= 0 ? `+${deltaSubs}` : String(deltaSubs)) : "—";
   const growthViews = deltaViews != null ? (deltaViews >= 0 ? `+${deltaViews}` : String(deltaViews)) : "—";
-  const joinedDate = channel?.createdAt ? new Date(channel.createdAt).toLocaleDateString() : "—";
+  const joinedDate = channel?.createdAt ? fmtDate(channel.createdAt) : "—";
 
   const stats = [
     { val: subs, label: "Subscribers", change: growthSubs, up: true },
@@ -198,7 +198,7 @@ export default function ChannelDetail() {
     { val: engRate, label: "Eng. Rate", change: "—", up: true },
   ];
 
-  const lastSynced = channel?.lastFetchedAt ? new Date(channel.lastFetchedAt).toLocaleString() : "—";
+  const lastSynced = channel?.lastFetchedAt ? fmtDateTime(channel.lastFetchedAt) : "—";
   const channelForPanel = channel
     ? {
         id: channel.id,

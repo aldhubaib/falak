@@ -483,7 +483,7 @@ function TrendChart({
         .filter((v) => {
           if (!v.publishedAt) return false;
           const pd = new Date(v.publishedAt);
-          const bucket = pd.toLocaleString("en-US", { month: "short", year: "2-digit" });
+          const bucket = pd.toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "Asia/Riyadh" });
           return bucket === label;
         })
         .reduce((sum, v) => {
