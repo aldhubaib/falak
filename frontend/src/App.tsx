@@ -1,3 +1,4 @@
+import { Component, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
@@ -21,12 +22,32 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+class AppErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError = () => ({ hasError: true });
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "system-ui", background: "#0d0d0d", color: "#a0a0a0", textAlign: "center" }}>
+          <div>
+            <h1 style={{ fontSize: 18, marginBottom: 8 }}>Something went wrong</h1>
+            <p style={{ fontSize: 13, marginBottom: 16 }}>Try refreshing the page. If it keeps happening, check the browser console and your deployment (e.g. Railway build logs).</p>
+            <a href="/" style={{ color: "#7c9eff", fontSize: 13 }}>Go to home</a>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <BrowserRouter>
-        <Toaster position="top-center" richColors closeButton />
-        <Routes>
+  <AppErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <Toaster position="top-center" richColors closeButton />
+          <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProjectRootRedirect />} />
           <Route path="/p/:projectId" element={<ProjectLayout />}>
@@ -46,10 +67,11 @@ const App = () => (
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </AppErrorBoundary>
 );
 
 export default App;

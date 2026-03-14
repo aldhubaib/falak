@@ -126,15 +126,22 @@ const frontendDist = path.join(__dirname, '../frontend/dist')
 const useViteBuild = require('fs').existsSync(frontendDist)
 const staticDir = useViteBuild ? frontendDist : path.join(__dirname, '../public')
 const fallbackIndex = useViteBuild ? path.join(frontendDist, 'index.html') : path.join(__dirname, '../public/index.html')
-app.use(express.static(staticDir))
+logger.info({ useViteBuild, staticDir: staticDir.replace(process.cwd(), '.') }, 'Serving frontend from')
+app.use(express.static(staticDir, { index: false }))
 // SPA catch-all — serve index.html for non-API, non-asset GETs so /p/:id/stories etc. load
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path === '/health') return next()
-  // Don't override static files (e.g. /assets/xxx from Vite build)
   if (req.path.startsWith('/assets/') || req.path.startsWith('/favicon') || /\.(js|css|ico|png|svg|woff2?)$/i.test(req.path)) return next()
   res.set('Cache-Control', 'no-store')
-  res.sendFile(fallbackIndex, (err) => { if (err) next(err) })
+  res.sendFile(fallbackIndex, (err) => {
+    if (err) {
+      logger.warn({ err: err.message, path: req.path }, 'SPA fallback sendFile failed')
+      next(err)
+    }
+  })
 })
+// Explicit 404 for any request that didn't get a response (e.g. missing asset)
+app.use((req, res) => { res.status(404).json({ error: 'Not found' }) })
 
 // ── Seed API keys from env (e.g. ANTHROPIC_API_KEY on Railway) ──
 async function seedApiKeys() {
