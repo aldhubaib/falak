@@ -105,6 +105,11 @@ export default function Stories() {
     loadStories();
   }, [loadStories]);
 
+  // Reset display limit when changing stage (must be before any conditional return to satisfy rules of hooks)
+  useEffect(() => {
+    setStoriesDisplayLimit(STORIES_PAGE_SIZE);
+  }, [activeStage]);
+
   const handleFetch = async () => {
     if (!projectId) {
       toast.error("Project not found. Open a project from the sidebar first.");
@@ -174,11 +179,6 @@ export default function Stories() {
   });
   const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
   const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
-
-  // Reset display limit when changing stage
-  useEffect(() => {
-    setStoriesDisplayLimit(STORIES_PAGE_SIZE);
-  }, [activeStage]);
 
   const firstMoverPct = summary?.firstMoverPct ?? 0;
   const firstMoverCount = summary?.firstMovers ?? 0;

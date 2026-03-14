@@ -1,4 +1,6 @@
-import { AlertCircle, Home, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, Copy, Home, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 interface PageErrorProps {
   title?: string;
@@ -11,8 +13,16 @@ interface PageErrorProps {
   homeHref?: string;
 }
 
+/** Full error text for copying (title + message + detail) */
+function getCopyText(title: string, message: string, detail?: string): string {
+  const parts = [title, message];
+  if (detail?.trim()) parts.push(detail.trim());
+  return parts.join("\n\n");
+}
+
 /**
- * Full-page error state: show message on screen with optional retry and go-home.
+ * Full-page error state: show message on screen with optional retry, copy, and go-home.
+ * Used globally (App error boundary) and on individual pages (Stories, ProjectLayout).
  */
 export function PageError({
   title = "Something went wrong",
@@ -23,6 +33,20 @@ export function PageError({
   homeLabel = "Go to home",
   homeHref = "/",
 }: PageErrorProps) {
+  const [copied, setCopied] = useState(false);
+  const copyText = getCopyText(title, message, detail);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopied(true);
+      toast.success("Error text copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">
       <div className="max-w-md w-full rounded-xl border border-border bg-background p-6 text-center">
@@ -32,13 +56,21 @@ export function PageError({
           </div>
         </div>
         <h2 className="text-lg font-semibold text-foreground mb-2">{title}</h2>
-        <p className="text-sm text-dim mb-4">{message}</p>
+        <p className="text-sm text-dim mb-4 text-left select-text">{message}</p>
         {detail && (
-          <pre className="text-left text-[11px] font-mono text-dim bg-surface rounded-lg p-3 mb-4 overflow-auto max-h-32">
+          <pre className="text-left text-[11px] font-mono text-dim bg-surface rounded-lg p-3 mb-4 overflow-auto max-h-32 select-text">
             {detail}
           </pre>
         )}
         <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-dim text-sm font-medium hover:text-foreground hover:border-foreground/20 transition-colors"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            {copied ? "Copied" : "Copy error"}
+          </button>
           {onRetry && (
             <button
               type="button"
