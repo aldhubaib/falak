@@ -1,12 +1,19 @@
-import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { Menu } from "lucide-react";
 
 export function AppLayout() {
+  const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => { if (r.status === 401) navigate("/login", { replace: true }); })
+      .catch(() => navigate("/login", { replace: true }));
+  }, [navigate]);
 
   const expanded = pinned || hovered;
 

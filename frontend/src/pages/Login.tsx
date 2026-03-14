@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import s1 from "@/assets/stories/s1.jpg";
@@ -9,13 +9,44 @@ import s4 from "@/assets/stories/s4.jpg";
 import s5 from "@/assets/stories/s5.jpg";
 import s6 from "@/assets/stories/s6.jpg";
 
+const errorMessages: Record<string, string> = {
+  no_code: "Login was cancelled or no code received.",
+  oauth_failed: "Google sign-in failed. Please try again.",
+  access_denied: "Your account is not allowed. Contact the project owner.",
+  disabled: "Your account has been disabled.",
+};
+
 export default function Login() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const err = searchParams.get("error");
+    const hint = searchParams.get("hint");
+    if (err) setError(hint ? decodeURIComponent(hint) : errorMessages[err] || "Something went wrong.");
+  }, [searchParams]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => { if (r.ok) navigate("/", { replace: true }); })
+      .catch(() => {});
+  }, [navigate]);
 
   const handleLogin = () => {
     setLoading(true);
-    setTimeout(() => navigate("/"), 1200);
+    setError(null);
+    fetch("/api/auth/google/url", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.url) window.location.href = data.url;
+        else throw new Error("No login URL");
+      })
+      .catch(() => {
+        setLoading(false);
+        setError("Could not start sign-in. Check your connection.");
+      });
   };
 
   const col1 = [s5, s1, s4, s2, s5, s1, s4, s2];
@@ -68,6 +99,11 @@ export default function Login() {
           </div>
 
           <div className="bg-surface border border-border rounded-2xl p-6">
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-[12px]">
+                {error}
+              </div>
+            )}
             <button
               onClick={handleLogin}
               disabled={loading}
