@@ -17,10 +17,19 @@ function getAppBaseUrl() {
   return config.APP_URL
 }
 
+// Sanitize returnTo: must be a path (starts with /, no protocol or //)
+function sanitizeReturnTo(returnTo) {
+  if (!returnTo || typeof returnTo !== 'string') return ''
+  const s = returnTo.trim().replace(/^\/+/, '/')
+  if (!s.startsWith('/') || s.includes('//') || s.includes(':')) return ''
+  return s
+}
+
 // ── GET /api/auth/google/url
-// Returns the Google OAuth URL — frontend redirects user here
+// Returns the Google OAuth URL. Query: returnTo (path to redirect after login).
 router.get('/google/url', (req, res) => {
   const baseUrl = getAppBaseUrl()
+  const returnTo = sanitizeReturnTo(req.query.returnTo)
   const params = new URLSearchParams({
     client_id:     config.GOOGLE_CLIENT_ID,
     redirect_uri:  `${baseUrl}/api/auth/google/callback`,
@@ -28,6 +37,7 @@ router.get('/google/url', (req, res) => {
     scope:         'openid email profile',
     access_type:   'offline',
     prompt:        'select_account',
+    ...(returnTo && { state: returnTo }),
   })
   res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` })
 })
@@ -43,8 +53,9 @@ router.get('/google/callback', async (req, res) => {
   res.set('Pragma', 'no-cache')
 
   try {
-    const { code } = req.query
+    const { code, state } = req.query
     if (!code) return res.redirect(`${baseUrl}/?error=no_code`)
+    const returnTo = sanitizeReturnTo(state)
 
     // Exchange code for tokens
     const tokenRes = await fetchFn('https://oauth2.googleapis.com/token', {
@@ -119,7 +130,7 @@ router.get('/google/callback', async (req, res) => {
       expires: expiresAt,
     }
     res.cookie('token', token, cookieOpts)
-    res.redirect(baseUrl + '/')
+    res.redirect(returnTo ? baseUrl + returnTo : baseUrl + '/')
   } catch (e) {
     console.error('OAuth error:', e.message, e.stack)
     res.redirect(`${baseUrl}/?error=oauth_failed`)

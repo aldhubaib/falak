@@ -57,9 +57,14 @@ export default function Login() {
   // ── Redirect if already logged in ──────────────────────────────────────
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
-      .then((r) => { if (r.ok) navigate("/", { replace: true }); })
+      .then((r) => {
+        if (r.ok) {
+          const returnTo = searchParams.get("returnTo");
+          navigate(returnTo && returnTo.startsWith("/") ? returnTo : "/", { replace: true });
+        }
+      })
       .catch(() => {});
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   // ── Fetch real thumbnails from "ours" channels; fall back to static images ──
   useEffect(() => {
@@ -83,7 +88,9 @@ export default function Login() {
   const handleLogin = () => {
     setLoading(true);
     setError(null);
-    fetch("/api/auth/google/url", { credentials: "include" })
+    const returnTo = searchParams.get("returnTo") ?? "";
+    const url = returnTo ? `/api/auth/google/url?returnTo=${encodeURIComponent(returnTo)}` : "/api/auth/google/url";
+    fetch(url, { credentials: "include" })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
