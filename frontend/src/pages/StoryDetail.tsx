@@ -33,7 +33,8 @@ interface StoryWithLog extends ApiStory {
 // Brief JSON shape stored in DB
 interface StoryBrief {
   suggestedTitle?: string;
-  summary?: string; // 1–2 sentence context (e.g. from Perplexity) or user-added
+  summary?: string;
+  articleContent?: string; // full article text fetched from sourceUrl
   openingHook?: string;
   hookStart?: string;
   hookEnd?: string;
@@ -55,6 +56,7 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "filmed",     label: "Filmed" },
   { key: "publish",    label: "Publish" },
   { key: "done",       label: "Done" },
+  { key: "passed",     label: "Passed" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -116,6 +118,8 @@ export default function StoryDetail() {
   const [scriptOpen, setScriptOpen] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingYoutubeUrl, setEditingYoutubeUrl] = useState(false);
+  const [articleLoading, setArticleLoading] = useState(false);
+  const [articleError, setArticleError] = useState<string | null>(null);
 
   // ── Fetch story + channels + liked peers ─────────────────────────────────
   const loadStory = useCallback(async () => {
@@ -130,9 +134,10 @@ export default function StoryDetail() {
       if (storyRes.ok) {
         const s: StoryWithLog = await storyRes.json();
         setStory(s);
-        // Hydrate brief from DB
         const b: StoryBrief = (s.brief as StoryBrief) || {};
         setBrief(b);
+        setArticleError(null);
+        setArticleLoading(false);
         if (b.youtubeUrl) setYoutubeInput(b.youtubeUrl);
       }
       if (channelsRes.ok) {
@@ -153,6 +158,24 @@ export default function StoryDetail() {
   useEffect(() => {
     loadStory();
   }, [loadStory]);
+
+  // ── Fetch full article from sourceUrl when we have URL but no articleContent ─
+  useEffect(() => {
+    if (!id || !story?.sourceUrl || brief.articleContent?.trim() || articleLoading) return;
+    setArticleError(null);
+    setArticleLoading(true);
+    fetch(`/api/stories/${id}/fetch-article`, { method: "POST", credentials: "include" })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.articleContent) {
+          setBrief((b) => ({ ...b, articleContent: data.articleContent }));
+        } else {
+          setArticleError(data.error || "Could not load article");
+        }
+      })
+      .catch(() => setArticleError("Could not load article"))
+      .finally(() => setArticleLoading(false));
+  }, [id, story?.sourceUrl, brief.articleContent, articleLoading]);
 
   // ── Persist helpers ───────────────────────────────────────────────────────
 
@@ -208,7 +231,7 @@ export default function StoryDetail() {
         <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
           <button
             onClick={() => navigate(projectPath("/stories"))}
-            className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors"
+            className="link flex items-center gap-2 text-[13px]"
           >
             <ArrowLeft className="w-4 h-4" />
             AI Intelligence
@@ -227,7 +250,7 @@ export default function StoryDetail() {
         <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
           <button
             onClick={() => navigate(projectPath("/stories"))}
-            className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors"
+            className="link flex items-center gap-2 text-[13px]"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Stories
@@ -303,7 +326,7 @@ export default function StoryDetail() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(projectPath("/stories"))}
-            className="flex items-center gap-2 text-[13px] text-dim hover:text-foreground transition-colors"
+            className="link flex items-center gap-2 text-[13px]"
           >
             <ArrowLeft className="w-4 h-4" />
             AI Intelligence
@@ -331,7 +354,7 @@ export default function StoryDetail() {
                   href={story.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sensor hover:underline"
+                  className="link-external inline-flex items-center gap-1"
                 >
                   <ExternalLink className="w-3 h-3" />
                   Read source
@@ -340,29 +363,27 @@ export default function StoryDetail() {
             </div>
           </div>
 
-          {/* Story context / summary — so you can understand the story */}
+          {/* Full article from source (read-only) — fetched from sourceUrl when available */}
           <div className="rounded-xl bg-background p-5">
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
-              Story context
+              Full article
             </div>
-            {brief.summary?.trim() ? (
-              <p className="text-[13px] text-foreground leading-relaxed text-right whitespace-pre-wrap">
-                {brief.summary}
+            {brief.articleContent?.trim() ? (
+              <div className="text-[13px] text-foreground leading-relaxed text-right whitespace-pre-wrap select-text max-h-[60vh] overflow-y-auto">
+                {brief.articleContent}
+              </div>
+            ) : articleLoading ? (
+              <p className="text-[12px] text-dim text-right">Loading article…</p>
+            ) : articleError ? (
+              <p className="text-[12px] text-dim text-right">
+                {articleError}. Use “Read source” below to open the original article.
+              </p>
+            ) : !story?.sourceUrl ? (
+              <p className="text-[12px] text-dim text-right">
+                No source URL for this story. The full article can be shown when a source link is available.
               </p>
             ) : (
-              <div>
-                <p className="text-[12px] text-dim mb-2">
-                  No summary yet. Add a short context so you remember what this story is about (or paste from a source).
-                </p>
-                <textarea
-                  placeholder="e.g. قضية كذا… التطورات الأخيرة…"
-                  value={brief.summary ?? ""}
-                  onChange={(e) => setBrief((b) => ({ ...b, summary: e.target.value }))}
-                  onBlur={() => patchStory({ brief: { ...brief, summary: brief.summary ?? "" } })}
-                  className="w-full min-h-[80px] px-4 py-3 rounded-lg bg-surface border border-border text-[13px] text-right placeholder:text-dim focus:outline-none focus:ring-2 focus:ring-sensor/30 resize-y"
-                  rows={3}
-                />
-              </div>
+              <p className="text-[12px] text-dim text-right">Loading article…</p>
             )}
           </div>
 
@@ -417,20 +438,30 @@ export default function StoryDetail() {
                 </button>
                 <button
                   onClick={async () => {
-                    const r = await fetch(`/api/stories/${id}`, {
-                      method: "DELETE",
-                      credentials: "include",
-                    });
-                    if (r.ok) {
-                      toast("Passed");
+                    const updated = await patchStory({ stage: "passed" });
+                    if (updated) {
+                      toast.success("Passed");
                       navigate(projectPath("/stories"));
                     } else {
                       toast.error("Failed to pass story");
                     }
                   }}
-                  className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors"
+                  className="link flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
                 >
                   Pass
+                </button>
+              </div>
+            )}
+
+            {/* ── PASSED ──────────────────────────────────────────────────── */}
+            {activeStage === "passed" && (
+              <div className="rounded-xl bg-background p-5">
+                <p className="text-[13px] text-dim mb-4">You passed on this story. It won’t appear in your active pipeline.</p>
+                <button
+                  onClick={() => moveStage("suggestion")}
+                  className="link px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
+                >
+                  Move back to AI Suggestion
                 </button>
               </div>
             )}

@@ -296,7 +296,7 @@ export default function BrainV2() {
                           <button
                             onClick={() => handleOpenStory(story.title)}
                             disabled={isCreating}
-                            className="flex-1 flex items-center justify-end gap-1.5 text-[13px] font-medium text-right truncate hover:text-sensor transition-colors disabled:opacity-50 min-w-0"
+                            className="link flex-1 flex items-center justify-end gap-1.5 text-[13px] font-medium text-right truncate disabled:opacity-50 min-w-0"
                           >
                             <span className="truncate">{story.title}</span>
                             {isCreating ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />}
@@ -332,7 +332,7 @@ export default function BrainV2() {
                             <button
                               onClick={() => handleOpenStory(story.title)}
                               disabled={isCreating}
-                              className="flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate hover:text-sensor transition-colors disabled:opacity-50 min-w-0"
+                              className="link flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate disabled:opacity-50 min-w-0"
                             >
                               <span className="truncate">{story.title}</span>
                               {isCreating ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />}
@@ -375,7 +375,7 @@ export default function BrainV2() {
                       </div>
                       <button
                         onClick={() => navigate(projectPath(`/video/${video.id}`))}
-                        className="flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate hover:text-sensor transition-colors min-w-0"
+                        className="link flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate min-w-0"
                       >
                         <span className="truncate">{video.title}</span>
                         <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />

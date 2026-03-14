@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth')
 const { decrypt } = require('../services/crypto')
 const { fetchStorySuggestions } = require('../services/perplexity')
 const { trackUsage } = require('../services/usageTracker')
+const { fetchArticleText } = require('../services/articleFetcher')
 const brainV2 = require('./brainV2')
 
 const router = express.Router()
@@ -74,7 +75,10 @@ router.get('/', async (req, res) => {
     const stories = await db.story.findMany({
       where,
       include: { log: { orderBy: { createdAt: 'desc' }, take: 20 } },
-      orderBy: { createdAt: 'desc' }
+      orderBy: [
+        { compositeScore: 'desc' },
+        { createdAt: 'desc' }
+      ]
     })
     res.json(stories)
   } catch (e) {
@@ -89,7 +93,7 @@ router.get('/summary', async (req, res) => {
     const where = projectId ? { projectId } : {}
 
     const all = await db.story.findMany({ where, select: { stage: true, coverageStatus: true } })
-    const stages = ['suggestion', 'liked', 'approved', 'produced', 'publish', 'done']
+    const stages = ['suggestion', 'liked', 'approved', 'produced', 'publish', 'done', 'passed']
     const counts = {}
     for (const s of stages) counts[s] = all.filter(x => x.stage === s).length
 
@@ -98,6 +102,32 @@ router.get('/summary', async (req, res) => {
 
     res.json({ total: all.length, ...counts, firstMovers, firstMoverPct })
   } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/stories/:id/fetch-article — fetch sourceUrl and store full article text in brief.articleContent
+router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    if (brief.articleContent) {
+      return res.json({ articleContent: brief.articleContent })
+    }
+    const url = story.sourceUrl || brief.sourceUrl
+    if (!url) return res.status(400).json({ error: 'No source URL for this story' })
+    const result = await fetchArticleText(url)
+    if (result.error) {
+      return res.status(422).json({ error: result.error })
+    }
+    brief.articleContent = result.text
+    await db.story.update({
+      where: { id: story.id },
+      data: { brief }
+    })
+    res.json({ articleContent: result.text })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     res.status(500).json({ error: e.message })
   }
 })

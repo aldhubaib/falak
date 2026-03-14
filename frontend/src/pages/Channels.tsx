@@ -239,15 +239,17 @@ export default function Channels() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span
-                        className="text-[13px] font-medium text-foreground truncate cursor-pointer hover:opacity-80 transition-opacity"
-                        dir="rtl"
-                        onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
-                      >
+                    <div
+                      className="flex items-center gap-1.5 mb-0.5 link group"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
+                      onKeyDown={(e) => e.key === "Enter" && navigate(projectPath(`/channel/${ch.id}`))}
+                    >
+                      <span className="text-[13px] font-medium truncate" dir="rtl">
                         {ch.name}
                       </span>
-                      <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-dim font-mono">{ch.handle}</span>

@@ -98,6 +98,16 @@
   }
 }
 
+/* Global link tokens: same hover behavior for all in-app and external links */
+@layer components {
+  .link {
+    @apply text-dim hover:text-sensor transition-colors cursor-pointer;
+  }
+  .link-external {
+    @apply text-sensor hover:underline transition-colors cursor-pointer;
+  }
+}
+
 /* Login stories scroll animations */
 @keyframes scroll-up {
   0% { transform: translateY(0); }

@@ -410,6 +410,12 @@ export default function Settings() {
                     ref={usageScrollRef}
                     className="overflow-y-auto"
                     style={{ maxHeight: 500 }}
+                    onScroll={() => {
+                      const el = usageScrollRef.current;
+                      if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) {
+                        fetchUsagePage(usageCursor, false);
+                      }
+                    }}
                   >
                     {usageLogs.map((log, i) => {
                       const LogIcon = iconMap[log.apiIcon];

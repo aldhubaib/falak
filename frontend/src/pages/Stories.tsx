@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { ArrowDown, ArrowUpRight, Loader2 } from "lucide-react";
+
+const STORIES_PAGE_SIZE = 50;
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Stage = "suggestion" | "liked" | "approved" | "filmed" | "publish" | "done";
+export type Stage = "suggestion" | "liked" | "approved" | "filmed" | "publish" | "done" | "passed";
 
 export interface ApiStory {
   id: string;
@@ -34,6 +36,7 @@ const STAGES: { key: Stage; label: string; color: string; sub: string }[] = [
   { key: "filmed",     label: "Filmed",          color: "text-success",    sub: "waiting for URL" },
   { key: "publish",    label: "Publish",         color: "text-primary",    sub: "final details needed" },
   { key: "done",       label: "Done",            color: "text-foreground", sub: "published all time" },
+  { key: "passed",     label: "Passed",         color: "text-dim",       sub: "passed on" },
 ];
 
 function MiniScores({ story }: { story: ApiStory }) {
@@ -75,6 +78,8 @@ export default function Stories() {
     firstMovers: number;
     firstMoverPct: number;
   } | null>(null);
+  const [storiesDisplayLimit, setStoriesDisplayLimit] = useState(STORIES_PAGE_SIZE);
+  const storyListScrollRef = useRef<HTMLDivElement>(null);
 
   const loadStories = useCallback(async () => {
     if (!projectId) return;
@@ -138,6 +143,21 @@ export default function Stories() {
   }
 
   const stageStories = stories.filter((s) => s.stage === activeStage);
+  // Sort by high score first (compositeScore desc, then createdAt desc)
+  const stageStoriesSorted = [...stageStories].sort((a, b) => {
+    const scoreA = a.compositeScore ?? 0;
+    const scoreB = b.compositeScore ?? 0;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
+  const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
+
+  // Reset display limit when changing stage
+  useEffect(() => {
+    setStoriesDisplayLimit(STORIES_PAGE_SIZE);
+  }, [activeStage]);
+
   const firstMoverPct = summary?.firstMoverPct ?? 0;
   const firstMoverCount = summary?.firstMovers ?? 0;
   const totalStories = summary?.total ?? stories.length;
@@ -248,13 +268,22 @@ export default function Stories() {
             </div>
 
             {/* Items */}
-            <div className="flex-1 overflow-auto bg-background">
+            <div
+              ref={storyListScrollRef}
+              className="flex-1 overflow-auto bg-background"
+              onScroll={() => {
+                const el = storyListScrollRef.current;
+                if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80 && hasMoreStories) {
+                  setStoriesDisplayLimit((prev) => prev + STORIES_PAGE_SIZE);
+                }
+              }}
+            >
               {stageStories.length === 0 ? (
                 <div className="flex items-center justify-center h-32 text-[12px] text-dim font-mono">
                   No stories in this stage
                 </div>
               ) : (
-                stageStories.map((story) => {
+                stageStoriesVisible.map((story) => {
                   const isFirst = story.coverageStatus === "first";
                   const isLate = story.coverageStatus === "late";
                   const total = story.compositeScore ?? 0;
@@ -268,7 +297,7 @@ export default function Stories() {
                       onClick={() => navigate(projectPath(`/story/${story.id}`))}
                       className="w-full px-4 py-3.5 border-t border-border text-right hover:bg-[#0d0d10] transition-colors group"
                     >
-                      <div className="flex items-start justify-between mb-1.5">
+                      <div className="flex items-start justify-between mb-1.5 gap-2">
                         <div className="flex items-center gap-1.5 shrink-0">
                           {isFirst && (
                             <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success">
@@ -281,9 +310,9 @@ export default function Stories() {
                             </span>
                           )}
                         </div>
-                        <span className="text-[13px] font-medium leading-snug flex-1 ml-2 flex items-center justify-end gap-1.5 group-hover:text-sensor transition-colors">
-                          {story.headline}
-                          <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-dim group-hover:text-sensor transition-colors" />
+                        <span className="link text-[13px] font-medium leading-snug flex-1 min-w-0 flex items-center justify-end gap-1.5">
+                          <span className="truncate">{story.headline}</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
                         </span>
                       </div>
                       {sourceLabel && (
@@ -298,6 +327,11 @@ export default function Stories() {
                     </button>
                   );
                 })
+              )}
+              {hasMoreStories && (
+                <div className="flex items-center justify-center py-3 border-t border-border">
+                  <span className="text-[11px] text-dim font-mono">Scroll down to load more</span>
+                </div>
               )}
             </div>
           </div>
