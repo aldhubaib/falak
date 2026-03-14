@@ -18,11 +18,13 @@ const adminItems = [
   { icon: Circle, label: "Admin", path: "/admin" },
 ];
 
-const projects = [
-  { id: "falak", name: "Falak", initial: "F", active: true },
-  { id: "nizek", name: "Nizek", initial: "N", active: false },
-  { id: "darb", name: "Al-Darb", initial: "A", active: false },
-];
+/** Shape from GET /api/projects */
+interface ApiProject {
+  id: string;
+  name: string;
+  nameAr?: string | null;
+  color?: string;
+}
 
 interface AppSidebarProps {
   projectId: string;
@@ -37,11 +39,12 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
   const location = useLocation();
   const navigate = useNavigate();
   const base = `/p/${projectId}`;
+  const [projects, setProjects] = useState<ApiProject[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
-  const [editName, setEditName] = useState("Falak");
+  const [editName, setEditName] = useState("");
   const [editHookStart, setEditHookStart] = useState("");
   const [editHookEnd, setEditHookEnd] = useState("");
   const [editImage, setEditImage] = useState<string | null>(null);
@@ -49,13 +52,31 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
   const [newHookStart, setNewHookStart] = useState("");
   const [newHookEnd, setNewHookEnd] = useState("");
   const [newImage, setNewImage] = useState<string | null>(null);
-  const [projectName, setProjectName] = useState("Falak");
+  const [projectName, setProjectName] = useState("");
   const [projectHookStart, setProjectHookStart] = useState("");
   const [projectHookEnd, setProjectHookEnd] = useState("");
   const [projectImage, setProjectImage] = useState<string | null>(null);
   const editFileRef = useRef<HTMLInputElement>(null);
   const newFileRef = useRef<HTMLInputElement>(null);
   const switcherRef = useRef<HTMLDivElement>(null);
+
+  // Fetch projects and sync current project display name
+  useEffect(() => {
+    fetch("/api/projects", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: ApiProject[]) => {
+        const arr = Array.isArray(list) ? list : [];
+        setProjects(arr);
+        const current = arr.find((p) => p.id === projectId);
+        if (current) {
+          setProjectName(current.name);
+          setProjectHookStart("");
+          setProjectHookEnd("");
+          setProjectImage(null);
+        }
+      })
+      .catch(() => setProjects([]));
+  }, [projectId]);
 
   const isActive = (path: string) => {
     if (path === "" || path === "/") return location.pathname === base || location.pathname.startsWith(`${base}/channel`);
@@ -81,10 +102,10 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
         {!collapsed ? (
           <button
             onClick={() => setSwitcherOpen(!switcherOpen)}
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
           >
-            <span className="font-semibold text-[13px] text-foreground">{projectName}</span>
-            <ChevronDown className={`w-3 h-3 text-dim transition-transform ${switcherOpen ? "rotate-180" : ""}`} />
+            <span className="font-semibold text-[13px] text-foreground truncate">{projectName || "Project"}</span>
+            <ChevronDown className={`w-3 h-3 text-dim shrink-0 transition-transform ${switcherOpen ? "rotate-180" : ""}`} />
           </button>
         ) : (
           <Tooltip>
@@ -93,10 +114,10 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
                 onClick={() => setSwitcherOpen(!switcherOpen)}
                 className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-semibold text-primary mx-auto"
               >
-                F
+                {(projectName && projectName.charAt(0).toUpperCase()) || "P"}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Falak</TooltipContent>
+            <TooltipContent side="right">{projectName || "Project"}</TooltipContent>
           </Tooltip>
         )}
 
@@ -121,18 +142,28 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
         {switcherOpen && !collapsed && (
           <div className="absolute top-full left-2 right-2 mt-1 bg-background border border-border rounded-xl shadow-lg z-50 overflow-hidden">
             <div className="px-3 py-2 text-[10px] font-medium text-dim uppercase tracking-wider">Projects</div>
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                onClick={() => setSwitcherOpen(false)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] hover:bg-elevated/60 transition-colors"
-              >
-                <span className={`flex-1 text-left truncate ${project.active ? "text-foreground font-medium" : "text-dim"}`}>
-                  {project.name}
-                </span>
-                {project.active && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-              </button>
-            ))}
+            {projects.length === 0 ? (
+              <div className="px-3 py-2 text-[12px] text-dim">No projects</div>
+            ) : (
+              projects.map((project) => {
+                const isCurrent = project.id === projectId;
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => {
+                      setSwitcherOpen(false);
+                      navigate(`/p/${project.id}`);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] hover:bg-elevated/60 transition-colors"
+                  >
+                    <span className={`flex-1 text-left truncate ${isCurrent ? "text-foreground font-medium" : "text-dim"}`}>
+                      {project.name}
+                    </span>
+                    {isCurrent && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                  </button>
+                );
+              })
+            )}
             <div className="border-t border-border mt-1.5 pt-1.5">
               <button
                 onClick={() => { setSwitcherOpen(false); setEditName(projectName); setEditHookStart(projectHookStart); setEditHookEnd(projectHookEnd); setEditImage(projectImage); setEditOpen(true); }}
