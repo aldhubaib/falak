@@ -14,16 +14,19 @@ router.use(requireAuth)
 //   competitorActivity – story count per competitor channel
 //   autoSearchQuery    – dynamic Perplexity prompt
 router.get('/', async (req, res) => {
+  let debugStage = 'init'
   try {
+    debugStage = 'read-query'
     const { projectId } = req.query
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
     // ── 1. Load all done competitor videos with analysis ──────────────────────
+    debugStage = 'query-competitor-videos'
     const competitorVideos = await db.video.findMany({
       where: {
         channel: { projectId, type: 'competitor' },
         analysisResult: { not: null },
-        pipelineItem: { stage: 'done', status: 'done' },
+        pipelineItem: { is: { stage: 'done', status: 'done' } },
       },
       select: {
         id: true,
@@ -40,11 +43,12 @@ router.get('/', async (req, res) => {
     })
 
     // ── 2. Load all done "ours" videos with analysis ──────────────────────────
+    debugStage = 'query-our-videos'
     const ourVideos = await db.video.findMany({
       where: {
         channel: { projectId, type: 'ours' },
         analysisResult: { not: null },
-        pipelineItem: { stage: 'done', status: 'done' },
+        pipelineItem: { is: { stage: 'done', status: 'done' } },
       },
       select: {
         id: true,
@@ -64,6 +68,7 @@ router.get('/', async (req, res) => {
     })
 
     // ── 3. Build competitor story map: topic → list of competitor videos ──────
+    debugStage = 'build-topic-map'
     // Each competitor video's analysisResult contains a `topics` array (strings).
     // We normalise topics to lowercase for matching.
 
@@ -90,6 +95,7 @@ router.get('/', async (req, res) => {
     }
 
     // ── 4. Build "our" topic set: normalised topics we have published ─────────
+    debugStage = 'build-our-topic-set'
     const ourTopicSet = new Set() // Set<normKey>
     for (const v of ourVideos) {
       const topics = extractTopics(v.analysisResult)
@@ -99,6 +105,7 @@ router.get('/', async (req, res) => {
     }
 
     // ── 5. Assemble competitor stories (taken + untouched) ────────────────────
+    debugStage = 'assemble-stories'
     const takenStories = []    // covered by competitors, also covered by us or not
     const untouchedStories = []
 
@@ -168,6 +175,7 @@ router.get('/', async (req, res) => {
     untouchedStories.sort((a, b) => (a.daysSince || 0) - (b.daysSince || 0))
 
     // ── 6. Tag our published videos as gap_win | late ─────────────────────────
+    debugStage = 'tag-published-videos'
     const publishedVideos = ourVideos.map((v) => {
       const topics = extractTopics(v.analysisResult)
       let result = 'gap_win'
@@ -204,6 +212,7 @@ router.get('/', async (req, res) => {
     })
 
     // ── 7. Competitor channels list ───────────────────────────────────────────
+    debugStage = 'query-competitor-channels'
     const competitorChannelsRaw = await db.channel.findMany({
       where: { projectId, type: 'competitor' },
       select: { id: true, nameAr: true, nameEn: true, handle: true, avatarUrl: true },
@@ -221,6 +230,7 @@ router.get('/', async (req, res) => {
     }))
 
     // ── 8. Competitor activity: story count per channel ───────────────────────
+    debugStage = 'build-competitor-activity'
     const activityCount = {}
     for (const [, entries] of topicMap) {
       for (const e of entries) {
@@ -232,6 +242,7 @@ router.get('/', async (req, res) => {
       .sort((a, b) => b.count - a.count)
 
     // ── 9. Auto-search query (dynamic Perplexity prompt) ─────────────────────
+    debugStage = 'build-auto-search-query'
     const gapWinTitles = publishedVideos
       .filter((v) => v.result === 'gap_win')
       .slice(0, 3)
@@ -255,12 +266,14 @@ router.get('/', async (req, res) => {
     })
 
     // ── 10. Stats ─────────────────────────────────────────────────────────────
+    debugStage = 'build-stats'
     const gapWins = publishedVideos.filter((v) => v.result === 'gap_win').length
     const lateCount = publishedVideos.filter((v) => v.result === 'late').length
     const winRate = publishedVideos.length
       ? Math.round((gapWins / publishedVideos.length) * 100)
       : 0
 
+    debugStage = 'respond-json'
     res.json({
       competitorStories: takenStories,
       untouchedStories,
@@ -277,8 +290,9 @@ router.get('/', async (req, res) => {
       },
     })
   } catch (err) {
-    console.error('[brain] error', err)
-    res.status(500).json({ error: 'Internal server error' })
+    console.error('[brain] error', { stage: debugStage, err })
+    const message = err instanceof Error ? err.message : String(err)
+    res.status(500).json({ error: 'Internal server error', stage: debugStage, message })
   }
 })
 
@@ -295,7 +309,7 @@ router.post('/re-extract', async (req, res) => {
       where: {
         channel: { projectId, type: 'competitor' },
         analysisResult: { not: null },
-        pipelineItem: { stage: 'done', status: 'done' },
+        pipelineItem: { is: { stage: 'done', status: 'done' } },
       },
     })
 

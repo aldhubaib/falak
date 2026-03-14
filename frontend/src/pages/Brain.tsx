@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Copy, Check, RefreshCw, Eye, ThumbsUp, MessageSquare, Trophy, ChevronDown, ArrowUpRight, Zap, Loader2 } from "lucide-react";
 import { nowGMT3 } from "@/lib/utils";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ export default function Brain() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const projectPath = useProjectPath();
+  const runId = "brain-page-debug";
 
   const [data, setData] = useState<BrainData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,24 +141,64 @@ export default function Brain() {
   const [takenOpen, setTakenOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!projectId) return;
+    if (!projectId) {
+      // #region agent log
+      fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H2",location:"frontend/src/pages/Brain.tsx:145",message:"fetchData early return: missing projectId",data:{projectId},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return;
+    }
     try {
+      // #region agent log
+      fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H1",location:"frontend/src/pages/Brain.tsx:150",message:"fetchData start",data:{projectId,url:`/api/brain?projectId=${projectId}`},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       const r = await fetch(`/api/brain?projectId=${projectId}`, {
         credentials: "include",
       });
+      // #region agent log
+      fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H4",location:"frontend/src/pages/Brain.tsx:155",message:"fetchData response received",data:{ok:r.ok,status:r.status,statusText:r.statusText},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (!r.ok) throw new Error("Failed to fetch brain data");
       const d: BrainData = await r.json();
+      // #region agent log
+      fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H3",location:"frontend/src/pages/Brain.tsx:159",message:"fetchData json parsed",data:{keys:Object.keys(d || {}),hasStats:!!d?.stats,untouchedCount:d?.untouchedStories?.length,competitorStoriesCount:d?.competitorStories?.length,publishedVideosCount:d?.publishedVideos?.length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       setData(d);
-    } catch {
+    } catch (err) {
+      // #region agent log
+      fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H1",location:"frontend/src/pages/Brain.tsx:164",message:"fetchData catch",data:{error:err instanceof Error ? err.message : String(err),toastType:typeof toast},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       toast.error("Failed to load Brain data");
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, runId]);
 
   useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H2",location:"frontend/src/pages/Brain.tsx:174",message:"Brain useEffect trigger",data:{projectId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => {
+      // #region agent log
+      fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H5",location:"frontend/src/pages/Brain.tsx:186",message:"window error captured",data:{message:event.message,filename:event.filename,lineno:event.lineno,colno:event.colno},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    };
+    const onUnhandled = (event: PromiseRejectionEvent) => {
+      const reason = event.reason instanceof Error ? event.reason.message : String(event.reason);
+      // #region agent log
+      fetch("http://127.0.0.1:7632/ingest/fd4c9a77-c8ba-43f2-95bf-e4b35c450e0f",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"78fa8a"},body:JSON.stringify({sessionId:"78fa8a",runId,hypothesisId:"H5",location:"frontend/src/pages/Brain.tsx:191",message:"unhandled rejection captured",data:{reason},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onUnhandled);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onUnhandled);
+    };
+  }, [runId]);
 
   const handleReExtract = async () => {
     if (!projectId || reExtracting) return;
