@@ -44,8 +44,9 @@ async function queryPerplexity(apiKey, userPrompt, opts = {}) {
   const choice = data.choices?.[0]
   const text = choice?.message?.content?.trim() ?? ''
   const usage = data.usage
+  const citations = Array.isArray(data.citations) ? data.citations : []
 
-  return { text, usage }
+  return { text, usage, citations }
 }
 
 /**
@@ -53,9 +54,18 @@ async function queryPerplexity(apiKey, userPrompt, opts = {}) {
  */
 const JSON_INSTRUCTION = `
 
-Reply with a valid JSON array only. Each item: {"headline":"...", "summary":"...", "sourceUrl":"..."}.
-Use "headline" for the story title, "summary" for 1-2 sentences, "sourceUrl" for link (or null).
-No other text—just the JSON array.`
+Reply with a valid JSON array only. No other text.
+Each item must follow this exact shape:
+{"headline":"...","summary":"...","sourceUrl":"..."}
+
+Rules:
+- "headline": the story title in Arabic
+- "summary": 2-3 sentences explaining what happened
+- "sourceUrl": the FULL URL of the original article or source
+  (must start with https://, must be a real link, NOT null)
+- If you cannot find a real source URL for a story, skip that story entirely
+- Only include stories where you have a verified source link
+`
 
 /**
  * Fetch story suggestions from Perplexity and return parsed array.
