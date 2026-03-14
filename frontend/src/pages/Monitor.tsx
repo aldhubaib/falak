@@ -99,7 +99,7 @@ function toRow(ch: ApiChannel): MonitorRow {
     daysSinceVideo,
     nextCheck: futureRelative(nextCheckDays),
     cadence: cadenceLabel,
-    cadenceType: ch.type === "ours" ? "owned" : "auto",
+    cadenceType: ch.type === "ours" || ch.type === "own" ? "owned" : "auto",
     isStale: daysSinceVideo > 14,
     totalVideos: ch._count.videos,
   };

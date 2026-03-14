@@ -102,7 +102,7 @@ export default function ChannelDetail() {
 
   const handleTypeChange = useCallback((newType: "ours" | "competition") => {
     if (!id) return;
-    const dbType = newType === "ours" ? "own" : "competitor";
+    const dbType = newType === "ours" ? "ours" : "competitor";
     setChannelType(newType);
     fetch(`/api/channels/${id}`, {
       method: "PATCH",
@@ -127,13 +127,7 @@ export default function ChannelDetail() {
       .then((data) => {
         if (data && typeof data.id === "string") {
           setChannel(data);
-          setChannelType(data.type === "own" ? "ours" : "competition");
-        }
-      })
-      .catch(() => {});
-  }, [id]);
-
-  useEffect(() => {
+          setChannelType(data.type === "own" || data.type === "ours" ? "ours" : "competition");
     if (!id) return;
     setLoading(true);
     setNotFound(false);
@@ -150,7 +144,7 @@ export default function ChannelDetail() {
       .then((data) => {
         if (data && typeof data.id === "string") {
           setChannel(data);
-          setChannelType(data.type === "own" ? "ours" : "competition");
+          setChannelType(data.type === "own" || data.type === "ours" ? "ours" : "competition");
         } else {
           setNotFound(true);
         }

@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
     // ── 2. Load all done "ours" videos with analysis ──────────────────────────
     const ourVideos = await db.video.findMany({
       where: {
-        channel: { projectId, type: 'ours' },
+        channel: { projectId, type: { in: ['ours', 'own'] } },
         analysisResult: { not: null },
         pipelineItem: { stage: 'done', status: 'done' },
       },

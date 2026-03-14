@@ -269,9 +269,11 @@ function ChannelDropdown({
 
 // ─── Channel Analysis section ─────────────────────────────────────────────────
 
+function isOurs(c: ApiChannel) { return c.type === "ours" || c.type === "own"; }
+
 function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
-  const ourChannels = channels.filter((c) => c.type === "ours");
-  const competitorChannels = channels.filter((c) => c.type === "competitor");
+  const ourChannels = channels.filter(isOurs);
+  const competitorChannels = channels.filter((c) => !isOurs(c));
 
   const [yourCh, setYourCh] = useState<ApiChannel | null>(ourChannels[0] || null);
   const [theirCh, setTheirCh] = useState<ApiChannel | null>(competitorChannels[0] || null);
@@ -496,12 +498,12 @@ function TrendChart({
 
   const ourChannels = trend.channels.filter((c) => {
     const ch = chMap.get(c.id);
-    return ch?.type === "ours";
+    return ch ? isOurs(ch) : false;
   });
 
   const competitorChannels = trend.channels.filter((c) => {
     const ch = chMap.get(c.id);
-    return ch?.type === "competitor";
+    return ch ? !isOurs(ch) : false;
   });
 
   // Build all series
@@ -734,8 +736,8 @@ export default function Analytics() {
   const { universe, channels, topVideos, trend } = data;
 
   // ── Stats bar derivations ─────────────────────────────────────────────────
-  const ourChannels = channels.filter((c) => c.type === "ours");
-  const competitorChannels = channels.filter((c) => c.type === "competitor");
+  const ourChannels = channels.filter(isOurs);
+  const competitorChannels = channels.filter((c) => !isOurs(c));
 
   const ourTotalSubs = ourChannels.reduce((s, c) => s + parseInt(c.subscribers), 0);
   const topBySubs = [...channels].sort((a, b) => parseInt(b.subscribers) - parseInt(a.subscribers))[0];
@@ -777,7 +779,7 @@ export default function Analytics() {
         id: ch.id,
         name: chName(ch),
         avatarUrl: ch.avatarUrl,
-        isYou: ch.type === "ours",
+        isYou: isOurs(ch),
         rawVal,
         value: displayVal,
       };
@@ -1199,8 +1201,8 @@ function buildInsights(channels: ApiChannel[], universe: Universe) {
   const sorted = [...channels].sort((a, b) => b.avgEngagement - a.avgEngagement);
   const topEngCh = sorted[0];
   const bottomEngCh = sorted[sorted.length - 1];
-  const ourChannels = channels.filter((c) => c.type === "ours");
-  const competitors = channels.filter((c) => c.type === "competitor");
+  const ourChannels = channels.filter((c) => c.type === "ours" || c.type === "own");
+  const competitors = channels.filter((c) => !isOurs(c));
 
   // Top engagement insight
   if (topEngCh) {
@@ -1219,7 +1221,7 @@ function buildInsights(channels: ApiChannel[], universe: Universe) {
   // Fastest uploader
   const fastestUploader = [...channels].sort((a, b) => b.uploadsPerMonth - a.uploadsPerMonth)[0];
   if (fastestUploader && fastestUploader.uploadsPerMonth > 0) {
-    const isUs = fastestUploader.type === "ours";
+    const isUs = fastestUploader.type === "ours" || fastestUploader.type === "own";
     insights.push({
       type: isUs ? "MARKET" : "THREAT",
       color: isUs ? "text-success bg-success/10" : "text-destructive bg-destructive/10",
@@ -1246,7 +1248,7 @@ function buildInsights(channels: ApiChannel[], universe: Universe) {
   }
 
   // Low engagement competitor — opportunity
-  if (bottomEngCh && bottomEngCh.type === "competitor" && bottomEngCh.avgEngagement < 3) {
+  if (bottomEngCh && !isOurs(bottomEngCh) && bottomEngCh.avgEngagement < 3) {
     insights.push({
       type: "SIGNAL",
       color: "text-orange bg-orange/10",

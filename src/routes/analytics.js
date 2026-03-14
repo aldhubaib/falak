@@ -79,7 +79,7 @@ router.get('/', async (req, res) => {
   // Universe totals
   const universe = {
     channels:         channels.length,
-    owned:            channels.filter(c => c.type === 'ours').length,
+    owned:            channels.filter(c => c.type === 'ours' || c.type === 'own').length,
     competitors:      channels.filter(c => c.type === 'competitor').length,
     totalSubscribers: stats.reduce((s, c) => s + parseInt(c.subscribers), 0),
     totalViews:       stats.reduce((s, c) => s + c.periodViews, 0),

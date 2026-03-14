@@ -63,7 +63,7 @@ app.get('/api/public/thumbnails', async (req, res) => {
     const videos = await db.video.findMany({
       where: {
         thumbnailUrl: { not: null },
-        channel: { type: 'ours' },
+        channel: { type: { in: ['ours', 'own'] } },
       },
       select: { thumbnailUrl: true },
       orderBy: { viewCount: 'desc' },
