@@ -167,10 +167,42 @@ async function migrateChannelTypes() {
   }
 }
 
+// ── Startup migration: re-classify videos using YouTube Shorts URL check ─────
+async function migrateVideoTypes() {
+  try {
+    const { isYouTubeShort } = require('./services/youtube')
+    // Get all videos classified as 'video' that are ≤ 3 min (candidates for shorts)
+    const videos = await db.video.findMany({
+      where: { videoType: 'video', duration: { not: null } },
+      select: { id: true, youtubeId: true, duration: true },
+    })
+    const candidates = videos.filter(v => {
+      const m = v.duration?.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+      if (!m) return false
+      const secs = (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0)
+      return secs <= 180
+    })
+    if (candidates.length === 0) return
+    logger.info(`[migrate] Checking ${candidates.length} video(s) for Short classification...`)
+    let fixed = 0
+    for (const v of candidates) {
+      const short = await isYouTubeShort(v.youtubeId)
+      if (short) {
+        await db.video.update({ where: { id: v.id }, data: { videoType: 'short' } })
+        fixed++
+      }
+    }
+    if (fixed > 0) logger.info(`[migrate] Re-classified ${fixed} video(s) as 'short' via YouTube URL check`)
+  } catch (e) {
+    logger.warn('[migrate] Video type migration failed:', e.message)
+  }
+}
+
 // ── Start ─────────────────────────────────────────────────────
 async function main() {
   await seedApiKeys()
   await migrateChannelTypes()
+  migrateVideoTypes().catch(e => logger.warn('[migrate] videoTypes non-fatal:', e.message)) // run async, non-blocking
   app.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Falak running')
     // Start the pipeline worker in-process.

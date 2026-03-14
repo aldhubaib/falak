@@ -13,10 +13,35 @@ function parseDurationSecs(iso) {
   return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0)
 }
 
-// YouTube Shorts are ≤ 60 seconds
-function detectVideoType(duration) {
+// Detect if a video is a YouTube Short by checking the /shorts/ URL
+// YouTube returns 200 for shorts, 303/redirect for regular videos
+async function isYouTubeShort(youtubeId) {
+  try {
+    const res = await fetch(`https://www.youtube.com/shorts/${youtubeId}`, {
+      method: 'HEAD',
+      redirect: 'manual', // don't follow redirects
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    })
+    // Shorts return 200; regular videos get redirected (301/303) away from /shorts/
+    return res.status === 200
+  } catch (_) {
+    return false
+  }
+}
+
+// Detect video type: use /shorts/ URL check, fallback to duration ≤ 180s
+async function detectVideoType(youtubeId, duration) {
   const secs = parseDurationSecs(duration)
-  return (secs !== null && secs <= 60) ? 'short' : 'video'
+  // Fast path: clearly a long video
+  if (secs !== null && secs > 180) return 'video'
+  // For anything ≤ 3min, verify via YouTube Shorts URL
+  try {
+    const short = await isYouTubeShort(youtubeId)
+    return short ? 'short' : 'video'
+  } catch (_) {
+    // Fallback to duration heuristic
+    return (secs !== null && secs <= 180) ? 'short' : 'video'
+  }
 }
 
 function parseYoutubeKeys(raw) {
@@ -102,11 +127,9 @@ async function fetchVideoMetadata(youtubeVideoId, projectId) {
     likeCount:    BigInt(v.statistics.likeCount || 0),
     commentCount: BigInt(v.statistics.commentCount || 0),
     duration:     v.contentDetails.duration,
-    videoType:    detectVideoType(v.contentDetails.duration),
+    videoType:    await detectVideoType(v.id, v.contentDetails.duration),
   }
 }
-
-// ── Fetch recent videos for a channel ────────────────────────
 async function fetchRecentVideos(youtubeChannelId, maxResults = 50, projectId) {
   // 1. Get upload playlist ID
   const chData = await ytFetch('channels', {
@@ -131,7 +154,7 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 50, projectId) {
     id: videoIds,
   }, projectId)
 
-  return vData.items.map(v => ({
+  return Promise.all(vData.items.map(async v => ({
     youtubeId:    v.id,
     titleAr:      v.snippet.title,
     titleEn:      v.snippet.title,
@@ -142,8 +165,8 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 50, projectId) {
     likeCount:    BigInt(v.statistics.likeCount || 0),
     commentCount: BigInt(v.statistics.commentCount || 0),
     duration:     v.contentDetails.duration,
-    videoType:    detectVideoType(v.contentDetails.duration),
-  }))
+    videoType:    await detectVideoType(v.id, v.contentDetails.duration),
+  })))
 }
 
 // ── Fetch top comments for a video ───────────────────────────
@@ -169,4 +192,4 @@ async function fetchComments(youtubeVideoId, maxResults = 100, projectId) {
   }
 }
 
-module.exports = { fetchChannel, fetchRecentVideos, fetchComments, fetchVideoMetadata }
+module.exports = { fetchChannel, fetchRecentVideos, fetchComments, fetchVideoMetadata, isYouTubeShort }
