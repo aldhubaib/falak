@@ -239,7 +239,7 @@ function StageColumn({
   };
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden flex flex-col max-h-[420px]">
+    <div className="rounded-xl border border-border overflow-hidden flex flex-col">
       {/* Stage header */}
       <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
         <div className="flex items-center justify-between">
@@ -266,7 +266,7 @@ function StageColumn({
       </div>
 
       {/* Items */}
-      <div className="flex-1 overflow-auto bg-background">
+      <div className="bg-background">
         {items.length === 0 ? (
           <div className="flex items-center justify-center h-24 text-[12px] text-dim font-mono">Empty</div>
         ) : (
