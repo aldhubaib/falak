@@ -257,14 +257,14 @@ export default function VideoDetail() {
           <div className="px-6 py-6 max-lg:px-4">
             <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
               {/* Thumbnail left */}
-              <div className="relative w-[380px] max-md:w-full shrink-0 p-3">
+              <div className={`relative shrink-0 p-3 ${video.type === "short" ? "w-[200px] max-md:w-full" : "w-[380px] max-md:w-full"}`}>
                 {(() => {
                   const ytId = video.youtubeId ?? (video.thumbnail && /\/vi\/([^/]+)\//.exec(video.thumbnail)?.[1]);
                   const imgEl = (
                     <img
                       src={video.thumbnail}
                       alt=""
-                      className="w-full aspect-video object-cover rounded-xl"
+                      className={`w-full object-cover rounded-xl ${video.type === "short" ? "aspect-[9/16]" : "aspect-video"}`}
                     />
                   );
                   return ytId ? (
