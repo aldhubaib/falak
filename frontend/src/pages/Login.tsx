@@ -38,14 +38,25 @@ export default function Login() {
     setLoading(true);
     setError(null);
     fetch("/api/auth/google/url", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.url) window.location.href = data.url;
-        else throw new Error("No login URL");
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          const msg = data?.error || data?.message || r.statusText || "Server error";
+          throw new Error(typeof msg === "string" ? msg : "Could not get login URL");
+        }
+        return data;
       })
-      .catch(() => {
+      .then((data) => {
+        const url = data?.url;
+        if (url && typeof url === "string") {
+          window.location.href = url;
+          return;
+        }
+        throw new Error("No login URL returned. Check Railway Variables: GOOGLE_CLIENT_ID, APP_URL.");
+      })
+      .catch((err) => {
         setLoading(false);
-        setError("Could not start sign-in. Check your connection.");
+        setError(err instanceof Error ? err.message : "Could not start sign-in. Check your connection.");
       });
   };
 
@@ -105,6 +116,7 @@ export default function Login() {
               </div>
             )}
             <button
+              type="button"
               onClick={handleLogin}
               disabled={loading}
               className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-elevated border border-border rounded-xl text-foreground text-[13px] font-medium transition-all hover:bg-border hover:border-sensor/20 ${

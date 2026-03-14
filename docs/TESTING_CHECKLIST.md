@@ -72,6 +72,11 @@ These work in the UI but use **mock data** (no real API yet):
 
 ## 7. If something breaks
 
+- **“Continue with Google” does nothing or doesn’t open Google:**  
+  - You should now see an error message on the login page (e.g. from the server).  
+  - In **Railway → Variables**, set **APP_URL** to your live URL with no trailing slash (e.g. `https://falak-production.up.railway.app`).  
+  - Set **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET** (from Google Cloud Console). In Google Cloud, add this **Authorized redirect URI**: `https://YOUR-APP-URL/api/auth/google/callback` (same as APP_URL + `/api/auth/google/callback`).  
+  - The app and API must be on the **same origin** (one Railway service that serves both the frontend and `/api`). If the frontend is hosted elsewhere, the login request may be going to the wrong place.
 - **Login redirect loop:** Ensure `APP_URL` in Railway matches the app URL (e.g. `https://falak-production.up.railway.app`).
 - **401 on every request:** Cookies must be sent; same origin or correct CORS + credentials. Production uses same domain so cookies work.
 - **Channel add fails:** Check Railway logs; often YouTube API quota or invalid handle/URL.
