@@ -31,11 +31,13 @@ interface MonitorRow {
   handle: string;
   avatarUrl: string | null;
   status: ChannelStatus;
+  lastFetchedMs: number;
   lastCheck: string;
   lastVideo: string;
   daysSinceVideo: number;
   nextCheck: string;
   cadence: string;
+  checkIntervalDays: number;
   cadenceType: "auto" | "owned";
   isStale: boolean;
   totalVideos: number;
@@ -62,6 +64,17 @@ function futureRelative(days: number): string {
   return `in ${Math.round(days)}d`;
 }
 
+function formatRemainingSeconds(seconds: number): string {
+  if (seconds <= 0) return "soon";
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${seconds}s`;
+}
+
 function deriveStatus(daysSince: number): ChannelStatus {
   if (daysSince < 3)  return "active";
   if (daysSince < 14) return "regular";
@@ -69,9 +82,14 @@ function deriveStatus(daysSince: number): ChannelStatus {
   return "inactive";
 }
 
-function deriveCadence(uploadCadence: number | null | undefined): number {
-  if (uploadCadence && uploadCadence > 0) return uploadCadence;
-  return 7; // default fallback
+const DAY_MS = 86400000;
+
+function deriveCheckInterval(status: ChannelStatus, cadenceType: "auto" | "owned"): number {
+  if (cadenceType === "owned") return 1;
+  if (status === "active") return 2;
+  if (status === "regular") return 5;
+  if (status === "slow") return 10;
+  return 20;
 }
 
 function toRow(ch: ApiChannel): MonitorRow {
@@ -82,11 +100,13 @@ function toRow(ch: ApiChannel): MonitorRow {
     ? (Date.now() - new Date(ch.lastVideoPublishedAt).getTime()) / 86400000
     : 999;
   const status = deriveStatus(daysSinceVideo);
-  const cadenceDays = deriveCadence(ch.uploadCadence);
+  const cadenceType = ch.type === "ours" ? "owned" : "auto";
+  const cadenceDays = deriveCheckInterval(status, cadenceType);
   const cadenceLabel = cadenceDays < 2 ? `${Math.round(cadenceDays * 24)}h` : `${Math.round(cadenceDays)}d`;
-  // next check = last fetched + cadence (rough estimate)
+  // next check = last fetched + status-based cadence
   const lastFetchedMs = ch.lastFetchedAt ? new Date(ch.lastFetchedAt).getTime() : Date.now();
-  const nextCheckDays = Math.max(0, (lastFetchedMs + cadenceDays * 86400000 - Date.now()) / 86400000);
+  const nextCheckAt = new Date(lastFetchedMs + cadenceDays * DAY_MS);
+  const nextCheckDays = Math.max(0, (nextCheckAt.getTime() - Date.now()) / 86400000);
 
   return {
     id: ch.id,
@@ -94,12 +114,14 @@ function toRow(ch: ApiChannel): MonitorRow {
     handle,
     avatarUrl: ch.avatarUrl ?? null,
     status,
+    lastFetchedMs,
     lastCheck,
     lastVideo: relativeTime(ch.lastVideoPublishedAt),
     daysSinceVideo,
-    nextCheck: futureRelative(nextCheckDays),
+    nextCheck: `${futureRelative(nextCheckDays)} · ${fmtDateTime(nextCheckAt)}`,
     cadence: cadenceLabel,
-    cadenceType: ch.type === "ours" ? "owned" : "auto",
+    checkIntervalDays: cadenceDays,
+    cadenceType,
     isStale: daysSinceVideo > 14,
     totalVideos: ch._count.videos,
   };
@@ -124,7 +146,7 @@ export default function Monitor() {
   const [rows, setRows] = useState<MonitorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
-  const [countdown, setCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(0);
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
 
@@ -144,17 +166,31 @@ export default function Monitor() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Auto-refresh every 30s
+  // Auto-refresh when the next channel is due.
   useEffect(() => {
-    setCountdown(30);
-    const tick = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) { if (!paused) fetchData(); return 30; }
-        return prev - 1;
-      });
+    if (paused || rows.length === 0) {
+      setCountdown(0);
+      return;
+    }
+
+    const now = Date.now();
+    const nextDueAt = Math.min(...rows.map((r) => r.lastFetchedMs + r.checkIntervalDays * DAY_MS));
+    const waitMs = Math.max(1000, nextDueAt - now);
+    setCountdown(Math.ceil(waitMs / 1000));
+
+    const timer = window.setTimeout(() => {
+      fetchData();
+    }, waitMs);
+    return () => window.clearTimeout(timer);
+  }, [fetchData, paused, rows]);
+
+  useEffect(() => {
+    if (paused) return;
+    const tick = window.setInterval(() => {
+      setCountdown((prev) => Math.max(0, prev - 1));
     }, 1000);
-    return () => clearInterval(tick);
-  }, [fetchData, paused]);
+    return () => window.clearInterval(tick);
+  }, [paused]);
 
   // ── Derived stats ──────────────────────────────────────────────────────
 
@@ -200,7 +236,6 @@ export default function Monitor() {
   const handleForceRun = () => {
     fetchData();
     toast.success("Refreshing channel data…");
-    setCountdown(30);
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -218,7 +253,7 @@ export default function Monitor() {
         <div className="flex items-center gap-2 max-sm:w-full max-sm:justify-end">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${paused ? "bg-orange/15 text-orange" : "bg-success/15 text-success"}`}>
             <Circle className="w-2 h-2 fill-current" />
-            {paused ? "Paused" : `Running · ${countdown}s`}
+            {paused ? "Paused" : `Running · next ${formatRemainingSeconds(countdown)}`}
           </span>
           <button
             onClick={handlePauseResume}
@@ -266,7 +301,7 @@ export default function Monitor() {
                   </div>
                 </div>
                 <div className="px-4 py-3">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2.5">Check Cadence (Auto-learned)</div>
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2.5">Check Cadence (Status-based)</div>
                   {cadenceGroups.map((c) => {
                     const dotColor =
                       c.color === "success"     ? "bg-success" :
