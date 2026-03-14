@@ -142,7 +142,7 @@ router.get('/', async (req, res) => {
       }
 
       const competitors = [...competitorMap.values()]
-      const dateStr = earliestDate ? earliestDate.toISOString().split('T')[0] : ''
+      const dateStr = earliestDate ? new Date(earliestDate).toISOString().split('T')[0] : ''
       const totalViewsFmt = fmtViews(Number(totalViews))
 
       const story = {
@@ -198,7 +198,7 @@ router.get('/', async (req, res) => {
       return {
         id: v.id,
         title: v.titleAr || v.titleEn || '—',
-        date: v.publishedAt ? v.publishedAt.toISOString().split('T')[0] : '',
+        date: v.publishedAt ? new Date(v.publishedAt).toISOString().split('T')[0] : '',
         views: fmtViews(Number(v.viewCount)),
         likes: fmtViews(Number(v.likeCount)),
         comments: fmtViews(Number(v.commentCount)),

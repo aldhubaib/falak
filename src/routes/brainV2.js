@@ -123,7 +123,7 @@ async function getBrainV2Data(projectId) {
       const story = {
         id: normKey,
         title: displayTopic,
-        date: earliestDate ? earliestDate.toISOString().split('T')[0] : '',
+        date: earliestDate ? new Date(earliestDate).toISOString().split('T')[0] : '',
         status: ourTopicSet.has(normKey) ? 'taken_by_us' : 'taken',
         competitors: [...competitorMap.values()],
         totalViews: fmtViews(Number(totalViews)),
@@ -154,7 +154,7 @@ async function getBrainV2Data(projectId) {
       return {
         id: v.id,
         title: v.titleAr || v.titleEn || '—',
-        date: v.publishedAt ? v.publishedAt.toISOString().split('T')[0] : '',
+        date: v.publishedAt ? new Date(v.publishedAt).toISOString().split('T')[0] : '',
         views: fmtViews(Number(v.viewCount)),
         likes: fmtViews(Number(v.likeCount)),
         comments: fmtViews(Number(v.commentCount)),
