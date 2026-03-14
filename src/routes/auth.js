@@ -127,9 +127,10 @@ router.get('/google/callback', async (req, res) => {
 })
 
 // ── POST /api/auth/logout
-router.post('/logout', requireAuth, async (req, res) => {
+// No requireAuth: always clear the cookie so the client is logged out even if token is missing or invalid
+router.post('/logout', async (req, res) => {
   const token = req.cookies?.token
-  if (token) await db.session.deleteMany({ where: { token } })
+  if (token) await db.session.deleteMany({ where: { token } }).catch(() => {})
   const baseUrl = getAppBaseUrl()
   const isHttps = baseUrl.toLowerCase().startsWith('https') || req.get('x-forwarded-proto') === 'https'
   res.clearCookie('token', { httpOnly: true, secure: isHttps, sameSite: 'lax', path: '/' })

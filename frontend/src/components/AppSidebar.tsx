@@ -266,7 +266,8 @@ export function AppSidebar({ onClose, isMobile, collapsed = false, pinned = fals
                 try {
                   await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
                 } catch (_) {}
-                navigate("/login", { replace: true });
+                // Full-page redirect so the browser applies the cleared cookie before any new request
+                window.location.href = "/login";
               }}
               className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity"
             >
