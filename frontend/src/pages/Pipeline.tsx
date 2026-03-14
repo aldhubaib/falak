@@ -239,7 +239,10 @@ function StageColumn({
   };
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ maxHeight: items.length === 0 ? 'auto' : '420px' }}>
+    <div
+      className="rounded-xl border border-border overflow-hidden flex flex-col"
+      style={items.length > 0 ? { height: '420px' } : undefined}
+    >
       {/* Stage header */}
       <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
         <div className="flex items-center justify-between">
