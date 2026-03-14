@@ -64,7 +64,7 @@ export default function Login() {
       .then((r) => r.ok ? r.json() : { urls: [] })
       .then(({ urls }: { urls: string[] }) => {
         // Use real thumbnails if the DB has at least 6; otherwise use fallbacks
-        const pool = urls.length >= 6 ? shuffle(urls) : shuffle(FALLBACKS as unknown as string[]);
+        const pool = urls.length >= 2 ? shuffle(urls) : shuffle(FALLBACKS as unknown as string[]);
         setCol1(fill(pool, 8));
         setCol2(fill(shuffle(pool), 8)); // shuffle again for column variety
       })
