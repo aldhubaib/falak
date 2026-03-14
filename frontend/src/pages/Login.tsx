@@ -31,16 +31,19 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /** Pick N items round-robin from array (fills columns) */
-function fill(arr: string[], n: number): string[] {
+function fill<T>(arr: T[], n: number): T[] {
   if (!arr.length) return [];
   return Array.from({ length: n }, (_, i) => arr[i % arr.length]);
 }
 
+/** Thumbnail item with type info */
+interface ThumbItem { url: string; isShort: boolean }
+
 export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
-  const [col1, setCol1]         = useState<string[]>([]);
-  const [col2, setCol2]         = useState<string[]>([]);
+  const [col1, setCol1]         = useState<ThumbItem[]>([]);
+  const [col2, setCol2]         = useState<ThumbItem[]>([]);
   const navigate                = useNavigate();
   const [searchParams]          = useSearchParams();
 
@@ -61,19 +64,20 @@ export default function Login() {
   // ── Fetch real thumbnails from "ours" channels; fall back to static images ──
   useEffect(() => {
     fetch("/api/public/thumbnails")
-      .then((r) => r.ok ? r.json() : { urls: [] })
-      .then(({ urls }: { urls: string[] }) => {
-        // Use real thumbnails if the DB has at least 6; otherwise use fallbacks
-        const pool = urls.length >= 2 ? shuffle(urls) : shuffle(FALLBACKS as unknown as string[]);
+      .then((r) => r.ok ? r.json() : { items: [] })
+      .then(({ items }: { items: ThumbItem[] }) => {
+        const fallbackItems: ThumbItem[] = (FALLBACKS as unknown as string[]).map(url => ({ url, isShort: true }));
+        const pool = items.length >= 2 ? shuffle(items) : shuffle(fallbackItems);
         setCol1(fill(pool, 8));
-        setCol2(fill(shuffle(pool), 8)); // shuffle again for column variety
+        setCol2(fill(shuffle(pool), 8));
       })
       .catch(() => {
-        const pool = shuffle(FALLBACKS as unknown as string[]);
+        const fallbackItems: ThumbItem[] = (FALLBACKS as unknown as string[]).map(url => ({ url, isShort: true }));
+        const pool = shuffle(fallbackItems);
         setCol1(fill(pool, 8));
         setCol2(fill(shuffle(pool), 8));
       });
-  }, []); // runs once per page load — new random order every visit
+  }, []);
 
   // ── Google sign-in ──────────────────────────────────────────────────────
   const handleLogin = () => {
@@ -120,10 +124,10 @@ export default function Login() {
                   {/* Duplicate tiles for seamless loop */}
                   {[col, col].map((tiles, pass) => (
                     <div key={pass} className={`flex flex-col gap-3 ${pass === 0 ? "pb-3" : ""}`}>
-                      {tiles.map((src, i) => (
-                        <div key={`${pass}-${i}`} className="rounded-xl overflow-hidden shrink-0 w-full aspect-[9/16]">
+                      {tiles.map((item, i) => (
+                        <div key={`${pass}-${i}`} className={`rounded-xl overflow-hidden shrink-0 w-full ${item.isShort ? "aspect-[9/16]" : "aspect-video"}`}>
                           <img
-                            src={src}
+                            src={item.url}
                             alt=""
                             className="w-full h-full object-cover object-top"
                             loading="lazy"

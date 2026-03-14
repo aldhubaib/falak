@@ -59,33 +59,33 @@ app.use('/api/brain',     require('./routes/brain'))
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {
   try {
-    // Return thumbnails from "ours" channels, ordered by most views
+    // Return thumbnails from "ours" channels with type info, ordered by most views
     const videos = await db.video.findMany({
       where: {
         thumbnailUrl: { not: null },
         channel: { type: 'ours' },
       },
-      select: { thumbnailUrl: true },
+      select: { thumbnailUrl: true, videoType: true },
       orderBy: { viewCount: 'desc' },
       take: 60,
     })
-    let urls = videos.map(v => v.thumbnailUrl).filter(Boolean)
+    let items = videos.map(v => ({ url: v.thumbnailUrl, isShort: v.videoType === 'short' })).filter(v => v.url)
 
     // Fallback: if no "ours" videos have thumbnails yet, return any channel's thumbnails
-    if (urls.length === 0) {
+    if (items.length === 0) {
       const allVideos = await db.video.findMany({
         where: { thumbnailUrl: { not: null } },
-        select: { thumbnailUrl: true },
+        select: { thumbnailUrl: true, videoType: true },
         orderBy: { viewCount: 'desc' },
         take: 60,
       })
-      urls = allVideos.map(v => v.thumbnailUrl).filter(Boolean)
+      items = allVideos.map(v => ({ url: v.thumbnailUrl, isShort: v.videoType === 'short' })).filter(v => v.url)
     }
 
     res.set('Cache-Control', 'public, max-age=60')
-    res.json({ urls })
+    res.json({ items })
   } catch (e) {
-    res.json({ urls: [] })
+    res.json({ items: [] })
   }
 })
 
