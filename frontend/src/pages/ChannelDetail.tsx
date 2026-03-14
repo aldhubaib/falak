@@ -127,7 +127,7 @@ export default function ChannelDetail() {
       .then((data) => {
         if (data && typeof data.id === "string") {
           setChannel(data);
-          setChannelType(data.type === "own" || data.type === "ours" ? "ours" : "competition");
+          setChannelType(data.type === "ours" ? "ours" : "competition");
         }
       })
       .catch(() => {});
@@ -150,7 +150,7 @@ export default function ChannelDetail() {
       .then((data) => {
         if (data && typeof data.id === "string") {
           setChannel(data);
-          setChannelType(data.type === "own" || data.type === "ours" ? "ours" : "competition");
+          setChannelType(data.type === "ours" ? "ours" : "competition");
         } else {
           setNotFound(true);
         }

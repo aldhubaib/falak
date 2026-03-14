@@ -59,11 +59,11 @@ app.use('/api/brain',     require('./routes/brain'))
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {
   try {
-    // First try: videos from "ours"/"own" channels with thumbnails
+    // Return thumbnails from "ours" channels, ordered by most views
     const videos = await db.video.findMany({
       where: {
         thumbnailUrl: { not: null },
-        channel: { type: { in: ['ours', 'own'] } },
+        channel: { type: 'ours' },
       },
       select: { thumbnailUrl: true },
       orderBy: { viewCount: 'desc' },
