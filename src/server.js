@@ -143,40 +143,29 @@ async function seedApiKeys() {
   }
 }
 
-// ── One-time migration: normalise channel type 'own' → 'ours' ──────────────
+// ── Startup migration: normalise legacy channel types ────────────────────────
 async function migrateChannelTypes() {
   try {
-    const { count } = await db.channel.updateMany({
+    // Fix 'own' → 'ours' (legacy typo)
+    const { count: ownCount } = await db.channel.updateMany({
       where: { type: 'own' },
       data: { type: 'ours' },
     })
-    if (count > 0) logger.info(`[migrate] Renamed ${count} channel(s) type 'own' → 'ours'`)
+    if (ownCount > 0) logger.info(`[migrate] Renamed ${ownCount} channel(s) type 'own' → 'ours'`)
+
+    // Fix known stuck channels: any handle containing 'e3waisstories' that is wrongly set to competitor
+    const { count: stuckCount } = await db.channel.updateMany({
+      where: {
+        handle: { contains: 'e3waisstories' },
+        type: 'competitor',
+      },
+      data: { type: 'ours' },
+    })
+    if (stuckCount > 0) logger.info(`[migrate] Fixed ${stuckCount} stuck channel(s) → 'ours'`)
   } catch (e) {
     logger.warn('[migrate] Channel type migration failed:', e.message)
   }
 }
-
-// ── Admin: force-set a channel type by handle (no auth — internal use) ──────
-app.post('/api/admin/fix-channel-type', async (req, res) => {
-  const { handle, type } = req.body
-  if (!handle || !['ours', 'competitor'].includes(type)) {
-    return res.status(400).json({ error: 'handle and type (ours|competitor) required' })
-  }
-  try {
-    const result = await db.channel.updateMany({
-      where: {
-        OR: [
-          { handle: handle },
-          { handle: handle.startsWith('@') ? handle.slice(1) : `@${handle}` },
-        ]
-      },
-      data: { type },
-    })
-    res.json({ updated: result.count, handle, type })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
 
 // ── Start ─────────────────────────────────────────────────────
 async function main() {
