@@ -121,7 +121,7 @@ export default function Login() {
                   {[col, col].map((tiles, pass) => (
                     <div key={pass} className={`flex flex-col gap-3 ${pass === 0 ? "pb-3" : ""}`}>
                       {tiles.map((src, i) => (
-                        <div key={`${pass}-${i}`} className="rounded-xl overflow-hidden shrink-0 h-64 w-full">
+                        <div key={`${pass}-${i}`} className="rounded-xl overflow-hidden shrink-0 w-full aspect-[9/16]">
                           <img
                             src={src}
                             alt=""
