@@ -12,6 +12,9 @@ interface ChannelRightPanelProps {
   shortCount?: number;
   onTypeChange?: (type: "ours" | "competition") => void;
   onBrandedHooksSaved?: () => void;
+  onSyncNow?: () => void;
+  onAnalyzeAll?: () => void;
+  onRemove?: () => void;
 }
 
 interface InfoRow {
@@ -106,8 +109,10 @@ function BrandedHooksSection({
   );
 }
 
-export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onTypeChange, onBrandedHooksSaved }: ChannelRightPanelProps) {
+export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onTypeChange, onBrandedHooksSaved, onSyncNow, onAnalyzeAll, onRemove }: ChannelRightPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -117,6 +122,45 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [visible, onClose]);
+
+  const handleSync = () => {
+    setSyncing(true);
+    fetch(`/api/channels/${channel.id}/refresh`, { method: "POST", credentials: "include" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Sync failed");
+        toast.success("Sync started — new videos will appear shortly");
+        onSyncNow?.();
+      })
+      .catch(() => toast.error("Sync failed"))
+      .finally(() => setSyncing(false));
+  };
+
+  const handleAnalyzeAll = () => {
+    setAnalyzing(true);
+    fetch(`/api/channels/${channel.id}/analyze-all`, {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        toast.success("All videos queued for AI analysis");
+        onAnalyzeAll?.();
+      })
+      .catch(() => toast.error("Failed to queue analysis"))
+      .finally(() => setAnalyzing(false));
+  };
+
+  const handleRemove = () => {
+    if (!confirm(`Remove ${channel.name}? This cannot be undone.`)) return;
+    fetch(`/api/channels/${channel.id}`, { method: "DELETE", credentials: "include" })
+      .then((r) => {
+        if (!r.ok) throw new Error("Delete failed");
+        toast.success("Channel removed");
+        onClose();
+        onRemove?.();
+      })
+      .catch(() => toast.error("Failed to remove channel"));
+  };
 
   if (!visible) return null;
 
@@ -199,13 +243,13 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
 
       {/* Actions */}
       <div className="px-4 py-3 border-t border-border flex items-center justify-between">
-        <button title="Sync Now" className="w-10 h-10 rounded-full flex items-center justify-center bg-elevated border border-border text-sensor cursor-pointer transition-all hover:bg-border hover:text-foreground">
-          <RefreshCw className="w-4 h-4" />
+        <button title="Sync Now" onClick={handleSync} disabled={syncing} className="w-10 h-10 rounded-full flex items-center justify-center bg-elevated border border-border text-sensor cursor-pointer transition-all hover:bg-border hover:text-foreground disabled:opacity-50">
+          <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
         </button>
-        <button title="Analyze All" className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/10 border border-primary/15 text-primary cursor-pointer transition-all hover:bg-primary/15">
+        <button title="Analyze All" onClick={handleAnalyzeAll} disabled={analyzing} className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/10 border border-primary/15 text-primary cursor-pointer transition-all hover:bg-primary/15 disabled:opacity-50">
           <Play className="w-4 h-4" />
         </button>
-        <button title="Remove Channel" className="w-10 h-10 rounded-full flex items-center justify-center bg-transparent border border-destructive/15 text-destructive cursor-pointer transition-all hover:bg-destructive/[0.06]">
+        <button title="Remove Channel" onClick={handleRemove} className="w-10 h-10 rounded-full flex items-center justify-center bg-transparent border border-destructive/15 text-destructive cursor-pointer transition-all hover:bg-destructive/[0.06]">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>

@@ -216,6 +216,35 @@ router.post('/:id/fetch-videos', requireRole('owner', 'admin', 'editor'), async 
   }
 })
 
+// ── POST /api/channels/:id/analyze-all — queue all unanalyzed videos for AI analysis
+router.post('/:id/analyze-all', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const channel = await db.channel.findUnique({ where: { id: req.params.id }, select: { id: true } })
+    if (!channel) return res.status(404).json({ error: 'Channel not found' })
+    // Find all videos for this channel that haven't been analyzed yet
+    const videos = await db.video.findMany({
+      where: { channelId: req.params.id },
+      select: { id: true },
+    })
+    // Create pipeline items for analyzing stage (skip if already exists)
+    let queued = 0
+    for (const video of videos) {
+      const existing = await db.pipelineItem.findFirst({
+        where: { videoId: video.id, stage: 'analyzing', status: { in: ['queued', 'processing'] } },
+      })
+      if (!existing) {
+        await db.pipelineItem.create({
+          data: { videoId: video.id, stage: 'analyzing', status: 'queued' },
+        })
+        queued++
+      }
+    }
+    res.json({ queued, total: videos.length })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── PATCH /api/channels/:id — update channel (e.g. type, branded hooks)
 router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
