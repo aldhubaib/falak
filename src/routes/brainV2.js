@@ -29,7 +29,7 @@ function buildAutoSearchQuery({ gapWinTitles, openTitles, takenTitles, competito
   const competitorSection = competitorHandles
     ? `لكل قصة: العنوان، ملخص جملتين، رابط المصدر، وهل غطاها أحد من منافسينا (${competitorHandles})؟`
     : 'لكل قصة: العنوان، ملخص جملتين، رابط المصدر.'
-  return `أعطني أبرز 8 قضايا وأخبار من الجريمة والقضايا الحقيقية في السعودية والخليج من آخر 7 أيام.
+  return `أعطني أبرز 8 قضايا وأخبار من الجريمة والقضايا الحقيقية في السعودية والخليج: خليط من أخبار حديثة (آخر 7 أيام) وقصص قديمة ما زالت تستحق التغطية أو عادت للظهور (مثل قضايا شهيرة أو قضايا لم تُغطَّ بالكامل).
 
 ${openSection}${gapSection}${takenSection}${competitorSection}`
 }

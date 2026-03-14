@@ -33,6 +33,7 @@ interface StoryWithLog extends ApiStory {
 // Brief JSON shape stored in DB
 interface StoryBrief {
   suggestedTitle?: string;
+  summary?: string; // 1–2 sentence context (e.g. from Perplexity) or user-added
   openingHook?: string;
   hookStart?: string;
   hookEnd?: string;
@@ -323,9 +324,46 @@ export default function StoryDetail() {
           {/* Title */}
           <div>
             <h1 className="text-xl font-bold text-right leading-relaxed">{story.headline}</h1>
-            <div className="text-[11px] text-dim font-mono mt-2">
+            <div className="text-[11px] text-dim font-mono mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               {[story.sourceName, story.sourceDate?.split("T")[0]].filter(Boolean).join(" · ")}
+              {story.sourceUrl && (
+                <a
+                  href={story.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sensor hover:underline"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Read source
+                </a>
+              )}
             </div>
+          </div>
+
+          {/* Story context / summary — so you can understand the story */}
+          <div className="rounded-xl bg-background p-5">
+            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
+              Story context
+            </div>
+            {brief.summary?.trim() ? (
+              <p className="text-[13px] text-foreground leading-relaxed text-right whitespace-pre-wrap">
+                {brief.summary}
+              </p>
+            ) : (
+              <div>
+                <p className="text-[12px] text-dim mb-2">
+                  No summary yet. Add a short context so you remember what this story is about (or paste from a source).
+                </p>
+                <textarea
+                  placeholder="e.g. قضية كذا… التطورات الأخيرة…"
+                  value={brief.summary ?? ""}
+                  onChange={(e) => setBrief((b) => ({ ...b, summary: e.target.value }))}
+                  onBlur={() => patchStory({ brief: { ...brief, summary: brief.summary ?? "" } })}
+                  className="w-full min-h-[80px] px-4 py-3 rounded-lg bg-surface border border-border text-[13px] text-right placeholder:text-dim focus:outline-none focus:ring-2 focus:ring-sensor/30 resize-y"
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
 
           {/* Scores row */}
