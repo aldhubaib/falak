@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DeleteChannelModal } from "@/components/DeleteChannelModal";
 import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle } from "lucide-react";
@@ -144,39 +144,39 @@ export default function Channels() {
       .catch(() => setInputError("Delete failed. You may need owner/admin role."));
   };
 
-  const filteredChannels = useMemo(
-    () => channels.filter((ch) => ch.type === filter),
-    [channels, filter]
-  );
-
   return (
     <div className="flex flex-col min-h-screen">
       <div className="h-12 flex items-center px-6 border-b shrink-0 max-md:px-4 border-[#151619]">
         <h1 className="text-sm font-semibold">
-          Channels <span className="text-dim font-normal">({filteredChannels.length})</span>
+          Channels <span className="text-dim font-normal">({channels.length})</span>
         </h1>
       </div>
 
       <div className="flex-1 overflow-auto">
         <div className="px-6 pt-5 pb-1 max-md:px-4">
           <div className="flex gap-2 max-md:flex-col items-start">
-            <div className="flex items-center bg-elevated rounded-full p-0.5 shrink-0">
-              <button
-                onClick={() => setFilter("ours")}
-                className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
-                  filter === "ours" ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
-                }`}
-              >
-                Ours
-              </button>
-              <button
-                onClick={() => setFilter("competition")}
-                className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
-                  filter === "competition" ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
-                }`}
-              >
-                Competition
-              </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[12px] text-dim">Add as:</span>
+              <div className="flex items-center bg-elevated rounded-full p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setFilter("ours")}
+                  className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
+                    filter === "ours" ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
+                  }`}
+                >
+                  Ours
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter("competition")}
+                  className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
+                    filter === "competition" ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
+                  }`}
+                >
+                  Competition
+                </button>
+              </div>
             </div>
             <div className="flex-1 relative max-md:w-full">
               <input
@@ -210,13 +210,13 @@ export default function Channels() {
         <div className="px-6 py-4 max-md:px-4">
           {loading ? (
             <p className="text-dim text-[13px]">Loading channels...</p>
-          ) : filteredChannels.length === 0 ? (
+          ) : channels.length === 0 ? (
             <p className="text-dim text-[13px] py-8 text-center">
               Please add channels to see this view.
             </p>
           ) : (
             <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: "12px" }}>
-              {filteredChannels.map((ch) => (
+              {channels.map((ch) => (
                 <div
                   key={ch.id}
                   className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors group border-b border-border last:border-b-0"
