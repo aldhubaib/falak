@@ -261,7 +261,13 @@ export function AppSidebar({ onClose, isMobile, collapsed = false, pinned = fals
               Cancel
             </button>
             <button
-              onClick={() => navigate("/login")}
+              onClick={async () => {
+                setLogoutOpen(false);
+                try {
+                  await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+                } catch (_) {}
+                navigate("/login", { replace: true });
+              }}
               className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity"
             >
               Sign out
