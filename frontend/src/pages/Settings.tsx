@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,6 +34,15 @@ interface UsageLog {
   action: string;
   tokens: number | null;
   status: "Pass" | "Fail";
+}
+
+// Map API service strings from backend to display names and icon keys
+function mapService(api: string): { name: string; icon: "ai" | "data" | "search" | "transcript" } {
+  if (api === "anthropic") return { name: "Anthropic", icon: "ai" };
+  if (api === "youtube-data") return { name: "YouTube Data", icon: "data" };
+  if (api === "yttranscript") return { name: "YT Transcript", icon: "transcript" };
+  if (api === "perplexity") return { name: "Perplexity", icon: "search" };
+  return { name: api, icon: "data" };
 }
 
 const iconMap = {
@@ -98,26 +108,36 @@ const initialApiKeys: ApiKey[] = [
   },
 ];
 
-const usageLogs: UsageLog[] = [
-  { time: "3/13/2026, 11:19:23 PM", apiName: "Anthropic", apiIcon: "ai", action: "hook-scoring", tokens: 398, status: "Pass" },
-  { time: "3/13/2026, 11:19:22 PM", apiName: "Anthropic", apiIcon: "ai", action: "analysis-insights", tokens: 1371, status: "Pass" },
-  { time: "3/13/2026, 11:19:15 PM", apiName: "Anthropic", apiIcon: "ai", action: "hook-scoring", tokens: 390, status: "Pass" },
-  { time: "3/13/2026, 11:19:15 PM", apiName: "Anthropic", apiIcon: "ai", action: "hook-scoring", tokens: 396, status: "Pass" },
-  { time: "3/13/2026, 11:19:14 PM", apiName: "Anthropic", apiIcon: "ai", action: "comment-sentiment", tokens: 591, status: "Pass" },
-  { time: "3/13/2026, 11:19:14 PM", apiName: "Anthropic", apiIcon: "ai", action: "analysis-insights", tokens: 1540, status: "Pass" },
-  { time: "3/13/2026, 11:19:13 PM", apiName: "Anthropic", apiIcon: "ai", action: "analysis-insights", tokens: 1522, status: "Pass" },
-  { time: "3/13/2026, 11:19:01 PM", apiName: "Anthropic", apiIcon: "ai", action: "analysis-classify", tokens: 1447, status: "Pass" },
-  { time: "3/13/2026, 11:19:01 PM", apiName: "Anthropic", apiIcon: "ai", action: "analysis-classify", tokens: 1290, status: "Pass" },
-  { time: "3/13/2026, 11:19:01 PM", apiName: "Anthropic", apiIcon: "ai", action: "analysis-classify", tokens: 1298, status: "Pass" },
-  { time: "3/13/2026, 11:18:59 PM", apiName: "youtube-data", apiIcon: "data", action: "commentThreads", tokens: null, status: "Pass" },
-  { time: "3/13/2026, 11:18:58 PM", apiName: "youtube-data", apiIcon: "data", action: "commentThreads", tokens: null, status: "Pass" },
-];
+const usageLogs: UsageLog[] = [];
 
 export default function Settings() {
+  const { projectId } = useParams();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>(initialApiKeys);
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [newKeyLabels, setNewKeyLabels] = useState<Record<string, string>>({});
   const [newKeyValues, setNewKeyValues] = useState<Record<string, string>>({});
+  const [usageLogs, setUsageLogs] = useState<UsageLog[]>([]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/projects/${projectId}/usage`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { ts: string; api: string; action: string; tokens: number | null; status: string }[]) => {
+        if (!Array.isArray(rows)) return;
+        setUsageLogs(rows.map((r) => {
+          const { name, icon } = mapService(r.api || "");
+          return {
+            time: r.ts ? new Date(r.ts).toLocaleString() : "—",
+            apiName: name,
+            apiIcon: icon,
+            action: r.action || "—",
+            tokens: r.tokens ?? null,
+            status: r.status === "ok" ? "Pass" : "Fail",
+          };
+        }));
+      })
+      .catch(() => {});
+  }, [projectId]);
 
   const handleSave = (id: string) => {
     const val = editingValues[id];
