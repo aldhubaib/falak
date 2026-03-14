@@ -14,11 +14,14 @@ const {
 const { getQueue, addJob, processJob } = require('./queue/pipeline')
 
 const POLL_MS = 10_000
-const BATCH_PER_STAGE = 3
+const BATCH_PER_STAGE = 3          // import / transcribe / comments: 3 concurrent is fine
+const BATCH_ANALYZING = 1          // analyzing: 1 at a time — each video makes 4 Anthropic calls
+const ANALYZING_INTER_ITEM_MS = 5_000  // 5s gap between analyzing items
 const MAX_RETRIES = 3
 const STAGES = ['import', 'transcribe', 'comments', 'analyzing']
 
 async function pickItems(stage) {
+  const limit = stage === 'analyzing' ? BATCH_ANALYZING : BATCH_PER_STAGE
   return db.pipelineItem.findMany({
     where: {
       stage,
@@ -33,7 +36,7 @@ async function pickItems(stage) {
       },
     },
     orderBy: { createdAt: 'asc' },
-    take: BATCH_PER_STAGE,
+    take: limit,
   })
 }
 
@@ -93,7 +96,17 @@ async function processItem(item) {
 
 async function runStage(stage) {
   const items = await pickItems(stage)
-  await Promise.all(items.map(processItem))
+  if (stage === 'analyzing') {
+    // Run analyzing items serially with a gap to avoid Anthropic rate limits
+    for (let i = 0; i < items.length; i++) {
+      await processItem(items[i])
+      if (i < items.length - 1) {
+        await new Promise(r => setTimeout(r, ANALYZING_INTER_ITEM_MS))
+      }
+    }
+  } else {
+    await Promise.all(items.map(processItem))
+  }
 }
 
 // Reset items stuck as 'running' for longer than STUCK_TIMEOUT_MS.

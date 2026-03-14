@@ -10,6 +10,11 @@ const { fetchTranscript } = require('./transcript')
 const { trackUsage } = require('./usageTracker')
 
 const MAX_ANTHROPIC_TOKENS = 4096
+const ANTHROPIC_RETRY_DELAYS_MS = [10_000, 30_000, 60_000] // on 429: wait 10s, 30s, 60s
+// Small gap between sequential AI calls within one video to avoid burst
+const ANTHROPIC_INTER_CALL_DELAY_MS = 2_000
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 // ── Import: fetch video metadata from YouTube Data API, save to Video ──
 async function doStageImport(item, video, project) {
@@ -118,6 +123,8 @@ Transcript:\n${transcript.slice(0, 15000)}`,
     },
   ], { projectId: project.id, action: 'analysis-classify' })
 
+  await sleep(ANTHROPIC_INTER_CALL_DELAY_MS)
+
   // Part B — Sonnet: key insights, audience reaction, engagement pattern
   const partB = await callAnthropic(apiKey, 'claude-sonnet-4-6', [
     {
@@ -128,6 +135,8 @@ Transcript (excerpt):\n${transcript.slice(0, 20000)}
 Comments (sample):\n${commentsSample}`,
     },
   ], { projectId: project.id, action: 'analysis-insights' })
+
+  await sleep(ANTHROPIC_INTER_CALL_DELAY_MS)
 
   let partAJson = {}
   let partBJson = {}
@@ -211,6 +220,7 @@ async function scoreVideoSentiment(apiKey, video, classifiedComments, contentTyp
     const transcriptText = segmentsToText(video.transcription)
     if (transcriptText) {
       try {
+        await sleep(ANTHROPIC_INTER_CALL_DELAY_MS)
         const hookRaw = await callAnthropic(
           apiKey,
           'claude-haiku-4-5-20251001',
@@ -293,25 +303,45 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
     messages: messages.map(({ role, content }) => ({ role, content })),
   }
   if (system) body.system = system
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const t = await res.text()
-    trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
-    throw new Error(`Anthropic API: ${res.status} ${t}`)
+
+  for (let attempt = 0; attempt <= ANTHROPIC_RETRY_DELAYS_MS.length; attempt++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (res.status === 429) {
+      trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: '429' })
+      if (attempt < ANTHROPIC_RETRY_DELAYS_MS.length) {
+        // Honour the Retry-After header if present, else use our schedule
+        const retryAfter = res.headers.get('retry-after')
+        const waitMs = retryAfter
+          ? Math.min(parseInt(retryAfter, 10) * 1000, 120_000)
+          : ANTHROPIC_RETRY_DELAYS_MS[attempt]
+        console.warn(`[anthropic] 429 rate limit on "${action}" (attempt ${attempt + 1}), retrying in ${waitMs / 1000}s`)
+        await sleep(waitMs)
+        continue
+      }
+      throw new Error(`Anthropic API: 429 rate limit exceeded after ${attempt} retries`)
+    }
+
+    if (!res.ok) {
+      const t = await res.text()
+      trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
+      throw new Error(`Anthropic API: ${res.status} ${t}`)
+    }
+
+    const data = await res.json()
+    const tokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+    trackUsage({ projectId, service: 'anthropic', action, tokensUsed, status: 'ok' })
+    const block = data.content && data.content[0]
+    return block && block.text ? block.text.trim() : ''
   }
-  const data = await res.json()
-  const tokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
-  trackUsage({ projectId, service: 'anthropic', action, tokensUsed, status: 'ok' })
-  const block = data.content && data.content[0]
-  return block && block.text ? block.text.trim() : ''
 }
 
 module.exports = {
