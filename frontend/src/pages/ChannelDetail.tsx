@@ -5,6 +5,7 @@ import { parseDuration } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { ArrowLeft, Info } from "lucide-react";
+import { toast } from "sonner";
 import type { Video } from "@/data/mock";
 
 const filterTabs = ["All", "Videos", "Shorts", "Analyzing", "Done", "Failed"];
@@ -98,6 +99,26 @@ export default function ChannelDetail() {
   const [panelVisible, setPanelVisible] = useState(false);
   const [channelType, setChannelType] = useState<"ours" | "competition">("ours");
   const closePanel = useCallback(() => setPanelVisible(false), []);
+
+  const handleTypeChange = useCallback((newType: "ours" | "competition") => {
+    if (!id) return;
+    const dbType = newType === "ours" ? "own" : "competitor";
+    setChannelType(newType);
+    fetch(`/api/channels/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ type: dbType }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        toast.success(`Channel marked as ${newType === "ours" ? "Ours" : "Competition"}`);
+      })
+      .catch(() => {
+        setChannelType(newType === "ours" ? "competition" : "ours");
+        toast.error("Failed to update classification");
+      });
+  }, [id]);
 
   const refetchChannel = useCallback(() => {
     if (!id) return;
@@ -337,7 +358,7 @@ export default function ChannelDetail() {
             onClose={closePanel}
             videoCount={channelVideos.filter((v) => v.type === "video").length}
             shortCount={channelVideos.filter((v) => v.type === "short").length}
-            onTypeChange={setChannelType}
+            onTypeChange={handleTypeChange}
             onBrandedHooksSaved={refetchChannel}
           />
         )}
