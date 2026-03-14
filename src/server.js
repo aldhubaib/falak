@@ -55,6 +55,7 @@ app.use('/api/settings',  require('./routes/settings'))
 app.use('/api/admin',     admin)
 app.use('/api/projects',  projects)
 app.use('/api/brain',     require('./routes/brain'))
+app.use('/api/brain-v2',  require('./routes/brainV2'))
 
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {

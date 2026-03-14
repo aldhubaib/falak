@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutGrid, GitBranch, Circle, TrendingUp, Sparkles, CircleDot, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X } from "lucide-react";
+import { LayoutGrid, GitBranch, Circle, TrendingUp, Sparkles, CircleDot, Brain, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { icon: TrendingUp, label: "Analytics", path: "/analytics" },
   { icon: Sparkles, label: "AI Intelligence", path: "/stories" },
   { icon: CircleDot, label: "Brain", path: "/brain" },
+  { icon: Brain, label: "Brain v2", path: "/brain-v2" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 

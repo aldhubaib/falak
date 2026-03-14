@@ -14,6 +14,7 @@ import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
 import Stories from "./pages/Stories";
 import Brain from "./pages/Brain";
+import BrainV2 from "./pages/BrainV2";
 import StoryDetail from "./pages/StoryDetail";
 import NotFound from "./pages/NotFound";
 
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="admin" element={<Admin />} />
               <Route path="stories" element={<Stories />} />
               <Route path="brain" element={<Brain />} />
+              <Route path="brain-v2" element={<BrainV2 />} />
               <Route path="story/:id" element={<StoryDetail />} />
               <Route path="settings" element={<Settings />} />
             </Route>
