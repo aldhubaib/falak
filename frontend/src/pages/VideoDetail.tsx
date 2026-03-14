@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
-import { videoAnalysis } from "@/data/mock";
 import type { Video } from "@/data/mock";
 import { VideoRightPanel } from "@/components/VideoRightPanel";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
@@ -41,6 +40,23 @@ function buildPipeline(pi: { stage: string; status: string; error?: string | nul
   });
 }
 
+interface TranscriptSegment { time?: string; offset?: number; text: string; }
+interface CommentRow { author: string; text: string; date: string; likes: number; sentiment: string; }
+interface AnalysisData {
+  transcript: TranscriptSegment[];
+  topics: string[];
+  keywords: string[];
+  sentiment: { positive: number; negative: number; neutral: number };
+  viral: { score: number | string; hookStrength: number | string; shareability: number | string; avgWatchPct: number | string; retentionDrop: number | string; trending: boolean };
+  comments: CommentRow[];
+}
+
+function formatOffset(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 export default function VideoDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -52,7 +68,7 @@ export default function VideoDetail() {
   const [activeTab, setActiveTab] = useState("Overview");
   const [panelVisible, setPanelVisible] = useState(false);
   const closePanel = useCallback(() => setPanelVisible(false), []);
-  const a = videoAnalysis;
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -100,6 +116,63 @@ export default function VideoDetail() {
           thumbnail: (data.thumbnailUrl as string) || undefined,
           youtubeId: (data.youtubeId as string) || undefined,
           pipeline: buildPipeline(pi),
+        });
+
+        // Parse transcript segments from Video.transcription (JSON array of {offset,text} or {time,text})
+        let transcript: TranscriptSegment[] = [];
+        if (typeof data.transcription === "string" && data.transcription) {
+          try {
+            const parsed = JSON.parse(data.transcription);
+            if (Array.isArray(parsed)) {
+              transcript = parsed.map((s: Record<string, unknown>) => ({
+                time: s.time ? String(s.time) : (typeof s.offset === "number" ? formatOffset(s.offset) : undefined),
+                text: String(s.text || ""),
+              }));
+            }
+          } catch (_) {
+            transcript = [{ text: data.transcription as string }];
+          }
+        }
+
+        // Parse analysisResult for topics, keywords, sentiment, viral
+        const ar = (data.analysisResult as Record<string, unknown> | null) ?? null;
+        const partA = (ar?.partA as Record<string, unknown> | null) ?? null;
+        const partB = (ar?.partB as Record<string, unknown> | null) ?? null;
+
+        const topics: string[] = Array.isArray(partA?.tags) ? (partA!.tags as unknown[]).map(String) : [];
+        const keywords: string[] = Array.isArray(partA?.keywords) ? (partA!.keywords as unknown[]).map(String) : [];
+
+        const rawSentiment = (partB?.commentSentiment ?? partA?.sentiment) as Record<string, unknown> | null | undefined;
+        const positive = Math.round(Number(rawSentiment?.positive ?? rawSentiment?.pos ?? 0));
+        const negative = Math.round(Number(rawSentiment?.negative ?? rawSentiment?.neg ?? 0));
+        const neutral = Math.max(0, 100 - positive - negative);
+
+        const rawViral = (partB?.viral ?? ar?.viral) as Record<string, unknown> | null | undefined;
+
+        // Parse comments from DB (already fetched via include in backend)
+        const rawComments = Array.isArray(data.comments) ? (data.comments as Record<string, unknown>[]) : [];
+        const commentRows: CommentRow[] = rawComments.map((c) => ({
+          author: String(c.authorName || ""),
+          text: String(c.text || ""),
+          date: c.publishedAt ? new Date(c.publishedAt as string).toLocaleDateString() : "",
+          likes: Number(c.likeCount) || 0,
+          sentiment: String(c.sentiment || "neutral"),
+        }));
+
+        setAnalysis({
+          transcript,
+          topics,
+          keywords,
+          sentiment: { positive, negative, neutral },
+          viral: {
+            score: rawViral?.score ?? "—",
+            hookStrength: rawViral?.hookStrength ?? "—",
+            shareability: rawViral?.shareability ?? "—",
+            avgWatchPct: rawViral?.avgWatchPct ?? "—",
+            retentionDrop: rawViral?.retentionDrop ?? "—",
+            trending: Boolean(rawViral?.trending ?? false),
+          },
+          comments: commentRows,
         });
       })
       .catch(() => setNotFound(true))
@@ -281,32 +354,42 @@ export default function VideoDetail() {
                 <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
                   <div className="bg-background px-4 py-3">
                     <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Transcript</div>
-                    <div className="space-y-5">
-                      {a.transcript.map((seg, i) => (
-                        <div key={i} className="flex gap-4">
-                          <span className="text-foreground text-[13px] font-mono shrink-0 pt-0.5">{seg.time}</span>
-                          <p className="text-sm leading-relaxed text-sensor" dir="rtl" style={{ textAlign: "right" }}>{seg.text}</p>
-                        </div>
-                      ))}
-                    </div>
+                    {(!analysis || analysis.transcript.length === 0) ? (
+                      <p className="text-[13px] text-dim py-2">No transcript available yet.</p>
+                    ) : (
+                      <div className="space-y-5">
+                        {analysis.transcript.map((seg, i) => (
+                          <div key={i} className="flex gap-4">
+                            {seg.time && <span className="text-foreground text-[13px] font-mono shrink-0 pt-0.5">{seg.time}</span>}
+                            <p className="text-sm leading-relaxed text-sensor" dir="rtl" style={{ textAlign: "right" }}>{seg.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <SectionDivider label="Topics" />
                 <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
                   <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
-                    {a.topics.map((t) => (
-                      <span key={t} className="py-1 px-2.5 rounded-full bg-primary/10 border border-primary/15 text-primary text-xs font-mono">{t}</span>
-                    ))}
+                    {analysis && analysis.topics.length > 0
+                      ? analysis.topics.map((t) => (
+                          <span key={t} className="py-1 px-2.5 rounded-full bg-primary/10 border border-primary/15 text-primary text-xs font-mono">{t}</span>
+                        ))
+                      : <span className="text-[13px] text-dim py-1">No topics yet.</span>
+                    }
                   </div>
                 </div>
 
                 <SectionDivider label="Keywords" />
                 <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
                   <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
-                    {a.keywords.map((k) => (
-                      <span key={k} className="py-1 px-2.5 rounded-full bg-elevated border border-border text-sensor text-xs font-mono">{k}</span>
-                    ))}
+                    {analysis && analysis.keywords.length > 0
+                      ? analysis.keywords.map((k) => (
+                          <span key={k} className="py-1 px-2.5 rounded-full bg-elevated border border-border text-sensor text-xs font-mono">{k}</span>
+                        ))
+                      : <span className="text-[13px] text-dim py-1">No keywords yet.</span>
+                    }
                   </div>
                 </div>
               </div>
@@ -317,9 +400,9 @@ export default function VideoDetail() {
                 {/* Sentiment bars in table */}
                 <div className="rounded-xl overflow-hidden border border-border mb-7" style={{ borderRadius: '12px' }}>
                   {[
-                    { label: "Positive", val: a.sentiment.positive, cls: "bg-success" },
-                    { label: "Negative", val: a.sentiment.negative, cls: "bg-destructive" },
-                    { label: "Neutral", val: a.sentiment.neutral, cls: "bg-dim" },
+                    { label: "Positive", val: analysis?.sentiment.positive ?? 0, cls: "bg-success" },
+                    { label: "Negative", val: analysis?.sentiment.negative ?? 0, cls: "bg-destructive" },
+                    { label: "Neutral", val: analysis?.sentiment.neutral ?? 0, cls: "bg-dim" },
                   ].map((s) => (
                     <div key={s.label} className="flex items-center gap-3 bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors">
                       <span className="text-xs text-sensor w-[72px]">{s.label}</span>
@@ -339,19 +422,19 @@ export default function VideoDetail() {
                 <div className="rounded-xl overflow-hidden border border-border mb-7" style={{ borderRadius: '12px' }}>
                   <div className="grid grid-cols-3 max-lg:grid-cols-2">
                     {[
-                      { val: a.viral.score, label: "Viral Score", highlight: true },
-                      { val: a.viral.hookStrength, label: "Hook Strength" },
-                      { val: a.viral.shareability, label: "Shareability" },
-                      { val: a.viral.avgWatchPct, label: "Avg Watch %" },
-                      { val: a.viral.retentionDrop, label: "Retention Drop" },
-                      { val: a.viral.trending ? "Yes" : "No", label: "Trending", highlight: a.viral.trending },
+                      { val: analysis?.viral.score ?? "—", label: "Viral Score", highlight: true },
+                      { val: analysis?.viral.hookStrength ?? "—", label: "Hook Strength" },
+                      { val: analysis?.viral.shareability ?? "—", label: "Shareability" },
+                      { val: analysis?.viral.avgWatchPct ?? "—", label: "Avg Watch %" },
+                      { val: analysis?.viral.retentionDrop ?? "—", label: "Retention Drop" },
+                      { val: analysis?.viral.trending ? "Yes" : "No", label: "Trending", highlight: analysis?.viral.trending ?? false },
                     ].map((v) => (
                       <div
                         key={v.label}
                         className="bg-background px-4 py-3 border-r border-b border-border last:border-r-0 hover:bg-[#0d0d10] transition-colors"
                       >
                         <div className={`text-lg font-semibold font-mono tracking-tight ${v.highlight ? "text-success" : ""}`}>
-                          {v.val}
+                          {String(v.val)}
                         </div>
                         <div className="text-[11px] text-dim mt-0.5">{v.label}</div>
                       </div>
@@ -363,38 +446,42 @@ export default function VideoDetail() {
 
             {activeTab === "Comments" && (
               <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
-                {a.comments.map((c, i) => (
-                  <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors">
-                    <div className="flex items-center mb-1.5">
-                      <span className="text-[13px] font-medium">{c.author}</span>
-                      <span className="text-[11px] text-dim font-mono ml-auto">{c.date}</span>
+                {(!analysis || analysis.comments.length === 0) ? (
+                  <div className="bg-background px-4 py-6 text-center text-[13px] text-dim">No comments yet.</div>
+                ) : (
+                  analysis.comments.map((c, i) => (
+                    <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors">
+                      <div className="flex items-center mb-1.5">
+                        <span className="text-[13px] font-medium">{c.author}</span>
+                        <span className="text-[11px] text-dim font-mono ml-auto">{c.date}</span>
+                      </div>
+                      <p className="text-[13px] text-sensor leading-relaxed mb-1.5" dir="rtl" style={{ textAlign: "right" }}>
+                        {c.text}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-dim font-mono">♥ {c.likes}</span>
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${
+                                c.sentiment === "positive" ? "text-success" :
+                                c.sentiment === "question" ? "text-blue" :
+                                "text-dim"
+                              }`}>
+                                {c.sentiment === "positive" ? <SmilePlus className="w-3.5 h-3.5" /> :
+                                 c.sentiment === "question" ? <HelpCircle className="w-3.5 h-3.5" /> :
+                                 <Meh className="w-3.5 h-3.5" />}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="left">
+                              <span className="capitalize">{c.sentiment}</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </div>
-                    <p className="text-[13px] text-sensor leading-relaxed mb-1.5" dir="rtl" style={{ textAlign: "right" }}>
-                      {c.text}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-dim font-mono">♥ {c.likes}</span>
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                              c.sentiment === "positive" ? "text-success" :
-                              c.sentiment === "question" ? "text-blue" :
-                              "text-dim"
-                            }`}>
-                              {c.sentiment === "positive" ? <SmilePlus className="w-3.5 h-3.5" /> :
-                               c.sentiment === "question" ? <HelpCircle className="w-3.5 h-3.5" /> :
-                               <Meh className="w-3.5 h-3.5" />}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="left">
-                            <span className="capitalize">{c.sentiment}</span>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
 
