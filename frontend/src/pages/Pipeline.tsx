@@ -1,22 +1,120 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
-import { RotateCw, Pause, Circle, ChevronDown, AlertTriangle, ArrowUpRight, Search, X } from "lucide-react";
+import { RotateCw, Pause, Play, Circle, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { channels } from "@/data/mock";
-import { pipelineStats, pipelineStages, type PipelineStageData, type PipelineItem } from "@/data/pipelineMock";
+import { toast } from "sonner";
+
+// ── Types matching GET /api/pipeline response ──────────────────────────────
+
+interface ApiVideo {
+  id: string;
+  youtubeId?: string;
+  titleAr?: string;
+  thumbnailUrl?: string;
+  channel?: { id: string; nameAr?: string; handle?: string; avatarUrl?: string | null };
+}
+
+interface ApiPipelineItem {
+  id: string;
+  stage: string;
+  status: string;
+  error?: string | null;
+  retries: number;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  createdAt: string;
+  video?: ApiVideo | null;
+}
+
+interface PipelineData {
+  stats: {
+    total: number;
+    import: number;
+    transcribe: number;
+    comments: number;
+    analyzing: number;
+    done: number;
+    failed: number;
+  };
+  byStage: Record<string, ApiPipelineItem[]>;
+}
+
+const STAGE_DEFS: { id: string; number: number; label: string; color: string }[] = [
+  { id: "import",    number: 1, label: "Import",        color: "text-orange" },
+  { id: "transcribe",number: 2, label: "Transcribe",    color: "text-blue" },
+  { id: "comments",  number: 3, label: "Comments",      color: "text-purple" },
+  { id: "analyzing", number: 4, label: "AI Analysis",   color: "text-success" },
+  { id: "failed",    number: 0, label: "Failed",        color: "text-destructive" },
+];
 
 export default function Pipeline() {
-  const s = pipelineStats;
-  const [countdown, setCountdown] = useState(21);
+  const { projectId } = useParams();
+  const [data, setData] = useState<PipelineData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const [retryingAll, setRetryingAll] = useState(false);
+  const [countdown, setCountdown] = useState(30);
+
+  const fetchPipeline = useCallback(() => {
+    const url = projectId
+      ? `/api/pipeline?limit=2000&projectId=${encodeURIComponent(projectId)}`
+      : "/api/pipeline?limit=2000";
+    fetch(url, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: PipelineData | null) => {
+        if (d) setData(d);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((prev) => (prev <= 0 ? 21 : prev - 1));
+    fetchPipeline();
+  }, [fetchPipeline]);
+
+  // Auto-refresh every 30s
+  useEffect(() => {
+    setCountdown(30);
+    const tick = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchPipeline();
+          return 30;
+        }
+        return prev - 1;
+      });
     }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(tick);
+  }, [fetchPipeline]);
+
+  const handlePauseResume = () => {
+    const endpoint = paused ? "/api/pipeline/resume" : "/api/pipeline/pause";
+    fetch(endpoint, { method: "POST", credentials: "include" })
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        setPaused(!paused);
+        toast.success(paused ? "Pipeline resumed" : "Pipeline paused");
+      })
+      .catch(() => toast.error("Failed to update pipeline state"));
+  };
+
+  const handleRetryAll = () => {
+    setRetryingAll(true);
+    fetch("/api/pipeline/retry-all-failed", { method: "POST", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { retried: number }) => {
+        toast.success(`Retrying ${d.retried} failed items`);
+        fetchPipeline();
+      })
+      .catch(() => toast.error("Failed to retry"))
+      .finally(() => setRetryingAll(false));
+  };
+
+  const failedCount = data?.stats.failed ?? 0;
+  const totalVideos = data?.stats.total ?? 0;
+  const doneCount = data?.stats.done ?? 0;
+  const inPipeline = totalVideos - doneCount;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -24,315 +122,274 @@ export default function Pipeline() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-[13px] font-medium text-foreground">Pipeline</h1>
-          <span className="text-[11px] text-dim font-mono"></span>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 text-success text-[11px] font-medium">
             <Circle className="w-2 h-2 fill-current" />
-            Running · {countdown}s
+            {paused ? "Paused" : `Running · ${countdown}s`}
           </span>
-          <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
-            <Pause className="w-3 h-3" />
-            Pause
+          <button
+            onClick={handlePauseResume}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+          >
+            {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+            {paused ? "Resume" : "Pause"}
           </button>
-          <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
-            <RotateCw className="w-3 h-3" />
-            Retry all failed (8)
-          </button>
+          {failedCount > 0 && (
+            <button
+              onClick={handleRetryAll}
+              disabled={retryingAll}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50"
+            >
+              <RotateCw className={`w-3 h-3 ${retryingAll ? "animate-spin" : ""}`} />
+              Retry all failed ({failedCount})
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex-1 relative overflow-auto">
-      {/* Stats row */}
-      <div className="px-6 max-lg:px-4 mb-5 pt-5">
-        <div className="flex rounded-xl overflow-hidden">
-          {/* Total */}
-          <div className="px-5 py-4 bg-background border-r border-background min-w-[140px]">
-            <div className="text-2xl font-semibold font-mono tracking-tight">{s.totalVideos}</div>
-            <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total Videos</div>
-            <div className="flex items-center gap-2 mt-2 text-[11px] text-dim font-mono">
-              <span>{s.inPipeline} in pipeline</span>
-              <span>{s.done} done</span>
-            </div>
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
           </div>
-          {/* Stage stats */}
-          {s.stages.map((stage) => {
-            const colorClass = stage.color === "orange" ? "text-orange" : stage.color === "blue" ? "text-blue" : stage.color === "purple" ? "text-purple" : stage.color === "success" ? "text-success" : stage.color === "destructive" ? "text-destructive" : "text-primary";
-            return (
-            <div key={stage.label} className="flex-1 px-5 py-4 bg-background border-r border-background last:border-r-0">
-              <div className="flex items-baseline gap-2">
-                <span className={`text-2xl font-semibold font-mono tracking-tight ${colorClass}`}>{stage.count}</span>
-                {stage.eta && (
-                  <span className="text-[10px] text-dim font-mono">{stage.eta} ⏱</span>
-                )}
-              </div>
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">{stage.label}</div>
-              <div className="flex items-center justify-between mt-2 text-[11px] font-mono">
-                <span className="text-dim">{stage.active} active</span>
-                <span className="text-orange">{stage.remaining} left</span>
+        ) : (
+          <>
+            {/* Stats row */}
+            <div className="px-6 max-lg:px-4 mb-5 pt-5">
+              <div className="flex rounded-xl overflow-hidden border border-border">
+                <div className="px-5 py-4 bg-background border-r border-border min-w-[140px]">
+                  <div className="text-2xl font-semibold font-mono tracking-tight">{totalVideos}</div>
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total Videos</div>
+                  <div className="flex items-center gap-2 mt-2 text-[11px] text-dim font-mono">
+                    <span>{inPipeline} in pipeline</span>
+                    <span>{doneCount} done</span>
+                  </div>
+                </div>
+                {STAGE_DEFS.filter(s => s.id !== "failed").map((stage) => {
+                  const count = data?.stats[stage.id as keyof typeof data.stats] ?? 0;
+                  return (
+                    <div key={stage.id} className="flex-1 px-5 py-4 bg-background border-r border-border last:border-r-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-2xl font-semibold font-mono tracking-tight ${stage.color}`}>{count}</span>
+                      </div>
+                      <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">{stage.label}</div>
+                    </div>
+                  );
+                })}
+                <div className="px-5 py-4 bg-background min-w-[120px]">
+                  <span className="text-2xl font-semibold font-mono tracking-tight text-destructive">{failedCount}</span>
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Failed</div>
+                </div>
               </div>
             </div>
-            );
-          })}
-          {/* Failed */}
-          <div className="px-5 py-4 bg-background min-w-[120px]">
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold font-mono tracking-tight text-destructive">{s.failed.count}</span>
-              <span className="text-[10px] text-dim font-mono">{s.failed.errors}</span>
-            </div>
-            <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">FAILED</div>
-            <div className="mt-2 text-[11px] font-mono text-destructive">{s.failed.needsRetry}</div>
-          </div>
-        </div>
-      </div>
 
-      {/* Stage columns */}
-      <div className="flex-1 px-6 pb-8 max-lg:px-4 overflow-x-auto">
-        {/* Top row: first 3 stages */}
-        <div className="grid grid-cols-3 gap-4 mb-4 max-lg:grid-cols-1 items-start">
-          {pipelineStages.slice(0, 3).map((stage) => (
-            <StageColumn key={stage.id} stage={stage} />
-          ))}
-        </div>
-        {/* Bottom row: analysis + failed */}
-        <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1 items-start">
-          {pipelineStages.slice(3).map((stage) => (
-            <StageColumn key={stage.id} stage={stage} />
-          ))}
-        </div>
-      </div>
+            {/* Stage columns */}
+            <div className="px-6 pb-8 max-lg:px-4 overflow-x-auto">
+              <div className="grid grid-cols-3 gap-4 mb-4 max-lg:grid-cols-1 items-start">
+                {STAGE_DEFS.slice(0, 3).map((stage) => (
+                  <StageColumn
+                    key={stage.id}
+                    stage={stage}
+                    items={data?.byStage[stage.id] ?? []}
+                    onRetry={fetchPipeline}
+                  />
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1 items-start">
+                {STAGE_DEFS.slice(3).map((stage) => (
+                  <StageColumn
+                    key={stage.id}
+                    stage={stage}
+                    items={data?.byStage[stage.id] ?? []}
+                    onRetry={fetchPipeline}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function StageColumn({ stage }: { stage: PipelineStageData }) {
+function StageColumn({
+  stage,
+  items,
+  onRetry,
+}: {
+  stage: { id: string; number: number; label: string; color: string };
+  items: ApiPipelineItem[];
+  onRetry: () => void;
+}) {
   const isFailed = stage.id === "failed";
-  const [modalOpen, setModalOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [retryingAll, setRetryingAll] = useState(false);
 
-  // Generate mock "more" items for the modal (in real app these come from API)
-  const allItems = useMemo(() => {
-    if (stage.moreCount <= 0) return stage.items;
-    const arabicTitles = [
-      "رحلة إلى الجنوب", "تجربة الغوص في البحر", "مغامرة الصحراء الكبرى",
-      "أسرار المدينة القديمة", "تحدي الطبخ الشعبي", "استكشاف الكهوف المظلمة",
-      "رحلة الشتاء الباردة", "مغامرة في الغابة", "زيارة القرية المهجورة",
-      "تجربة التخييم البري", "صيد السمك في الخليج", "رحلة جبال الألب",
-      "استكشاف الأنفاق السرية", "مغامرة الجزيرة النائية", "تحدي البقاء ليلة كاملة",
-      "رحلة إلى الواحة", "أغرب الأماكن المهجورة", "تجربة الطيران الشراعي",
-      "مغامرة في الوادي العميق", "زيارة القلعة الأثرية", "رحلة البحث عن الكنز",
-      "استكشاف المنطقة الممنوعة", "تحدي الجري في الصحراء", "مغامرة الثلوج",
-      "رحلة إلى أعلى القمة", "تجربة الحياة البدوية", "زيارة السوق القديم",
-      "استكشاف الشاطئ المجهول", "مغامرة الليل في البر", "تحدي الطبخ على النار",
-    ];
-    const statuses: Array<{ status: PipelineItem["status"]; statusDetail?: string }> = [
-      { status: "waiting" },
-      { status: "queued" },
-      { status: "processing", statusDetail: "Processing..." },
-      { status: "waiting" },
-      { status: "queued" },
-    ];
-    const extra: PipelineItem[] = Array.from({ length: stage.moreCount }, (_, i) => {
-      const s = statuses[i % statuses.length];
-      return {
-        id: `${stage.id}-extra-${i}`,
-        title: arabicTitles[i % arabicTitles.length],
-        channelId: channels[i % channels.length]?.id || "ch1",
-        videoId: `v-extra-${i}`,
-        status: isFailed ? "failed" as const : s.status,
-        statusDetail: isFailed ? undefined : s.statusDetail,
-        errorReason: isFailed ? ["API quota exceeded", "Transcript unavailable", "Timeout", "Rate limited", "Network error"][i % 5] : undefined,
-        timeInStage: `${Math.floor(Math.random() * 30 + 1)}m ${Math.floor(Math.random() * 59)}s`,
-        retries: Math.floor(Math.random() * 4),
-      };
-    });
-    return [...stage.items, ...extra];
-  }, [stage, isFailed]);
-
-  const filteredItems = search
-    ? allItems.filter((item) => item.title.toLowerCase().includes(search.toLowerCase()))
-    : allItems;
+  const handleRetryAll = () => {
+    setRetryingAll(true);
+    fetch("/api/pipeline/retry-all-failed", { method: "POST", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { retried: number }) => {
+        toast.success(`Retrying ${d.retried} items`);
+        onRetry();
+      })
+      .catch(() => toast.error("Failed to retry"))
+      .finally(() => setRetryingAll(false));
+  };
 
   return (
-    <>
-      <div className="rounded-xl border border-border overflow-hidden flex flex-col h-[420px]">
-        {/* Stage header */}
-        <div className="px-4 py-3 bg-background shrink-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex items-center gap-2">
-              {stage.number > 0 && (
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${
-                  isFailed ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-primary"
-                }`}>
-                  {isFailed ? "!" : stage.number}
-                </span>
-              )}
-              {isFailed && (
-                <span className="w-5 h-5 rounded-full flex items-center justify-center bg-destructive/15 text-destructive">
-                  <AlertTriangle className="w-3 h-3" />
-                </span>
-              )}
-              <span className="text-[13px] font-semibold">{stage.label}</span>
-              <span className="text-[12px] text-dim font-mono">({stage.count})</span>
-            </div>
-            <button className="inline-flex items-center gap-1 text-[11px] text-dim font-mono hover:text-sensor transition-colors">
-              <RotateCw className="w-3 h-3" />
-              All
-            </button>
+    <div className="rounded-xl border border-border overflow-hidden flex flex-col max-h-[420px]">
+      {/* Stage header */}
+      <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${
+              isFailed ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-primary"
+            }`}>
+              {isFailed ? <AlertTriangle className="w-3 h-3" /> : stage.number}
+            </span>
+            <span className="text-[13px] font-semibold">{stage.label}</span>
+            <span className="text-[12px] text-dim font-mono">({items.length})</span>
           </div>
-        </div>
-
-        {/* Items */}
-        <div className="flex-1 overflow-auto bg-background">
-          {stage.items.map((item) => (
-            <PipelineItemRow key={item.id} item={item} isFailed={isFailed} />
-          ))}
-        </div>
-
-        {/* More count */}
-        {stage.moreCount > 0 && (
-          <div className="px-4 py-3 border-t border-border bg-background shrink-0">
+          {isFailed && items.length > 0 && (
             <button
-              onClick={() => { setSearch(""); setModalOpen(true); }}
-              className="flex items-center gap-1.5 text-[12px] text-dim font-mono hover:text-sensor transition-colors"
+              onClick={handleRetryAll}
+              disabled={retryingAll}
+              className="inline-flex items-center gap-1 text-[11px] text-dim font-mono hover:text-sensor transition-colors disabled:opacity-50"
             >
-              <ChevronDown className="w-3 h-3" />
-              +{stage.moreCount} more
+              <RotateCw className={`w-3 h-3 ${retryingAll ? "animate-spin" : ""}`} />
+              Retry all
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* All items modal */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col bg-[#070707] border-0 p-0 gap-0 !rounded-xl overflow-hidden shadow-2xl">
-          <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
-            <DialogTitle className="text-[15px] font-semibold flex items-center gap-2">
-              {stage.label}
-              <span className="text-[12px] text-dim font-mono font-normal">({allItems.length} total)</span>
-            </DialogTitle>
-            <DialogDescription className="text-[12px] text-dim">
-              All items in this stage
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Search */}
-          <div className="px-6 pb-4 shrink-0">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dim" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search items..."
-                className="w-full pl-11 pr-8 py-2.5 text-[13px] bg-surface/50 border border-border/50 rounded-full text-foreground placeholder:text-dim focus:outline-none focus:border-primary/40 transition-colors"
-                autoFocus
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-dim hover:text-foreground transition-colors">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Scrollable list */}
-          <div className="flex-1 overflow-auto min-h-0">
-            {filteredItems.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-[12px] text-dim font-mono">No matching items</div>
-            ) : (
-              filteredItems.map((item) => (
-                <PipelineItemRow key={item.id} item={item} isFailed={isFailed} />
-              ))
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="px-6 py-3 border-t border-border/30 shrink-0 flex items-center justify-between">
-            <span className="text-[11px] text-dim font-mono">
-              {search ? `${filteredItems.length} of ${allItems.length} items` : `${allItems.length} items`}
-            </span>
-            <button
-              onClick={() => setModalOpen(false)}
-              className="px-4 py-1.5 text-[12px] font-medium rounded-full border border-border/50 text-dim hover:text-foreground hover:opacity-80 transition-all"
-            >
-              Close
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      {/* Items */}
+      <div className="flex-1 overflow-auto bg-background">
+        {items.length === 0 ? (
+          <div className="flex items-center justify-center h-24 text-[12px] text-dim font-mono">Empty</div>
+        ) : (
+          items.map((item) => (
+            <PipelineItemRow key={item.id} item={item} isFailed={isFailed} onRetry={onRetry} />
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
-function PipelineItemRow({ item, isFailed }: { item: PipelineItem; isFailed: boolean }) {
+function PipelineItemRow({
+  item,
+  isFailed,
+  onRetry,
+}: {
+  item: ApiPipelineItem;
+  isFailed: boolean;
+  onRetry: () => void;
+}) {
   const navigate = useNavigate();
   const projectPath = useProjectPath();
-  const channel = channels.find((c) => c.id === item.channelId);
+  const [retrying, setRetrying] = useState(false);
+  const video = item.video;
+  const channel = video?.channel;
+
+  const timeInStage = item.startedAt
+    ? formatElapsed(new Date(item.startedAt))
+    : undefined;
+
+  const handleRetry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRetrying(true);
+    fetch(`/api/pipeline/${item.id}/retry`, { method: "POST", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => { toast.success("Item queued for retry"); onRetry(); })
+      .catch(() => toast.error("Failed to retry"))
+      .finally(() => setRetrying(false));
+  };
 
   return (
     <div
-      onClick={() => item.videoId && navigate(projectPath(`/video/${item.videoId}`))}
-      className={`px-4 py-3 border-t border-border hover:bg-surface/50 transition-colors group ${item.videoId ? "cursor-pointer" : ""}`}
+      onClick={() => video?.id && navigate(projectPath(`/video/${video.id}`))}
+      className={`px-4 py-3 border-t border-border hover:bg-surface/50 transition-colors group ${video?.id ? "cursor-pointer" : ""}`}
     >
-      <div className="flex items-start justify-between mb-2">
-        {/* Left: channel avatar + status */}
-        <div className="flex items-center gap-2 min-w-0">
-          {channel && (
-            <img
-              src={channel.avatarImg}
-              alt={channel.name}
-              className="w-6 h-6 rounded-full object-cover shrink-0"
-            />
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        {/* Left: avatar + status */}
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
+          {channel?.avatarUrl ? (
+            <img src={channel.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-elevated shrink-0" />
           )}
           <div className="min-w-0">
-            {item.status === "processing" && !isFailed && (
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                <span className="text-[11px] text-success font-mono">{item.statusDetail || "Processing..."}</span>
+            {item.status === "running" && !isFailed && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" />
+                <span className="text-[11px] text-success font-mono">Processing…</span>
               </div>
             )}
-            {isFailed && item.errorReason && (
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
-                <span className="text-[11px] text-destructive/80 font-mono">{item.errorReason}</span>
+            {item.status === "queued" && !isFailed && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-dim/50 shrink-0" />
+                <span className="text-[11px] text-dim font-mono">Queued</span>
               </div>
             )}
-            {item.progress && (
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                <span className="text-[11px] text-success font-mono">{item.progress}</span>
+            {isFailed && item.error && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                <span className="text-[11px] text-destructive/80 font-mono truncate max-w-[100px]">{item.error}</span>
               </div>
             )}
           </div>
         </div>
+
         {/* Right: title */}
-        <div className="flex items-center gap-1.5 shrink-0 max-w-[55%]">
-          <span className="text-[13px] text-foreground font-medium text-right" dir="rtl">
-            {item.title}
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="text-[13px] text-foreground font-medium text-right truncate" dir="rtl">
+            {video?.titleAr || video?.youtubeId || item.id}
           </span>
-          {item.videoId && (
+          {video?.id && (
             <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
           )}
         </div>
       </div>
+
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-dim font-mono">
-          {item.timeInStage && `⏱ ${item.timeInStage}`}
+          {timeInStage ? `⏱ ${timeInStage}` : ""}
         </span>
-        {item.retries > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="inline-flex items-center gap-1 text-[10px] text-dim font-mono">
-                <RotateCw className="w-2.5 h-2.5" />
-                {item.retries}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="left">Attempted {item.retries} times</TooltipContent>
-          </Tooltip>
-        )}
+        <div className="flex items-center gap-2">
+          {item.retries > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center gap-1 text-[10px] text-dim font-mono">
+                  <RotateCw className="w-2.5 h-2.5" />
+                  {item.retries}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left">Attempted {item.retries} times</TooltipContent>
+            </Tooltip>
+          )}
+          {isFailed && (
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              className="text-[10px] text-dim font-mono hover:text-sensor transition-colors disabled:opacity-50"
+            >
+              {retrying ? "…" : "Retry"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function formatElapsed(from: Date): string {
+  const ms = Date.now() - from.getTime();
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
