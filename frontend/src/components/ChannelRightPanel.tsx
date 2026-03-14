@@ -125,10 +125,17 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
 
   const handleSync = () => {
     setSyncing(true);
+    // refresh = update channel metadata; fetch-videos = pull new videos into pipeline
     fetch(`/api/channels/${channel.id}/refresh`, { method: "POST", credentials: "include" })
+      .then((r) => { if (!r.ok) throw new Error("Failed"); })
+      .catch(() => {})
+    fetch(`/api/channels/${channel.id}/fetch-videos`, { method: "POST", credentials: "include" })
       .then((r) => {
         if (!r.ok) throw new Error("Sync failed");
-        toast.success("Sync started — new videos will appear shortly");
+        return r.json();
+      })
+      .then((data) => {
+        toast.success(`Sync done — ${data.added ?? 0} new video(s) queued`);
         onSyncNow?.();
       })
       .catch(() => toast.error("Sync failed"))
