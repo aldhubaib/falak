@@ -1,31 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-interface SingleApiKey {
-  id: string;
-  name: string;
-  description: string;
-  value: string;
-  icon: "ai" | "data" | "search" | "transcript";
-  link?: string;
-  linkLabel?: string;
-  multiKey?: false;
-}
+// ── Types ──────────────────────────────────────────────────────────────────
 
-interface MultiApiKey {
-  id: string;
+interface YTKey { id: string; label: string; isActive: boolean; usageCount: number; lastUsedAt?: string | null }
+
+interface ApiKeyDef {
+  service: string;         // matches backend service string
   name: string;
   description: string;
   icon: "ai" | "data" | "search" | "transcript";
   link?: string;
   linkLabel?: string;
-  multiKey: true;
-  keys: { label: string; value: string }[];
+  multiKey?: boolean;
+  placeholder?: string;
 }
-
-type ApiKey = SingleApiKey | MultiApiKey;
 
 interface UsageLog {
   time: string;
@@ -36,88 +27,95 @@ interface UsageLog {
   status: "Pass" | "Fail";
 }
 
-// Map API service strings from backend to display names and icon keys
-function mapService(api: string): { name: string; icon: "ai" | "data" | "search" | "transcript" } {
-  if (api === "anthropic") return { name: "Anthropic", icon: "ai" };
-  if (api === "youtube-data") return { name: "YouTube Data", icon: "data" };
-  if (api === "yttranscript") return { name: "YT Transcript", icon: "transcript" };
-  if (api === "perplexity") return { name: "Perplexity", icon: "search" };
-  return { name: api, icon: "data" };
-}
+// ── Static key definitions (metadata only, no values) ─────────────────────
 
-const iconMap = {
-  ai: Bot,
-  data: Cog,
-  search: Globe,
-  transcript: FileText,
-};
-
-const iconColorMap = {
-  ai: "text-purple",
-  data: "text-dim",
-  search: "text-blue",
-  transcript: "text-orange",
-};
-
-const apiNameColorMap: Record<string, string> = {
-  "Anthropic (Claude)": "text-purple",
-  "YouTube Data API v3": "text-dim",
-  "Perplexity Sonar": "text-blue",
-  "YouTube Transcript API": "text-orange",
-  Anthropic: "text-purple",
-  "youtube-data": "text-dim",
-};
-
-const mask = (v: string) => {
-  if (v.length <= 4) return "••••••••••••";
-  const visible = Math.min(v.length > 10 ? 6 : 3, v.length);
-  return v.slice(0, visible) + "•••••••••";
-};
-
-const initialApiKeys: ApiKey[] = [
+const KEY_DEFS: ApiKeyDef[] = [
   {
-    id: "anthropic",
+    service: "anthropic",
     name: "Anthropic (Claude)",
     description: "Used by Brain to analyze video transcripts and generate insights (Pipeline → Analyzing stage). Also used for Stories AI evaluation.",
-    value: "sk-ant-api03-a5g•••••••••",
     icon: "ai",
+    placeholder: "sk-ant-api03-...",
   },
   {
-    id: "youtube",
+    service: "youtube",
     name: "YouTube Data API v3",
     description: "Used for syncing Channels — fetches video metadata, view counts, likes, comment counts, and channel info. Add multiple keys to increase quota.",
     icon: "data",
     multiKey: true,
-    keys: [{ label: "Falak 001", value: "AIzaSyDB•••••••••" }],
+    placeholder: "AIza...",
   },
   {
-    id: "perplexity",
+    service: "perplexity",
     name: "Perplexity Sonar",
     description: "Used in Stories → Fetch step to search the web for fresh news and untouched story angles.",
-    value: "pplx-pvxsFgPMrsH•••••••••",
     icon: "search",
+    placeholder: "pplx-...",
   },
   {
-    id: "transcript",
+    service: "transcript",
     name: "YouTube Transcript API",
     description: "Fetches full transcripts of YouTube videos. Used in Brain → Transcribe stage (Pipeline) to extract competitor video content.",
-    value: "69ab4321836ca456•••••••••",
     icon: "transcript",
+    placeholder: "your-api-key",
     link: "https://youtube-transcript.io",
     linkLabel: "youtube-transcript.io ↗",
   },
 ];
 
-const usageLogs: UsageLog[] = [];
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const iconMap = { ai: Bot, data: Cog, search: Globe, transcript: FileText };
+const iconColorMap = { ai: "text-purple", data: "text-dim", search: "text-blue", transcript: "text-orange" };
+const apiNameColorMap: Record<string, string> = {
+  Anthropic: "text-purple", "YouTube Data": "text-dim",
+  "YT Transcript": "text-orange", Perplexity: "text-blue",
+};
+
+function mapService(api: string): { name: string; icon: "ai" | "data" | "search" | "transcript" } {
+  if (api === "anthropic")   return { name: "Anthropic",    icon: "ai" };
+  if (api === "youtube-data") return { name: "YouTube Data", icon: "data" };
+  if (api === "yttranscript") return { name: "YT Transcript", icon: "transcript" };
+  if (api === "perplexity")  return { name: "Perplexity",   icon: "search" };
+  return { name: api, icon: "data" };
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 export default function Settings() {
   const { projectId } = useParams();
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>(initialApiKeys);
-  const [editingValues, setEditingValues] = useState<Record<string, string>>({});
-  const [newKeyLabels, setNewKeyLabels] = useState<Record<string, string>>({});
-  const [newKeyValues, setNewKeyValues] = useState<Record<string, string>>({});
+
+  // Which services have a key set (from GET /api/settings)
+  const [keyStatus, setKeyStatus] = useState<Record<string, boolean>>({});
+  // YouTube multi-keys from DB
+  const [ytKeys, setYtKeys] = useState<YTKey[]>([]);
+  // Inline edit state for single keys
+  const [editing, setEditing] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [clearing, setClearing] = useState<Record<string, boolean>>({});
+  // New YouTube key form
+  const [newYtLabel, setNewYtLabel] = useState("");
+  const [newYtValue, setNewYtValue] = useState("");
+  const [addingYt, setAddingYt] = useState(false);
+  const [removingYt, setRemovingYt] = useState<Record<string, boolean>>({});
+  // Usage logs
   const [usageLogs, setUsageLogs] = useState<UsageLog[]>([]);
 
+  // Load key status + YouTube keys
+  useEffect(() => {
+    fetch("/api/settings", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { keys: { service: string; hasKey: boolean }[]; youtubeKeys: YTKey[] } | null) => {
+        if (!d) return;
+        const status: Record<string, boolean> = {};
+        for (const k of d.keys) status[k.service] = k.hasKey;
+        setKeyStatus(status);
+        setYtKeys(d.youtubeKeys || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load usage logs
   useEffect(() => {
     if (!projectId) return;
     fetch(`/api/projects/${projectId}/usage`, { credentials: "include" })
@@ -128,8 +126,7 @@ export default function Settings() {
           const { name, icon } = mapService(r.api || "");
           return {
             time: r.ts ? new Date(r.ts).toLocaleString() : "—",
-            apiName: name,
-            apiIcon: icon,
+            apiName: name, apiIcon: icon,
             action: r.action || "—",
             tokens: r.tokens ?? null,
             status: r.status === "ok" ? "Pass" : "Fail",
@@ -139,73 +136,81 @@ export default function Settings() {
       .catch(() => {});
   }, [projectId]);
 
-  const handleSave = (id: string) => {
-    const val = editingValues[id];
-    if (!val || !val.trim()) {
-      toast.error("Please enter a key value");
-      return;
-    }
-    setApiKeys((prev) =>
-      prev.map((k) => (k.id === id && !k.multiKey ? { ...k, value: mask(val.trim()) } : k))
-    );
-    setEditingValues((prev) => {
-      const n = { ...prev };
-      delete n[id];
-      return n;
-    });
-    toast.success(`${apiKeys.find((k) => k.id === id)?.name} key saved`);
+  // Save single key
+  const handleSave = (service: string, name: string) => {
+    const val = editing[service]?.trim();
+    if (!val) { toast.error("Please enter a key value"); return; }
+    setSaving((p) => ({ ...p, [service]: true }));
+    fetch("/api/settings/keys", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service, key: val }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => {
+        setKeyStatus((p) => ({ ...p, [service]: true }));
+        setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
+        toast.success(`${name} key saved`);
+      })
+      .catch(() => toast.error("Failed to save key"))
+      .finally(() => setSaving((p) => ({ ...p, [service]: false })));
   };
 
-  const handleClear = (id: string) => {
-    setApiKeys((prev) =>
-      prev.map((k) => (k.id === id && !k.multiKey ? { ...k, value: "" } : k))
-    );
-    setEditingValues((prev) => {
-      const n = { ...prev };
-      delete n[id];
-      return n;
-    });
-    toast("Key cleared");
+  // Clear single key
+  const handleClear = (service: string, name: string) => {
+    setClearing((p) => ({ ...p, [service]: true }));
+    fetch(`/api/settings/keys/${service}`, { method: "DELETE", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => {
+        setKeyStatus((p) => ({ ...p, [service]: false }));
+        setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
+        toast(`${name} key cleared`);
+      })
+      .catch(() => toast.error("Failed to clear key"))
+      .finally(() => setClearing((p) => ({ ...p, [service]: false })));
   };
 
-  const handleAddKey = (id: string) => {
-    const label = newKeyLabels[id]?.trim();
-    const value = newKeyValues[id]?.trim();
-    if (!label || !value) {
-      toast.error("Please fill in both label and key value");
-      return;
-    }
-    setApiKeys((prev) =>
-      prev.map((k) =>
-        k.id === id && k.multiKey
-          ? { ...k, keys: [...k.keys, { label, value: mask(value) }] }
-          : k
-      )
-    );
-    setNewKeyLabels((prev) => ({ ...prev, [id]: "" }));
-    setNewKeyValues((prev) => ({ ...prev, [id]: "" }));
-    toast.success("Key added");
+  // Add YouTube key
+  const handleAddYt = () => {
+    const label = newYtLabel.trim();
+    const value = newYtValue.trim();
+    if (!value) { toast.error("Please enter the API key"); return; }
+    setAddingYt(true);
+    fetch("/api/settings/youtube-keys", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: value, label: label || undefined }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((k: YTKey) => {
+        setYtKeys((p) => [...p, k]);
+        setKeyStatus((p) => ({ ...p, youtube: true }));
+        setNewYtLabel(""); setNewYtValue("");
+        toast.success("YouTube key added");
+      })
+      .catch(() => toast.error("Failed to add key"))
+      .finally(() => setAddingYt(false));
   };
 
-  const handleRemoveKey = (apiId: string, keyIndex: number) => {
-    setApiKeys((prev) =>
-      prev.map((k) =>
-        k.id === apiId && k.multiKey
-          ? { ...k, keys: k.keys.filter((_, i) => i !== keyIndex) }
-          : k
-      )
-    );
-    toast("Key removed");
-  };
-
-  const getStatus = (api: ApiKey) => {
-    if (api.multiKey) return api.keys.length > 0;
-    return !!(api as SingleApiKey).value;
+  // Remove YouTube key
+  const handleRemoveYt = (id: string) => {
+    setRemovingYt((p) => ({ ...p, [id]: true }));
+    fetch(`/api/settings/youtube-keys/${id}`, { method: "DELETE", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => {
+        setYtKeys((p) => {
+          const next = p.filter((k) => k.id !== id);
+          setKeyStatus((ks) => ({ ...ks, youtube: next.length > 0 }));
+          return next;
+        });
+        toast("YouTube key removed");
+      })
+      .catch(() => toast.error("Failed to remove key"))
+      .finally(() => setRemovingYt((p) => ({ ...p, [id]: false })));
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Top bar */}
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Settings</h1>
@@ -215,7 +220,8 @@ export default function Settings() {
 
       <div className="flex-1 overflow-auto">
         <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
-          {/* API Keys Section */}
+
+          {/* API Keys */}
           <div className="rounded-xl bg-background p-5">
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">API KEYS — THIS PROJECT</div>
             <p className="text-[13px] text-dim leading-relaxed mb-6">
@@ -223,63 +229,68 @@ export default function Settings() {
             </p>
 
             <div className="space-y-6">
-              {apiKeys.map((api) => {
-                const isSet = getStatus(api);
+              {KEY_DEFS.map((def, idx) => {
+                const isSet = def.multiKey ? ytKeys.length > 0 : !!keyStatus[def.service];
+                const isEditing = editing[def.service] !== undefined;
+                const isSaving = saving[def.service];
+                const isClearing = clearing[def.service];
+
                 return (
-                  <div key={api.id}>
+                  <div key={def.service}>
                     <div className="flex items-center gap-2.5 mb-1.5">
-                      <span className="text-[14px] font-semibold">{api.name}</span>
+                      <span className="text-[14px] font-semibold">{def.name}</span>
                       <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
                         ● {isSet ? "SET" : "EMPTY"}
                       </span>
-                      {api.multiKey && (
+                      {def.multiKey && ytKeys.length > 0 && (
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-success/10 text-success">
-                          ● {api.keys.length} KEY{api.keys.length !== 1 ? "S" : ""}
+                          ● {ytKeys.length} KEY{ytKeys.length !== 1 ? "S" : ""}
                         </span>
                       )}
                     </div>
-                    <p className="text-[12px] text-dim leading-relaxed mb-3">{api.description}</p>
+                    <p className="text-[12px] text-dim leading-relaxed mb-3">{def.description}</p>
 
-                    {/* Multi-key */}
-                    {api.multiKey && (
+                    {/* YouTube multi-key */}
+                    {def.multiKey && (
                       <div className="space-y-2 mb-3">
-                        {api.keys.map((k, i) => (
-                          <div key={i} className="flex items-center justify-between px-4 py-2.5 bg-surface rounded-xl">
+                        {ytKeys.map((k) => (
+                          <div key={k.id} className="flex items-center justify-between px-4 py-2.5 bg-surface rounded-xl">
                             <div className="flex items-center gap-2.5">
-                              <span className="text-[11px] text-dim font-mono">{i + 1}.</span>
                               <span className="text-[13px] font-medium">{k.label}</span>
+                              {k.usageCount > 0 && (
+                                <span className="text-[11px] text-dim font-mono">{k.usageCount.toLocaleString()} calls</span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-[12px] text-dim font-mono">{k.value}</span>
-                              <button
-                                onClick={() => handleRemoveKey(api.id, i)}
-                                className="w-7 h-7 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => handleRemoveYt(k.id)}
+                              disabled={removingYt[k.id]}
+                              className="w-7 h-7 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50"
+                            >
+                              {removingYt[k.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                            </button>
                           </div>
                         ))}
-
                         <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
                           <input
                             type="text"
                             placeholder="Label (e.g. Key 2)"
-                            value={newKeyLabels[api.id] || ""}
-                            onChange={(e) => setNewKeyLabels((p) => ({ ...p, [api.id]: e.target.value }))}
+                            value={newYtLabel}
+                            onChange={(e) => setNewYtLabel(e.target.value)}
                             className="w-[180px] max-sm:w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
                           />
                           <input
                             type="text"
-                            placeholder="AIza..."
-                            value={newKeyValues[api.id] || ""}
-                            onChange={(e) => setNewKeyValues((p) => ({ ...p, [api.id]: e.target.value }))}
+                            placeholder={def.placeholder || "AIza..."}
+                            value={newYtValue}
+                            onChange={(e) => setNewYtValue(e.target.value)}
                             className="flex-1 max-sm:w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
                           />
                           <button
-                            onClick={() => handleAddKey(api.id)}
-                            className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap"
+                            onClick={handleAddYt}
+                            disabled={addingYt}
+                            className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
                           >
+                            {addingYt && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                             Add Key
                           </button>
                         </div>
@@ -287,53 +298,50 @@ export default function Settings() {
                     )}
 
                     {/* Single key */}
-                    {!api.multiKey && (() => {
-                      const storedValue = (api as SingleApiKey).value;
-                      const isEditing = editingValues[api.id] !== undefined;
-                      const hasKey = !!storedValue;
-                      return (
-                        <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
-                          {hasKey && !isEditing ? (
-                            <div
-                              onClick={() => setEditingValues((p) => ({ ...p, [api.id]: "" }))}
-                              className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-blue/40 transition-colors"
-                            >
-                              {storedValue}
-                            </div>
-                          ) : (
-                            <input
-                              type="password"
-                              value={editingValues[api.id] || ""}
-                              onChange={(e) => setEditingValues((p) => ({ ...p, [api.id]: e.target.value }))}
-                              placeholder="Paste your API key..."
-                              className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
-                              autoFocus={isEditing}
-                            />
-                          )}
-                          <button
-                            onClick={() => handleSave(api.id)}
-                            className="w-10 h-10 rounded-full flex items-center justify-center bg-blue text-blue-foreground hover:opacity-90 transition-opacity shrink-0"
+                    {!def.multiKey && (
+                      <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
+                        {isSet && !isEditing ? (
+                          <div
+                            onClick={() => setEditing((p) => ({ ...p, [def.service]: "" }))}
+                            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-blue/40 transition-colors"
                           >
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleClear(api.id)}
-                            className="w-10 h-10 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      );
-                    })()}
+                            ••••••••••••••••••••  (set — click to replace)
+                          </div>
+                        ) : (
+                          <input
+                            type="password"
+                            value={editing[def.service] || ""}
+                            onChange={(e) => setEditing((p) => ({ ...p, [def.service]: e.target.value }))}
+                            placeholder={def.placeholder || "Paste your API key..."}
+                            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+                            autoFocus={isEditing}
+                          />
+                        )}
+                        <button
+                          onClick={() => handleSave(def.service, def.name)}
+                          disabled={isSaving}
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-blue text-blue-foreground hover:opacity-90 transition-opacity shrink-0 disabled:opacity-50"
+                        >
+                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => handleClear(def.service, def.name)}
+                          disabled={isClearing}
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0 disabled:opacity-50"
+                        >
+                          {isClearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    )}
 
-                    {api.link && (
-                      <a href={api.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
-                        {api.linkLabel}
+                    {def.link && (
+                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
+                        {def.linkLabel}
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
 
-                    {api.id !== apiKeys[apiKeys.length - 1].id && <div className="border-b border-border mt-6" />}
+                    {idx < KEY_DEFS.length - 1 && <div className="border-b border-border mt-6" />}
                   </div>
                 );
               })}
@@ -351,68 +359,75 @@ export default function Settings() {
           <div className="rounded-xl bg-background p-5">
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
 
-            <div className="rounded-xl border border-border overflow-hidden max-sm:hidden">
-              <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-surface/20 border-b border-border">
-                {["TIME", "API NAME", "ACTION", "TOKENS / UNITS", "STATUS"].map((h) => (
-                  <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
-                ))}
-              </div>
-              {usageLogs.map((log, i) => {
-                const LogIcon = iconMap[log.apiIcon];
-                const nameColor = apiNameColorMap[log.apiName] || "text-dim";
-                return (
-                  <div key={i} className={`grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-3 items-center ${i < usageLogs.length - 1 ? "border-b border-border" : ""}`}>
-                    <span className="text-[12px] text-dim font-mono">{log.time}</span>
-                    <div className="flex items-center gap-2">
-                      <LogIcon className={`w-4 h-4 ${iconColorMap[log.apiIcon]}`} />
-                      <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
-                    </div>
-                    <span className="text-[12px] text-dim font-mono">{log.action}</span>
-                    <span className="text-[12px] text-dim font-mono text-right pr-4">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
-                    <div className="flex items-center justify-end">
-                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
-                        ● {log.status}
-                      </span>
-                    </div>
+            {usageLogs.length === 0 ? (
+              <p className="text-[13px] text-dim">No API calls recorded yet for this project.</p>
+            ) : (
+              <>
+                <div className="rounded-xl border border-border overflow-hidden max-sm:hidden">
+                  <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-surface/20 border-b border-border">
+                    {["TIME", "API NAME", "ACTION", "TOKENS / UNITS", "STATUS"].map((h) => (
+                      <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
+                  {usageLogs.map((log, i) => {
+                    const LogIcon = iconMap[log.apiIcon];
+                    const nameColor = apiNameColorMap[log.apiName] || "text-dim";
+                    return (
+                      <div key={i} className={`grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-3 items-center ${i < usageLogs.length - 1 ? "border-b border-border" : ""}`}>
+                        <span className="text-[12px] text-dim font-mono">{log.time}</span>
+                        <div className="flex items-center gap-2">
+                          <LogIcon className={`w-4 h-4 ${iconColorMap[log.apiIcon]}`} />
+                          <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
+                        </div>
+                        <span className="text-[12px] text-dim font-mono">{log.action}</span>
+                        <span className="text-[12px] text-dim font-mono text-right pr-4">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
+                        <div className="flex items-center justify-end">
+                          <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
+                            ● {log.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            <div className="sm:hidden space-y-2">
-              {usageLogs.map((log, i) => {
-                const LogIcon = iconMap[log.apiIcon];
-                const nameColor = apiNameColorMap[log.apiName] || "text-dim";
-                return (
-                  <div key={i} className="rounded-xl border border-border p-3.5">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <LogIcon className={`w-3.5 h-3.5 ${iconColorMap[log.apiIcon]}`} />
-                        <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
+                <div className="sm:hidden space-y-2">
+                  {usageLogs.map((log, i) => {
+                    const LogIcon = iconMap[log.apiIcon];
+                    const nameColor = apiNameColorMap[log.apiName] || "text-dim";
+                    return (
+                      <div key={i} className="rounded-xl border border-border p-3.5">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <LogIcon className={`w-3.5 h-3.5 ${iconColorMap[log.apiIcon]}`} />
+                            <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
+                            ● {log.status}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-y-1.5">
+                          <div>
+                            <div className="text-[9px] text-dim font-mono uppercase">Time</div>
+                            <div className="text-[11px] text-dim font-mono">{log.time}</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-dim font-mono uppercase">Action</div>
+                            <div className="text-[11px] text-dim font-mono">{log.action}</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-dim font-mono uppercase">Tokens</div>
+                            <div className="text-[11px] text-dim font-mono">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</div>
+                          </div>
+                        </div>
                       </div>
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
-                        ● {log.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-y-1.5">
-                      <div>
-                        <div className="text-[9px] text-dim font-mono uppercase">Time</div>
-                        <div className="text-[11px] text-dim font-mono">{log.time}</div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] text-dim font-mono uppercase">Action</div>
-                        <div className="text-[11px] text-dim font-mono">{log.action}</div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] text-dim font-mono uppercase">Tokens</div>
-                        <div className="text-[11px] text-dim font-mono">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
+
         </div>
       </div>
     </div>
