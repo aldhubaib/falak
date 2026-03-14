@@ -156,6 +156,28 @@ async function migrateChannelTypes() {
   }
 }
 
+// ── Admin: force-set a channel type by handle (no auth — internal use) ──────
+app.post('/api/admin/fix-channel-type', async (req, res) => {
+  const { handle, type } = req.body
+  if (!handle || !['ours', 'competitor'].includes(type)) {
+    return res.status(400).json({ error: 'handle and type (ours|competitor) required' })
+  }
+  try {
+    const result = await db.channel.updateMany({
+      where: {
+        OR: [
+          { handle: handle },
+          { handle: handle.startsWith('@') ? handle.slice(1) : `@${handle}` },
+        ]
+      },
+      data: { type },
+    })
+    res.json({ updated: result.count, handle, type })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── Start ─────────────────────────────────────────────────────
 async function main() {
   await seedApiKeys()
