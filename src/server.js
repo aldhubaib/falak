@@ -54,6 +54,7 @@ app.use('/api/monitor',   monitor)
 app.use('/api/settings',  require('./routes/settings'))
 app.use('/api/admin',     admin)
 app.use('/api/projects',  projects)
+app.use('/api/brain',     require('./routes/brain'))
 
 // ── Central error handler (must be after routes) ─────────────
 const { errorHandler } = require('./middleware/errors')
