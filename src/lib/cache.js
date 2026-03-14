@@ -16,6 +16,9 @@ function createCache(ttlMs) {
     set(key, value) {
       store.set(key, { value, expiresAt: Date.now() + ttlMs })
     },
+    flush() {
+      store.clear()
+    },
   }
 }
 

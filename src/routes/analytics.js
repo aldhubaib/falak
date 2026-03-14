@@ -13,6 +13,12 @@ const analyticsQuerySchema = z.object({
   period: z.enum(['30d', '90d', '12m']).optional().default('12m'),
 })
 
+// POST /api/analytics/flush-cache — bust the analytics cache (admin/owner only)
+router.post('/flush-cache', async (req, res) => {
+  analyticsCache.flush()
+  res.json({ ok: true, message: 'Analytics cache cleared' })
+})
+
 // ── GET /api/analytics?projectId=xxx&period=30d|90d|12m (cached 5 min, Cache-Control)
 router.get('/', async (req, res) => {
   const { projectId, period } = parseQuery(req.query, analyticsQuerySchema)

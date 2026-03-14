@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
-import { Star, Circle, CheckCircle, XCircle, ChevronDown, ArrowUpRight, Loader2 } from "lucide-react";
+import { Star, Circle, CheckCircle, XCircle, ChevronDown, ArrowUpRight, Loader2, RotateCw } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
@@ -281,8 +281,11 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
   if (!yourCh || !theirCh) {
     return (
       <div className="rounded-xl bg-background p-5">
-        <p className="text-[12px] text-dim font-mono">
-          Need at least one "ours" channel and one competitor channel for comparison.
+        <p className="text-[13px] font-medium mb-1">Channel Analysis</p>
+        <p className="text-[12px] text-dim font-mono leading-relaxed">
+          {ourChannels.length === 0
+            ? 'No "ours" channels found. Go to a Channel → panel → set Classification to "Ours", then click Refresh at the top of this page.'
+            : 'No competitor channels found. Add competitor channels to enable head-to-head comparison.'}
         </p>
       </div>
     );
@@ -678,6 +681,7 @@ export default function Analytics() {
   const [trendTab, setTrendTab] = useState("Videos");
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [flushing, setFlushing] = useState(false);
 
   const fetchData = useCallback(
     async (p: string) => {
@@ -705,6 +709,20 @@ export default function Analytics() {
 
   const handlePeriod = (p: string) => {
     setPeriod(p);
+  };
+
+  const handleRefresh = async () => {
+    if (!projectId || flushing) return;
+    setFlushing(true);
+    try {
+      await fetch("/api/analytics/flush-cache", { method: "POST", credentials: "include" });
+      await fetchData(period);
+      toast.success("Analytics refreshed");
+    } catch {
+      toast.error("Refresh failed");
+    } finally {
+      setFlushing(false);
+    }
   };
 
   if (loading) {
@@ -846,6 +864,15 @@ export default function Analytics() {
           <span className="text-[11px] text-dim font-mono">
             {universe.channels} channels tracked
           </span>
+          <button
+            onClick={handleRefresh}
+            disabled={flushing}
+            className="inline-flex items-center gap-1 text-[11px] text-dim font-mono hover:text-sensor transition-colors disabled:opacity-50"
+            title="Bust cache and reload"
+          >
+            <RotateCw className={`w-3 h-3 ${flushing ? "animate-spin" : ""}`} />
+            {flushing ? "Refreshing…" : "Refresh"}
+          </button>
         </div>
         <div className="flex items-center gap-0.5">
           {PERIOD_TABS.map((t) => (
