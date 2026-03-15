@@ -383,8 +383,10 @@ export default function Stories() {
                       )}
                       <div className="flex items-center justify-between">
                         <MiniScores story={story} />
-                        {total > 0 && (
-                          <span className="text-[12px] font-mono font-bold">{total}</span>
+                        {story.compositeScore != null && (
+                          <span className="text-[12px] font-mono font-bold">
+                            {Number(story.compositeScore).toFixed(1)}/10
+                          </span>
                         )}
                       </div>
                     </button>

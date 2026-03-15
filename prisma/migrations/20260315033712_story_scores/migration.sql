@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Story" ALTER COLUMN "compositeScore" SET DATA TYPE DOUBLE PRECISION;

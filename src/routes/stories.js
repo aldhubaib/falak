@@ -62,6 +62,80 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       created.push(story)
     }
 
+    // Load TopicMemory to score new stories
+    const topicMemories = await db.topicMemory.findMany({
+      where: { projectId },
+      select: { topicKey: true, topicLabel: true, weight: true, demandScore: true },
+    })
+
+    for (const story of created) {
+      try {
+        const headlineLower = (story.headline || '').toLowerCase()
+
+        // Signal 1: relevanceScore
+        // How well does the headline match our proven winning topics?
+        // Source: TopicMemory.weight — built from gap wins, story likes,
+        // video engagement. Empty on day 1, grows with every action.
+        let relevanceScore = 0
+        let demandScore = 30  // neutral default when no memory data yet
+        for (const m of topicMemories) {
+          const key = (m.topicKey || '').toLowerCase()
+          if (key.length < 2) continue
+          if (headlineLower.includes(key)) {
+            const w = (m.weight || 0) * 100
+            if (w > relevanceScore) relevanceScore = w
+            const d = (m.demandScore || 0) * 100
+            if (d > demandScore) demandScore = d
+          }
+        }
+        relevanceScore = Math.min(100, Math.round(relevanceScore))
+        demandScore = Math.min(100, Math.round(demandScore))
+
+        // Signal 2: viralScore (repurposed = audience demand)
+        // Already set above as demandScore
+
+        // Signal 3: firstMoverScore
+        // Are we first to this story and how fresh is it?
+        // Source: story.brief.coverageStatus and story.brief.daysSince
+        // These come from brainV2 untouchedStories analysis
+        const coverageStatus = story.brief?.coverageStatus || null
+        const daysSince = story.brief?.daysSince ?? null
+        let firstMoverScore = 50  // neutral default
+        if (coverageStatus === 'first' || coverageStatus === 'open') {
+          firstMoverScore = daysSince !== null
+            ? Math.max(0, 100 - Math.round(daysSince * 7))
+            : 80
+        } else if (coverageStatus === 'taken') {
+          firstMoverScore = 0
+        }
+        firstMoverScore = Math.min(100, Math.max(0, firstMoverScore))
+
+        // Final score: weighted combination → scaled to X/10
+        // Weights: 40% relevance (our track record) +
+        //          35% demand (audience proof) +
+        //          25% first mover (timing advantage)
+        const raw = (
+          relevanceScore * 0.40 +
+          demandScore * 0.35 +
+          firstMoverScore * 0.25
+        )
+        // Scale 0–100 to 0.0–10.0, round to 1 decimal
+        const compositeScore = Math.round(raw / 10 * 10) / 10
+
+        await db.story.update({
+          where: { id: story.id },
+          data: {
+            relevanceScore,
+            viralScore: demandScore,
+            firstMoverScore,
+            compositeScore,
+          },
+        })
+      } catch (err) {
+        console.error('[stories/fetch] score story', story.id, err?.message)
+      }
+    }
+
     const tokensUsed = 2000
     trackUsage({ projectId, service: 'perplexity', action: 'Fetch Stories', tokensUsed, status: 'ok' })
 
