@@ -2,7 +2,7 @@ const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { decrypt } = require('../services/crypto')
-const { fetchStorySuggestions } = require('../services/perplexity')
+const { fetchStoriesViaFirecrawl } = require('../services/firecrawlStories')
 const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl } = require('../services/firecrawl')
@@ -12,7 +12,7 @@ const brainV2 = require('./brainV2')
 const router = express.Router()
 router.use(requireAuth)
 
-// ── POST /api/stories/fetch — call Perplexity Sonar with Brain v2 auto-search query, create suggestion stories
+// ── POST /api/stories/fetch — Firecrawl search (learnedTags) + Claude structure (autoSearchQuery), create suggestion stories
 router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   let projectId = req.body?.projectId
   try {
@@ -20,22 +20,30 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
 
     const project = await db.project.findUnique({
       where: { id: projectId },
-      select: { id: true, perplexityApiKeyEncrypted: true },
+      select: { id: true, firecrawlApiKeyEncrypted: true, anthropicApiKeyEncrypted: true },
     })
     if (!project) return res.status(404).json({ error: 'Project not found' })
-    if (!project.perplexityApiKeyEncrypted) {
-      return res.status(400).json({ error: 'Perplexity API key not set. Add it in Settings → API Keys.' })
+    if (!project.firecrawlApiKeyEncrypted) {
+      return res.status(400).json({ error: 'Firecrawl API key not set. Add it in Settings → API Keys.' })
+    }
+    if (!project.anthropicApiKeyEncrypted) {
+      return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
 
-    let apiKey
+    let firecrawlKey
+    let anthropicKey
     try {
-      apiKey = decrypt(project.perplexityApiKeyEncrypted)
+      firecrawlKey = decrypt(project.firecrawlApiKeyEncrypted)
+      anthropicKey = decrypt(project.anthropicApiKeyEncrypted)
     } catch (decErr) {
       console.error('[stories/fetch] decrypt failed', decErr)
-      return res.status(400).json({ error: 'Perplexity API key could not be read. Re-save it in Settings → API Keys.' })
+      return res.status(400).json({ error: 'API key could not be read. Re-save it in Settings → API Keys.' })
     }
-    if (!apiKey || !apiKey.trim()) {
-      return res.status(400).json({ error: 'Perplexity API key is empty. Add it in Settings → API Keys.' })
+    if (!firecrawlKey || !firecrawlKey.trim()) {
+      return res.status(400).json({ error: 'Firecrawl API key is empty. Add it in Settings → API Keys.' })
+    }
+    if (!anthropicKey || !anthropicKey.trim()) {
+      return res.status(400).json({ error: 'Anthropic API key is empty. Add it in Settings → API Keys.' })
     }
 
     const brainData = await brainV2.getBrainV2Data(projectId)
@@ -46,20 +54,29 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       })
     }
 
-    const suggestions = await fetchStorySuggestions(apiKey, autoSearchQuery)
+    const storiesToCreate = await fetchStoriesViaFirecrawl({
+      autoSearchQuery: brainData.autoSearchQuery,
+      learnedTags: brainData.queryMeta?.learnedTags || [],
+      regionHints: brainData.queryMeta?.regionHints || [],
+      projectId,
+      queryVersion: brainData.queryMeta?.version || 'v2-dynamic',
+      firecrawlApiKey: firecrawlKey,
+      anthropicApiKey: anthropicKey,
+    })
+
     const created = []
-    for (const s of suggestions) {
-      const story = await db.story.create({
-        data: {
+    for (const storyData of storiesToCreate) {
+      const exists = await db.story.findFirst({
+        where: {
           projectId,
-          headline: s.headline,
-          stage: 'suggestion',
-          sourceName: 'Perplexity Sonar',
-          sourceUrl: s.sourceUrl || null,
-          brief: s.summary ? { summary: s.summary } : null,
-          queryVersion: brainData?.queryMeta?.version || 'v1',
+          OR: [
+            { headline: storyData.headline },
+            { sourceUrl: storyData.sourceUrl },
+          ],
         },
       })
+      if (exists) continue
+      const story = await db.story.create({ data: storyData })
       created.push(story)
     }
 
@@ -138,18 +155,18 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
     }
 
     const tokensUsed = 2000
-    trackUsage({ projectId, service: 'perplexity', action: 'Fetch Stories', tokensUsed, status: 'ok' })
+    trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', tokensUsed, status: 'ok' })
 
     const message =
       created.length > 0
         ? null
-        : 'Perplexity returned 0 new stories (they may have been filtered for missing source URL, or try again).'
+        : 'Firecrawl returned 0 new stories (they may have been filtered or try again).'
     res.json({ ok: true, created: created.length, stories: created, message })
   } catch (e) {
     console.error('[stories/fetch]', e)
     const message = e instanceof Error ? e.message : String(e)
     if (projectId) {
-      trackUsage({ projectId, service: 'perplexity', action: 'Fetch Stories', status: 'fail', error: message })
+      trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', status: 'fail', error: message })
     }
     res.status(500).json({ error: message })
   }
