@@ -7,6 +7,7 @@ import {
   RefreshCw, Loader2, Ban,
 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 import type { ApiStory, Stage } from "./Stories";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -501,8 +502,10 @@ export default function StoryDetail() {
               Full article
             </div>
             {brief.articleContent?.trim() ? (
-              <div className="text-[13px] text-foreground leading-relaxed text-right whitespace-pre-wrap select-text max-h-[60vh] overflow-y-auto">
-                {brief.articleContent}
+              <div className="max-h-[60vh] overflow-y-auto px-4 select-text" dir="rtl">
+                <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
+                  {brief.articleContent}
+                </ReactMarkdown>
               </div>
             ) : articleLoading ? (
               <p className="text-[12px] text-dim text-right">Loading article…</p>
