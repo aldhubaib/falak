@@ -128,6 +128,7 @@ export default function StoryDetail() {
   const [editingYoutubeUrl, setEditingYoutubeUrl] = useState(false);
   const [articleLoading, setArticleLoading] = useState(false);
   const [articleError, setArticleError] = useState<string | null>(null);
+  const [generatingScript, setGeneratingScript] = useState(false);
 
   // ── Fetch story + channels + liked peers ─────────────────────────────────
   const loadStory = useCallback(async () => {
@@ -633,6 +634,79 @@ export default function StoryDetail() {
               </p>
             ) : (
               <p className="text-[12px] text-dim text-right">Loading article…</p>
+            )}
+
+            {/* AI Writer Box — generate script from article */}
+            {brief.articleContent?.trim() &&
+             brief.articleContent !== "__SCRAPE_FAILED__" &&
+             brief.articleContent !== "__YOUTUBE__" && (
+              <div className="mt-4 pt-4 border-t border-border space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                    AI Writer
+                  </span>
+                  <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
+                    {(["short", "long"] as const).map((fmt) => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => setBrief((b) => ({ ...b, scriptFormat: fmt }))}
+                        className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
+                          (brief.scriptFormat ?? "short") === fmt
+                            ? "bg-foreground/10 text-foreground"
+                            : "text-dim hover:text-sensor"
+                        }`}
+                      >
+                        {fmt === "short" ? "Short (1–2 min)" : "Video (20–40 min)"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={async () => {
+                      if (!id || generatingScript) return;
+                      setGeneratingScript(true);
+                      try {
+                        const r = await fetch(`/api/stories/${id}/generate-script`, {
+                          method: "POST",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ format: brief.scriptFormat ?? "short" }),
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        if (r.ok && data.brief) {
+                          setBrief(data.brief);
+                          setStory((s) => (s ? { ...s, brief: data.brief } : s));
+                          setScriptOpen(true);
+                          toast.success("Script generated. Review in Script section below.");
+                        } else {
+                          toast.error(data.error || "Generate script failed");
+                        }
+                      } catch {
+                        toast.error("Generate script failed");
+                      } finally {
+                        setGeneratingScript(false);
+                      }
+                    }}
+                    disabled={generatingScript}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {generatingScript ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span className={generatingScript ? "text-shimmer inline-block" : ""}>
+                          Generating…
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Generate script from article
+                      </>
+                    )}
+                  </button>
+              </div>
             )}
           </div>
 

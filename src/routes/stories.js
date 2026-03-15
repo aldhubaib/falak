@@ -241,6 +241,51 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   }
 })
 
+// ── POST /api/stories/:id/generate-script — AI Writer: generate script from article
+router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
+    })
+    const project = story.project
+    if (!project?.anthropicApiKeyEncrypted) {
+      return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
+    }
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    const articleContent = typeof brief.articleContent === 'string' ? brief.articleContent : ''
+    if (!articleContent || articleContent === '__SCRAPE_FAILED__' || articleContent === '__YOUTUBE__') {
+      return res.status(400).json({ error: 'No article content. Fetch and optionally clean the article first.' })
+    }
+    const format = req.body?.format === 'long' ? 'long' : 'short'
+
+    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+    const system = format === 'long'
+      ? 'You are an expert Arabic YouTube scriptwriter. Given an article, write a full video script (20–40 min read) in Arabic. Use a clear structure: hook, context, main points, conclusion. Output ONLY the script text, no explanations. Preserve facts and tone.'
+      : 'You are an expert Arabic YouTube Shorts scriptwriter. Given an article, write a short script (1–2 min read) in Arabic. Hook in the first line, then key facts. Output ONLY the script text, no explanations.'
+
+    const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short'} script:\n\n${articleContent.slice(0, 120000)}`
+    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+      system,
+      maxTokens: 8192,
+      projectId: project.id,
+      action: 'Story Generate Script',
+    })
+    const script = (raw && typeof raw === 'string') ? raw.trim() : ''
+
+    const newBrief = { ...brief, script, scriptFormat: format }
+    const updated = await db.story.update({
+      where: { id: story.id },
+      data: { brief: newBrief },
+    })
+    res.json(updated)
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/generate-script]', e)
+    res.status(500).json({ error: e.message || 'Generate script failed' })
+  }
+})
+
 // ── POST /api/stories/:id/cleanup — AI clean scraped articleContent (remove nav, junk, format as markdown)
 router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
