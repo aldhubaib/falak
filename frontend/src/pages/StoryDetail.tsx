@@ -415,9 +415,51 @@ export default function StoryDetail() {
       <div className="flex-1 relative overflow-auto">
         <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6">
           <div className="rounded-xl bg-background border border-border overflow-hidden">
-            {/* Top of box: Re-fetch article (left) + Omit (right) */}
+            {/* Top of box: Clean up with AI + Re-fetch article (left) + Omit (right) */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!id || cleaningUp) return;
+                    setCleanupSuccess(false);
+                    setCleaningUp(true);
+                    try {
+                      const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
+                      const data = await r.json().catch(() => ({}));
+                      if (r.ok && data.id) {
+                        setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
+                        setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
+                        setCleanupSuccess(true);
+                        toast.success("Article cleaned");
+                        setTimeout(() => setCleanupSuccess(false), 2500);
+                        const content = (data.brief && typeof data.brief === "object" && typeof data.brief.articleContent === "string") ? data.brief.articleContent : "";
+                        if (content) {
+                          setTypingTarget(content);
+                          // Show first chunk immediately so user sees something right away, then type the rest
+                          const initialChunk = Math.min(280, content.length);
+                          setTypedLength(initialChunk);
+                        }
+                      } else {
+                        toast.error(data.error || "Cleanup failed");
+                      }
+                    } catch {
+                      toast.error("Cleanup failed");
+                    } finally {
+                      setCleaningUp(false);
+                    }
+                  }}
+                  disabled={cleaningUp}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed"
+                  title="Remove website junk from article and format as clean Arabic markdown"
+                >
+                  {cleaningUp ? (
+                    <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3 shrink-0" />
+                  )}
+                  <span className={cleaningUp ? "text-shimmer inline-block" : ""}>Clean up with AI</span>
+                </button>
                 <button
                   type="button"
                   onClick={async () => {
