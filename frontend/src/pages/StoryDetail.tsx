@@ -758,21 +758,49 @@ export default function StoryDetail() {
                           toast.error(data.error || `Generate script failed (${r.status})`);
                           return;
                         }
-                        const reader = r.body?.getReader();
-                        if (!reader) {
-                          setScriptStatus("idle");
-                          toast.error("Generate script failed (no stream)");
-                          return;
-                        }
-                        const decoder = new TextDecoder();
-                        let buffer = "";
+                        const body = r.body;
+                        const hasReader = body && typeof body.getReader === "function";
                         let fullScript = "";
-                        while (true) {
-                          const { done, value } = await reader.read();
-                          if (done) break;
-                          buffer += decoder.decode(value, { stream: true });
-                          const lines = buffer.split("\n");
-                          buffer = lines.pop() ?? "";
+
+                        if (hasReader) {
+                          const reader = body.getReader();
+                          const decoder = new TextDecoder();
+                          let buffer = "";
+                          while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop() ?? "";
+                            for (const line of lines) {
+                              if (!line.startsWith("data: ")) continue;
+                              const raw = line.slice(6).trim();
+                              if (raw === "[DONE]") continue;
+                              try {
+                                const obj = JSON.parse(raw);
+                                if (obj?.error) {
+                                  setScriptStatus("idle");
+                                  toast.error(obj.error);
+                                  return;
+                                }
+                                const chunk =
+                                  obj?.delta?.text ?? obj?.choices?.[0]?.delta?.content ?? "";
+                                if (chunk) {
+                                  if (firstChunk) {
+                                    firstChunk = false;
+                                    setScriptStatus("writing");
+                                  }
+                                  fullScript += chunk;
+                                  setScriptText((prev) => prev + chunk);
+                                }
+                              } catch {
+                                // ignore parse errors for non-JSON lines
+                              }
+                            }
+                          }
+                        } else {
+                          const text = await r.text();
+                          const lines = text.split("\n");
                           for (const line of lines) {
                             if (!line.startsWith("data: ")) continue;
                             const raw = line.slice(6).trim();
@@ -795,7 +823,7 @@ export default function StoryDetail() {
                                 setScriptText((prev) => prev + chunk);
                               }
                             } catch {
-                              // ignore parse errors for non-JSON lines
+                              // ignore
                             }
                           }
                         }

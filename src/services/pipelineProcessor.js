@@ -384,14 +384,10 @@ async function * callAnthropicStream(apiKey, model, messages, { system, maxToken
     throw new Error(`Anthropic API: ${res.status} ${t}`)
   }
 
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
+  // node-fetch v2 gives a Node stream (no .getReader()); use async iteration
   let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
+  for await (const chunk of res.body) {
+    buffer += (chunk instanceof Buffer ? chunk.toString('utf-8') : String(chunk))
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
     for (const line of lines) {

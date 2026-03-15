@@ -401,7 +401,7 @@ export default function Stories() {
                   const total = story.compositeScore ?? 0;
                   const stageInfo = STAGES.find((s) => s.key === story.stage);
                   const relative = relativeTime(story.createdAt);
-                  const sourceLabel = relative ? `Fetched ${relative}` : "";
+                  const sourceLabel = relative ?? "";
 
                   return (
                     <button
