@@ -234,6 +234,7 @@ async function getBrainV2Data(projectId) {
     competitorChannels,
     competitorActivity,
     autoSearchQuery,
+    competitorVideoCount: competitorVideos.length,
     stats: { gapWins, lateCount, winRate, totalCompetitorStories: takenStories.length, untouchedCount: untouchedStories.length },
     rankedOpportunities,
     modelSignals: { topicMemoryCount: topicMemories.length },

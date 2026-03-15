@@ -211,7 +211,11 @@ export default function Brain() {
       const d = await r.json();
       if (r.ok) {
         toast.success(d.message || "Gap detection refreshed");
-        await fetchData();
+        // Refetch with cache-bust so the list below updates and shows current data
+        const refetchUrl = `/api/brain?projectId=${projectId}&_=${Date.now()}`;
+        const r2 = await fetch(refetchUrl, { credentials: "include" });
+        const body = r2.headers.get("content-type")?.includes("application/json") ? await r2.json().catch(() => ({})) : {};
+        if (r2.ok) setData(body);
       } else {
         toast.error(d.error || "Re-extraction failed");
       }

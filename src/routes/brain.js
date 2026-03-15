@@ -315,7 +315,7 @@ router.post('/re-extract', async (req, res) => {
 
     res.json({
       ok: true,
-      message: `Gap detection refreshed from ${count} competitor video${count === 1 ? '' : 's'}.`,
+      message: `Refreshed. The list below is built from ${count} competitor video${count === 1 ? '' : 's'} (with completed analysis).`,
       analyzedVideos: count,
     })
   } catch (err) {

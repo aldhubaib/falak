@@ -178,8 +178,16 @@ export default function BrainV2() {
     try {
       const r = await fetch(`/api/brain/re-extract?projectId=${projectId}`, { method: "POST", credentials: "include" });
       const d = await r.json();
-      if (r.ok) { toast.success(d.message || "Gap detection refreshed"); await fetchData(); }
-      else toast.error(d.error || "Re-extraction failed");
+      if (r.ok) {
+        toast.success(d.message || "Gap detection refreshed");
+        // Refetch with cache-bust so the list below updates and shows current data
+        const refetchUrl = `/api/brain-v2?projectId=${projectId}&_=${Date.now()}`;
+        const r2 = await fetch(refetchUrl, { credentials: "include" });
+        const body = r2.headers.get("content-type")?.includes("application/json") ? await r2.json().catch(() => ({})) : {};
+        if (r2.ok) setData(body);
+      } else {
+        toast.error(d.error || "Re-extraction failed");
+      }
     } catch { toast.error("Re-extraction failed"); }
     finally { setReExtracting(false); }
   };
@@ -229,6 +237,7 @@ export default function BrainV2() {
     competitorChannels,
     competitorActivity,
     autoSearchQuery,
+    competitorVideoCount = 0,
     stats,
     rankedOpportunities = [],
   } = data;
@@ -267,7 +276,8 @@ export default function BrainV2() {
             <div className="rounded-xl bg-background p-5">
               <div className="flex items-center justify-between mb-5">
                 <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Competitor Story Database</div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap justify-end">
+                  <span className="text-[10px] text-dim font-mono">Built from {competitorVideoCount} competitor video{competitorVideoCount === 1 ? "" : "s"}</span>
                   <span className="text-[10px] text-dim font-mono">Last extracted: {lastExtracted}</span>
                   <button onClick={handleReExtract} disabled={reExtracting} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
                     {reExtracting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
