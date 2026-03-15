@@ -3,14 +3,16 @@ import type { Channel } from "@/data/mock";
 import { toast } from "sonner";
 import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock, Globe } from "lucide-react";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
+import { COUNTRIES } from "@/data/countries";
 
 interface ChannelRightPanelProps {
-  channel: Channel;
+  channel: Channel & { nationality?: string | null };
   visible: boolean;
   onClose: () => void;
   videoCount?: number;
   shortCount?: number;
   onTypeChange?: (type: "ours" | "competition") => void;
+  onCountryChange?: () => void;
   onBrandedHooksSaved?: () => void;
   onSyncNow?: () => void;
   onAnalyzeAll?: () => void;
@@ -110,10 +112,11 @@ function BrandedHooksSection({
   );
 }
 
-export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onTypeChange, onBrandedHooksSaved, onSyncNow, onAnalyzeAll, onRemove }: ChannelRightPanelProps) {
+export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onTypeChange, onCountryChange, onBrandedHooksSaved, onSyncNow, onAnalyzeAll, onRemove }: ChannelRightPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [syncing, setSyncing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [savingCountry, setSavingCountry] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -237,6 +240,42 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
             Competition
           </button>
         </div>
+      </div>
+
+      {/* Country */}
+      <div className="px-4 py-3 border-t border-border">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] text-dim">Country</span>
+        </div>
+        <select
+          value={channel.nationality ?? ""}
+          onChange={(e) => {
+            const value = e.target.value || null;
+            setSavingCountry(true);
+            fetch(`/api/channels/${channel.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ nationality: value }),
+            })
+              .then((r) => {
+                if (!r.ok) throw new Error("Failed to update");
+                toast.success("Country updated");
+                onCountryChange?.();
+              })
+              .catch(() => toast.error("Failed to update country"))
+              .finally(() => setSavingCountry(false));
+          }}
+          disabled={savingCountry}
+          className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+        >
+          <option value="">Select country</option>
+          {COUNTRIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Branded Hooks — only for "ours" channels; saved to DB */}

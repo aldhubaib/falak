@@ -216,6 +216,7 @@ export default function ChannelDetail() {
         growthSubs,
         growthViews,
         country: channel.nationality ? getCountryName(channel.nationality) : "",
+        nationality: channel.nationality ?? undefined,
         joinedDate,
         lastSynced,
         startHook: (channel as { startHook?: string | null }).startHook ?? "",
@@ -361,6 +362,7 @@ export default function ChannelDetail() {
             videoCount={channelVideos.filter((v) => v.type === "video").length}
             shortCount={channelVideos.filter((v) => v.type === "short").length}
             onTypeChange={handleTypeChange}
+            onCountryChange={refetchChannel}
             onBrandedHooksSaved={refetchChannel}
           />
         )}
