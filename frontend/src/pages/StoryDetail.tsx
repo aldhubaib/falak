@@ -7,6 +7,7 @@ import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { ApiStory, Stage } from "./Stories";
 import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-detail";
@@ -454,35 +455,38 @@ export default function StoryDetail() {
     );
   }
 
+  const scoresInline = `R ${story.relevanceScore ?? 0} V ${story.viralScore ?? 0} F ${story.firstMoverScore ?? 0} T ${story.compositeScore ?? 0}`;
+  const relativeDate = story.sourceDate || story.createdAt
+    ? formatDistanceToNow(new Date((story.sourceDate || story.createdAt) ?? ""), { addSuffix: true })
+    : undefined;
+  const articleBody = articleDisplayValue ||
+    (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__"
+      ? brief.articleContent
+      : "");
+  const contentLength = articleBody.length;
+
   return (
     <div className="flex flex-col min-h-screen">
       <StoryDetailTopBar
-        title={story.headline}
         stageLabel={STAGES.find((s) => s.key === activeStage)?.label ?? ""}
+        stages={STAGES}
+        activeStage={activeStage}
+        onStageChange={(key) => moveStage(key as Stage)}
         saving={saving}
         onBack={() => navigate(projectPath("/stories"))}
+        prevNext={showStageNav ? {
+          currentIndex: stageIndex + 1,
+          total: stageStories.length,
+          onPrev: () => prevStory && navigate(projectPath(`/story/${prevStory.id}`)),
+          onNext: () => nextStory && navigate(projectPath(`/story/${nextStory.id}`)),
+          hasPrev: !!prevStory,
+          hasNext: !!nextStory,
+        } : undefined}
+        showLogo={true}
       />
 
       <div className="flex-1 relative overflow-auto">
         <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6 space-y-6">
-          {showStageNav && (
-            <StoryDetailPrevNext
-              prevStory={prevStory}
-              nextStory={nextStory}
-              currentIndex={stageIndex}
-              total={stageStories.length}
-              onPrev={() => prevStory && navigate(projectPath(`/story/${prevStory.id}`))}
-              onNext={() => nextStory && navigate(projectPath(`/story/${nextStory.id}`))}
-            />
-          )}
-
-          <StoryDetailTitle
-            headline={story.headline}
-            sourceName={story.sourceName}
-            sourceDate={story.sourceDate}
-            sourceUrl={story.sourceUrl}
-          />
-
           <StoryDetailArticle
             storyId={id}
             sourceUrl={story.sourceUrl}
@@ -497,7 +501,30 @@ export default function StoryDetail() {
             onRefetch={handleRefetch}
             onOmit={handleOmit}
             onRetryFetch={handleRetryFetch}
+            scoresInline={scoresInline}
+            relativeDate={relativeDate}
+            defaultOpen={true}
           />
+
+          {/* TITLE section */}
+          <div className="rounded-xl bg-background p-5">
+            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">TITLE</div>
+            <h1 className="text-xl font-bold text-right leading-relaxed">{story.headline}</h1>
+          </div>
+
+          {/* CONTENT section */}
+          <div className="rounded-xl bg-background p-5">
+            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">
+              CONTENT ({contentLength})
+            </div>
+            <div className="text-[13px] leading-relaxed text-right text-foreground whitespace-pre-wrap">
+              {articleBody ? (
+                articleBody
+              ) : (
+                <span className="text-dim">No article content yet. Fetch or clean the article above.</span>
+              )}
+            </div>
+          </div>
 
           <StoryDetailScores
             relevance={story.relevanceScore ?? 0}

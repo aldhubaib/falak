@@ -1,4 +1,5 @@
-import { Sparkles, RefreshCw, Loader2, Ban } from "lucide-react";
+import { useState } from "react";
+import { Sparkles, RefreshCw, Loader2, Ban, ChevronUp, ExternalLink } from "lucide-react";
 import { AIWriterBox, type WriterState } from "@/components/AIWriterBox";
 
 export interface StoryDetailArticleProps {
@@ -15,6 +16,11 @@ export interface StoryDetailArticleProps {
   onRefetch: () => Promise<void>;
   onOmit: () => Promise<void>;
   onRetryFetch: () => Promise<void>;
+  /** Inline scores in header (e.g. "R 92 V 97 F 85 T 91") */
+  scoresInline?: string;
+  /** Relative date (e.g. "2 days ago") */
+  relativeDate?: string;
+  defaultOpen?: boolean;
 }
 
 export function StoryDetailArticle({
@@ -31,7 +37,11 @@ export function StoryDetailArticle({
   onRefetch,
   onOmit,
   onRetryFetch,
+  scoresInline,
+  relativeDate,
+  defaultOpen = true,
 }: StoryDetailArticleProps) {
+  const [open, setOpen] = useState(defaultOpen);
   const isYouTube = articleContent === "__YOUTUBE__";
   const isScrapeFailed =
     !articleLoading && (!articleContent || articleContent === "__SCRAPE_FAILED__");
@@ -51,49 +61,70 @@ export function StoryDetailArticle({
 
   return (
     <div className="rounded-xl bg-background border border-border overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-        <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-3 px-5 py-3 border-b border-border shrink-0 hover:bg-elevated/30 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[10px] text-dim font-mono uppercase tracking-widest shrink-0">
+            Original Story
+          </span>
+          {scoresInline && (
+            <span className="text-[11px] font-mono text-dim truncate">{scoresInline}</span>
+          )}
+          {relativeDate && (
+            <span className="text-[11px] text-dim shrink-0">{relativeDate}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             data-button="cleanup-with-ai"
-            aria-label="Clean up with AI — remove website junk from article and format as clean Arabic markdown"
+            aria-label="Clean up with AI"
             onClick={() => onCleanup()}
             disabled={actionsDisabled}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed"
-            title="Remove website junk from article and format as clean Arabic markdown"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none"
           >
-            {actionsDisabled ? (
-              <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
-            ) : (
-              <Sparkles className="w-3 h-3 shrink-0" />
-            )}
-            <span className={actionsDisabled ? "text-shimmer inline-block" : ""}>
-              Clean up with AI
-            </span>
+            {actionsDisabled ? <Loader2 className="w-3 h-3 shrink-0 animate-spin" /> : <Sparkles className="w-3 h-3 shrink-0" />}
+            Clean up with AI
           </button>
           <button
             type="button"
             onClick={() => onRefetch()}
             disabled={!sourceUrl || actionsDisabled}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-            title="Re-fetch article from source (use if something went wrong)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:opacity-50"
           >
             <RefreshCw className="w-3 h-3 shrink-0" />
-            Re-fetch article
+            Re-fetch
           </button>
+          {sourceUrl && (
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-mono text-dim hover:text-sensor transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ExternalLink className="w-3 h-3" />
+              READ SOURCE
+            </a>
+          )}
+          {showOmit && (
+            <button
+              type="button"
+              onClick={() => onOmit()}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
+              title="Omit"
+            >
+              <Ban className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        {showOmit && (
-          <button
-            type="button"
-            onClick={() => onOmit()}
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
-            title="Omit (insufficient data to produce)"
-          >
-            <Ban className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+        <ChevronUp className={`w-4 h-4 text-dim shrink-0 transition-transform ${open ? "" : "rotate-180"}`} />
+      </button>
 
+      {open && (
       <div className="px-5 py-6">
         {isYouTube ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -156,6 +187,7 @@ export function StoryDetailArticle({
           <p className="text-[12px] text-dim text-right">Loading article…</p>
         )}
       </div>
+      )}
     </div>
   );
 }
