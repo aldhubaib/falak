@@ -381,13 +381,13 @@ export default function Stories() {
                       {sourceLabel && (
                         <div className="text-[10px] text-dim font-mono mb-2">{sourceLabel}</div>
                       )}
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <MiniScores story={story} />
-                        {story.compositeScore != null && (
-                          <span className="text-[12px] font-mono font-bold">
-                            {Number(story.compositeScore).toFixed(1)}/10
-                          </span>
-                        )}
+                        <span className={`text-[12px] font-mono font-bold shrink-0 ml-auto ${story.compositeScore == null ? "text-dim" : ""}`}>
+                          {story.compositeScore != null
+                            ? `${Number(story.compositeScore).toFixed(1)}/10`
+                            : "—/10"}
+                        </span>
                       </div>
                     </button>
                   );
