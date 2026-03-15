@@ -113,6 +113,7 @@ export default function StoryDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
+  const [cleanupSuccess, setCleanupSuccess] = useState(false);
 
   // ── UI state (synced with brief JSON) ────────────────────────────────────
   const [brief, setBrief] = useState<StoryBrief>({});
@@ -390,6 +391,7 @@ export default function StoryDetail() {
                 type="button"
                 onClick={async () => {
                   if (!id || cleaningUp) return;
+                  setCleanupSuccess(false);
                   setCleaningUp(true);
                   try {
                     const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
@@ -397,7 +399,9 @@ export default function StoryDetail() {
                     if (r.ok && data.headline !== undefined) {
                       setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
                       setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
+                      setCleanupSuccess(true);
                       toast.success("Data cleaned up");
+                      setTimeout(() => setCleanupSuccess(false), 2500);
                     } else {
                       toast.error(data.error || "Cleanup failed");
                     }
@@ -434,7 +438,23 @@ export default function StoryDetail() {
               )}
             </div>
 
-            <div className="px-5 py-6 space-y-6">
+            {/* In-box: cleanup in progress */}
+            {cleaningUp && (
+              <div className="flex items-center justify-center gap-3 px-5 py-4 bg-primary/10 border-b border-border">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="text-[13px] font-medium text-primary">Cleaning up with AI…</span>
+              </div>
+            )}
+
+            {/* In-box: cleanup done */}
+            {cleanupSuccess && !cleaningUp && (
+              <div className="flex items-center justify-center gap-2 px-5 py-3 bg-success/10 border-b border-success/20">
+                <Check className="w-4 h-4 text-success" />
+                <span className="text-[12px] font-medium text-success">Data cleaned. Headline and summary updated.</span>
+              </div>
+            )}
+
+            <div className={`px-5 py-6 space-y-6 ${cleaningUp ? "opacity-60 pointer-events-none" : ""}`}>
           {/* Prev/next in current stage */}
           {showStageNav && (
             <div className="flex items-center justify-between gap-4">

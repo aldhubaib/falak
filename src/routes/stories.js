@@ -180,10 +180,12 @@ router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req,
         cleaned = { headline: headline }
       }
     }
-    const newHeadline = typeof cleaned.headline === 'string' && cleaned.headline.trim() ? cleaned.headline.trim() : headline
+    // Normalize: trim and collapse multiple spaces/newlines so result is visibly cleaned
+    const norm = (s) => (typeof s === 'string' && s.trim() ? s.trim().replace(/\s+/g, ' ').trim() : null)
+    const newHeadline = norm(cleaned.headline) || headline.trim().replace(/\s+/g, ' ')
     const newBrief = { ...brief }
-    if (typeof cleaned.suggestedTitle === 'string' && cleaned.suggestedTitle.trim()) newBrief.suggestedTitle = cleaned.suggestedTitle.trim()
-    if (typeof cleaned.summary === 'string' && cleaned.summary.trim()) newBrief.summary = cleaned.summary.trim()
+    if (norm(cleaned.suggestedTitle)) newBrief.suggestedTitle = norm(cleaned.suggestedTitle)
+    if (norm(cleaned.summary)) newBrief.summary = norm(cleaned.summary)
 
     const updated = await db.story.update({
       where: { id: story.id },
