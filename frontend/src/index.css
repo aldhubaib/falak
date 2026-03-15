@@ -65,6 +65,10 @@
     --sensor: 0 0% 60%;
     --dim: 0 0% 40%;
 
+    /* Page chrome (story detail and shared layouts) */
+    --page-border: 231 8% 9%;
+    --row-hover: 0 0% 5%;
+
     /* --- AI Writer Box (from ai-writer-box-prompt.md) --- */
     --cursor-width: 2px;
     --cursor-height: 0.95em;

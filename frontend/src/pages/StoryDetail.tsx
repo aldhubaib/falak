@@ -4,107 +4,47 @@ import { ScriptEditor } from "@/components/ScriptEditor";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
-  Copy, Check, ExternalLink, Trophy, Eye, ThumbsUp, MessageSquare,
-  Link2, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, Sparkles, Pencil,
-  RefreshCw, Loader2, Ban,
+  Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
+  RefreshCw, ExternalLink, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
 import type { ApiStory, Stage } from "./Stories";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ApiChannel {
-  id: string;
-  nameAr: string | null;
-  nameEn: string | null;
-  handle: string;
-  avatarUrl: string | null;
-  type: string;
-}
-
-interface StoryWithLog extends ApiStory {
-  log: {
-    id: string;
-    action: string;
-    note: string | null;
-    createdAt: string;
-    user: { name: string | null; avatarUrl: string | null } | null;
-  }[];
-}
-
-// Brief JSON shape stored in DB
-interface StoryBrief {
-  suggestedTitle?: string;
-  summary?: string;
-  articleContent?: string; // full article text fetched from sourceUrl
-  openingHook?: string;
-  hookStart?: string;
-  hookEnd?: string;
-  script?: string;
-  scriptFormat?: "short" | "long";
-  scriptRaw?: string; // full AI output for single-box view
-  channelId?: string;
-  youtubeTags?: string[]; // AI-suggested tags for YouTube (min 5)
-  youtubeUrl?: string;
-  views?: number;
-  likes?: number;
-  comments?: number;
-  gapWin?: boolean;
-  producedFormats?: ("short" | "long")[];
-}
+import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-detail";
+import {
+  StoryDetailTopBar,
+  StoryDetailPrevNext,
+  StoryDetailTitle,
+  StoryDetailScores,
+  StoryDetailAIAnalysis,
+  StoryDetailArticle,
+  StoryDetailYouTubeTags,
+  StoryDetailRankingList,
+  StoryDetailChannelSelector,
+  StoryDetailScriptBox,
+  StoryDetailScriptBoxSaved,
+  StoryDetailStageSuggestion,
+  StoryDetailStageLiked,
+  StoryDetailStageApprovedFilmedPublish,
+  StoryDetailStageDone,
+  StoryDetailStagePassed,
+  StoryDetailStageOmit,
+  ScoreBar,
+  CopyBtn,
+  channelName,
+} from "@/components/story-detail";
+import type { ScriptField } from "@/components/story-detail";
 
 const STAGES: { key: Stage; label: string }[] = [
   { key: "suggestion", label: "AI Suggestion" },
-  { key: "liked",      label: "Liked" },
-  { key: "approved",   label: "Approved" },
-  { key: "scripting",  label: "Scripting" },
-  { key: "filmed",     label: "Filmed" },
-  { key: "publish",    label: "Publish" },
-  { key: "done",       label: "Done" },
-  { key: "passed",     label: "Passed" },
-  { key: "omit",       label: "Omitted" },
+  { key: "liked", label: "Liked" },
+  { key: "approved", label: "Approved" },
+  { key: "scripting", label: "Scripting" },
+  { key: "filmed", label: "Filmed" },
+  { key: "publish", label: "Publish" },
+  { key: "done", label: "Done" },
+  { key: "passed", label: "Passed" },
+  { key: "omit", label: "Omitted" },
 ];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function CopyBtn({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        toast.success("Copied");
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      className="text-[11px] text-dim hover:text-sensor font-mono flex items-center gap-1 transition-colors shrink-0"
-    >
-      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-      Copy
-    </button>
-  );
-}
-
-function ScoreBar({ label, value }: { label: string; value: number }) {
-  const color =
-    label === "Relevance" ? "bg-purple" : label === "Virality" ? "bg-blue" : "bg-success";
-  return (
-    <div className="flex-1 px-5 py-4 bg-background border-r border-background last:border-r-0">
-      <div className="text-[10px] text-dim font-mono uppercase tracking-wider">{label}</div>
-      <div className="text-2xl font-semibold font-mono tracking-tight mt-1">{value}</div>
-      <div className="h-1 bg-elevated rounded-full overflow-hidden mt-2">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function chName(ch: ApiChannel) {
-  return ch.nameAr || ch.nameEn || ch.handle;
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function StoryDetail() {
   const { id, projectId } = useParams<{ id: string; projectId: string }>();
@@ -304,7 +244,7 @@ export default function StoryDetail() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+        <div className="h-12 flex items-center px-6 border-b border-pageBorder shrink-0">
           <button
             onClick={() => navigate(projectPath("/stories"))}
             className="link flex items-center gap-2 text-[13px]"
@@ -323,7 +263,7 @@ export default function StoryDetail() {
   if (!story) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+        <div className="h-12 flex items-center px-6 border-b border-pageBorder shrink-0">
           <button
             onClick={() => navigate(projectPath("/stories"))}
             className="link flex items-center gap-2 text-[13px]"
@@ -363,12 +303,7 @@ export default function StoryDetail() {
 
   // ── Script fields ─────────────────────────────────────────────────────────
 
-  const SCRIPT_FIELDS: {
-    key: keyof StoryBrief;
-    label: string;
-    placeholder: string;
-    type: "input" | "textarea";
-  }[] = [
+  const SCRIPT_FIELDS: ScriptField[] = [
     {
       key: "suggestedTitle",
       label: "Suggested Title",
@@ -401,853 +336,329 @@ export default function StoryDetail() {
     },
   ];
 
+  const handleCleanup = useCallback(async () => {
+    if (!id || isWriterBoxRunning) return;
+    setCleaningUp(true);
+    setCleanupStatus("thinking");
+    const CHAR_DELAY = 18;
+    let charQueue: string[] = [];
+    let isTyping = false;
+    const appendChunk = (chunk: string) => {
+      charQueue.push(...chunk.split(""));
+      if (!isTyping) drainQueue();
+    };
+    const drainQueue = () => {
+      if (charQueue.length === 0) {
+        isTyping = false;
+        return;
+      }
+      isTyping = true;
+      const char = charQueue.shift()!;
+      setArticleDisplayValue((prev) => prev + char);
+      setTimeout(drainQueue, CHAR_DELAY);
+    };
+    const onStreamComplete = () =>
+      new Promise<void>((resolve) => {
+        const check = () => {
+          if (charQueue.length === 0 && !isTyping) resolve();
+          else setTimeout(check, 20);
+        };
+        check();
+      });
+    try {
+      const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
+      const data = await r.json().catch(() => ({}));
+      const newBrief = data.brief && typeof data.brief === "object" ? data.brief : null;
+      const cleanedContent = newBrief && typeof newBrief.articleContent === "string" ? newBrief.articleContent : "";
+      if (r.ok && cleanedContent) {
+        setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
+        setBrief(newBrief as StoryBrief);
+        toast.success("Article cleaned");
+        setCleanupStatus("writing");
+        setArticleDisplayValue("");
+        appendChunk(cleanedContent);
+        await onStreamComplete();
+        setCleanupStatus("done");
+      } else {
+        setCleanupStatus("idle");
+        toast.error(data.error || "Cleanup failed");
+      }
+    } catch {
+      setCleanupStatus("idle");
+      toast.error("Cleanup failed");
+    } finally {
+      setCleaningUp(false);
+    }
+  }, [id, isWriterBoxRunning]);
+
+  const handleRefetch = useCallback(async () => {
+    if (!id || !story?.sourceUrl || isWriterBoxRunning) return;
+    setArticleError(null);
+    setFetchingArticle(true);
+    setCleanupStatus("thinking");
+    const CHAR_DELAY = 18;
+    let charQueue: string[] = [];
+    let isTyping = false;
+    const appendChunk = (chunk: string) => {
+      charQueue.push(...chunk.split(""));
+      if (!isTyping) drainQueue();
+    };
+    const drainQueue = () => {
+      if (charQueue.length === 0) {
+        isTyping = false;
+        return;
+      }
+      isTyping = true;
+      const char = charQueue.shift()!;
+      setArticleDisplayValue((prev) => prev + char);
+      setTimeout(drainQueue, CHAR_DELAY);
+    };
+    const onStreamComplete = () =>
+      new Promise<void>((resolve) => {
+        const check = () => {
+          if (charQueue.length === 0 && !isTyping) resolve();
+          else setTimeout(check, 20);
+        };
+        check();
+      });
+    try {
+      const r = await fetch(`/api/stories/${id}/fetch-article`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.articleContent !== undefined) {
+        setBrief((b) => ({ ...b, articleContent: data.articleContent }));
+        setStory((s) => (s && s.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
+        if (data.articleContent !== "__SCRAPE_FAILED__" && data.articleContent !== "__YOUTUBE__" && String(data.articleContent).trim()) {
+          setCleanupStatus("writing");
+          setArticleDisplayValue("");
+          appendChunk(String(data.articleContent));
+          await onStreamComplete();
+          setCleanupStatus("done");
+          toast.success("Article re-fetched");
+        } else {
+          setCleanupStatus("idle");
+          toast.info(data.articleContent === "__SCRAPE_FAILED__" ? "Source could not be scraped" : "Article re-fetched");
+        }
+      } else {
+        setCleanupStatus("idle");
+        toast.error(data.error || "Could not fetch article");
+      }
+    } catch {
+      setCleanupStatus("idle");
+      toast.error("Could not fetch article");
+    } finally {
+      setFetchingArticle(false);
+    }
+  }, [id, story?.sourceUrl, isWriterBoxRunning]);
+
+  const handleOmit = useCallback(async () => {
+    const updated = await patchStory({ stage: "omit" });
+    if (updated) {
+      setStory(updated);
+      toast.success("Omitted — insufficient data");
+    } else {
+      toast.error("Failed to omit story");
+    }
+  }, [patchStory]);
+
+  const handleRetryFetch = useCallback(async () => {
+    if (!id || articleLoading) return;
+    setArticleError(null);
+    setArticleLoading(true);
+    try {
+      const r = await fetch(`/api/stories/${id}/fetch-article`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.articleContent !== undefined) {
+        setBrief((b) => ({ ...b, articleContent: data.articleContent }));
+        setStory((s) => (s?.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
+        if (data.articleContent !== "__SCRAPE_FAILED__") {
+          toast.success("Article re-fetched");
+        } else {
+          toast.info("Source could not be scraped");
+        }
+      } else {
+        toast.error(data.error || "Could not fetch article");
+      }
+    } catch {
+      toast.error("Could not fetch article");
+    } finally {
+      setArticleLoading(false);
+    }
+  }, [id, articleLoading]);
+
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Top bar */}
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(projectPath("/stories"))}
-            className="link flex items-center gap-2 text-[13px]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            AI Intelligence
-          </button>
-          <span className="text-[11px] text-dim font-mono">/</span>
-          <span className="text-[13px] font-medium truncate max-w-[400px]">{story.headline}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-dim" />}
-          <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-primary/15 text-primary">
-            {STAGES.find((s) => s.key === activeStage)?.label}
-          </span>
-        </div>
-      </div>
+      <StoryDetailTopBar
+        title={story.headline}
+        stageLabel={STAGES.find((s) => s.key === activeStage)?.label ?? ""}
+        saving={saving}
+        onBack={() => navigate(projectPath("/stories"))}
+      />
 
       <div className="flex-1 relative overflow-auto">
-        <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6">
-          <div className="rounded-xl bg-background border border-border overflow-hidden">
-            {/* Top of box: Clean up with AI + Re-fetch article (left) + Omit (right) */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  data-button="cleanup-with-ai"
-                  aria-label="Clean up with AI — remove website junk from article and format as clean Arabic markdown"
-                  onClick={async () => {
-                    if (!id || isWriterBoxRunning) return;
-                    setCleaningUp(true);
-                    setCleanupStatus("thinking");
-                    const CHAR_DELAY = 18;
-                    let charQueue: string[] = [];
-                    let isTyping = false;
-                    const appendChunk = (chunk: string) => {
-                      charQueue.push(...chunk.split(""));
-                      if (!isTyping) drainQueue();
-                    };
-                    const drainQueue = () => {
-                      if (charQueue.length === 0) {
-                        isTyping = false;
-                        return;
-                      }
-                      isTyping = true;
-                      const char = charQueue.shift()!;
-                      setArticleDisplayValue((prev) => prev + char);
-                      setTimeout(drainQueue, CHAR_DELAY);
-                    };
-                    const onStreamComplete = () =>
-                      new Promise<void>((resolve) => {
-                        const check = () => {
-                          if (charQueue.length === 0 && !isTyping) resolve();
-                          else setTimeout(check, 20);
-                        };
-                        check();
-                      });
-                    try {
-                      const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
-                      const data = await r.json().catch(() => ({}));
-                      const newBrief = data.brief && typeof data.brief === "object" ? data.brief : null;
-                      const cleanedContent = newBrief && typeof newBrief.articleContent === "string" ? newBrief.articleContent : "";
-                      if (r.ok && cleanedContent) {
-                        setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
-                        setBrief(newBrief);
-                        toast.success("Article cleaned");
-                        setCleanupStatus("writing");
-                        setArticleDisplayValue("");
-                        appendChunk(cleanedContent);
-                        await onStreamComplete();
-                        setCleanupStatus("done");
-                      } else {
-                        setCleanupStatus("idle");
-                        toast.error(data.error || "Cleanup failed");
-                      }
-                    } catch {
-                      setCleanupStatus("idle");
-                      toast.error("Cleanup failed");
-                    } finally {
-                      setCleaningUp(false);
-                    }
-                  }}
-                  disabled={isWriterBoxRunning}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed"
-                  title="Remove website junk from article and format as clean Arabic markdown"
-                >
-                  {cleaningUp ? (
-                    <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3 h-3 shrink-0" />
-                  )}
-                  <span className={cleaningUp ? "text-shimmer inline-block" : ""}>Clean up with AI</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!id || !story?.sourceUrl || isWriterBoxRunning) return;
-                    setArticleError(null);
-                    setFetchingArticle(true);
-                    setCleanupStatus("thinking");
-                    const CHAR_DELAY = 18;
-                    let charQueue: string[] = [];
-                    let isTyping = false;
-                    const appendChunk = (chunk: string) => {
-                      charQueue.push(...chunk.split(""));
-                      if (!isTyping) drainQueue();
-                    };
-                    const drainQueue = () => {
-                      if (charQueue.length === 0) {
-                        isTyping = false;
-                        return;
-                      }
-                      isTyping = true;
-                      const char = charQueue.shift()!;
-                      setArticleDisplayValue((prev) => prev + char);
-                      setTimeout(drainQueue, CHAR_DELAY);
-                    };
-                    const onStreamComplete = () =>
-                      new Promise<void>((resolve) => {
-                        const check = () => {
-                          if (charQueue.length === 0 && !isTyping) resolve();
-                          else setTimeout(check, 20);
-                        };
-                        check();
-                      });
-                    try {
-                      const r = await fetch(`/api/stories/${id}/fetch-article`, {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ force: true }),
-                      });
-                      const data = await r.json().catch(() => ({}));
-                      if (r.ok && data.articleContent !== undefined) {
-                        setBrief((b) => ({ ...b, articleContent: data.articleContent }));
-                        setStory((s) => (s && s.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
-                        if (data.articleContent !== "__SCRAPE_FAILED__" && data.articleContent !== "__YOUTUBE__" && String(data.articleContent).trim()) {
-                          setCleanupStatus("writing");
-                          setArticleDisplayValue("");
-                          appendChunk(String(data.articleContent));
-                          await onStreamComplete();
-                          setCleanupStatus("done");
-                          toast.success("Article re-fetched");
-                        } else {
-                          setCleanupStatus("idle");
-                          toast.info(data.articleContent === "__SCRAPE_FAILED__" ? "Source could not be scraped" : "Article re-fetched");
-                        }
-                      } else {
-                        setCleanupStatus("idle");
-                        toast.error(data.error || "Could not fetch article");
-                      }
-                    } catch {
-                      setCleanupStatus("idle");
-                      toast.error("Could not fetch article");
-                    } finally {
-                      setFetchingArticle(false);
-                    }
-                  }}
-                  disabled={!story?.sourceUrl || isWriterBoxRunning}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Re-fetch article from source (use if something went wrong)"
-                >
-                  {fetchingArticle ? (
-                    <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-3 h-3 shrink-0" />
-                  )}
-                  Re-fetch article
-                </button>
-              </div>
-              {activeStage === "suggestion" && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const updated = await patchStory({ stage: "omit" });
-                    if (updated) {
-                      setStory(updated);
-                      toast.success("Omitted — insufficient data");
-                    } else {
-                      toast.error("Failed to omit story");
-                    }
-                  }}
-                  className="w-8 h-8 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
-                  title="Omit (insufficient data to produce)"
-                >
-                  <Ban className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="px-5 py-6 space-y-6">
-          {/* Prev/next in current stage */}
+        <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6 space-y-6">
           {showStageNav && (
-            <div className="flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => prevStory && navigate(projectPath(`/story/${prevStory.id}`))}
-                disabled={!prevStory}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-border text-[13px] font-medium text-dim hover:text-sensor hover:border-sensor/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                title={prevStory ? `Previous: ${prevStory.headline.slice(0, 40)}…` : "No previous"}
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Previous
-              </button>
-              <span className="text-[11px] font-mono text-dim">
-                {stageIndex + 1} / {stageStories.length}
-              </span>
-              <button
-                type="button"
-                onClick={() => nextStory && navigate(projectPath(`/story/${nextStory.id}`))}
-                disabled={!nextStory}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-border text-[13px] font-medium text-dim hover:text-sensor hover:border-sensor/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                title={nextStory ? `Next: ${nextStory.headline.slice(0, 40)}…` : "No next"}
-              >
-                Next
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+            <StoryDetailPrevNext
+              prevStory={prevStory}
+              nextStory={nextStory}
+              currentIndex={stageIndex}
+              total={stageStories.length}
+              onPrev={() => prevStory && navigate(projectPath(`/story/${prevStory.id}`))}
+              onNext={() => nextStory && navigate(projectPath(`/story/${nextStory.id}`))}
+            />
           )}
 
-          {/* Title */}
-          <div>
-            <h1 className="text-xl font-bold text-right leading-relaxed">{story.headline}</h1>
-            <div className="text-[11px] text-dim font-mono mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-              {[story.sourceName, story.sourceDate?.split("T")[0]].filter(Boolean).join(" · ")}
-              {story.sourceUrl && (
-                <a
-                  href={story.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="link-external inline-flex items-center gap-1"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Read source
-                </a>
-              )}
-            </div>
-          </div>
+          <StoryDetailTitle
+            headline={story.headline}
+            sourceName={story.sourceName}
+            sourceDate={story.sourceDate}
+            sourceUrl={story.sourceUrl}
+          />
 
-          {/* Full article — AI Writer Box when we have content; else YouTube / scrape-failed / loading */}
-          {story?.brief?.articleContent === '__YOUTUBE__' ? (
-            <div className="rounded-xl bg-background p-5">
-              <div className="text-center py-8 text-muted-foreground">
-                <p className="mb-3">المصدر مقطع فيديو على يوتيوب</p>
-                <a
-                  href={story.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 underline"
-                >
-                  مشاهدة الفيديو على يوتيوب
-                </a>
-              </div>
-            </div>
-          ) : !articleLoading && (!brief.articleContent || brief.articleContent === '__SCRAPE_FAILED__') ? (
-            <div className="rounded-xl bg-background p-5">
-              <div className="text-center py-8 text-muted-foreground space-y-4">
-                <p className="mb-1">تعذّر تحميل نص المقال من هذا المصدر</p>
-                <p className="text-[11px] text-dim">Source could not be scraped. Try re-fetching or open the link below.</p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <a
-                    href={story?.sourceUrl ?? "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="link text-[12px]"
-                  >
-                    اقرأ المقال من المصدر الأصلي
-                  </a>
-                  {id && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!id || articleLoading) return;
-                        setArticleError(null);
-                        setArticleLoading(true);
-                        try {
-                          const r = await fetch(`/api/stories/${id}/fetch-article`, {
-                            method: "POST",
-                            credentials: "include",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ force: true }),
-                          });
-                          const data = await r.json().catch(() => ({}));
-                          if (r.ok && data.articleContent !== undefined) {
-                            setBrief((b) => ({ ...b, articleContent: data.articleContent }));
-                            setStory((s) => (s?.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
-                            if (data.articleContent !== "__SCRAPE_FAILED__") {
-                              toast.success("Article re-fetched");
-                            } else {
-                              toast.info("Source could not be scraped");
-                            }
-                          } else {
-                            toast.error(data.error || "Could not fetch article");
-                          }
-                        } catch {
-                          toast.error("Could not fetch article");
-                        } finally {
-                          setArticleLoading(false);
-                        }
-                      }}
-                      disabled={articleLoading}
-                      className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-foreground hover:border-foreground/20 disabled:opacity-50"
-                    >
-                      {articleLoading ? "Fetching…" : "Re-fetch article"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (cleanupStatus !== "idle" || articleDisplayValue || (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__")) ? (
-            <div className="px-5 pb-5">
-              <AIWriterBox
-                mode="output"
-                label="Original Story"
-                status={articleDisplayValue && cleanupStatus === "idle" ? "done" : cleanupStatus}
-                value={articleDisplayValue || (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__" ? brief.articleContent : "")}
-              />
-            </div>
-          ) : articleLoading ? (
-              <p className="text-[12px] text-dim text-right">Loading article…</p>
-            ) : articleError ? (
-              <p className="text-[12px] text-dim text-right">
-                {articleError}. Use “Read source” below to open the original article.
-              </p>
-            ) : !story?.sourceUrl ? (
-              <p className="text-[12px] text-dim text-right">
-                No source URL for this story. The original story can be shown when a source link is available.
-              </p>
-            ) : (
-              <p className="text-[12px] text-dim text-right">Loading article…</p>
-            )}
+          <StoryDetailArticle
+            storyId={id}
+            sourceUrl={story.sourceUrl}
+            articleContent={brief.articleContent}
+            articleDisplayValue={articleDisplayValue}
+            cleanupStatus={cleanupStatus}
+            articleLoading={articleLoading}
+            articleError={articleError}
+            showOmit={activeStage === "suggestion"}
+            actionsDisabled={isWriterBoxRunning}
+            onCleanup={handleCleanup}
+            onRefetch={handleRefetch}
+            onOmit={handleOmit}
+            onRetryFetch={handleRetryFetch}
+          />
 
-            {/* AI Writer Box — generate script from article */}
-            {brief.articleContent?.trim() &&
-             brief.articleContent !== "__SCRAPE_FAILED__" &&
-             brief.articleContent !== "__YOUTUBE__" && (
-              <div className="mt-4 pt-4 border-t border-border space-y-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
-                    AI Writer
-                  </span>
-                  <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
-                    {(["short", "long"] as const).map((fmt) => (
-                      <button
-                        key={fmt}
-                        type="button"
-                        onClick={() => setBrief((b) => ({ ...b, scriptFormat: fmt }))}
-                        className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
-                          (brief.scriptFormat ?? "short") === fmt
-                            ? "bg-foreground/10 text-foreground"
-                            : "text-dim hover:text-sensor"
-                        }`}
-                      >
-                        {fmt === "short" ? "Short (up to 3 min)" : "Video (3 min – unlimited)"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {(scriptStatus !== "idle" || scriptText) && (
-                  <div className="mt-3">
-                    <AIWriterBox
-                      mode="output"
-                      label="Script"
-                      status={scriptText && scriptStatus === "idle" ? "done" : scriptStatus}
-                      value={scriptText}
-                    />
-                  </div>
-                )}
-                <button
-                    type="button"
-                    onClick={async () => {
-                      if (!id || isWriterBoxRunning) return;
-                      setGeneratingScript(true);
-                      setScriptStatus("thinking");
-                      setScriptText("");
-                      let firstChunk = true;
-                      const CHAR_DELAY = 18;
-                      let charQueue: string[] = [];
-                      let isTyping = false;
-                      const appendChunk = (chunk: string) => {
-                        charQueue.push(...chunk.split(""));
-                        if (!isTyping) drainQueue();
-                      };
-                      const drainQueue = () => {
-                        if (charQueue.length === 0) {
-                          isTyping = false;
-                          return;
-                        }
-                        isTyping = true;
-                        const char = charQueue.shift()!;
-                        setScriptText((prev) => prev + char);
-                        setTimeout(drainQueue, CHAR_DELAY);
-                      };
-                      const onStreamComplete = () =>
-                        new Promise<void>((resolve) => {
-                          const check = () => {
-                            if (charQueue.length === 0 && !isTyping) resolve();
-                            else setTimeout(check, 20);
-                          };
-                          check();
-                        });
-                      try {
-                        const currentArticleText =
-                          articleDisplayValue ||
-                          (brief.articleContent?.trim() &&
-                          brief.articleContent !== "__SCRAPE_FAILED__" &&
-                          brief.articleContent !== "__YOUTUBE__"
-                            ? brief.articleContent
-                            : "");
-                        const r = await fetch(`/api/stories/${id}/generate-script`, {
-                          method: "POST",
-                          credentials: "include",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            format: brief.scriptFormat ?? "short",
-                            articleText: currentArticleText,
-                            channelId: brief.channelId ?? undefined,
-                          }),
-                        });
-                        if (!r.ok) {
-                          const data = await r.json().catch(() => ({}));
-                          setScriptStatus("idle");
-                          toast.error(data.error || `Generate script failed (${r.status})`);
-                          return;
-                        }
-                        const body = r.body;
-                        const hasReader = body && typeof body.getReader === "function";
-                        let fullScript = "";
+          <StoryDetailScores
+            relevance={story.relevanceScore ?? 0}
+            viral={story.viralScore ?? 0}
+            firstMover={story.firstMoverScore ?? 0}
+            total={story.compositeScore ?? 0}
+          />
 
-                        if (hasReader) {
-                          const reader = body.getReader();
-                          const decoder = new TextDecoder();
-                          let buffer = "";
-                          while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split("\n");
-                            buffer = lines.pop() ?? "";
-                            for (const line of lines) {
-                              if (!line.startsWith("data: ")) continue;
-                              const raw = line.slice(6).trim();
-                              if (raw === "[DONE]") continue;
-                              try {
-                                const obj = JSON.parse(raw);
-                                if (obj?.error) {
-                                  setScriptStatus("idle");
-                                  toast.error(obj.error);
-                                  return;
-                                }
-                                const chunk =
-                                  obj?.delta?.text ?? obj?.choices?.[0]?.delta?.content ?? "";
-                                if (chunk) {
-                                  if (firstChunk) {
-                                    firstChunk = false;
-                                    setScriptStatus("writing");
-                                  }
-                                  fullScript += chunk;
-                                  appendChunk(chunk);
-                                }
-                              } catch {
-                                // ignore parse errors for non-JSON lines
-                              }
-                            }
-                          }
-                        } else {
-                          const text = await r.text();
-                          const lines = text.split("\n");
-                          for (const line of lines) {
-                            if (!line.startsWith("data: ")) continue;
-                            const raw = line.slice(6).trim();
-                            if (raw === "[DONE]") continue;
-                            try {
-                              const obj = JSON.parse(raw);
-                              if (obj?.error) {
-                                setScriptStatus("idle");
-                                toast.error(obj.error);
-                                return;
-                              }
-                              const chunk =
-                                obj?.delta?.text ?? obj?.choices?.[0]?.delta?.content ?? "";
-                              if (chunk) {
-                                if (firstChunk) {
-                                  firstChunk = false;
-                                  setScriptStatus("writing");
-                                }
-                                fullScript += chunk;
-                                appendChunk(chunk);
-                              }
-                            } catch {
-                              // ignore
-                            }
-                          }
-                        }
-                        if (firstChunk) setScriptStatus("writing");
-                        await onStreamComplete();
-                        setScriptStatus("done");
-                        const script = fullScript.trim();
-                        const newBrief = {
-                          ...brief,
-                          script: script || undefined,
-                          scriptFormat: brief.scriptFormat ?? "short",
-                        };
-                        setBrief(newBrief);
-                        setStory((s) => (s ? { ...s, brief: newBrief } : s));
-                        setScriptOpen(true);
-                        toast.success("Script generated. Review in Script section below.");
-                      } catch (err) {
-                        setScriptStatus("idle");
-                        setScriptText("");
-                        const msg = err instanceof Error ? err.message : "Generate script failed";
-                        toast.error(msg);
-                      } finally {
-                        setGeneratingScript(false);
-                      }
-                    }}
-                    disabled={isWriterBoxRunning}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                  >
-                    {generatingScript ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span className={generatingScript ? "text-shimmer inline-block" : ""}>
-                          Generating…
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Generate script from article
-                      </>
-                    )}
-                  </button>
-              </div>
-            )}
-          </div>
-
-          {/* YouTube tags — AI-suggested for upload */}
-          <div className="rounded-xl bg-background border border-border overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border flex-wrap">
-              <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
-                YouTube tags
-              </span>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!id || suggestingTags) return;
-                  setSuggestingTags(true);
-                  try {
-                    const r = await fetch(`/api/stories/${id}/suggest-tags`, {
-                      method: "POST",
-                      credentials: "include",
-                      headers: { "Content-Type": "application/json" },
-                    });
-                    const data = await r.json().catch(() => ({}));
-                    if (r.ok && data.brief) {
-                      setBrief(data.brief);
-                      setStory((s) => (s?.brief ? { ...s, brief: data.brief } : s));
-                      const count = Array.isArray(data.tags) ? data.tags.length : (data.brief.youtubeTags?.length ?? 0);
-                      toast.success(`Suggested ${count} tags. Copy below for YouTube.`);
-                    } else {
-                      toast.error(data.error || "Could not suggest tags");
-                    }
-                  } catch {
-                    toast.error("Could not suggest tags");
-                  } finally {
-                    setSuggestingTags(false);
-                  }
-                }}
-                disabled={suggestingTags}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:opacity-50"
-                title="Generate at least 5 suggested tags from headline and script"
-              >
-                {suggestingTags ? (
-                  <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3 h-3 shrink-0" />
-                )}
-                Suggest tags
-              </button>
-            </div>
-            {brief.youtubeTags && brief.youtubeTags.length > 0 ? (
-              <div className="px-5 py-4">
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {brief.youtubeTags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="px-2.5 py-1 rounded-full bg-elevated text-[12px] text-foreground"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const str = brief.youtubeTags!.join(", ");
-                    navigator.clipboard.writeText(str).then(() => toast.success("Tags copied")).catch(() => toast.error("Copy failed"));
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors"
-                >
-                  <Copy className="w-3 h-3" />
-                  Copy as comma-separated
-                </button>
-              </div>
-            ) : (
-              <div className="px-5 py-4">
-                <p className="text-[12px] text-dim text-right mb-0">
-                  Get AI-suggested tags (min 5) for YouTube. Use after you have a headline or script.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Scores row */}
-          <div className="flex rounded-xl overflow-hidden">
-            <ScoreBar label="Relevance"   value={story.relevanceScore ?? 0} />
-            <ScoreBar label="Virality"    value={story.viralScore ?? 0} />
-            <ScoreBar label="First Mover" value={story.firstMoverScore ?? 0} />
-            <div className="px-5 py-4 bg-background min-w-[120px]">
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider">Total</div>
-              <div className="text-2xl font-semibold font-mono tracking-tight mt-1">
-                {story.compositeScore ?? 0}
-              </div>
-            </div>
-          </div>
-
-          {/* AI Analysis (from brief) */}
           {brief.suggestedTitle && (
-            <div className="rounded-xl bg-background p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
-                  AI Analysis
-                </div>
-                {isFirst && (
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success">
-                    1st
-                  </span>
-                )}
-                {isLate && (
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange">
-                    Late
-                  </span>
-                )}
-              </div>
-              <p className="text-[13px] text-sensor leading-relaxed text-right">
-                {brief.suggestedTitle}
-              </p>
-            </div>
+            <StoryDetailAIAnalysis
+              text={brief.suggestedTitle}
+              isFirst={isFirst}
+              isLate={isLate}
+            />
           )}
+
+          <StoryDetailYouTubeTags
+            tags={brief.youtubeTags}
+            suggesting={suggestingTags}
+            onSuggest={async () => {
+              if (!id || suggestingTags) return;
+              setSuggestingTags(true);
+              try {
+                const r = await fetch(`/api/stories/${id}/suggest-tags`, {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                });
+                const data = await r.json().catch(() => ({}));
+                if (r.ok && data.brief) {
+                  setBrief(data.brief);
+                  setStory((s) => (s?.brief ? { ...s, brief: data.brief } : s));
+                  const count = Array.isArray(data.tags) ? data.tags.length : (data.brief.youtubeTags?.length ?? 0);
+                  toast.success(`Suggested ${count} tags. Copy below for YouTube.`);
+                } else {
+                  toast.error(data.error || "Could not suggest tags");
+                }
+              } catch {
+                toast.error("Could not suggest tags");
+              } finally {
+                setSuggestingTags(false);
+              }
+            }}
+          />
 
           {/* Stage-specific content */}
           <div className="space-y-5">
 
-            {/* ── SUGGESTION ────────────────────────────────────────────── */}
             {activeStage === "suggestion" && (
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => moveStage("liked")}
-                  className="flex-1 min-w-[120px] px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
-                >
-                  Save to Liked
-                </button>
-                <button
-                  onClick={async () => {
-                    const updated = await patchStory({ stage: "passed" });
-                    if (updated) {
-                      toast.success("Passed");
-                      navigate(projectPath("/stories"));
-                    } else {
-                      toast.error("Failed to pass story");
-                    }
-                  }}
-                  className="link flex-1 min-w-[100px] px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
-                >
-                  Pass
-                </button>
-              </div>
+              <StoryDetailStageSuggestion
+                onSaveToLiked={() => moveStage("liked")}
+                onPass={async () => {
+                  const updated = await patchStory({ stage: "passed" });
+                  if (updated) {
+                    toast.success("Passed");
+                    navigate(projectPath("/stories"));
+                  } else {
+                    toast.error("Failed to pass story");
+                  }
+                }}
+              />
             )}
 
-            {/* ── PASSED ──────────────────────────────────────────────────── */}
             {activeStage === "passed" && (
-              <div className="rounded-xl bg-background p-5">
-                <p className="text-[13px] text-dim mb-4">You passed on this story. It won’t appear in your active pipeline.</p>
-                <button
-                  onClick={() => moveStage("suggestion")}
-                  className="link px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
-                >
-                  Move back to AI Suggestion
-                </button>
-              </div>
+              <StoryDetailStagePassed onMoveBack={() => moveStage("suggestion")} />
             )}
 
-            {/* ── OMIT (insufficient data) ───────────────────────────────────── */}
             {activeStage === "omit" && (
-              <div className="rounded-xl bg-background p-5">
-                <p className="text-[13px] text-dim mb-4">Not enough data to produce this video. Omitted from pipeline.</p>
-                <button
-                  onClick={() => moveStage("suggestion")}
-                  className="link px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
-                >
-                  Move back to AI Suggestion
-                </button>
-              </div>
+              <StoryDetailStageOmit onMoveBack={() => moveStage("suggestion")} />
             )}
 
-            {/* ── LIKED ─────────────────────────────────────────────────── */}
             {activeStage === "liked" && (
-              <>
-                {/* Ranking among liked peers */}
-                <div className="rounded-xl bg-background p-5">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
-                    Ranking
-                  </div>
-                  <div className="text-[13px] font-semibold mb-3">
-                    Ranked #{likedSorted.findIndex((s) => s.id === id) + 1} of{" "}
-                    {likedSorted.length} liked — Score {story.compositeScore ?? 0}
-                  </div>
-                  <div className="space-y-1">
-                    {likedSorted.map((s, i) => {
-                      const isCurrent = s.id === id;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => {
-                            if (!isCurrent) navigate(projectPath(`/story/${s.id}`));
-                          }}
-                          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] transition-colors group ${
-                            isCurrent
-                              ? "bg-[#0d0d10] text-foreground cursor-default"
-                              : "text-dim hover:bg-[#0d0d10] cursor-pointer"
-                          }`}
-                        >
-                          <span className="font-mono w-5">#{i + 1}</span>
-                          {s.coverageStatus === "first" && (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success shrink-0">
-                              1st
-                            </span>
-                          )}
-                          {s.coverageStatus === "late" && (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange shrink-0">
-                              Late
-                            </span>
-                          )}
-                          <span className="flex-1 truncate text-right transition-colors group-hover:text-foreground">
-                            {s.headline}
-                          </span>
-                          <span className="font-mono font-medium">{s.compositeScore ?? 0}</span>
-                          {!isCurrent && (
-                            <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Channel selector */}
-                <div className="rounded-xl bg-background p-5">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
-                    Assign to Channel
-                  </div>
-                  <div className="relative">
-                    <button
-                      onClick={() => setChannelDropOpen(!channelDropOpen)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 bg-surface border border-border rounded-full text-[13px] font-medium focus:outline-none focus:border-primary/40"
-                    >
-                      {assignedChannel ? (
-                        <>
-                          {assignedChannel.avatarUrl ? (
-                            <img
-                              src={assignedChannel.avatarUrl}
-                              alt={chName(assignedChannel)}
-                              className="w-6 h-6 rounded-full object-cover shrink-0"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-elevated shrink-0 flex items-center justify-center text-[9px] font-mono text-dim uppercase">
-                              {chName(assignedChannel).slice(0, 2)}
-                            </div>
-                          )}
-                          <span className="flex-1 text-right">{chName(assignedChannel)}</span>
-                        </>
-                      ) : (
-                        <span className="flex-1 text-right text-dim">
-                          Select one of your channels…
-                        </span>
-                      )}
-                      <ChevronDown
-                        className={`w-4 h-4 text-dim shrink-0 transition-transform ${channelDropOpen ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                    {channelDropOpen && (
-                      <div className="absolute z-10 mt-1.5 w-full rounded-xl bg-elevated border border-border overflow-hidden shadow-lg">
-                        {ourChannels.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => {
-                              saveBrief({ ...brief, channelId: c.id });
-                              setChannelDropOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-surface ${
-                              selectedChannel === c.id ? "bg-blue/10" : ""
-                            }`}
-                          >
-                            {c.avatarUrl ? (
-                              <img
-                                src={c.avatarUrl}
-                                alt={chName(c)}
-                                className="w-6 h-6 rounded-full object-cover shrink-0"
-                              />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-elevated shrink-0 flex items-center justify-center text-[9px] font-mono text-dim uppercase">
-                                {chName(c).slice(0, 2)}
-                              </div>
-                            )}
-                            <span className="flex-1 text-right font-medium">{chName(c)}</span>
-                            {selectedChannel === c.id && (
-                              <Check className="w-3.5 h-3.5 text-blue shrink-0" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Script box */}
-                <ScriptBox
+              <StoryDetailStageLiked
+                canApprove={
+                  !!selectedChannel &&
+                  !!(brief.script?.trim() || brief.suggestedTitle?.trim() || brief.openingHook?.trim())
+                }
+                onApprove={async () => {
+                  await patchStory({ stage: "approved", brief });
+                  toast.success("Moved to Approved");
+                }}
+                onPass={() => moveStage("suggestion")}
+              >
+                <StoryDetailRankingList
+                  stories={likedSorted.map((s) => ({
+                    id: s.id,
+                    headline: s.headline,
+                    coverageStatus: s.coverageStatus ?? null,
+                    compositeScore: s.compositeScore ?? null,
+                  }))}
+                  currentId={id}
+                  currentScore={story.compositeScore ?? null}
+                  onSelect={(storyId) => navigate(projectPath(`/story/${storyId}`))}
+                />
+                <StoryDetailChannelSelector
+                  channels={ourChannels}
+                  selectedId={brief.channelId ?? ""}
+                  open={channelDropOpen}
+                  onToggleOpen={() => setChannelDropOpen(!channelDropOpen)}
+                  onSelect={(channelId) => {
+                    saveBrief({ ...brief, channelId });
+                    setChannelDropOpen(false);
+                  }}
+                />
+                <StoryDetailScriptBox
                   brief={brief}
                   scriptSaved={scriptSaved}
                   scriptOpen={scriptOpen}
                   setScriptOpen={setScriptOpen}
                   editingField={editingField}
                   setEditingField={setEditingField}
+                  scriptFields={SCRIPT_FIELDS}
+                  scriptFormat={(brief.scriptFormat ?? "short") as "short" | "long"}
+                  onScriptFormatChange={(fmt) => setBrief((b) => ({ ...b, scriptFormat: fmt }))}
                   onSave={async (newBrief) => {
                     await saveBrief({ ...newBrief, script: newBrief.script ?? "" });
                     toast.success("Script saved");
                   }}
                   onFieldDone={(key) => { setEditingField(null); saveBrief({ ...brief }); }}
                   onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
-                  scriptFields={SCRIPT_FIELDS}
                   canGenerate={
                     !!assignedChannel &&
                     !!(
@@ -1258,8 +669,6 @@ export default function StoryDetail() {
                     )
                   }
                   generating={generatingScript}
-                  scriptViewMode={scriptViewMode}
-                  onScriptViewModeChange={setScriptViewMode}
                   onGenerateScript={async () => {
                     if (!id || !assignedChannel || generatingScript) return;
                     const articleText =
@@ -1322,41 +731,12 @@ export default function StoryDetail() {
                       setGeneratingScript(false);
                     }
                   }}
+                  scriptViewMode={scriptViewMode}
+                  onScriptViewModeChange={setScriptViewMode}
                 />
-
-                {/* Approve / Pass */}
-                {(() => {
-                  const hasContent = !!(
-                    brief.script?.trim() || brief.suggestedTitle?.trim() || brief.openingHook?.trim()
-                  );
-                  const canApprove = !!selectedChannel && hasContent;
-                  return (
-                    <div className="flex gap-2">
-                      <button
-                        disabled={!canApprove}
-                        onClick={async () => {
-                          await patchStory({ stage: "approved", brief });
-                          toast.success("Moved to Approved");
-                        }}
-                        className={`flex-1 px-4 py-2.5 text-[13px] font-semibold rounded-full transition-opacity ${
-                          canApprove
-                            ? "bg-blue text-blue-foreground hover:opacity-90"
-                            : "bg-blue/30 text-blue-foreground/40 cursor-not-allowed"
-                        }`}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => moveStage("suggestion")}
-                        className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors"
-                      >
-                        Pass
-                      </button>
-                    </div>
-                  );
-                })()}
-              </>
+              </StoryDetailStageLiked>
             )}
+
 
             {/* ── APPROVED / SCRIPTING / FILMED / PUBLISH ───────────────────────────── */}
             {(activeStage === "approved" || activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
@@ -1374,16 +754,16 @@ export default function StoryDetail() {
                       {assignedChannel.avatarUrl ? (
                         <img
                           src={assignedChannel.avatarUrl}
-                          alt={chName(assignedChannel)}
+                          alt={channelName(assignedChannel)}
                           className="w-8 h-8 rounded-full object-cover"
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-elevated flex items-center justify-center text-[10px] font-mono text-dim uppercase">
-                          {chName(assignedChannel).slice(0, 2)}
+                          {channelName(assignedChannel).slice(0, 2)}
                         </div>
                       )}
                       <span className="absolute left-10 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-elevated text-[12px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        {chName(assignedChannel)}
+                        {channelName(assignedChannel)}
                       </span>
                     </button>
                   </div>
@@ -1419,19 +799,20 @@ export default function StoryDetail() {
                     />
                   </div>
                 ) : (
-                  <ScriptBoxSaved
+                  <StoryDetailScriptBoxSaved
                     brief={brief}
                     scriptOpen={scriptOpen}
                     setScriptOpen={setScriptOpen}
                     editingField={editingField}
                     setEditingField={setEditingField}
+                    scriptFields={SCRIPT_FIELDS}
+                    scriptFormat={(brief.scriptFormat ?? "short") as "short" | "long"}
                     onFieldDone={(key) => {
                       setEditingField(null);
                       saveBrief({ ...brief });
                       toast.success("Field updated");
                     }}
                     onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
-                    scriptFields={SCRIPT_FIELDS}
                     scriptViewMode={scriptViewMode}
                     onScriptViewModeChange={setScriptViewMode}
                   />
@@ -1702,417 +1083,8 @@ export default function StoryDetail() {
               </>
             )}
           </div>
-          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── Script box (editable — unsaved) ─────────────────────────────────────────
-
-function ScriptBox({
-  brief,
-  scriptSaved,
-  scriptOpen,
-  setScriptOpen,
-  editingField,
-  setEditingField,
-  onSave,
-  onFieldDone,
-  onBriefChange,
-  scriptFields,
-  onGenerateScript,
-  canGenerate,
-  generating,
-  scriptViewMode,
-  onScriptViewModeChange,
-}: {
-  brief: StoryBrief;
-  scriptSaved: boolean;
-  scriptOpen: boolean;
-  setScriptOpen: (v: boolean) => void;
-  editingField: string | null;
-  setEditingField: (v: string | null) => void;
-  onSave: (b: StoryBrief) => Promise<void>;
-  onFieldDone: (key: string) => void;
-  onBriefChange: (key: keyof StoryBrief, val: string) => void;
-  scriptFields: { key: keyof StoryBrief; label: string; placeholder: string; type: "input" | "textarea" }[];
-  onGenerateScript?: () => Promise<void>;
-  canGenerate?: boolean;
-  generating?: boolean;
-  scriptViewMode?: "structured" | "full";
-  onScriptViewModeChange?: (mode: "structured" | "full") => void;
-}) {
-  const viewMode = scriptViewMode ?? "structured";
-  const setViewMode = onScriptViewModeChange;
-  return (
-    <div className="rounded-xl bg-background overflow-hidden">
-      <button
-        onClick={() => setScriptOpen(!scriptOpen)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-elevated/50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
-          {scriptSaved && (
-            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-success/15 text-success">
-              Saved
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              if (canGenerate && onGenerateScript && !generating) await onGenerateScript();
-            }}
-            disabled={!canGenerate || generating}
-            title={!canGenerate ? "Select a channel and ensure article content is loaded" : undefined}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            Generate with AI
-          </button>
-          <ChevronDown
-            className={`w-4 h-4 text-dim transition-transform ${scriptOpen ? "rotate-180" : ""}`}
-          />
-        </div>
-      </button>
-      {scriptOpen && (
-        <div className="px-5 pb-5 space-y-4">
-          {/* Format toggle */}
-          <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
-            {(["short", "long"] as const).map((fmt) => (
-              <button
-                key={fmt}
-                onClick={() => onBriefChange("scriptFormat", fmt)}
-                className={`px-4 py-1.5 text-[11px] font-semibold rounded-full transition-colors ${
-                  (brief.scriptFormat ?? "short") === fmt
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-dim hover:text-sensor"
-                }`}
-              >
-                {fmt === "short" ? "Short (up to 3 min)" : "Video (3 min – unlimited)"}
-              </button>
-            ))}
-          </div>
-
-          {/* View: Structured (multiple fields) vs Full script (single box) */}
-          {setViewMode && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-dim font-mono uppercase tracking-wider">View</span>
-              <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
-                {(["structured", "full"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
-                      viewMode === mode ? "bg-foreground/10 text-foreground" : "text-dim hover:text-sensor"
-                    }`}
-                  >
-                    {mode === "structured" ? "Structured (fields)" : "Full script (one box)"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {viewMode === "full" ? (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
-                  Full script (everything the AI wrote)
-                </label>
-                <div className="flex items-center gap-2">
-                  {brief.scriptRaw && editingField !== "scriptRaw" && <CopyBtn text={brief.scriptRaw} />}
-                  {editingField === "scriptRaw" ? (
-                    <button
-                      onClick={() => onFieldDone("scriptRaw")}
-                      className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
-                    >
-                      Done
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setEditingField("scriptRaw")}
-                      className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
-                    >
-                      <Pencil className="w-3 h-3" /> Edit
-                    </button>
-                  )}
-                </div>
-              </div>
-              {editingField === "scriptRaw" ? (
-                <textarea
-                  value={brief.scriptRaw ?? ""}
-                  onChange={(e) => onBriefChange("scriptRaw", e.target.value)}
-                  placeholder="Generate with AI to see the full output in one box."
-                  rows={16}
-                  className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y focus:outline-none focus:border-blue/40"
-                />
-              ) : (
-                <textarea
-                  readOnly
-                  value={brief.scriptRaw ?? ""}
-                  placeholder="Generate with AI to see the full output in one box."
-                  rows={16}
-                  className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y"
-                />
-              )}
-            </div>
-          ) : (
-          <>
-          {scriptFields.map((field) => {
-            const val = (brief[field.key] as string) ?? "";
-            const isEditing = !scriptSaved || editingField === field.key;
-            return (
-              <div key={String(field.key)}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
-                    {field.label}
-                  </label>
-                  {scriptSaved && editingField !== field.key && val && (
-                    <button
-                      onClick={() => setEditingField(String(field.key))}
-                      className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
-                    >
-                      <Pencil className="w-3 h-3" /> Edit
-                    </button>
-                  )}
-                  {scriptSaved && editingField === field.key && (
-                    <button
-                      onClick={() => onFieldDone(String(field.key))}
-                      className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
-                    >
-                      Done
-                    </button>
-                  )}
-                </div>
-                {isEditing ? (
-                  field.type === "textarea" ? (
-                    <textarea
-                      value={val}
-                      onChange={(e) => onBriefChange(field.key, e.target.value)}
-                      placeholder={field.placeholder}
-                      rows={(brief.scriptFormat ?? "short") === "short" ? 3 : 5}
-                      className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={val}
-                      onChange={(e) => onBriefChange(field.key, e.target.value)}
-                      placeholder={field.placeholder}
-                      className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 text-right"
-                    />
-                  )
-                ) : (
-                  <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] text-right min-h-[38px]">
-                    {field.type === "textarea" ? (
-                      <pre className="whitespace-pre-wrap font-mono text-[13px]">
-                        {val || <span className="text-dim">—</span>}
-                      </pre>
-                    ) : (
-                      val || <span className="text-dim">—</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {!scriptSaved && (
-            <button
-              onClick={() => onSave(brief)}
-              className="w-full py-2.5 text-[13px] font-semibold rounded-full bg-blue text-blue-foreground hover:opacity-90 transition-opacity"
-            >
-              Save
-            </button>
-          )}
-          </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Script box (read-only with edit per field) ───────────────────────────────
-
-function ScriptBoxSaved({
-  brief,
-  scriptOpen,
-  setScriptOpen,
-  editingField,
-  setEditingField,
-  onFieldDone,
-  onBriefChange,
-  scriptFields,
-  scriptViewMode,
-  onScriptViewModeChange,
-}: {
-  brief: StoryBrief;
-  scriptOpen: boolean;
-  setScriptOpen: (v: boolean) => void;
-  editingField: string | null;
-  setEditingField: (v: string | null) => void;
-  onFieldDone: (key: string) => void;
-  onBriefChange: (key: keyof StoryBrief, val: string) => void;
-  scriptFields: { key: keyof StoryBrief; label: string; placeholder: string; type: "input" | "textarea" }[];
-  scriptViewMode?: "structured" | "full";
-  onScriptViewModeChange?: (mode: "structured" | "full") => void;
-}) {
-  const scriptFormat = brief.scriptFormat ?? "short";
-  const viewMode = scriptViewMode ?? "structured";
-  const setViewMode = onScriptViewModeChange;
-  return (
-    <div className="rounded-xl bg-background overflow-hidden">
-      <button
-        onClick={() => setScriptOpen(!scriptOpen)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-elevated/50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue/15 text-blue">
-            {scriptFormat === "short" ? "Short" : "Video"}
-          </span>
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-success/15 text-success">
-            Saved
-          </span>
-        </div>
-        <ChevronDown
-          className={`w-4 h-4 text-dim transition-transform ${scriptOpen ? "rotate-180" : ""}`}
-        />
-      </button>
-      {scriptOpen && (
-        <div className="px-5 pb-5 space-y-4">
-          {setViewMode && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-dim font-mono uppercase tracking-wider">View</span>
-              <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
-                {(["structured", "full"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
-                      viewMode === mode ? "bg-foreground/10 text-foreground" : "text-dim hover:text-sensor"
-                    }`}
-                  >
-                    {mode === "structured" ? "Structured (fields)" : "Full script (one box)"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {viewMode === "full" ? (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
-                  Full script (everything the AI wrote)
-                </label>
-                <div className="flex items-center gap-2">
-                  {brief.scriptRaw && editingField !== "scriptRaw" && <CopyBtn text={brief.scriptRaw} />}
-                  {editingField === "scriptRaw" ? (
-                    <button
-                      onClick={() => onFieldDone("scriptRaw")}
-                      className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
-                    >
-                      Done
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setEditingField("scriptRaw")}
-                      className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
-                    >
-                      <Pencil className="w-3 h-3" /> Edit
-                    </button>
-                  )}
-                </div>
-              </div>
-              {editingField === "scriptRaw" ? (
-                <textarea
-                  value={brief.scriptRaw ?? ""}
-                  onChange={(e) => onBriefChange("scriptRaw", e.target.value)}
-                  placeholder="Generate with AI to see the full output in one box."
-                  rows={16}
-                  className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y focus:outline-none focus:border-blue/40"
-                />
-              ) : (
-                <div className="rounded-xl bg-surface px-4 py-3 text-[13px] text-right min-h-[200px]">
-                  <pre className="whitespace-pre-wrap font-mono text-[13px]">
-                    {brief.scriptRaw || <span className="text-dim">No full script generated yet.</span>}
-                  </pre>
-                </div>
-              )}
-            </div>
-          ) : (
-          <>
-          {scriptFields.map((field) => {
-            const val = (brief[field.key] as string) ?? "";
-            const isEditing = editingField === field.key;
-            return (
-              <div key={String(field.key)}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
-                    {field.label}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    {val && !isEditing && <CopyBtn text={val} />}
-                    {!isEditing && val && (
-                      <button
-                        onClick={() => setEditingField(String(field.key))}
-                        className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" /> Edit
-                      </button>
-                    )}
-                    {isEditing && (
-                      <button
-                        onClick={() => onFieldDone(String(field.key))}
-                        className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
-                      >
-                        Done
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {isEditing ? (
-                  field.type === "textarea" ? (
-                    <textarea
-                      value={val}
-                      onChange={(e) => onBriefChange(field.key, e.target.value)}
-                      rows={scriptFormat === "short" ? 3 : 5}
-                      className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={val}
-                      onChange={(e) => onBriefChange(field.key, e.target.value)}
-                      className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 text-right"
-                    />
-                  )
-                ) : (
-                  <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] text-right min-h-[38px]">
-                    {field.type === "textarea" ? (
-                      <pre className="whitespace-pre-wrap font-mono text-[13px]">
-                        {val || <span className="text-dim">—</span>}
-                      </pre>
-                    ) : (
-                      val || <span className="text-dim">—</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

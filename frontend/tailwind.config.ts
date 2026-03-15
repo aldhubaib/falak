@@ -27,6 +27,8 @@ export default {
         elevated: "hsl(var(--elevated))",
         sensor: "hsl(var(--sensor))",
         dim: "hsl(var(--dim))",
+        pageBorder: "hsl(var(--page-border))",
+        rowHover: "hsl(var(--row-hover))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
