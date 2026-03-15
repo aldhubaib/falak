@@ -71,6 +71,23 @@ model ChannelSnapshot {
 }
 
 // ─────────────────────────────────────────────
+// DIALECTS (per country, per AI engine)
+// ─────────────────────────────────────────────
+// Links country code to dialect labels (name, short, long) for a given AI engine.
+// Channel.nationality (country code) → look up Dialect by countryCode + engine.
+model Dialect {
+  id          String   @id @default(cuid())
+  countryCode String   // ISO 3166-1 alpha-2, or MSA for Modern Standard Arabic
+  engine      String   @default("claude") // e.g. claude, openai — allows engine-specific labels later
+  name        String   // e.g. الكويت
+  short       String   // e.g. اللهجة الكويتية
+  long        String   // e.g. Kuwaiti dialect (اللهجة الكويتية)
+
+  @@unique([countryCode, engine])
+  @@index([engine])
+}
+
+// ─────────────────────────────────────────────
 // VIDEOS
 // ─────────────────────────────────────────────
 model Video {

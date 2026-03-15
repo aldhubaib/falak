@@ -10,7 +10,11 @@
     "ws": "node src/ws-server.js",
     "build": "prisma generate && (cd frontend && npm install && npm run build)",
     "build:server": "prisma generate",
-    "delete-all-channels": "node scripts/delete-all-channels.js"
+    "delete-all-channels": "node scripts/delete-all-channels.js",
+    "db:seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
