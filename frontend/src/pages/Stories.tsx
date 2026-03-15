@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Stage = "suggestion" | "liked" | "approved" | "filmed" | "publish" | "done" | "passed";
+export type Stage = "suggestion" | "liked" | "approved" | "filmed" | "publish" | "done" | "passed" | "omit";
 
 export interface ApiStory {
   id: string;
@@ -38,6 +38,7 @@ const STAGES: { key: Stage; label: string; color: string; sub: string }[] = [
   { key: "publish",    label: "Publish",         color: "text-primary",    sub: "final details needed" },
   { key: "done",       label: "Done",            color: "text-foreground", sub: "published all time" },
   { key: "passed",     label: "Passed",         color: "text-dim",       sub: "passed on" },
+  { key: "omit",       label: "Omitted",        color: "text-dim",       sub: "insufficient data" },
 ];
 
 function MiniScores({ story }: { story: ApiStory }) {

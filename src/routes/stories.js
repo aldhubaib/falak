@@ -107,7 +107,7 @@ router.get('/summary', async (req, res) => {
     const where = projectId ? { projectId } : {}
 
     const all = await db.story.findMany({ where, select: { stage: true, coverageStatus: true } })
-    const stages = ['suggestion', 'liked', 'approved', 'produced', 'publish', 'done', 'passed']
+    const stages = ['suggestion', 'liked', 'approved', 'produced', 'publish', 'done', 'passed', 'omit']
     const counts = {}
     for (const s of stages) counts[s] = all.filter(x => x.stage === s).length
 

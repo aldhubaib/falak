@@ -57,6 +57,7 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "publish",    label: "Publish" },
   { key: "done",       label: "Done" },
   { key: "passed",     label: "Passed" },
+  { key: "omit",       label: "Omitted" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -429,12 +430,26 @@ export default function StoryDetail() {
 
             {/* ── SUGGESTION ────────────────────────────────────────────── */}
             {activeStage === "suggestion" && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => moveStage("liked")}
-                  className="flex-1 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
+                  className="flex-1 min-w-[120px] px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
                 >
                   Save to Liked
+                </button>
+                <button
+                  onClick={async () => {
+                    const updated = await patchStory({ stage: "omit" });
+                    if (updated) {
+                      setStory(updated);
+                      toast.success("Omitted — insufficient data");
+                    } else {
+                      toast.error("Failed to omit story");
+                    }
+                  }}
+                  className="link flex-1 min-w-[100px] px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
+                >
+                  Omit
                 </button>
                 <button
                   onClick={async () => {
@@ -446,7 +461,7 @@ export default function StoryDetail() {
                       toast.error("Failed to pass story");
                     }
                   }}
-                  className="link flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
+                  className="link flex-1 min-w-[100px] px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
                 >
                   Pass
                 </button>
@@ -457,6 +472,19 @@ export default function StoryDetail() {
             {activeStage === "passed" && (
               <div className="rounded-xl bg-background p-5">
                 <p className="text-[13px] text-dim mb-4">You passed on this story. It won’t appear in your active pipeline.</p>
+                <button
+                  onClick={() => moveStage("suggestion")}
+                  className="link px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
+                >
+                  Move back to AI Suggestion
+                </button>
+              </div>
+            )}
+
+            {/* ── OMIT (insufficient data) ───────────────────────────────────── */}
+            {activeStage === "omit" && (
+              <div className="rounded-xl bg-background p-5">
+                <p className="text-[13px] text-dim mb-4">Not enough data to produce this video. Omitted from pipeline.</p>
                 <button
                   onClick={() => moveStage("suggestion")}
                   className="link px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
