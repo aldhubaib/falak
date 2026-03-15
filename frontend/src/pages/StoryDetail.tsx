@@ -427,19 +427,17 @@ export default function StoryDetail() {
                     try {
                       const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
                       const data = await r.json().catch(() => ({}));
-                      if (r.ok && data.id) {
-                        setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
-                        setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
+                      const newBrief = data.brief && typeof data.brief === "object" ? data.brief : null;
+                      const cleanedContent = newBrief && typeof newBrief.articleContent === "string" ? newBrief.articleContent : "";
+                      if (r.ok && cleanedContent) {
+                        setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
+                        setBrief(newBrief);
                         setCleanupSuccess(true);
                         toast.success("Article cleaned");
                         setTimeout(() => setCleanupSuccess(false), 2500);
-                        const content = (data.brief && typeof data.brief === "object" && typeof data.brief.articleContent === "string") ? data.brief.articleContent : "";
-                        if (content) {
-                          setTypingTarget(content);
-                          // Show first chunk immediately so user sees something right away, then type the rest
-                          const initialChunk = Math.min(280, content.length);
-                          setTypedLength(initialChunk);
-                        }
+                        setTypingTarget(cleanedContent);
+                        const initialChunk = Math.min(280, cleanedContent.length);
+                        setTypedLength(initialChunk);
                       } else {
                         toast.error(data.error || "Cleanup failed");
                       }
