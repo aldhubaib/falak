@@ -142,10 +142,10 @@ export default function StoryDetail() {
         setArticleError(null);
         setArticleLoading(false);
         if (b.youtubeUrl) setYoutubeInput(b.youtubeUrl);
-        // Fetch stories in same stage for prev/next navigation
-        const stageRes = await fetch(`/api/stories?projectId=${projectId}&stage=${s.stage}`, { credentials: "include" });
-        if (stageRes.ok) {
-          const list: ApiStory[] = await stageRes.json();
+        // Fetch all stories for prev/next navigation (one list order: score desc, then date desc)
+        const listRes = await fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" });
+        if (listRes.ok) {
+          const list: ApiStory[] = await listRes.json();
           const sorted = [...list].sort((a, b) => {
             const scoreA = a.compositeScore ?? 0;
             const scoreB = b.compositeScore ?? 0;
@@ -237,11 +237,11 @@ export default function StoryDetail() {
       const updated = await patchStory({ stage: to });
       if (updated) {
         toast.success(`Moved to ${STAGES.find((s) => s.key === to)?.label}`);
-        // Refresh stage list so prev/next match new stage
+        // Refresh full list so prev/next order is up to date
         if (projectId) {
-          const stageRes = await fetch(`/api/stories?projectId=${projectId}&stage=${to}`, { credentials: "include" });
-          if (stageRes.ok) {
-            const list: ApiStory[] = await stageRes.json();
+          const listRes = await fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" });
+          if (listRes.ok) {
+            const list: ApiStory[] = await listRes.json();
             const sorted = [...list].sort((a, b) => {
               const scoreA = a.compositeScore ?? 0;
               const scoreB = b.compositeScore ?? 0;
@@ -375,24 +375,6 @@ export default function StoryDetail() {
         </div>
         <div className="flex items-center gap-2">
           {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-dim" />}
-          {activeStage === "suggestion" && (
-            <button
-              type="button"
-              onClick={async () => {
-                const updated = await patchStory({ stage: "omit" });
-                if (updated) {
-                  setStory(updated);
-                  toast.success("Omitted — insufficient data");
-                } else {
-                  toast.error("Failed to omit story");
-                }
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
-              title="Omit (insufficient data to produce)"
-            >
-              <Ban className="w-4 h-4" />
-            </button>
-          )}
           <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-primary/15 text-primary">
             {STAGES.find((s) => s.key === activeStage)?.label}
           </span>
@@ -400,7 +382,59 @@ export default function StoryDetail() {
       </div>
 
       <div className="flex-1 relative overflow-auto">
-        <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6 space-y-6">
+        <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6">
+          <div className="rounded-xl bg-background border border-border overflow-hidden">
+            {/* Top of box: Clean up with AI (left) + Omit (right) */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!id || cleaningUp) return;
+                  setCleaningUp(true);
+                  try {
+                    const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
+                    const data = await r.json().catch(() => ({}));
+                    if (r.ok && data.headline !== undefined) {
+                      setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
+                      setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
+                      toast.success("Data cleaned up");
+                    } else {
+                      toast.error(data.error || "Cleanup failed");
+                    }
+                  } catch {
+                    toast.error("Cleanup failed");
+                  } finally {
+                    setCleaningUp(false);
+                  }
+                }}
+                disabled={cleaningUp}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50"
+                title="Ask AI to normalize headline and summary (fix spacing, punctuation)"
+              >
+                {cleaningUp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Clean up with AI
+              </button>
+              {activeStage === "suggestion" && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const updated = await patchStory({ stage: "omit" });
+                    if (updated) {
+                      setStory(updated);
+                      toast.success("Omitted — insufficient data");
+                    } else {
+                      toast.error("Failed to omit story");
+                    }
+                  }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
+                  title="Omit (insufficient data to produce)"
+                >
+                  <Ban className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="px-5 py-6 space-y-6">
           {/* Prev/next in current stage */}
           {showStageNav && (
             <div className="flex items-center justify-between gap-4">
@@ -432,37 +466,7 @@ export default function StoryDetail() {
 
           {/* Title */}
           <div>
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!id || cleaningUp) return;
-                  setCleaningUp(true);
-                  try {
-                    const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
-                    const data = await r.json().catch(() => ({}));
-                    if (r.ok && data.headline !== undefined) {
-                      setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
-                      setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
-                      toast.success("Data cleaned up");
-                    } else {
-                      toast.error(data.error || "Cleanup failed");
-                    }
-                  } catch {
-                    toast.error("Cleanup failed");
-                  } finally {
-                    setCleaningUp(false);
-                  }
-                }}
-                disabled={cleaningUp}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50"
-                title="Ask AI to normalize headline and summary (fix spacing, punctuation)"
-              >
-                {cleaningUp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                Clean up with AI
-              </button>
-            </div>
-            <h1 className="text-xl font-bold text-right leading-relaxed mt-2">{story.headline}</h1>
+            <h1 className="text-xl font-bold text-right leading-relaxed">{story.headline}</h1>
             <div className="text-[11px] text-dim font-mono mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               {[story.sourceName, story.sourceDate?.split("T")[0]].filter(Boolean).join(" · ")}
               {story.sourceUrl && (
@@ -1336,6 +1340,10 @@ function ScriptBoxSaved({
           })}
         </div>
       )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
