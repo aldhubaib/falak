@@ -7,6 +7,78 @@ const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
+
+// Run script generation in background (non-streaming). Used when PATCH sets stage to approved.
+async function generateScriptForStory(storyId) {
+  const story = await db.story.findUniqueOrThrow({
+    where: { id: storyId },
+    include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
+  })
+  const project = story.project
+  if (!project?.anthropicApiKeyEncrypted) return
+  const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+  const articleContent = typeof brief.articleContent === 'string' && brief.articleContent !== '__SCRAPE_FAILED__' && brief.articleContent !== '__YOUTUBE__' ? brief.articleContent : ''
+  if (!articleContent || !articleContent.trim()) return
+  const channelId = brief.channelId
+  if (!channelId) return
+  const channel = await db.channel.findFirst({
+    where: { id: channelId, projectId: project.id },
+    select: { id: true, startHook: true, endHook: true },
+  })
+  if (!channel) return
+  const format = brief.scriptFormat === 'long' ? 'long' : 'short'
+  const startHook = (channel.startHook || '').trim()
+  const endHook = (channel.endHook || '').trim()
+  const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+  const durationShort = 'The script must be up to 3 minutes of speaking time (about 400–500 words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
+  const durationLong = 'The script must be at least 3 minutes and can be as long as needed (e.g. 20–40+ minutes). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
+  const system = `You are an expert Arabic YouTube scriptwriter. Output ONLY a structured script in Arabic, using exactly these section headers (each on its own line). No other text or explanations.
+
+## TITLE
+(one line: suggested video title in Arabic)
+
+## OPENING_HOOK
+(one short paragraph: the first 10 seconds hook in Arabic)
+
+## BRANDED_HOOK_START
+${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
+
+## SCRIPT
+(Main script body in Arabic with timestamps. ${format === 'long' ? durationLong : durationShort} Use format like 0:00 ... then 0:30 ... etc.)
+
+## BRANDED_HOOK_END
+${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}`
+
+  const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short (up to 3 min)'} script in Arabic:\n\n${articleContent.slice(0, 120000)}`
+
+  let fullScript = ''
+  try {
+    fullScript = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+      system,
+      maxTokens: 8192,
+      projectId: project.id,
+      action: 'Story Generate Script',
+    })
+  } catch (err) {
+    console.error('[stories/generateScriptForStory]', storyId, err?.message)
+    return
+  }
+  const parsed = parseStructuredScript(fullScript, startHook, endHook)
+  const newBrief = {
+    ...brief,
+    suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
+    openingHook: parsed.openingHook || brief.openingHook,
+    hookStart: parsed.hookStart !== undefined ? parsed.hookStart : brief.hookStart,
+    script: parsed.script || brief.script,
+    hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
+    scriptFormat: format,
+    scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
+  }
+  await db.story.update({
+    where: { id: storyId },
+    data: { brief: newBrief, stage: 'scripting' },
+  })
+}
 const brainV2 = require('./brainV2')
 
 const router = express.Router()
@@ -201,7 +273,7 @@ router.get('/summary', async (req, res) => {
     const where = projectId ? { projectId } : {}
 
     const all = await db.story.findMany({ where, select: { stage: true, coverageStatus: true } })
-    const stages = ['suggestion', 'liked', 'approved', 'produced', 'publish', 'done', 'passed', 'omit']
+    const stages = ['suggestion', 'liked', 'approved', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit']
     const counts = {}
     for (const s of stages) counts[s] = all.filter(x => x.stage === s).length
 
@@ -565,6 +637,11 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
 
     if (req.body.stage) {
       await addLog(story.id, req.user.id, 'stage_change', `→ ${req.body.stage}`)
+    }
+    if (req.body.stage === 'approved') {
+      setImmediate(() => {
+        generateScriptForStory(req.params.id).catch((e) => console.error('[stories/generateScriptForStory]', e))
+      })
     }
     res.json(story)
   } catch (e) {

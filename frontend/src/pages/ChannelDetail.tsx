@@ -4,6 +4,7 @@ import { useProjectPath } from "@/hooks/useProjectPath";
 import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
+import { getCountryName } from "@/data/countries";
 import { ArrowLeft, Info } from "lucide-react";
 import { toast } from "sonner";
 import type { Video } from "@/data/mock";
@@ -32,6 +33,7 @@ interface ApiChannel {
   deltas?: Record<string, number | null>;
   lastFetchedAt: string | null;
   createdAt: string;
+  nationality?: string | null;
 }
 
 interface ApiVideo {
@@ -213,7 +215,7 @@ export default function ChannelDetail() {
         engRate,
         growthSubs,
         growthViews,
-        country: "",
+        country: channel.nationality ? getCountryName(channel.nationality) : "",
         joinedDate,
         lastSynced,
         startHook: (channel as { startHook?: string | null }).startHook ?? "",

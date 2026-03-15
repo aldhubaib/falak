@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { AIWriterBox, type WriterState } from "@/components/AIWriterBox";
+import { ScriptEditor } from "@/components/ScriptEditor";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
@@ -57,6 +58,7 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "suggestion", label: "AI Suggestion" },
   { key: "liked",      label: "Liked" },
   { key: "approved",   label: "Approved" },
+  { key: "scripting",  label: "Scripting" },
   { key: "filmed",     label: "Filmed" },
   { key: "publish",    label: "Publish" },
   { key: "done",       label: "Done" },
@@ -135,8 +137,21 @@ export default function StoryDetail() {
   const [generatingScript, setGeneratingScript] = useState(false);
   const [suggestingTags, setSuggestingTags] = useState(false);
   const [scriptViewMode, setScriptViewMode] = useState<"structured" | "full">("structured");
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
 
   const isWriterBoxRunning = cleaningUp || fetchingArticle || generatingScript;
+
+  // Fetch current user when showing ScriptEditor (scripting or filmed)
+  useEffect(() => {
+    if (story && (story.stage === "scripting" || story.stage === "filmed") && !currentUser) {
+      fetch("/api/auth/me", { credentials: "include" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((u) => {
+          if (u?.id) setCurrentUser({ id: u.id, name: u.name ?? "Unknown", avatarUrl: u.avatarUrl ?? "" });
+        })
+        .catch(() => {});
+    }
+  }, [story?.stage, currentUser]);
 
   // ── Fetch story + channels + liked peers ─────────────────────────────────
   const loadStory = useCallback(async () => {
@@ -1343,8 +1358,8 @@ export default function StoryDetail() {
               </>
             )}
 
-            {/* ── APPROVED / FILMED / PUBLISH ───────────────────────────── */}
-            {(activeStage === "approved" || activeStage === "filmed" || activeStage === "publish") && (
+            {/* ── APPROVED / SCRIPTING / FILMED / PUBLISH ───────────────────────────── */}
+            {(activeStage === "approved" || activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
               <>
                 {/* Assigned channel */}
                 {assignedChannel && (
@@ -1374,25 +1389,55 @@ export default function StoryDetail() {
                   </div>
                 )}
 
-                {/* Script box — saved state */}
-                <ScriptBoxSaved
-                  brief={brief}
-                  scriptOpen={scriptOpen}
-                  setScriptOpen={setScriptOpen}
-                  editingField={editingField}
-                  setEditingField={setEditingField}
-                  onFieldDone={(key) => {
-                    setEditingField(null);
-                    saveBrief({ ...brief });
-                    toast.success("Field updated");
-                  }}
-                  onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
-                  scriptFields={SCRIPT_FIELDS}
-                  scriptViewMode={scriptViewMode}
-                  onScriptViewModeChange={setScriptViewMode}
-                />
+                {/* Script: BlockNote editor when scripting/filmed, else saved fields */}
+                {(activeStage === "scripting" || activeStage === "filmed") && currentUser ? (
+                  <div className="rounded-xl bg-background p-5">
+                    <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">
+                      Script
+                    </div>
+                    <ScriptEditor
+                      storyId={id!}
+                      currentUser={currentUser}
+                      initialScript={brief.script ?? ""}
+                      format={scriptFormat}
+                      log={story.log}
+                      readOnly={activeStage !== "scripting"}
+                      onAutosave={async (scriptText) => {
+                        await saveBrief({ ...brief, script: scriptText });
+                        try {
+                          await fetch(`/api/stories/${id}/log`, {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ action: "script_edit", note: "Edited script" }),
+                          });
+                          await loadStory();
+                        } catch {
+                          toast.error("Failed to log edit");
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <ScriptBoxSaved
+                    brief={brief}
+                    scriptOpen={scriptOpen}
+                    setScriptOpen={setScriptOpen}
+                    editingField={editingField}
+                    setEditingField={setEditingField}
+                    onFieldDone={(key) => {
+                      setEditingField(null);
+                      saveBrief({ ...brief });
+                      toast.success("Field updated");
+                    }}
+                    onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
+                    scriptFields={SCRIPT_FIELDS}
+                    scriptViewMode={scriptViewMode}
+                    onScriptViewModeChange={setScriptViewMode}
+                  />
+                )}
 
-                {activeStage === "approved" && (
+                {(activeStage === "approved" || activeStage === "scripting") && (
                   <button
                     onClick={() => moveStage("filmed")}
                     className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"

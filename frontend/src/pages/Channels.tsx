@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { DeleteChannelModal } from "@/components/DeleteChannelModal";
-import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle } from "lucide-react";
+import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { COUNTRIES } from "@/data/countries";
 
 type FilterType = "ours" | "competition";
 
@@ -21,6 +22,7 @@ interface ApiChannel {
   videoCount: number;
   lastFetchedAt: string | null;
   projectId: string;
+  nationality?: string | null;
 }
 
 /** UI channel shape (matches original design) */
@@ -35,6 +37,7 @@ interface Channel {
   views: string;
   videos: string;
   lastSynced: string;
+  nationality?: string | null;
 }
 
 function formatCount(n: number): string {
@@ -58,6 +61,7 @@ function mapApiChannelToUi(api: ApiChannel): Channel {
     views: formatCount(views),
     videos: String(api.videoCount ?? 0),
     lastSynced: api.lastFetchedAt ? new Date(api.lastFetchedAt).toISOString() : new Date().toISOString(),
+    nationality: api.nationality ?? null,
   };
 }
 
@@ -71,6 +75,7 @@ export default function Channels() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>("ours");
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [nationality, setNationality] = useState<string>("");
 
   const fetchChannels = () => {
     setLoading(true);
@@ -119,6 +124,7 @@ export default function Channels() {
         input: val,
         projectId,
         type: filter === "ours" ? "ours" : "competitor",
+        ...(nationality ? { nationality: nationality } : {}),
       }),
     })
       .then((r) => {
@@ -156,7 +162,7 @@ export default function Channels() {
 
       <div className="flex-1 overflow-auto">
         <div className="px-6 pt-5 pb-1 max-md:px-4">
-          <div className="flex gap-2 max-md:flex-col items-start">
+          <div className="flex gap-2 max-md:flex-col items-start flex-wrap">
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[12px] text-dim">Add as:</span>
               <div className="flex items-center bg-elevated rounded-full p-0.5">
@@ -180,7 +186,26 @@ export default function Channels() {
                 </button>
               </div>
             </div>
-            <div className="flex-1 relative max-md:w-full">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[12px] text-dim">Nationality:</span>
+              <div className="relative">
+                <select
+                  value={nationality}
+                  onChange={(e) => setNationality(e.target.value)}
+                  className="appearance-none pl-3 pr-8 py-2 bg-background border border-border text-foreground text-[13px] font-sans outline-none transition-colors focus:border-[#2a2a2e] cursor-pointer min-w-[180px]"
+                  style={{ borderRadius: "20px" }}
+                >
+                  <option value="">Select country</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dim pointer-events-none" />
+              </div>
+            </div>
+            <div className="flex-1 relative max-md:w-full min-w-0">
               <input
                 type="text"
                 value={inputValue}

@@ -48,6 +48,7 @@ model Channel {
   lastFetchedAt DateTime?
   startHook     String?   // Branded start hook (ours only)
   endHook       String?   // Branded end hook (ours only)
+  nationality   String?   // Country code or name for channel profile
   videos        Video[]
   snapshots     ChannelSnapshot[]
   createdAt     DateTime  @default(now())

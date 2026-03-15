@@ -15,6 +15,7 @@ const createChannelBodySchema = z.object({
   input: z.string().min(1, 'input is required'),
   projectId: z.string().min(1, 'projectId is required'),
   type: z.string().optional(),
+  nationality: z.string().optional(),
 })
 
 const listChannelsQuerySchema = z.object({
@@ -56,7 +57,7 @@ router.get('/', asyncWrap(async (req, res) => {
       id: true, youtubeId: true, handle: true, nameAr: true, nameEn: true,
       type: true, avatarUrl: true, status: true, subscribers: true,
       totalViews: true, videoCount: true, uploadCadence: true,
-      lastFetchedAt: true, projectId: true, createdAt: true,
+      lastFetchedAt: true, projectId: true, createdAt: true, nationality: true,
     }
   })
   const hasMore = channels.length > limit
@@ -75,7 +76,7 @@ router.get('/:id', asyncWrap(async (req, res) => {
       type: true, avatarUrl: true, status: true, subscribers: true,
       totalViews: true, videoCount: true, uploadCadence: true,
       lastFetchedAt: true, projectId: true, createdAt: true,
-      startHook: true, endHook: true,
+      startHook: true, endHook: true, nationality: true,
     }
   })
 
@@ -151,7 +152,7 @@ async function importVideosForChannel(channelId) {
 
 // ── POST /api/channels — add a new channel (and auto-import videos into pipeline)
 router.post('/', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
-  const { input, type, projectId } = parseBody(req.body, createChannelBodySchema)
+  const { input, type, projectId, nationality } = parseBody(req.body, createChannelBodySchema)
 
   const project = await db.project.findUnique({ where: { id: projectId } })
   if (!project) throw NotFound('Project not found')
@@ -164,7 +165,13 @@ router.post('/', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, 
   if (exists) return res.status(409).json({ error: 'Channel already added' })
 
   const channel = await db.channel.create({
-    data: { ...ytData, type: type || 'competitor', projectId, lastFetchedAt: new Date() }
+    data: {
+      ...ytData,
+      type: type || 'competitor',
+      projectId,
+      lastFetchedAt: new Date(),
+      ...(nationality ? { nationality: nationality.trim() || null } : {}),
+    }
   })
 
   // Auto-import videos and create pipeline items so the pipeline starts right away
@@ -248,11 +255,12 @@ router.post('/:id/analyze-all', requireRole('owner', 'admin', 'editor'), async (
 // ── PATCH /api/channels/:id — update channel (e.g. type, branded hooks)
 router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { type, startHook, endHook } = req.body
+    const { type, startHook, endHook, nationality } = req.body
     const data = {}
     if (type !== undefined) data.type = type
     if (startHook !== undefined) data.startHook = startHook === '' ? null : startHook
     if (endHook !== undefined) data.endHook = endHook === '' ? null : endHook
+    if (nationality !== undefined) data.nationality = nationality === '' ? null : nationality
     const channel = await db.channel.update({
       where: { id: req.params.id },
       data

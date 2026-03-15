@@ -7,6 +7,7 @@
     "start": "prisma migrate deploy && node src/server.js",
     "dev": "nodemon src/server.js",
     "worker": "node src/worker.js",
+    "ws": "node src/ws-server.js",
     "build": "prisma generate && (cd frontend && npm install && npm run build)",
     "build:server": "prisma generate",
     "delete-all-channels": "node scripts/delete-all-channels.js"
@@ -27,6 +28,8 @@
     "pino-http": "^11.0.0",
     "prisma": "^5.10.0",
     "uuid": "^13.0.0",
+    "ws": "^8.18.0",
+    "y-websocket": "^2.0.0",
     "youtube-transcript": "^1.2.1",
     "zod": "^4.3.6"
   },

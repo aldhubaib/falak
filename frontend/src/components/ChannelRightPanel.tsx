@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import type { Channel } from "@/data/mock";
 import { toast } from "sonner";
-import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock } from "lucide-react";
+import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock, Globe } from "lucide-react";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 
 interface ChannelRightPanelProps {
@@ -27,6 +27,7 @@ interface InfoRow {
 
 const buildRows = (channel: Channel, videoCount?: number, shortCount?: number): InfoRow[] => [
   { icon: Hash, label: "Handle", value: channel.handle || "—" },
+  ...(channel.country ? [{ icon: Globe, label: "Nationality", value: channel.country }] : []),
   { icon: Calendar, label: "Added", value: "—" },
   { icon: Play, label: "Videos", value: String(videoCount ?? 0) },
   { icon: Zap, label: "Shorts", value: String(shortCount ?? 0) },
