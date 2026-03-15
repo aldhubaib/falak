@@ -98,13 +98,13 @@
   }
 }
 
-/* Global link tokens: same hover behavior for all in-app and external links */
+/* Global link tokens: white by default, accent color on hover (app-wide) */
 @layer components {
   .link {
-    @apply text-dim hover:text-sensor transition-colors cursor-pointer;
+    @apply text-foreground hover:text-sensor transition-colors cursor-pointer;
   }
   .link-external {
-    @apply text-sensor hover:underline transition-colors cursor-pointer;
+    @apply text-foreground hover:text-sensor hover:underline transition-colors cursor-pointer;
   }
 }
 
