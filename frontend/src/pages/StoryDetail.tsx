@@ -416,7 +416,11 @@ export default function StoryDetail() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50"
                 title="Remove website junk from article and format as clean Arabic markdown"
               >
-                {!cleaningUp && <Sparkles className="w-3 h-3 shrink-0" />}
+                {cleaningUp ? (
+                  <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3 shrink-0" />
+                )}
                 <span className={cleaningUp ? "text-shimmer" : ""}>Clean up with AI</span>
               </button>
               {activeStage === "suggestion" && (
