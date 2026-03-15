@@ -618,18 +618,59 @@ export default function StoryDetail() {
                 </a>
               </div>
             ) : !articleLoading && (!brief.articleContent || brief.articleContent === '__SCRAPE_FAILED__') ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p className="mb-3">تعذّر تحميل نص المقال من هذا المصدر</p>
-                <a
-                  href={story?.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 underline"
-                >
-                  اقرأ المقال من المصدر الأصلي
-                </a>
+              <div className="text-center py-8 text-muted-foreground space-y-4">
+                <p className="mb-1">تعذّر تحميل نص المقال من هذا المصدر</p>
+                <p className="text-[11px] text-dim">Source could not be scraped. Try re-fetching or open the link below.</p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <a
+                    href={story?.sourceUrl ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="link text-[12px]"
+                  >
+                    اقرأ المقال من المصدر الأصلي
+                  </a>
+                  {id && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!id || articleLoading) return;
+                        setArticleError(null);
+                        setArticleLoading(true);
+                        try {
+                          const r = await fetch(`/api/stories/${id}/fetch-article`, {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ force: true }),
+                          });
+                          const data = await r.json().catch(() => ({}));
+                          if (r.ok && data.articleContent !== undefined) {
+                            setBrief((b) => ({ ...b, articleContent: data.articleContent }));
+                            setStory((s) => (s?.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
+                            if (data.articleContent !== "__SCRAPE_FAILED__") {
+                              toast.success("Article re-fetched");
+                            } else {
+                              toast.info("Source could not be scraped");
+                            }
+                          } else {
+                            toast.error(data.error || "Could not fetch article");
+                          }
+                        } catch {
+                          toast.error("Could not fetch article");
+                        } finally {
+                          setArticleLoading(false);
+                        }
+                      }}
+                      disabled={articleLoading}
+                      className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-foreground hover:border-foreground/20 disabled:opacity-50"
+                    >
+                      {articleLoading ? "Fetching…" : "Re-fetch article"}
+                    </button>
+                  )}
+                </div>
               </div>
-            ) : brief.articleContent?.trim() ? (
+            ) : (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__") ? (
               <div className="max-h-[60vh] overflow-y-auto px-4 select-text" dir="rtl">
                 {typingTarget != null ? (
                   <>
@@ -642,7 +683,7 @@ export default function StoryDetail() {
                   </>
                 ) : (
                   <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
-                    {brief.articleContent}
+                    {brief.articleContent === "__SCRAPE_FAILED__" || brief.articleContent === "__YOUTUBE__" ? "" : (brief.articleContent ?? "")}
                   </ReactMarkdown>
                 )}
               </div>

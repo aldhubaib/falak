@@ -49,6 +49,44 @@ async function searchWithFirecrawl(searchQuery, firecrawlApiKey) {
   return articles
 }
 
+const MIN_ARTICLE_LENGTH = 100
+const MAX_ARTICLE_LENGTH = 120000
+
+function normalizeUrl(u) {
+  if (!u || typeof u !== 'string') return ''
+  try {
+    const x = new URL(u)
+    const path = x.pathname.replace(/\/$/, '') || '/'
+    return x.origin + path + x.search
+  } catch {
+    return u
+  }
+}
+
+/** Build map: normalized URL -> scraped markdown (only when length >= MIN_ARTICLE_LENGTH). */
+function buildUrlToContent(articles) {
+  const map = new Map()
+  for (const a of articles) {
+    const url = a.url || a.metadata?.sourceURL || a.metadata?.url
+    const content = (a.markdown || a.content || a.description || a.snippet || '').trim()
+    if (!url || content.length < MIN_ARTICLE_LENGTH) continue
+    const key = normalizeUrl(url)
+    if (!map.has(key)) map.set(key, content)
+  }
+  return map
+}
+
+function findContentForSourceUrl(urlToContent, sourceUrl) {
+  if (!sourceUrl) return null
+  const key = normalizeUrl(sourceUrl)
+  const exact = urlToContent.get(key)
+  if (exact) return exact
+  for (const [url, content] of urlToContent) {
+    if (sourceUrl === url || sourceUrl.startsWith(url) || url.startsWith(sourceUrl)) return content
+  }
+  return null
+}
+
 async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, projectId) {
   const articlesText = articles
     .map((a, i) => {
@@ -141,8 +179,21 @@ async function fetchStoriesViaFirecrawl({
   )
   if (!structured.length) return []
 
+  const urlToContent = buildUrlToContent(articles)
+
   return structured
     .filter((s) => s.headline && s.sourceUrl)
+    .map((s) => {
+      const content = findContentForSourceUrl(urlToContent, s.sourceUrl)
+      const articleContent =
+        content && content.length >= MIN_ARTICLE_LENGTH
+          ? content.length > MAX_ARTICLE_LENGTH
+            ? content.slice(0, MAX_ARTICLE_LENGTH) + '…'
+            : content
+          : null
+      return { ...s, articleContent }
+    })
+    .filter((s) => s.articleContent != null)
     .map((s) => ({
       projectId,
       headline: s.headline,
@@ -150,7 +201,10 @@ async function fetchStoriesViaFirecrawl({
       sourceName: s.sourceName || 'Firecrawl',
       sourceDate: s.sourceDate ? new Date(s.sourceDate) : null,
       stage: 'suggestion',
-      brief: { summary: s.summary || '' },
+      brief: {
+        summary: s.summary || '',
+        articleContent: s.articleContent,
+      },
       queryVersion: queryVersion || 'v2-dynamic',
     }))
 }
