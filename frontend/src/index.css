@@ -123,3 +123,24 @@
 .animate-scroll-down {
   animation: scroll-down 30s linear infinite;
 }
+
+/* Text shimmer for loading states */
+@keyframes text-shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--dim)) 0%,
+    hsl(var(--dim)) 35%,
+    hsl(var(--primary)) 50%,
+    hsl(var(--dim)) 65%,
+    hsl(var(--dim)) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 1.5s ease-in-out infinite;
+}
