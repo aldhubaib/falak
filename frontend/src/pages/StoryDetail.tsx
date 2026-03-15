@@ -587,7 +587,7 @@ export default function StoryDetail() {
               </div>
             )}
 
-            <div className={`px-5 py-6 space-y-6 ${cleaningUp ? "opacity-60 pointer-events-none" : ""}`}>
+            <div className="px-5 py-6 space-y-6">
           {/* Prev/next in current stage */}
           {showStageNav && (
             <div className="flex items-center justify-between gap-4">
@@ -799,11 +799,21 @@ export default function StoryDetail() {
                           check();
                         });
                       try {
+                        const currentArticleText =
+                          articleDisplayValue ||
+                          (brief.articleContent?.trim() &&
+                          brief.articleContent !== "__SCRAPE_FAILED__" &&
+                          brief.articleContent !== "__YOUTUBE__"
+                            ? brief.articleContent
+                            : "");
                         const r = await fetch(`/api/stories/${id}/generate-script`, {
                           method: "POST",
                           credentials: "include",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ format: brief.scriptFormat ?? "short" }),
+                          body: JSON.stringify({
+                            format: brief.scriptFormat ?? "short",
+                            articleText: currentArticleText,
+                          }),
                         });
                         if (!r.ok) {
                           const data = await r.json().catch(() => ({}));

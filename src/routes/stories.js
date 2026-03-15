@@ -5,7 +5,7 @@ const { decrypt } = require('../services/crypto')
 const { fetchStoriesViaFirecrawl } = require('../services/firecrawlStories')
 const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
-const { scrapeUrl } = require('../services/firecrawl')
+const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
 const brainV2 = require('./brainV2')
 
@@ -265,7 +265,7 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
     if (result.error || !result.text || result.text.trim().length < 100) {
       brief.articleContent = '__SCRAPE_FAILED__'
     } else {
-      brief.articleContent = result.text
+      brief.articleContent = preClean(result.text)
     }
 
     await db.story.update({
@@ -280,6 +280,7 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
 })
 
 // ── POST /api/stories/:id/generate-script — AI Writer: generate script from article (streaming SSE)
+// Accepts optional body.articleText = current Full Article box text (cleaned); otherwise uses brief.articleContent.
 router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
@@ -291,7 +292,9 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-    const articleContent = typeof brief.articleContent === 'string' ? brief.articleContent : ''
+    const fromBody = typeof req.body?.articleText === 'string' ? req.body.articleText.trim() : ''
+    const fromBrief = typeof brief.articleContent === 'string' ? brief.articleContent : ''
+    const articleContent = fromBody || (fromBrief !== '__SCRAPE_FAILED__' && fromBrief !== '__YOUTUBE__' ? fromBrief : '')
     if (!articleContent || articleContent === '__SCRAPE_FAILED__' || articleContent === '__YOUTUBE__') {
       return res.status(400).json({ error: 'No article content. Fetch and optionally clean the article first.' })
     }
@@ -368,26 +371,18 @@ router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req,
     }
     const apiKey = decrypt(project.anthropicApiKeyEncrypted)
 
-    const system = `You are an expert Arabic article editor and journalist.
+    const system = `You are a text editor. The user will give you a raw scraped article.
+Your job:
+- Extract and preserve ONLY the actual article/news content
+- Remove all URLs, markdown links, image tags, navigation text, language selectors, cookie banners, and any other UI chrome
+- Fix grammar and formatting
+- Do NOT summarize — output the full article length
+- Output plain prose only, no markdown, no bullet points`
 
-The text below was scraped from a news website. It contains the real article MIXED WITH website junk: navigation menus, country lists, language switchers, social share buttons, cookie notices, footer links, "Read more" sections, and other non-article content.
-
-Your task:
-1. REMOVE all website navigation, menus, share buttons, footer content, cookie notices, "Read more" links, and any text that is NOT part of the actual article body.
-2. KEEP only the real article content: the headline, author name, publication date, and the article body paragraphs.
-3. FORMAT the cleaned article as proper Arabic markdown:
-   - Use ## for the main headline
-   - Put author name and date on their own lines below the headline
-   - Add a --- horizontal divider after the header block
-   - Use ### for natural section breaks within the article
-   - Use > blockquote formatting for direct quotes from named individuals
-   - Use regular paragraphs for all body text
-4. Preserve all Arabic text EXACTLY as-is — do not translate, summarize, or reword it.
-5. Output ONLY the cleaned markdown — no explanation, no preamble, no code fences.`
-
-    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: articleContent }], {
+    const trimmedInput = preClean(articleContent)
+    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: trimmedInput }], {
       system,
-      maxTokens: 8192,
+      maxTokens: 4000,
       projectId: project.id,
       action: 'Story Cleanup',
     })

@@ -8,7 +8,25 @@ const FIRECRAWL_SCRAPE_URL = 'https://api.firecrawl.dev/v2/scrape'
 const SCRAPE_TIMEOUT_MS = 30000
 
 /**
+ * Strip garbage from raw scraped text before saving or sending to AI.
+ * Removes markdown links (keeps link text), bare URLs, image markdown, and collapses whitespace.
+ * @param {string} raw
+ * @returns {string}
+ */
+function preClean(raw) {
+  if (!raw || typeof raw !== 'string') return ''
+  return raw
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{3,}/g, ' ')
+    .trim()
+}
+
+/**
  * Scrape a URL with Firecrawl and return markdown (or error).
+ * Uses onlyMainContent and excludeTags to reduce UI chrome (nav, footer, etc.).
  * @param {string} apiKey - Firecrawl API key (Bearer)
  * @param {string} url - Full URL to scrape
  * @returns {Promise<{ text: string } | { error: string }>}
@@ -27,7 +45,13 @@ async function scrapeUrl(apiKey, url) {
         'Authorization': `Bearer ${apiKey.trim()}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ url, formats: ['markdown'] }),
+      body: JSON.stringify({
+        url,
+        formats: ['markdown'],
+        onlyMainContent: true,
+        removeBase64Images: true,
+        excludeTags: ['nav', 'footer', 'header', 'aside', 'script', 'style', 'form', 'select', 'noscript'],
+      }),
       signal: controller.signal,
     })
     clearTimeout(to)
@@ -49,4 +73,4 @@ async function scrapeUrl(apiKey, url) {
   }
 }
 
-module.exports = { scrapeUrl }
+module.exports = { scrapeUrl, preClean }
