@@ -10,8 +10,8 @@ export interface ScriptField {
 }
 
 const FORMAT_LABELS: Record<"short" | "long", string> = {
-  short: "Short (1–2 min)",
-  long: "Video (20–40 min)",
+  short: "Short (up to 3 min)",
+  long: "Video (3 min – unlimited)",
 };
 
 export interface StoryDetailScriptBoxProps {
@@ -54,11 +54,13 @@ export function StoryDetailScriptBox({
   onScriptViewModeChange,
 }: StoryDetailScriptBoxProps) {
   return (
-    <div className="rounded-xl bg-background overflow-hidden">
+    <div>
+      <div className="text-[12px] text-dim font-medium mb-2">Script</div>
+      <div className="rounded-xl bg-background border border-border overflow-hidden">
       <button
         type="button"
         onClick={() => setScriptOpen(!scriptOpen)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-elevated/50 transition-colors"
+        className="w-full flex items-center justify-between px-4 max-sm:px-3 py-3 border-b border-border hover:bg-elevated/50 transition-colors"
       >
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
@@ -251,6 +253,7 @@ export function StoryDetailScriptBox({
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

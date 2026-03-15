@@ -24,7 +24,7 @@ export function StoryDetailRankingList({
   return (
     <div className="rounded-xl bg-background p-5">
       <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
-        Ranking
+        RANKING
       </div>
       <div className="text-[13px] font-semibold mb-3">
         Ranked #{currentIndex >= 0 ? currentIndex + 1 : 0} of {stories.length} liked — Score{" "}

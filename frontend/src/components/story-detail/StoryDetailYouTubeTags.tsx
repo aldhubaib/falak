@@ -17,7 +17,7 @@ export function StoryDetailYouTubeTags({
     <div className="rounded-xl bg-background border border-border overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border flex-wrap">
         <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
-          YouTube tags
+          YOUTUBE TAGS
         </span>
         <button
           type="button"
@@ -63,7 +63,7 @@ export function StoryDetailYouTubeTags({
         </div>
       ) : (
         <div className="px-5 py-4">
-          <p className="text-[12px] text-dim text-right mb-0">
+          <p className="text-[12px] text-dim text-center mb-0">
             Get AI-suggested tags (min 5) for YouTube. Use after you have a headline or script.
           </p>
         </div>

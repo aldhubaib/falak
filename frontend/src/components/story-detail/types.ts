@@ -25,6 +25,7 @@ export interface StoryWithLog extends ApiStory {
 export interface StoryBrief {
   suggestedTitle?: string;
   summary?: string;
+  articleTitle?: string;
   articleContent?: string;
   openingHook?: string;
   hookStart?: string;

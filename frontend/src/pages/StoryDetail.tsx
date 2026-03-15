@@ -5,8 +5,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
-  RefreshCw, ExternalLink, Pencil,
+  RefreshCw, ExternalLink, Pencil, X,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { ApiStory, Stage } from "./Stories";
 import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-detail";
@@ -46,6 +47,8 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "omit", label: "Omitted" },
 ];
 
+const STAGE_ORDER: Stage[] = ["suggestion", "liked", "approved", "scripting", "filmed", "publish", "done"];
+
 export default function StoryDetail() {
   const { id, projectId } = useParams<{ id: string; projectId: string }>();
   const navigate = useNavigate();
@@ -79,6 +82,8 @@ export default function StoryDetail() {
   const [suggestingTags, setSuggestingTags] = useState(false);
   const [scriptViewMode, setScriptViewMode] = useState<"structured" | "full">("structured");
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [articleOpen, setArticleOpen] = useState(true);
 
   const isWriterBoxRunning = cleaningUp || fetchingArticle || generatingScript;
 
@@ -424,6 +429,12 @@ export default function StoryDetail() {
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
   const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
   const showStageNav = stageStories.length > 1 && stageIndex >= 0;
+  const stageOrderIdx = STAGE_ORDER.indexOf(activeStage);
+  const nextStageKey: Stage | null = stageOrderIdx >= 0 && stageOrderIdx < STAGE_ORDER.length - 1 ? STAGE_ORDER[stageOrderIdx + 1]! : null;
+  const nextStageLabel = nextStageKey ? STAGES.find((s) => s.key === nextStageKey)?.label ?? null : null;
+  const relativeDate = story?.sourceDate || story?.createdAt
+    ? formatDistanceToNow(new Date((story?.sourceDate || story?.createdAt) ?? ""), { addSuffix: true })
+    : null;
   const fmt = (n?: number) =>
     !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
 
@@ -476,8 +487,24 @@ export default function StoryDetail() {
       <div className="flex flex-col flex-1 bg-background rounded-xl max-sm:rounded-none overflow-hidden">
         <StoryDetailTopBar
           stageLabel={STAGES.find((s) => s.key === activeStage)?.label ?? ""}
+          activeStage={activeStage}
+          stages={STAGES}
+          nextStageKey={nextStageKey}
+          nextStageLabel={nextStageLabel}
           saving={saving}
           onBack={() => navigate(projectPath("/stories"))}
+          onMoveToNextStage={() => nextStageKey && moveStage(nextStageKey)}
+          onPass={async () => {
+            const updated = await patchStory({ stage: "passed" });
+            if (updated) {
+              toast.success("Passed");
+              navigate(projectPath("/stories"));
+            } else {
+              toast.error("Failed to pass story");
+            }
+          }}
+          onOmit={handleOmit}
+          onHistoryClick={() => setHistoryOpen(true)}
           prevNext={showStageNav ? {
             currentIndex: stageIndex + 1,
             total: stageStories.length,
@@ -487,6 +514,50 @@ export default function StoryDetail() {
             hasNext: !!nextStory,
           } : undefined}
         />
+
+        {/* Edit History modal */}
+        {historyOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setHistoryOpen(false)}>
+            <div className="absolute inset-0 bg-black/60" aria-hidden />
+            <div
+              className="relative w-full max-w-lg rounded-xl bg-background border border-border shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+                <h2 className="text-[13px] font-medium">Edit History</h2>
+                <button type="button" onClick={() => setHistoryOpen(false)} className="p-1.5 text-dim hover:text-foreground transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                {Array.isArray(story.log) && story.log.length > 0 ? (
+                  story.log.map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border last:border-b-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-0.5 h-8 bg-blue/30 rounded-full shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-sensor text-[11px]">{formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}</span>
+                          <span className="text-dim text-[11px]"> · {entry.action}</span>
+                          {entry.note && <span className="font-mono text-[11px] text-dim ml-1">{entry.note}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sensor text-[12px] font-medium truncate max-w-[120px]">{entry.user?.name ?? "—"}</span>
+                        {entry.user?.avatarUrl ? (
+                          <img src={entry.user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-elevated flex items-center justify-center text-[10px] font-mono text-dim">{entry.user?.name?.[0] ?? "?"}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-5 py-8 text-center text-dim text-[12px]">No edit history yet.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto">
           <div className="px-6 max-lg:px-4 max-sm:px-3 py-5 pb-16 space-y-5">
@@ -516,10 +587,20 @@ export default function StoryDetail() {
               sourceUrl={story.sourceUrl}
               articleContent={brief.articleContent}
               articleDisplayValue={articleDisplayValue}
+              articleTitle={brief.articleTitle ?? story.headline ?? ""}
               cleanupProgress={cleanupProgress}
               articleLoading={articleLoading}
               articleError={articleError}
               actionsDisabled={isWriterBoxRunning}
+              scores={{
+                relevance: story.relevanceScore ?? 0,
+                viral: story.viralScore ?? 0,
+                firstMover: story.firstMoverScore ?? 0,
+                total: story.compositeScore ?? 0,
+              }}
+              relativeDate={relativeDate}
+              articleOpen={articleOpen}
+              onArticleOpenChange={setArticleOpen}
               onCleanup={handleCleanup}
               onRefetch={handleRefetch}
               onRetryFetch={handleRetryFetch}
@@ -527,6 +608,8 @@ export default function StoryDetail() {
                 setArticleDisplayValue(value);
                 setBrief((b) => ({ ...b, articleContent: value }));
               }}
+              onArticleTitleChange={(value) => setBrief((b) => ({ ...b, articleTitle: value }))}
+              onArticleTitleBlur={(title) => patchStory({ brief: { ...brief, articleTitle: title } }).catch(() => {})}
             />
 
             <StoryDetailYouTubeTags
