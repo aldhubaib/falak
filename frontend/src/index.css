@@ -64,6 +64,25 @@
     /* Semantic text */
     --sensor: 0 0% 60%;
     --dim: 0 0% 40%;
+
+    /* --- AI Writer Box (from ai-writer-box-prompt.md) --- */
+    --cursor-width: 2px;
+    --cursor-height: 0.95em;
+    --cursor-radius: 1px;
+    --cursor-color-idle: hsl(var(--dim));
+    --cursor-color-thinking: hsl(var(--dim));
+    --cursor-color-writing: hsl(var(--foreground));
+    --cursor-blink-idle: 1.1s;
+    --cursor-blink-think: 0.55s;
+    --shimmer-base: hsl(var(--dim));
+    --shimmer-highlight: hsl(var(--foreground));
+    --shimmer-duration: 1.8s;
+    --shimmer-spread: 2;
+    --box-border: 0.5px solid hsl(var(--border));
+    --box-border-active: 1px solid hsl(var(--blue));
+    --box-radius: 0.5rem;
+    --dot-size: 5px;
+    --dot-pulse-duration: 0.55s;
   }
 }
 

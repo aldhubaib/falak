@@ -420,6 +420,8 @@ export default function StoryDetail() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  data-button="cleanup-with-ai"
+                  aria-label="Clean up with AI — remove website junk from article and format as clean Arabic markdown"
                   onClick={async () => {
                     if (!id || cleaningUp) return;
                     setCleanupSuccess(false);
