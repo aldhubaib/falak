@@ -716,6 +716,7 @@ export default function StoryDetail() {
                           toast.error(data.error || `Generate script failed (${r.status})`);
                           return;
                         }
+                        // API returns script in response.brief.script; scriptShort/scriptLong are legacy and often null
                         const script = data.brief?.script ?? data.scriptShort ?? data.scriptLong ?? "";
                         setScriptStatus("writing");
                         setScriptText(script);

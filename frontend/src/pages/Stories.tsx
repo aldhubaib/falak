@@ -25,6 +25,7 @@ export interface ApiStory {
   compositeScore: number | null;
   scriptLong: string | null;
   scriptShort: string | null;
+  /** Script content lives in brief.script; scriptShort/scriptLong are legacy and often null */
   brief: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
