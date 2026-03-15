@@ -116,6 +116,8 @@ export default function StoryDetail() {
   const [cleaningUp, setCleaningUp] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [cleanupSuccess, setCleanupSuccess] = useState(false);
+  const [typingTarget, setTypingTarget] = useState<string | null>(null);
+  const [typedLength, setTypedLength] = useState(0);
 
   // ── UI state (synced with brief JSON) ────────────────────────────────────
   const [brief, setBrief] = useState<StoryBrief>({});
@@ -197,6 +199,25 @@ export default function StoryDetail() {
       .catch(() => setArticleError("Could not load article"))
       .finally(() => setArticleLoading(false));
   }, [id, story?.sourceUrl, brief.articleContent, articleLoading]);
+
+  // ── Typing effect after cleanup ───────────────────────────────────────────
+  useEffect(() => {
+    if (typingTarget == null) return;
+    const charsPerTick = 3;
+    const intervalMs = 12;
+    const len = typingTarget.length;
+    const t = setInterval(() => {
+      setTypedLength((n) => {
+        const next = Math.min(n + charsPerTick, len);
+        if (next >= len) {
+          clearInterval(t);
+          setTypingTarget(null);
+        }
+        return next;
+      });
+    }, intervalMs);
+    return () => clearInterval(t);
+  }, [typingTarget]);
 
   // ── Persist helpers ───────────────────────────────────────────────────────
 
@@ -406,6 +427,11 @@ export default function StoryDetail() {
                         setCleanupSuccess(true);
                         toast.success("Article cleaned");
                         setTimeout(() => setCleanupSuccess(false), 2500);
+                        const content = (data.brief && typeof data.brief === "object" && typeof data.brief.articleContent === "string") ? data.brief.articleContent : "";
+                        if (content) {
+                          setTypingTarget(content);
+                          setTypedLength(0);
+                        }
                       } else {
                         toast.error(data.error || "Cleanup failed");
                       }
@@ -573,9 +599,20 @@ export default function StoryDetail() {
               </div>
             ) : brief.articleContent?.trim() ? (
               <div className="max-h-[60vh] overflow-y-auto px-4 select-text" dir="rtl">
-                <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
-                  {brief.articleContent}
-                </ReactMarkdown>
+                {typingTarget != null ? (
+                  <>
+                    <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
+                      {typingTarget.slice(0, typedLength)}
+                    </ReactMarkdown>
+                    {typedLength < typingTarget.length && (
+                      <span className="inline-block w-0.5 h-4 align-middle bg-sensor animate-pulse ml-0.5" aria-hidden />
+                    )}
+                  </>
+                ) : (
+                  <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
+                    {brief.articleContent}
+                  </ReactMarkdown>
+                )}
               </div>
             ) : articleLoading ? (
               <p className="text-[12px] text-dim text-right">Loading article…</p>

@@ -211,16 +211,17 @@ export default function Stories() {
           <button
             onClick={handleFetch}
             disabled={fetching || !projectId}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50"
+            title="Fetch new story suggestions from Perplexity using the Brain v2 query"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
           >
             {fetching ? (
               <>
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Fetching…
+                <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                <span className={fetching ? "text-shimmer inline-block" : ""}>Fetching…</span>
               </>
             ) : (
               <>
-                <ArrowDown className="w-3 h-3" />
+                <ArrowDown className="w-3 h-3 shrink-0" />
                 Fetch
               </>
             )}
@@ -342,9 +343,10 @@ export default function Stories() {
                   const isFirst = story.coverageStatus === "first";
                   const isLate = story.coverageStatus === "late";
                   const total = story.compositeScore ?? 0;
-                  const sourceLabel = [story.sourceName, story.sourceDate?.split("T")[0]]
-                    .filter(Boolean)
-                    .join(" · ");
+                  const fetchedDate = story.createdAt
+                    ? new Date(story.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+                    : "";
+                  const sourceLabel = fetchedDate ? `Fetched ${fetchedDate}` : "";
 
                   return (
                     <button
