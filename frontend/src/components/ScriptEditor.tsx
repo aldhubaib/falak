@@ -243,7 +243,7 @@ export function ScriptEditor({
   }, []);
 
   const lastScriptEdit = useMemo(() => {
-    return log.find((e) => e.action === "script_edit") || null;
+    return (log ?? []).find((e) => e.action === "script_edit") || null;
   }, [log]);
 
   return (
@@ -306,7 +306,7 @@ export function ScriptEditor({
           </button>
           {historyOpen && (
             <ul className="space-y-2 max-h-[200px] overflow-y-auto mt-2">
-              {log.map((entry) => (
+              {(log ?? []).map((entry) => (
                 <li
                   key={entry.id}
                   className="flex items-center gap-2 text-right py-1.5 border-b border-border/50 last:border-0"
