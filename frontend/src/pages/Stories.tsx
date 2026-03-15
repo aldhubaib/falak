@@ -30,15 +30,15 @@ export interface ApiStory {
   updatedAt: string;
 }
 
-const STAGES: { key: Stage; label: string; color: string; sub: string }[] = [
-  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     sub: "awaiting triage · from Brain v2 + Perplexity" },
-  { key: "liked",      label: "Liked",          color: "text-blue",       sub: "saved for review" },
-  { key: "approved",   label: "Approved",        color: "text-purple",     sub: "brief generation ready" },
-  { key: "filmed",     label: "Filmed",          color: "text-success",    sub: "waiting for URL" },
-  { key: "publish",    label: "Publish",         color: "text-primary",    sub: "final details needed" },
-  { key: "done",       label: "Done",            color: "text-foreground", sub: "published all time" },
-  { key: "passed",     label: "Passed",         color: "text-dim",       sub: "passed on" },
-  { key: "omit",       label: "Omitted",        color: "text-dim",       sub: "insufficient data" },
+const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
+  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-orange",     sub: "awaiting triage · from Brain v2 + Perplexity" },
+  { key: "liked",      label: "Liked",          color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "saved for review" },
+  { key: "approved",   label: "Approved",       color: "text-purple",     pillClass: "bg-purple/15 text-purple",   sub: "brief generation ready" },
+  { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-success", sub: "waiting for URL" },
+  { key: "publish",    label: "Publish",        color: "text-primary",   pillClass: "bg-primary/15 text-primary", sub: "final details needed" },
+  { key: "done",       label: "Done",           color: "text-foreground", pillClass: "bg-foreground/15 text-foreground", sub: "published all time" },
+  { key: "passed",     label: "Passed",         color: "text-dim",        pillClass: "bg-elevated text-dim border border-border", sub: "passed on" },
+  { key: "omit",       label: "Omitted",        color: "text-dim",        pillClass: "bg-elevated text-dim border border-border", sub: "insufficient data" },
 ];
 
 function MiniScores({ story }: { story: ApiStory }) {
@@ -343,6 +343,7 @@ export default function Stories() {
                   const isFirst = story.coverageStatus === "first";
                   const isLate = story.coverageStatus === "late";
                   const total = story.compositeScore ?? 0;
+                  const stageInfo = STAGES.find((s) => s.key === story.stage);
                   const fetchedDate = story.createdAt
                     ? new Date(story.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
                     : "";
@@ -355,7 +356,12 @@ export default function Stories() {
                       className="w-full px-4 py-3.5 border-t border-border text-right hover:bg-[#0d0d10] transition-colors group"
                     >
                       <div className="flex items-start justify-between mb-1.5 gap-2">
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                          {stageInfo && (
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full ${stageInfo.pillClass}`}>
+                              {stageInfo.label}
+                            </span>
+                          )}
                           {isFirst && (
                             <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success">
                               1st
