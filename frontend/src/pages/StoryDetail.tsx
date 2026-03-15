@@ -700,7 +700,7 @@ export default function StoryDetail() {
             <div className="px-5 pb-5">
               <AIWriterBox
                 mode="output"
-                label="Full article"
+                label="Original Story"
                 status={articleDisplayValue && cleanupStatus === "idle" ? "done" : cleanupStatus}
                 value={articleDisplayValue || (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__" ? brief.articleContent : "")}
               />
@@ -713,7 +713,7 @@ export default function StoryDetail() {
               </p>
             ) : !story?.sourceUrl ? (
               <p className="text-[12px] text-dim text-right">
-                No source URL for this story. The full article can be shown when a source link is available.
+                No source URL for this story. The original story can be shown when a source link is available.
               </p>
             ) : (
               <p className="text-[12px] text-dim text-right">Loading article…</p>
@@ -740,7 +740,7 @@ export default function StoryDetail() {
                             : "text-dim hover:text-sensor"
                         }`}
                       >
-                        {fmt === "short" ? "Short (1–2 min)" : "Video (20–40 min)"}
+                        {fmt === "short" ? "Short (up to 3 min)" : "Video (3 min – unlimited)"}
                       </button>
                     ))}
                   </div>
@@ -803,6 +803,7 @@ export default function StoryDetail() {
                           body: JSON.stringify({
                             format: brief.scriptFormat ?? "short",
                             articleText: currentArticleText,
+                            channelId: brief.channelId ?? undefined,
                           }),
                         });
                         if (!r.ok) {
@@ -1151,6 +1152,78 @@ export default function StoryDetail() {
                   onFieldDone={(key) => { setEditingField(null); saveBrief({ ...brief }); }}
                   onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
                   scriptFields={SCRIPT_FIELDS}
+                  canGenerate={
+                    !!assignedChannel &&
+                    !!(
+                      articleDisplayValue?.trim() ||
+                      (brief.articleContent?.trim() &&
+                        brief.articleContent !== "__SCRAPE_FAILED__" &&
+                        brief.articleContent !== "__YOUTUBE__")
+                    )
+                  }
+                  generating={generatingScript}
+                  onGenerateScript={async () => {
+                    if (!id || !assignedChannel || generatingScript) return;
+                    const articleText =
+                      articleDisplayValue?.trim() ||
+                      (brief.articleContent?.trim() &&
+                      brief.articleContent !== "__SCRAPE_FAILED__" &&
+                      brief.articleContent !== "__YOUTUBE__"
+                        ? brief.articleContent
+                        : "");
+                    if (!articleText) {
+                      toast.error("No article content. Fetch and clean the article first.");
+                      return;
+                    }
+                    setGeneratingScript(true);
+                    try {
+                      const r = await fetch(`/api/stories/${id}/generate-script`, {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          format: brief.scriptFormat ?? "short",
+                          articleText,
+                          channelId: brief.channelId,
+                        }),
+                      });
+                      if (!r.ok) {
+                        const data = await r.json().catch(() => ({}));
+                        toast.error(data.error || `Generate script failed (${r.status})`);
+                        return;
+                      }
+                      const reader = r.body?.getReader();
+                      if (reader) {
+                        const decoder = new TextDecoder();
+                        let buffer = "";
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          buffer += decoder.decode(value, { stream: true });
+                        }
+                        const lines = buffer.split("\n");
+                        for (const line of lines) {
+                          if (line.startsWith("data: ") && line.includes("error")) {
+                            try {
+                              const obj = JSON.parse(line.slice(6).trim());
+                              if (obj?.error) {
+                                toast.error(obj.error);
+                                return;
+                              }
+                            } catch {
+                              // ignore
+                            }
+                          }
+                        }
+                      }
+                      await loadStory();
+                      toast.success("Script generated");
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Generate script failed");
+                    } finally {
+                      setGeneratingScript(false);
+                    }
+                  }}
                 />
 
                 {/* Approve / Pass */}
@@ -1519,6 +1592,9 @@ function ScriptBox({
   onFieldDone,
   onBriefChange,
   scriptFields,
+  onGenerateScript,
+  canGenerate,
+  generating,
 }: {
   brief: StoryBrief;
   scriptSaved: boolean;
@@ -1530,6 +1606,9 @@ function ScriptBox({
   onFieldDone: (key: string) => void;
   onBriefChange: (key: keyof StoryBrief, val: string) => void;
   scriptFields: { key: keyof StoryBrief; label: string; placeholder: string; type: "input" | "textarea" }[];
+  onGenerateScript?: () => Promise<void>;
+  canGenerate?: boolean;
+  generating?: boolean;
 }) {
   return (
     <div className="rounded-xl bg-background overflow-hidden">
@@ -1547,13 +1626,15 @@ function ScriptBox({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
-              toast("AI script generation coming soon…");
+              if (canGenerate && onGenerateScript && !generating) await onGenerateScript();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors"
+            disabled={!canGenerate || generating}
+            title={!canGenerate ? "Select a channel and ensure article content is loaded" : undefined}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
             Generate with AI
           </button>
           <ChevronDown
@@ -1575,7 +1656,7 @@ function ScriptBox({
                     : "text-dim hover:text-sensor"
                 }`}
               >
-                {fmt === "short" ? "Short (1–2 min)" : "Video (20–40 min)"}
+                {fmt === "short" ? "Short (up to 3 min)" : "Video (3 min – unlimited)"}
               </button>
             ))}
           </div>

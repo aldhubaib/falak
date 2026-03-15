@@ -279,8 +279,39 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   }
 })
 
-// ── POST /api/stories/:id/generate-script — AI Writer: generate script from article (streaming SSE)
-// Accepts optional body.articleText = current Full Article box text (cleaned); otherwise uses brief.articleContent.
+// Parse structured script output into brief fields. Sections: ## TITLE, ## OPENING_HOOK, ## BRANDED_HOOK_START, ## SCRIPT, ## BRANDED_HOOK_END
+function parseStructuredScript(text, channelStartHook = '', channelEndHook = '') {
+  const raw = (text || '').trim()
+  const sections = {}
+  const sectionNames = ['TITLE', 'OPENING_HOOK', 'BRANDED_HOOK_START', 'SCRIPT', 'BRANDED_HOOK_END']
+  let currentKey = null
+  let currentLines = []
+  for (const line of raw.split('\n')) {
+    const match = line.match(/^##\s*(.+?)\s*$/i)
+    if (match) {
+      const key = match[1].toUpperCase().replace(/[\s-]+/g, '_').replace(/_+/g, '_')
+      if (sectionNames.includes(key)) {
+        if (currentKey) sections[currentKey] = currentLines.join('\n').trim()
+        currentKey = key
+        currentLines = []
+        continue
+      }
+    }
+    if (currentKey) currentLines.push(line)
+  }
+  if (currentKey) sections[currentKey] = currentLines.join('\n').trim()
+
+  return {
+    suggestedTitle: sections.TITLE || '',
+    openingHook: sections.OPENING_HOOK || '',
+    hookStart: sections.BRANDED_HOOK_START !== undefined ? sections.BRANDED_HOOK_START : channelStartHook,
+    script: sections.SCRIPT || raw,
+    hookEnd: sections.BRANDED_HOOK_END !== undefined ? sections.BRANDED_HOOK_END : channelEndHook,
+  }
+}
+
+// ── POST /api/stories/:id/generate-script — AI: full script (title, hooks, script with timestamps). Requires channelId for branded hooks.
+// Body: format ('short'|'long'), articleText, channelId (required).
 router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
@@ -298,14 +329,42 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     if (!articleContent || articleContent === '__SCRAPE_FAILED__' || articleContent === '__YOUTUBE__') {
       return res.status(400).json({ error: 'No article content. Fetch and optionally clean the article first.' })
     }
+    const channelId = req.body?.channelId || brief.channelId
+    if (!channelId) {
+      return res.status(400).json({ error: 'Select a channel in Assign to Channel to generate a script with branded hooks.' })
+    }
+    const channel = await db.channel.findFirst({
+      where: { id: channelId, projectId: project.id },
+      select: { id: true, startHook: true, endHook: true },
+    })
+    if (!channel) {
+      return res.status(400).json({ error: 'Channel not found or does not belong to this project.' })
+    }
     const format = req.body?.format === 'long' ? 'long' : 'short'
+    const startHook = (channel.startHook || '').trim()
+    const endHook = (channel.endHook || '').trim()
 
     const apiKey = decrypt(project.anthropicApiKeyEncrypted)
-    const system = format === 'long'
-      ? 'You are an expert Arabic YouTube scriptwriter. Given an article, write a full video script (20–40 min read) in Arabic. Use a clear structure: hook, context, main points, conclusion. Output ONLY the script text, no explanations. Preserve facts and tone.'
-      : 'You are an expert Arabic YouTube Shorts scriptwriter. Given an article, write a short script (1–2 min read) in Arabic. Hook in the first line, then key facts. Output ONLY the script text, no explanations.'
+    const durationShort = 'The script must be up to 3 minutes of speaking time (about 400–500 words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
+    const durationLong = 'The script must be at least 3 minutes and can be as long as needed (e.g. 20–40+ minutes). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
+    const system = `You are an expert Arabic YouTube scriptwriter. Output ONLY a structured script in Arabic, using exactly these section headers (each on its own line). No other text or explanations.
 
-    const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short'} script:\n\n${articleContent.slice(0, 120000)}`
+## TITLE
+(one line: suggested video title in Arabic)
+
+## OPENING_HOOK
+(one short paragraph: the first 10 seconds hook in Arabic)
+
+## BRANDED_HOOK_START
+${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
+
+## SCRIPT
+(Main script body in Arabic with timestamps. ${format === 'long' ? durationLong : durationShort} Use format like 0:00 ... then 0:30 ... etc.)
+
+## BRANDED_HOOK_END
+${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}`
+
+    const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short (up to 3 min)'} script in Arabic:\n\n${articleContent.slice(0, 120000)}`
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
@@ -332,8 +391,16 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       return
     }
 
-    const script = fullScript.trim()
-    const newBrief = { ...brief, script: script || undefined, scriptFormat: format }
+    const parsed = parseStructuredScript(fullScript, startHook, endHook)
+    const newBrief = {
+      ...brief,
+      suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
+      openingHook: parsed.openingHook || brief.openingHook,
+      hookStart: parsed.hookStart !== undefined ? parsed.hookStart : brief.hookStart,
+      script: parsed.script || brief.script,
+      hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
+      scriptFormat: format,
+    }
     await db.story.update({
       where: { id: story.id },
       data: { brief: newBrief },
