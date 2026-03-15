@@ -612,6 +612,7 @@ export default function StoryDetail() {
                   مشاهدة الفيديو على يوتيوب
                 </a>
               </div>
+            </div>
           ) : !articleLoading && (!brief.articleContent || brief.articleContent === '__SCRAPE_FAILED__') ? (
             <div className="rounded-xl bg-background p-5">
               <div className="text-center py-8 text-muted-foreground space-y-4">
@@ -666,7 +667,8 @@ export default function StoryDetail() {
                   )}
                 </div>
               </div>
-            ) : (cleanupStatus !== "idle" || articleDisplayValue || (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__")) ? (
+            </div>
+          ) : (cleanupStatus !== "idle" || articleDisplayValue || (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__")) ? (
             <div className="px-5 pb-5">
               <AIWriterBox
                 mode="output"
@@ -1459,7 +1461,6 @@ export default function StoryDetail() {
               </>
             )}
           </div>
-            </div>
           </div>
         </div>
       </div>
