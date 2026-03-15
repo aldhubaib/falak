@@ -114,6 +114,7 @@ export default function StoryDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
+  const [fetchingArticle, setFetchingArticle] = useState(false);
   const [cleanupSuccess, setCleanupSuccess] = useState(false);
 
   // ── UI state (synced with brief JSON) ────────────────────────────────────
@@ -387,43 +388,83 @@ export default function StoryDetail() {
       <div className="flex-1 relative overflow-auto">
         <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6">
           <div className="rounded-xl bg-background border border-border overflow-hidden">
-            {/* Top of box: Clean up with AI (left) + Omit (right) */}
+            {/* Top of box: Clean up with AI + Re-fetch article (left) + Omit (right) */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!id || cleaningUp) return;
-                  setCleanupSuccess(false);
-                  setCleaningUp(true);
-                  try {
-                    const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
-                    const data = await r.json().catch(() => ({}));
-                    if (r.ok && data.id) {
-                      setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
-                      setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
-                      setCleanupSuccess(true);
-                      toast.success("Article cleaned");
-                      setTimeout(() => setCleanupSuccess(false), 2500);
-                    } else {
-                      toast.error(data.error || "Cleanup failed");
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!id || cleaningUp) return;
+                    setCleanupSuccess(false);
+                    setCleaningUp(true);
+                    try {
+                      const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
+                      const data = await r.json().catch(() => ({}));
+                      if (r.ok && data.id) {
+                        setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
+                        setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
+                        setCleanupSuccess(true);
+                        toast.success("Article cleaned");
+                        setTimeout(() => setCleanupSuccess(false), 2500);
+                      } else {
+                        toast.error(data.error || "Cleanup failed");
+                      }
+                    } catch {
+                      toast.error("Cleanup failed");
+                    } finally {
+                      setCleaningUp(false);
                     }
-                  } catch {
-                    toast.error("Cleanup failed");
-                  } finally {
-                    setCleaningUp(false);
-                  }
-                }}
-                disabled={cleaningUp}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed"
-                title="Remove website junk from article and format as clean Arabic markdown"
-              >
-                {cleaningUp ? (
-                  <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3 h-3 shrink-0" />
-                )}
-                <span className={cleaningUp ? "text-shimmer inline-block" : ""}>Clean up with AI</span>
-              </button>
+                  }}
+                  disabled={cleaningUp}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed"
+                  title="Remove website junk from article and format as clean Arabic markdown"
+                >
+                  {cleaningUp ? (
+                    <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3 h-3 shrink-0" />
+                  )}
+                  <span className={cleaningUp ? "text-shimmer inline-block" : ""}>Clean up with AI</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!id || !story?.sourceUrl || fetchingArticle) return;
+                    setArticleError(null);
+                    setFetchingArticle(true);
+                    try {
+                      const r = await fetch(`/api/stories/${id}/fetch-article`, {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ force: true }),
+                      });
+                      const data = await r.json().catch(() => ({}));
+                      if (r.ok && data.articleContent !== undefined) {
+                        setBrief((b) => ({ ...b, articleContent: data.articleContent }));
+                        setStory((s) => (s && s.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
+                        toast.success(data.articleContent === "__SCRAPE_FAILED__" ? "Source could not be scraped" : "Article re-fetched");
+                      } else {
+                        toast.error(data.error || "Could not fetch article");
+                      }
+                    } catch {
+                      toast.error("Could not fetch article");
+                    } finally {
+                      setFetchingArticle(false);
+                    }
+                  }}
+                  disabled={!story?.sourceUrl || fetchingArticle}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Re-fetch article from source (use if something went wrong)"
+                >
+                  {fetchingArticle ? (
+                    <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3 h-3 shrink-0" />
+                  )}
+                  Re-fetch article
+                </button>
+              </div>
               {activeStage === "suggestion" && (
                 <button
                   type="button"

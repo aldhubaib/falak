@@ -138,7 +138,8 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
       return res.json({ articleContent: '__YOUTUBE__' })
     }
 
-    if (brief.articleContent && brief.articleContent !== '__SCRAPE_FAILED__') {
+    const forceRefetch = req.body?.force === true
+    if (!forceRefetch && brief.articleContent && brief.articleContent !== '__SCRAPE_FAILED__') {
       return res.json({ articleContent: brief.articleContent })
     }
     const url = story.sourceUrl || brief.sourceUrl
