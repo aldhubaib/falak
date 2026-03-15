@@ -488,6 +488,32 @@ export default function StoryDetail() {
                     if (!id || !story?.sourceUrl || fetchingArticle) return;
                     setArticleError(null);
                     setFetchingArticle(true);
+                    setCleanupStatus("thinking");
+                    const CHAR_DELAY = 18;
+                    let charQueue: string[] = [];
+                    let isTyping = false;
+                    const appendChunk = (chunk: string) => {
+                      charQueue.push(...chunk.split(""));
+                      if (!isTyping) drainQueue();
+                    };
+                    const drainQueue = () => {
+                      if (charQueue.length === 0) {
+                        isTyping = false;
+                        return;
+                      }
+                      isTyping = true;
+                      const char = charQueue.shift()!;
+                      setArticleDisplayValue((prev) => prev + char);
+                      setTimeout(drainQueue, CHAR_DELAY);
+                    };
+                    const onStreamComplete = () =>
+                      new Promise<void>((resolve) => {
+                        const check = () => {
+                          if (charQueue.length === 0 && !isTyping) resolve();
+                          else setTimeout(check, 20);
+                        };
+                        check();
+                      });
                     try {
                       const r = await fetch(`/api/stories/${id}/fetch-article`, {
                         method: "POST",
@@ -499,11 +525,23 @@ export default function StoryDetail() {
                       if (r.ok && data.articleContent !== undefined) {
                         setBrief((b) => ({ ...b, articleContent: data.articleContent }));
                         setStory((s) => (s && s.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
-                        toast.success(data.articleContent === "__SCRAPE_FAILED__" ? "Source could not be scraped" : "Article re-fetched");
+                        if (data.articleContent !== "__SCRAPE_FAILED__" && data.articleContent !== "__YOUTUBE__" && String(data.articleContent).trim()) {
+                          setCleanupStatus("writing");
+                          setArticleDisplayValue("");
+                          appendChunk(String(data.articleContent));
+                          await onStreamComplete();
+                          setCleanupStatus("done");
+                          toast.success("Article re-fetched");
+                        } else {
+                          setCleanupStatus("idle");
+                          toast.info(data.articleContent === "__SCRAPE_FAILED__" ? "Source could not be scraped" : "Article re-fetched");
+                        }
                       } else {
+                        setCleanupStatus("idle");
                         toast.error(data.error || "Could not fetch article");
                       }
                     } catch {
+                      setCleanupStatus("idle");
                       toast.error("Could not fetch article");
                     } finally {
                       setFetchingArticle(false);
