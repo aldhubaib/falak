@@ -1601,6 +1601,8 @@ function ScriptBox({
   onGenerateScript,
   canGenerate,
   generating,
+  scriptViewMode,
+  onScriptViewModeChange,
 }: {
   brief: StoryBrief;
   scriptSaved: boolean;
