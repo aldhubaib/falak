@@ -42,6 +42,21 @@ const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub
   { key: "omit",       label: "Omitted",        color: "text-dim",        pillClass: "bg-elevated text-dim border border-border", sub: "insufficient data" },
 ];
 
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return m === 1 ? "1 min ago" : `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return h === 1 ? "1 hour ago" : `${h} hours ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "yesterday";
+  if (d < 7) return `${d} days ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: diff > 365 * 24 * 60 * 60 * 1000 ? "numeric" : undefined });
+}
+
 function MiniScores({ story }: { story: ApiStory }) {
   const items = [
     { val: story.relevanceScore ?? 0,   bar: "bg-purple" },
@@ -82,6 +97,7 @@ export default function Stories() {
   } | null>(null);
   const [storiesDisplayLimit, setStoriesDisplayLimit] = useState(STORIES_PAGE_SIZE);
   const [listSort, setListSort] = useState<"score" | "date">("score");
+  const [listOrder, setListOrder] = useState<"asc" | "desc">("desc");
   const [loadError, setLoadError] = useState<string | null>(null);
   const storyListScrollRef = useRef<HTMLDivElement>(null);
 
@@ -186,13 +202,16 @@ export default function Stories() {
 
   const stageStories = stories.filter((s) => s.stage === activeStage);
   const stageStoriesSorted = [...stageStories].sort((a, b) => {
-    if (listSort === "date") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
     const scoreA = a.compositeScore ?? 0;
     const scoreB = b.compositeScore ?? 0;
-    if (scoreB !== scoreA) return scoreB - scoreA;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    const mul = listOrder === "desc" ? 1 : -1;
+    if (listSort === "date") {
+      return (dateB - dateA) * mul;
+    }
+    if (scoreB !== scoreA) return (scoreB - scoreA) * mul;
+    return (dateB - dateA) * mul;
   });
   const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
   const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
@@ -327,20 +346,36 @@ export default function Stories() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-dim font-mono uppercase tracking-wider mr-1">Sort:</span>
-                {(["score", "date"] as const).map((sortKey) => (
-                  <button
-                    key={sortKey}
-                    type="button"
-                    onClick={() => setListSort(sortKey)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                      listSort === sortKey
-                        ? "bg-foreground/10 text-foreground border border-foreground/20"
-                        : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
-                    }`}
-                  >
-                    {sortKey === "score" ? "By score" : "By date"}
-                  </button>
-                ))}
+                {(["score", "date"] as const).flatMap((sortKey) =>
+                  (["desc", "asc"] as const).map((order) => {
+                    const isActive = listSort === sortKey && listOrder === order;
+                    const label =
+                      sortKey === "score"
+                        ? order === "desc"
+                          ? "Score ↓"
+                          : "Score ↑"
+                        : order === "desc"
+                          ? "Date ↓"
+                          : "Date ↑";
+                    return (
+                      <button
+                        key={`${sortKey}-${order}`}
+                        type="button"
+                        onClick={() => {
+                          setListSort(sortKey);
+                          setListOrder(order);
+                        }}
+                        className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                          isActive
+                            ? "bg-foreground/10 text-foreground border border-foreground/20"
+                            : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -365,10 +400,8 @@ export default function Stories() {
                   const isLate = story.coverageStatus === "late";
                   const total = story.compositeScore ?? 0;
                   const stageInfo = STAGES.find((s) => s.key === story.stage);
-                  const fetchedDate = story.createdAt
-                    ? new Date(story.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-                    : "";
-                  const sourceLabel = fetchedDate ? `Fetched ${fetchedDate}` : "";
+                  const relative = relativeTime(story.createdAt);
+                  const sourceLabel = relative ? `Fetched ${relative}` : "";
 
                   return (
                     <button

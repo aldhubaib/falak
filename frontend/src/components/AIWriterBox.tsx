@@ -2,7 +2,7 @@
  * AI Writer Box — status word shimmer + cursor, 4 states only.
  * Shimmer is only on the status word, never on the article/script text.
  */
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export type WriterState = "idle" | "thinking" | "writing" | "done";
 
@@ -25,12 +25,35 @@ function detectDir(text: string): "ltr" | "rtl" {
   return "ltr";
 }
 
+/** Place cursor and text in container so cursor stays in DOM; RTL = cursor left of text, LTR = cursor right. */
+function placeCursor(
+  container: HTMLDivElement,
+  textNode: Text,
+  cursor: HTMLSpanElement,
+  dir: "ltr" | "rtl"
+): void {
+  container.innerHTML = "";
+  if (dir === "rtl") {
+    cursor.style.marginRight = "1px";
+    cursor.style.marginLeft = "0";
+    container.appendChild(cursor);
+    container.appendChild(textNode);
+  } else {
+    cursor.style.marginLeft = "1px";
+    cursor.style.marginRight = "0";
+    container.appendChild(textNode);
+    container.appendChild(cursor);
+  }
+}
+
 const STATUS_LABELS: Record<WriterState, string> = {
   idle: "Ready",
   thinking: "Thinking",
   writing: "Writing",
   done: "Done",
 };
+
+const CURSOR_STATE_CLASSES = ["ai-cursor--idle", "ai-cursor--thinking", "ai-cursor--writing"] as const;
 
 export function AIWriterBox({
   label,
@@ -46,6 +69,39 @@ export function AIWriterBox({
   const dir = detectDir(mode === "output" ? value : text);
   const isActive = status === "thinking" || status === "writing";
   const shimmerClass = `ai-status-word--shimmer${dir === "rtl" ? "-rtl" : ""}`;
+
+  const outputContainerRef = useRef<HTMLDivElement>(null);
+  const textNodeRef = useRef<Text | null>(null);
+  const cursorRef = useRef<HTMLSpanElement | null>(null);
+  const lastDirRef = useRef<"ltr" | "rtl" | null>(null);
+
+  useEffect(() => {
+    if (mode !== "output" || !outputContainerRef.current) return;
+    const container = outputContainerRef.current;
+    if (!textNodeRef.current) {
+      textNodeRef.current = document.createTextNode("");
+    }
+    if (!cursorRef.current) {
+      const cursor = document.createElement("span");
+      cursor.className = "ai-cursor ai-cursor--idle";
+      cursorRef.current = cursor;
+    }
+    const textNode = textNodeRef.current;
+    const cursor = cursorRef.current;
+    textNode.nodeValue = value;
+    const currentDir = dir;
+    if (lastDirRef.current !== currentDir) {
+      placeCursor(container, textNode, cursor, currentDir);
+      lastDirRef.current = currentDir;
+    }
+    cursor.style.display = status === "done" ? "none" : "inline-block";
+    CURSOR_STATE_CLASSES.forEach((c) => cursor.classList.remove(c));
+    if (status !== "done") {
+      if (status === "thinking") cursor.classList.add("ai-cursor--thinking");
+      else if (status === "writing") cursor.classList.add("ai-cursor--writing");
+      else cursor.classList.add("ai-cursor--idle");
+    }
+  }, [mode, value, dir, status]);
 
   return (
     <div
@@ -90,34 +146,11 @@ export function AIWriterBox({
           />
         ) : (
           <div
+            ref={outputContainerRef}
             dir={dir}
             className="text-foreground select-text"
             style={{ textAlign: dir === "rtl" ? "right" : "left" }}
-          >
-            {dir === "rtl" && status !== "done" && (
-              <span
-                className={`ai-cursor mr-[1px] ${
-                  status === "thinking"
-                    ? "ai-cursor--thinking"
-                    : status === "writing"
-                      ? "ai-cursor--writing"
-                      : "ai-cursor--idle"
-                }`}
-              />
-            )}
-            {value}
-            {dir === "ltr" && status !== "done" && (
-              <span
-                className={`ai-cursor ml-[1px] ${
-                  status === "thinking"
-                    ? "ai-cursor--thinking"
-                    : status === "writing"
-                      ? "ai-cursor--writing"
-                      : "ai-cursor--idle"
-                }`}
-              />
-            )}
-          </div>
+          />
         )}
       </div>
 
