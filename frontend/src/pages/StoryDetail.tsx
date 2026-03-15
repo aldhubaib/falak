@@ -396,11 +396,11 @@ export default function StoryDetail() {
                   try {
                     const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
                     const data = await r.json().catch(() => ({}));
-                    if (r.ok && data.headline !== undefined) {
+                    if (r.ok && data.id) {
                       setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
                       setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
                       setCleanupSuccess(true);
-                      toast.success("Data cleaned up");
+                      toast.success("Article cleaned");
                       setTimeout(() => setCleanupSuccess(false), 2500);
                     } else {
                       toast.error(data.error || "Cleanup failed");
@@ -413,7 +413,7 @@ export default function StoryDetail() {
                 }}
                 disabled={cleaningUp}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50"
-                title="Ask AI to normalize headline and summary (fix spacing, punctuation)"
+                title="Remove website junk from article and format as clean Arabic markdown"
               >
                 {cleaningUp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 Clean up with AI
@@ -450,7 +450,7 @@ export default function StoryDetail() {
             {cleanupSuccess && !cleaningUp && (
               <div className="flex items-center justify-center gap-2 px-5 py-3 bg-success/10 border-b border-success/20">
                 <Check className="w-4 h-4 text-success" />
-                <span className="text-[12px] font-medium text-success">Data cleaned. Headline and summary updated.</span>
+                <span className="text-[12px] font-medium text-success">Article cleaned. Full article updated.</span>
               </div>
             )}
 

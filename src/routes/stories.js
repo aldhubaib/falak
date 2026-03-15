@@ -147,7 +147,7 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   }
 })
 
-// ── POST /api/stories/:id/cleanup — AI clean/normalize headline and brief text
+// ── POST /api/stories/:id/cleanup — AI clean scraped articleContent (remove nav, junk, format as markdown)
 router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
@@ -158,38 +158,42 @@ router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req,
     if (!project?.anthropicApiKeyEncrypted) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys to use Clean up.' })
     }
-    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
-    const headline = (story.headline || '').trim()
-    const summary = [brief.summary, brief.suggestedTitle].filter(Boolean).join('\n') || headline
+    const articleContent = typeof brief.articleContent === 'string' ? brief.articleContent : ''
+    if (!articleContent.trim()) {
+      return res.status(400).json({ error: 'No article content to clean. Fetch the article first (e.g. from source URL).' })
+    }
+    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
 
-    const system = `You are a copy editor. Clean and normalize the given story data. Fix: extra spaces, inconsistent punctuation, stray line breaks, trim whitespace. Keep meaning and language (Arabic/English) unchanged. Return ONLY a valid JSON object with optional keys: "headline" (string), "summary" (string), "suggestedTitle" (string). No other text or markdown.`
-    const userContent = `Clean this data and return JSON only:\n\nheadline: ${headline}\n\nsummary/suggestedTitle: ${summary}`
-    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userContent }], {
+    const system = `You are an expert Arabic article editor and journalist.
+
+The text below was scraped from a news website. It contains the real article MIXED WITH website junk: navigation menus, country lists, language switchers, social share buttons, cookie notices, footer links, "Read more" sections, and other non-article content.
+
+Your task:
+1. REMOVE all website navigation, menus, share buttons, footer content, cookie notices, "Read more" links, and any text that is NOT part of the actual article body.
+2. KEEP only the real article content: the headline, author name, publication date, and the article body paragraphs.
+3. FORMAT the cleaned article as proper Arabic markdown:
+   - Use ## for the main headline
+   - Put author name and date on their own lines below the headline
+   - Add a --- horizontal divider after the header block
+   - Use ### for natural section breaks within the article
+   - Use > blockquote formatting for direct quotes from named individuals
+   - Use regular paragraphs for all body text
+4. Preserve all Arabic text EXACTLY as-is — do not translate, summarize, or reword it.
+5. Output ONLY the cleaned markdown — no explanation, no preamble, no code fences.`
+
+    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: articleContent }], {
       system,
-      maxTokens: 1024,
+      maxTokens: 8192,
       projectId: project.id,
       action: 'Story Cleanup',
     })
-    let cleaned = {}
-    const jsonMatch = raw.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      try {
-        cleaned = JSON.parse(jsonMatch[0])
-      } catch {
-        cleaned = { headline: headline }
-      }
-    }
-    // Normalize: trim and collapse multiple spaces/newlines so result is visibly cleaned
-    const norm = (s) => (typeof s === 'string' && s.trim() ? s.trim().replace(/\s+/g, ' ').trim() : null)
-    const newHeadline = norm(cleaned.headline) || headline.trim().replace(/\s+/g, ' ')
-    const newBrief = { ...brief }
-    if (norm(cleaned.suggestedTitle)) newBrief.suggestedTitle = norm(cleaned.suggestedTitle)
-    if (norm(cleaned.summary)) newBrief.summary = norm(cleaned.summary)
+    const cleanedArticle = (raw && typeof raw === 'string') ? raw.trim() : articleContent
+    const newBrief = { ...brief, articleContent: cleanedArticle }
 
     const updated = await db.story.update({
       where: { id: story.id },
-      data: { headline: newHeadline, brief: newBrief },
+      data: { brief: newBrief },
     })
     await addLog(story.id, req.user.id, 'note', 'AI cleanup applied')
     res.json(updated)
