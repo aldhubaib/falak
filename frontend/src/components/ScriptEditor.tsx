@@ -174,8 +174,18 @@ export function ScriptEditor({
     };
   }, []);
 
+  const uploadFile = useCallback(async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
   const editor = useCreateBlockNote({
     collaboration,
+    uploadFile,
   });
   editorRef.current = editor;
 
