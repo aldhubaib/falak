@@ -135,9 +135,8 @@
     90deg,
     hsl(var(--dim)) 0%,
     hsl(var(--dim)) 25%,
-    hsl(var(--primary)) 45%,
-    hsl(var(--primary-foreground)) 55%,
-    hsl(var(--primary)) 55%,
+    hsl(0 0% 100%) 45%,
+    hsl(0 0% 100%) 55%,
     hsl(var(--dim)) 75%,
     hsl(var(--dim)) 100%
   );

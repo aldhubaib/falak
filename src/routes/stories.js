@@ -56,6 +56,7 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
           sourceName: 'Perplexity Sonar',
           sourceUrl: s.sourceUrl || null,
           brief: s.summary ? { summary: s.summary } : null,
+          queryVersion: brainData?.queryMeta?.version || 'v1',
         },
       })
       created.push(story)
@@ -126,21 +127,39 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   try {
     const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-    if (brief.articleContent) {
+
+    const isYouTube = story.sourceUrl &&
+      (story.sourceUrl.includes('youtube.com') || story.sourceUrl.includes('youtu.be'))
+    if (isYouTube) {
+      await db.story.update({
+        where: { id: story.id },
+        data: { brief: { ...brief, articleContent: '__YOUTUBE__' } },
+      })
+      return res.json({ articleContent: '__YOUTUBE__' })
+    }
+
+    if (brief.articleContent && brief.articleContent !== '__SCRAPE_FAILED__') {
       return res.json({ articleContent: brief.articleContent })
     }
     const url = story.sourceUrl || brief.sourceUrl
     if (!url) return res.status(400).json({ error: 'No source URL for this story' })
-    const result = await fetchArticleText(url)
-    if (result.error) {
-      return res.status(422).json({ error: result.error })
+
+    try {
+      const result = await fetchArticleText(url)
+      if (result.error || !result.text || result.text.trim().length < 100) {
+        brief.articleContent = '__SCRAPE_FAILED__'
+      } else {
+        brief.articleContent = result.text
+      }
+    } catch (err) {
+      brief.articleContent = '__SCRAPE_FAILED__'
     }
-    brief.articleContent = result.text
+
     await db.story.update({
       where: { id: story.id },
-      data: { brief }
+      data: { brief },
     })
-    res.json({ articleContent: result.text })
+    res.json({ articleContent: brief.articleContent })
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     res.status(500).json({ error: e.message })
@@ -159,6 +178,12 @@ router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req,
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys to use Clean up.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+    if (brief.articleContent === '__YOUTUBE__') {
+      return res.json(story)
+    }
+    if (!brief.articleContent || brief.articleContent === '__SCRAPE_FAILED__') {
+      return res.json(story)
+    }
     const articleContent = typeof brief.articleContent === 'string' ? brief.articleContent : ''
     if (!articleContent.trim()) {
       return res.status(400).json({ error: 'No article content to clean. Fetch the article first (e.g. from source URL).' })

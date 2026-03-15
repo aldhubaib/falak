@@ -180,7 +180,8 @@ export default function StoryDetail() {
 
   // ── Fetch full article from sourceUrl when we have URL but no articleContent ─
   useEffect(() => {
-    if (!id || !story?.sourceUrl || brief.articleContent?.trim() || articleLoading) return;
+    if (!id || !story?.sourceUrl || articleLoading) return;
+    if (brief.articleContent && brief.articleContent !== '__SCRAPE_FAILED__' && brief.articleContent !== '__YOUTUBE__') return;
     setArticleError(null);
     setArticleLoading(true);
     fetch(`/api/stories/${id}/fetch-article`, { method: "POST", credentials: "include" })
@@ -505,7 +506,31 @@ export default function StoryDetail() {
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
               Full article
             </div>
-            {brief.articleContent?.trim() ? (
+            {story?.brief?.articleContent === '__YOUTUBE__' ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="mb-3">المصدر مقطع فيديو على يوتيوب</p>
+                <a
+                  href={story.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 underline"
+                >
+                  مشاهدة الفيديو على يوتيوب
+                </a>
+              </div>
+            ) : !articleLoading && (!brief.articleContent || brief.articleContent === '__SCRAPE_FAILED__') ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="mb-3">تعذّر تحميل نص المقال من هذا المصدر</p>
+                <a
+                  href={story?.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 underline"
+                >
+                  اقرأ المقال من المصدر الأصلي
+                </a>
+              </div>
+            ) : brief.articleContent?.trim() ? (
               <div className="max-h-[60vh] overflow-y-auto px-4 select-text" dir="rtl">
                 <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
                   {brief.articleContent}

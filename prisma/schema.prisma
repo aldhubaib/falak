@@ -160,6 +160,7 @@ model Story {
   log             StoryLog[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+  queryVersion    String?
 
   @@index([projectId, stage])
 }
@@ -275,6 +276,10 @@ model TopicMemory {
   lastSeenAt        DateTime  @default(now())
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  demandScore       Float     @default(0)
+  winsShort         Float     @default(0)
+  winsLong          Float     @default(0)
+  velocityScore     Float     @default(0)
 
   @@unique([projectId, topicKey])
   @@index([projectId])
