@@ -727,12 +727,12 @@ export default function StoryDetail() {
                     ))}
                   </div>
                 </div>
-                {scriptStatus !== "idle" && (
+                {(scriptStatus !== "idle" || scriptText) && (
                   <div className="mt-3">
                     <AIWriterBox
                       mode="output"
                       label="Script"
-                      status={scriptStatus}
+                      status={scriptText && scriptStatus === "idle" ? "done" : scriptStatus}
                       value={scriptText}
                     />
                   </div>
@@ -745,6 +745,31 @@ export default function StoryDetail() {
                       setScriptStatus("thinking");
                       setScriptText("");
                       let firstChunk = true;
+                      const CHAR_DELAY = 18;
+                      let charQueue: string[] = [];
+                      let isTyping = false;
+                      const appendChunk = (chunk: string) => {
+                        charQueue.push(...chunk.split(""));
+                        if (!isTyping) drainQueue();
+                      };
+                      const drainQueue = () => {
+                        if (charQueue.length === 0) {
+                          isTyping = false;
+                          return;
+                        }
+                        isTyping = true;
+                        const char = charQueue.shift()!;
+                        setScriptText((prev) => prev + char);
+                        setTimeout(drainQueue, CHAR_DELAY);
+                      };
+                      const onStreamComplete = () =>
+                        new Promise<void>((resolve) => {
+                          const check = () => {
+                            if (charQueue.length === 0 && !isTyping) resolve();
+                            else setTimeout(check, 20);
+                          };
+                          check();
+                        });
                       try {
                         const r = await fetch(`/api/stories/${id}/generate-script`, {
                           method: "POST",
@@ -791,7 +816,7 @@ export default function StoryDetail() {
                                     setScriptStatus("writing");
                                   }
                                   fullScript += chunk;
-                                  setScriptText((prev) => prev + chunk);
+                                  appendChunk(chunk);
                                 }
                               } catch {
                                 // ignore parse errors for non-JSON lines
@@ -820,7 +845,7 @@ export default function StoryDetail() {
                                   setScriptStatus("writing");
                                 }
                                 fullScript += chunk;
-                                setScriptText((prev) => prev + chunk);
+                                appendChunk(chunk);
                               }
                             } catch {
                               // ignore
@@ -828,6 +853,8 @@ export default function StoryDetail() {
                           }
                         }
                         if (firstChunk) setScriptStatus("writing");
+                        await onStreamComplete();
+                        setScriptStatus("done");
                         const script = fullScript.trim();
                         const newBrief = {
                           ...brief,
@@ -838,11 +865,6 @@ export default function StoryDetail() {
                         setStory((s) => (s ? { ...s, brief: newBrief } : s));
                         setScriptOpen(true);
                         toast.success("Script generated. Review in Script section below.");
-                        setScriptStatus("done");
-                        setTimeout(() => {
-                          setScriptStatus("idle");
-                          setScriptText("");
-                        }, 800);
                       } catch (err) {
                         setScriptStatus("idle");
                         setScriptText("");
