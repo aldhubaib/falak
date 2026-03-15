@@ -400,6 +400,7 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
       script: parsed.script || brief.script,
       hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
       scriptFormat: format,
+      scriptRaw: fullScript.trim() || brief.scriptRaw, // full AI output for "single box" view
     }
     await db.story.update({
       where: { id: story.id },

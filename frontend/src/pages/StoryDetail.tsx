@@ -42,6 +42,7 @@ interface StoryBrief {
   hookEnd?: string;
   script?: string;
   scriptFormat?: "short" | "long";
+  scriptRaw?: string; // full AI output for single-box view
   channelId?: string;
   youtubeUrl?: string;
   views?: number;
@@ -131,6 +132,7 @@ export default function StoryDetail() {
   const [articleLoading, setArticleLoading] = useState(false);
   const [articleError, setArticleError] = useState<string | null>(null);
   const [generatingScript, setGeneratingScript] = useState(false);
+  const [scriptViewMode, setScriptViewMode] = useState<"structured" | "full">("structured");
 
   const isWriterBoxRunning = cleaningUp || fetchingArticle || generatingScript;
 
@@ -1162,6 +1164,8 @@ export default function StoryDetail() {
                     )
                   }
                   generating={generatingScript}
+                  scriptViewMode={scriptViewMode}
+                  onScriptViewModeChange={setScriptViewMode}
                   onGenerateScript={async () => {
                     if (!id || !assignedChannel || generatingScript) return;
                     const articleText =
@@ -1305,6 +1309,8 @@ export default function StoryDetail() {
                   }}
                   onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
                   scriptFields={SCRIPT_FIELDS}
+                  scriptViewMode={scriptViewMode}
+                  onScriptViewModeChange={setScriptViewMode}
                 />
 
                 {activeStage === "approved" && (
@@ -1609,7 +1615,11 @@ function ScriptBox({
   onGenerateScript?: () => Promise<void>;
   canGenerate?: boolean;
   generating?: boolean;
+  scriptViewMode?: "structured" | "full";
+  onScriptViewModeChange?: (mode: "structured" | "full") => void;
 }) {
+  const viewMode = scriptViewMode ?? "structured";
+  const setViewMode = onScriptViewModeChange;
   return (
     <div className="rounded-xl bg-background overflow-hidden">
       <button
@@ -1661,6 +1671,42 @@ function ScriptBox({
             ))}
           </div>
 
+          {/* View: Structured (multiple fields) vs Full script (single box) */}
+          {setViewMode && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-dim font-mono uppercase tracking-wider">View</span>
+              <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
+                {(["structured", "full"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
+                      viewMode === mode ? "bg-foreground/10 text-foreground" : "text-dim hover:text-sensor"
+                    }`}
+                  >
+                    {mode === "structured" ? "Structured (fields)" : "Full script (one box)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {viewMode === "full" ? (
+            <div>
+              <label className="block text-[10px] text-dim font-mono uppercase tracking-wider mb-1.5">
+                Full script (everything the AI wrote)
+              </label>
+              <textarea
+                readOnly
+                value={brief.scriptRaw ?? ""}
+                placeholder="Generate with AI to see the full output in one box."
+                rows={16}
+                className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y"
+              />
+            </div>
+          ) : (
+          <>
           {scriptFields.map((field) => {
             const val = (brief[field.key] as string) ?? "";
             const isEditing = !scriptSaved || editingField === field.key;
@@ -1728,6 +1774,8 @@ function ScriptBox({
               Save
             </button>
           )}
+          </>
+          )}
         </div>
       )}
     </div>
@@ -1745,6 +1793,8 @@ function ScriptBoxSaved({
   onFieldDone,
   onBriefChange,
   scriptFields,
+  scriptViewMode,
+  onScriptViewModeChange,
 }: {
   brief: StoryBrief;
   scriptOpen: boolean;
@@ -1754,8 +1804,12 @@ function ScriptBoxSaved({
   onFieldDone: (key: string) => void;
   onBriefChange: (key: keyof StoryBrief, val: string) => void;
   scriptFields: { key: keyof StoryBrief; label: string; placeholder: string; type: "input" | "textarea" }[];
+  scriptViewMode?: "structured" | "full";
+  onScriptViewModeChange?: (mode: "structured" | "full") => void;
 }) {
   const scriptFormat = brief.scriptFormat ?? "short";
+  const viewMode = scriptViewMode ?? "structured";
+  const setViewMode = onScriptViewModeChange;
   return (
     <div className="rounded-xl bg-background overflow-hidden">
       <button
@@ -1777,6 +1831,39 @@ function ScriptBoxSaved({
       </button>
       {scriptOpen && (
         <div className="px-5 pb-5 space-y-4">
+          {setViewMode && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-dim font-mono uppercase tracking-wider">View</span>
+              <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
+                {(["structured", "full"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    className={`px-3 py-1 text-[11px] font-medium rounded-full transition-colors ${
+                      viewMode === mode ? "bg-foreground/10 text-foreground" : "text-dim hover:text-sensor"
+                    }`}
+                  >
+                    {mode === "structured" ? "Structured (fields)" : "Full script (one box)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {viewMode === "full" ? (
+            <div>
+              <label className="block text-[10px] text-dim font-mono uppercase tracking-wider mb-1.5">
+                Full script (everything the AI wrote)
+              </label>
+              <div className="rounded-xl bg-surface px-4 py-3 text-[13px] text-right min-h-[200px]">
+                <pre className="whitespace-pre-wrap font-mono text-[13px]">
+                  {brief.scriptRaw || <span className="text-dim">No full script generated yet.</span>}
+                </pre>
+              </div>
+            </div>
+          ) : (
+          <>
           {scriptFields.map((field) => {
             const val = (brief[field.key] as string) ?? "";
             const isEditing = editingField === field.key;
@@ -1836,6 +1923,8 @@ function ScriptBoxSaved({
               </div>
             );
           })}
+          </>
+          )}
         </div>
       )}
     </div>
