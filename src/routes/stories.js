@@ -272,6 +272,9 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       action: 'Story Generate Script',
     })
     const script = (raw && typeof raw === 'string') ? raw.trim() : ''
+    if (!script) {
+      return res.status(422).json({ error: 'AI returned no script. Try again or use a shorter article.' })
+    }
 
     const newBrief = { ...brief, script, scriptFormat: format }
     const updated = await db.story.update({

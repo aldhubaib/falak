@@ -675,16 +675,22 @@ export default function StoryDetail() {
                           body: JSON.stringify({ format: brief.scriptFormat ?? "short" }),
                         });
                         const data = await r.json().catch(() => ({}));
-                        if (r.ok && data.brief) {
-                          setBrief(data.brief);
-                          setStory((s) => (s ? { ...s, brief: data.brief } : s));
-                          setScriptOpen(true);
-                          toast.success("Script generated. Review in Script section below.");
-                        } else {
-                          toast.error(data.error || "Generate script failed");
+                        if (!r.ok) {
+                          toast.error(data.error || `Generate script failed (${r.status})`);
+                          return;
                         }
-                      } catch {
-                        toast.error("Generate script failed");
+                        const newBrief = data.brief;
+                        if (!newBrief || typeof newBrief !== "object") {
+                          toast.error("Invalid response from server. Please try again.");
+                          return;
+                        }
+                        setBrief(newBrief);
+                        setStory((s) => (s ? { ...s, brief: newBrief } : s));
+                        setScriptOpen(true);
+                        toast.success("Script generated. Review in Script section below.");
+                      } catch (err) {
+                        const msg = err instanceof Error ? err.message : "Generate script failed";
+                        toast.error(msg);
                       } finally {
                         setGeneratingScript(false);
                       }
