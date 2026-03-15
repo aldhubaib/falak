@@ -125,24 +125,27 @@
 }
 
 /* Text shimmer for loading states (inspired by motion-primitives.com/docs/text-shimmer) */
-@keyframes text-shimmer {
-  0% { background-position: 200% center; }
-  100% { background-position: -200% center; }
+@keyframes shimmer-sweep {
+  0% { background-position: 200% 50%; }
+  100% { background-position: -200% 50%; }
 }
 .text-shimmer {
-  --shimmer-base: hsl(var(--dim));
-  --shimmer-highlight: hsl(var(--primary));
+  display: inline-block;
   background: linear-gradient(
     90deg,
-    var(--shimmer-base) 0%,
-    var(--shimmer-base) 35%,
-    var(--shimmer-highlight) 50%,
-    var(--shimmer-base) 65%,
-    var(--shimmer-base) 100%
+    hsl(var(--dim)) 0%,
+    hsl(var(--dim)) 25%,
+    hsl(var(--primary)) 45%,
+    hsl(var(--primary-foreground)) 55%,
+    hsl(var(--primary)) 55%,
+    hsl(var(--dim)) 75%,
+    hsl(var(--dim)) 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: text-shimmer 2s ease-in-out infinite;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  animation: shimmer-sweep 1.8s ease-in-out infinite;
+  will-change: background-position;
 }

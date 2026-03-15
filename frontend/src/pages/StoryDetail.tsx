@@ -413,7 +413,7 @@ export default function StoryDetail() {
                   }
                 }}
                 disabled={cleaningUp}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed"
                 title="Remove website junk from article and format as clean Arabic markdown"
               >
                 {cleaningUp ? (
@@ -421,7 +421,7 @@ export default function StoryDetail() {
                 ) : (
                   <Sparkles className="w-3 h-3 shrink-0" />
                 )}
-                <span className={cleaningUp ? "text-shimmer" : ""}>Clean up with AI</span>
+                <span className={cleaningUp ? "text-shimmer inline-block" : ""}>Clean up with AI</span>
               </button>
               {activeStage === "suggestion" && (
                 <button
