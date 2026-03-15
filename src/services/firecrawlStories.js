@@ -27,7 +27,7 @@ async function searchWithFirecrawl(searchQuery, firecrawlApiKey) {
         { type: 'news' },
       ],
       scrapeOptions: {
-        formats: [{ type: 'markdown' }],
+        formats: ['markdown'],
         onlyMainContent: true,
       },
     }),

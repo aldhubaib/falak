@@ -238,7 +238,13 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
       return res.json({ articleContent: brief.articleContent })
     }
     const url = story.sourceUrl || brief.sourceUrl
-    if (!url) return res.status(400).json({ error: 'No source URL for this story' })
+    if (!url) {
+      await db.story.update({
+        where: { id: story.id },
+        data: { brief: { ...brief, articleContent: '__SCRAPE_FAILED__' } },
+      })
+      return res.json({ articleContent: '__SCRAPE_FAILED__' })
+    }
 
     let result = null
     if (story.project?.firecrawlApiKeyEncrypted) {
