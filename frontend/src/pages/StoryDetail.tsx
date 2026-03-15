@@ -435,31 +435,37 @@ export default function StoryDetail() {
     { key: "hookEnd", label: "Branded Hook End", placeholder: "e.g. لا تنسوا الاشتراك وتفعيل الجرس...", type: "input" },
   ];
 
-  // Single return with conditional UI — no early returns, so hook count is always the same (avoids React #310)
+  // Single return with conditional UI — layout matches reference (vid-wise-owl)
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-pageBorder shrink-0">
-          <button onClick={() => navigate(projectPath("/stories"))} className="link flex items-center gap-2 text-[13px]">
-            <ArrowLeft className="w-4 h-4" /> AI Intelligence
-          </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 animate-spin text-dim" />
+      <div className="flex flex-col min-h-screen bg-surface p-3 max-sm:p-0">
+        <div className="flex flex-col flex-1 bg-background rounded-xl max-sm:rounded-none overflow-hidden">
+          <div className="flex items-center justify-between px-6 max-sm:px-3 border-b border-[#151619] shrink-0 max-lg:px-4 py-2.5">
+            <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="max-sm:hidden">AI Intelligence</span>
+            </button>
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-dim" />
+          </div>
         </div>
       </div>
     );
   }
   if (!story) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-pageBorder shrink-0">
-          <button onClick={() => navigate(projectPath("/stories"))} className="link flex items-center gap-2 text-[13px]">
-            <ArrowLeft className="w-4 h-4" /> Back to Stories
-          </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <span className="text-[13px] text-dim font-mono">Story not found</span>
+      <div className="flex flex-col min-h-screen bg-surface p-3 max-sm:p-0">
+        <div className="flex flex-col flex-1 bg-background rounded-xl max-sm:rounded-none overflow-hidden">
+          <div className="flex items-center justify-between px-6 max-sm:px-3 border-b border-[#151619] shrink-0 max-lg:px-4 py-2.5">
+            <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="max-sm:hidden">AI Intelligence</span>
+            </button>
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <span className="text-[13px] text-dim font-mono">Story not found</span>
+          </div>
         </div>
       </div>
     );
@@ -488,7 +494,6 @@ export default function StoryDetail() {
               headline={story.headline}
               sourceName={story.sourceName ?? null}
               sourceDate={story.sourceDate ?? null}
-              sourceUrl={null}
             />
 
             <StoryDetailScores

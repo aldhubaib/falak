@@ -10,6 +10,7 @@ const navItems = [
   { icon: Activity, label: "Monitor", path: "/monitor" },
   { icon: TrendingUp, label: "Analytics", path: "/analytics" },
   { icon: Sparkles, label: "AI Intelligence", path: "/stories" },
+  { icon: Sparkles, label: "Stories v2", path: "/stories-v2" },
   { icon: CircleDot, label: "Brain", path: "/brain" },
   { icon: Brain, label: "Brain v2", path: "/brain-v2" },
   { icon: Settings, label: "Settings", path: "/settings" },

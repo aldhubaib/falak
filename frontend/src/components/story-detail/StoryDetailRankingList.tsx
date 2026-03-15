@@ -42,8 +42,8 @@ export function StoryDetailRankingList({
               }}
               className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[12px] transition-colors group ${
                 isCurrent
-                  ? "bg-rowHover text-foreground cursor-default"
-                  : "text-dim hover:bg-rowHover cursor-pointer"
+                  ? "bg-[#0d0d10] text-foreground cursor-default"
+                  : "text-dim hover:bg-[#0d0d10] cursor-pointer"
               }`}
             >
               <span className="font-mono w-5">#{i + 1}</span>

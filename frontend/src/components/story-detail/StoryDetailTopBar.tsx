@@ -22,7 +22,7 @@ export function StoryDetailTopBar({
   prevNext,
 }: StoryDetailTopBarProps) {
   return (
-    <div className="flex items-center justify-between px-6 max-sm:px-3 border-b border-pageBorder shrink-0 max-lg:px-4 py-2.5">
+    <div className="flex items-center justify-between px-6 max-sm:px-3 border-b border-[#151619] shrink-0 max-lg:px-4 py-2.5">
       <button
         onClick={onBack}
         className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
