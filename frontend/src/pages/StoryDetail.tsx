@@ -1696,16 +1696,46 @@ function ScriptBox({
 
           {viewMode === "full" ? (
             <div>
-              <label className="block text-[10px] text-dim font-mono uppercase tracking-wider mb-1.5">
-                Full script (everything the AI wrote)
-              </label>
-              <textarea
-                readOnly
-                value={brief.scriptRaw ?? ""}
-                placeholder="Generate with AI to see the full output in one box."
-                rows={16}
-                className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
+                  Full script (everything the AI wrote)
+                </label>
+                <div className="flex items-center gap-2">
+                  {brief.scriptRaw && editingField !== "scriptRaw" && <CopyBtn text={brief.scriptRaw} />}
+                  {editingField === "scriptRaw" ? (
+                    <button
+                      onClick={() => onFieldDone("scriptRaw")}
+                      className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
+                    >
+                      Done
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setEditingField("scriptRaw")}
+                      className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" /> Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+              {editingField === "scriptRaw" ? (
+                <textarea
+                  value={brief.scriptRaw ?? ""}
+                  onChange={(e) => onBriefChange("scriptRaw", e.target.value)}
+                  placeholder="Generate with AI to see the full output in one box."
+                  rows={16}
+                  className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y focus:outline-none focus:border-blue/40"
+                />
+              ) : (
+                <textarea
+                  readOnly
+                  value={brief.scriptRaw ?? ""}
+                  placeholder="Generate with AI to see the full output in one box."
+                  rows={16}
+                  className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y"
+                />
+              )}
             </div>
           ) : (
           <>
@@ -1855,14 +1885,44 @@ function ScriptBoxSaved({
 
           {viewMode === "full" ? (
             <div>
-              <label className="block text-[10px] text-dim font-mono uppercase tracking-wider mb-1.5">
-                Full script (everything the AI wrote)
-              </label>
-              <div className="rounded-xl bg-surface px-4 py-3 text-[13px] text-right min-h-[200px]">
-                <pre className="whitespace-pre-wrap font-mono text-[13px]">
-                  {brief.scriptRaw || <span className="text-dim">No full script generated yet.</span>}
-                </pre>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] text-dim font-mono uppercase tracking-wider">
+                  Full script (everything the AI wrote)
+                </label>
+                <div className="flex items-center gap-2">
+                  {brief.scriptRaw && editingField !== "scriptRaw" && <CopyBtn text={brief.scriptRaw} />}
+                  {editingField === "scriptRaw" ? (
+                    <button
+                      onClick={() => onFieldDone("scriptRaw")}
+                      className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
+                    >
+                      Done
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setEditingField("scriptRaw")}
+                      className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" /> Edit
+                    </button>
+                  )}
+                </div>
               </div>
+              {editingField === "scriptRaw" ? (
+                <textarea
+                  value={brief.scriptRaw ?? ""}
+                  onChange={(e) => onBriefChange("scriptRaw", e.target.value)}
+                  placeholder="Generate with AI to see the full output in one box."
+                  rows={16}
+                  className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim text-right leading-relaxed resize-y focus:outline-none focus:border-blue/40"
+                />
+              ) : (
+                <div className="rounded-xl bg-surface px-4 py-3 text-[13px] text-right min-h-[200px]">
+                  <pre className="whitespace-pre-wrap font-mono text-[13px]">
+                    {brief.scriptRaw || <span className="text-dim">No full script generated yet.</span>}
+                  </pre>
+                </div>
+              )}
             </div>
           ) : (
           <>
