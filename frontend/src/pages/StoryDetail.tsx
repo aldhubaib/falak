@@ -203,9 +203,14 @@ export default function StoryDetail() {
   // ── Typing effect after cleanup ───────────────────────────────────────────
   useEffect(() => {
     if (typingTarget == null) return;
-    const charsPerTick = 3;
-    const intervalMs = 12;
     const len = typingTarget.length;
+    const initialChunk = Math.min(280, len);
+    if (initialChunk >= len) {
+      setTypingTarget(null);
+      return;
+    }
+    const charsPerTick = 5;
+    const intervalMs = 8;
     const t = setInterval(() => {
       setTypedLength((n) => {
         const next = Math.min(n + charsPerTick, len);
@@ -430,7 +435,9 @@ export default function StoryDetail() {
                         const content = (data.brief && typeof data.brief === "object" && typeof data.brief.articleContent === "string") ? data.brief.articleContent : "";
                         if (content) {
                           setTypingTarget(content);
-                          setTypedLength(0);
+                          // Show first chunk immediately so user sees something right away, then type the rest
+                          const initialChunk = Math.min(280, content.length);
+                          setTypedLength(initialChunk);
                         }
                       } else {
                         toast.error(data.error || "Cleanup failed");
