@@ -7,7 +7,6 @@ import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { ApiStory, Stage } from "./Stories";
 import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-detail";
@@ -62,6 +61,7 @@ export default function StoryDetail() {
   const [cleaningUp, setCleaningUp] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [cleanupStatus, setCleanupStatus] = useState<WriterState>("idle");
+  const [cleanupProgress, setCleanupProgress] = useState(0);
   const [articleDisplayValue, setArticleDisplayValue] = useState("");
   const [scriptStatus, setScriptStatus] = useState<WriterState>("idle");
   const [scriptText, setScriptText] = useState("");
@@ -165,7 +165,7 @@ export default function StoryDetail() {
       .finally(() => setArticleLoading(false));
   }, [id, story?.sourceUrl, brief.articleContent, articleLoading]);
 
-  // ── Sync article display for AI Writer Box (when not typing from cleanup) ─
+  // ── Sync article display (when not cleaning) ─
   useEffect(() => {
     const raw = brief.articleContent;
     if (
@@ -177,6 +177,11 @@ export default function StoryDetail() {
       setArticleDisplayValue(raw);
     }
   }, [brief.articleContent, cleanupStatus]);
+
+  // Reset cleanup progress when idle
+  useEffect(() => {
+    if (cleanupStatus === "idle" && !cleaningUp) setCleanupProgress(0);
+  }, [cleanupStatus, cleaningUp]);
 
   // ── Persist helpers ───────────────────────────────────────────────────────
 
@@ -244,6 +249,7 @@ export default function StoryDetail() {
     if (!id || isWriterBoxRunning) return;
     setCleaningUp(true);
     setCleanupStatus("thinking");
+    setCleanupProgress(20);
     const CHAR_DELAY = 18;
     let charQueue: string[] = [];
     let isTyping = false;
@@ -278,17 +284,21 @@ export default function StoryDetail() {
         setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
         setBrief(newBrief as StoryBrief);
         toast.success("Article cleaned");
+        setCleanupProgress(50);
         setCleanupStatus("writing");
         setArticleDisplayValue("");
         appendChunk(cleanedContent);
         await onStreamComplete();
+        setCleanupProgress(100);
         setCleanupStatus("done");
       } else {
         setCleanupStatus("idle");
+        setCleanupProgress(0);
         toast.error(data.error || "Cleanup failed");
       }
     } catch {
       setCleanupStatus("idle");
+      setCleanupProgress(0);
       toast.error("Cleanup failed");
     } finally {
       setCleaningUp(false);
@@ -455,94 +465,67 @@ export default function StoryDetail() {
     );
   }
 
-  const scoresInline = `R ${story.relevanceScore ?? 0} V ${story.viralScore ?? 0} F ${story.firstMoverScore ?? 0} T ${story.compositeScore ?? 0}`;
-  const relativeDate = story.sourceDate || story.createdAt
-    ? formatDistanceToNow(new Date((story.sourceDate || story.createdAt) ?? ""), { addSuffix: true })
-    : undefined;
-  const articleBody = articleDisplayValue ||
-    (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__"
-      ? brief.articleContent
-      : "");
-  const contentLength = articleBody.length;
-
   return (
-    <div className="flex flex-col min-h-screen">
-      <StoryDetailTopBar
-        stageLabel={STAGES.find((s) => s.key === activeStage)?.label ?? ""}
-        stages={STAGES}
-        activeStage={activeStage}
-        onStageChange={(key) => moveStage(key as Stage)}
-        saving={saving}
-        onBack={() => navigate(projectPath("/stories"))}
-        prevNext={showStageNav ? {
-          currentIndex: stageIndex + 1,
-          total: stageStories.length,
-          onPrev: () => prevStory && navigate(projectPath(`/story/${prevStory.id}`)),
-          onNext: () => nextStory && navigate(projectPath(`/story/${nextStory.id}`)),
-          hasPrev: !!prevStory,
-          hasNext: !!nextStory,
-        } : undefined}
-        showLogo={true}
-      />
+    <div className="flex flex-col min-h-screen bg-surface p-3 max-sm:p-0">
+      <div className="flex flex-col flex-1 bg-background rounded-xl max-sm:rounded-none overflow-hidden">
+        <StoryDetailTopBar
+          stageLabel={STAGES.find((s) => s.key === activeStage)?.label ?? ""}
+          saving={saving}
+          onBack={() => navigate(projectPath("/stories"))}
+          prevNext={showStageNav ? {
+            currentIndex: stageIndex + 1,
+            total: stageStories.length,
+            onPrev: () => prevStory && navigate(projectPath(`/story/${prevStory.id}`)),
+            onNext: () => nextStory && navigate(projectPath(`/story/${nextStory.id}`)),
+            hasPrev: !!prevStory,
+            hasNext: !!nextStory,
+          } : undefined}
+        />
 
-      <div className="flex-1 relative overflow-auto">
-        <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6 space-y-6">
-          <StoryDetailArticle
-            storyId={id}
-            sourceUrl={story.sourceUrl}
-            articleContent={brief.articleContent}
-            articleDisplayValue={articleDisplayValue}
-            cleanupStatus={cleanupStatus}
-            articleLoading={articleLoading}
-            articleError={articleError}
-            showOmit={activeStage === "suggestion"}
-            actionsDisabled={isWriterBoxRunning}
-            onCleanup={handleCleanup}
-            onRefetch={handleRefetch}
-            onOmit={handleOmit}
-            onRetryFetch={handleRetryFetch}
-            scoresInline={scoresInline}
-            relativeDate={relativeDate}
-            defaultOpen={true}
-          />
-
-          {/* TITLE section */}
-          <div className="rounded-xl bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">TITLE</div>
-            <h1 className="text-xl font-bold text-right leading-relaxed">{story.headline}</h1>
-          </div>
-
-          {/* CONTENT section */}
-          <div className="rounded-xl bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">
-              CONTENT ({contentLength})
-            </div>
-            <div className="text-[13px] leading-relaxed text-right text-foreground whitespace-pre-wrap">
-              {articleBody ? (
-                articleBody
-              ) : (
-                <span className="text-dim">No article content yet. Fetch or clean the article above.</span>
-              )}
-            </div>
-          </div>
-
-          <StoryDetailScores
-            relevance={story.relevanceScore ?? 0}
-            viral={story.viralScore ?? 0}
-            firstMover={story.firstMoverScore ?? 0}
-            total={story.compositeScore ?? 0}
-          />
-
-          {brief.suggestedTitle && (
-            <StoryDetailAIAnalysis
-              text={brief.suggestedTitle}
-              isFirst={isFirst}
-              isLate={isLate}
+        <div className="flex-1 overflow-auto">
+          <div className="px-6 max-lg:px-4 max-sm:px-3 py-5 pb-16 space-y-5">
+            <StoryDetailTitle
+              headline={story.headline}
+              sourceName={story.sourceName ?? null}
+              sourceDate={story.sourceDate ?? null}
+              sourceUrl={null}
             />
-          )}
 
-          <StoryDetailYouTubeTags
-            tags={brief.youtubeTags}
+            <StoryDetailScores
+              relevance={story.relevanceScore ?? 0}
+              viral={story.viralScore ?? 0}
+              firstMover={story.firstMoverScore ?? 0}
+              total={story.compositeScore ?? 0}
+            />
+
+            {brief.suggestedTitle && (
+              <StoryDetailAIAnalysis
+                text={brief.suggestedTitle}
+                isFirst={isFirst}
+                isLate={isLate}
+              />
+            )}
+
+            <StoryDetailArticle
+              storyId={id}
+              sourceUrl={story.sourceUrl}
+              articleContent={brief.articleContent}
+              articleDisplayValue={articleDisplayValue}
+              cleanupProgress={cleanupProgress}
+              articleLoading={articleLoading}
+              articleError={articleError}
+              actionsDisabled={isWriterBoxRunning}
+              onCleanup={handleCleanup}
+              onRefetch={handleRefetch}
+              onRetryFetch={handleRetryFetch}
+              onArticleChange={(value) => {
+                setArticleDisplayValue(value);
+                setBrief((b) => ({ ...b, articleContent: value }));
+              }}
+            />
+
+            <StoryDetailYouTubeTags
+              tags={brief.youtubeTags}
             suggesting={suggestingTags}
             onSuggest={async () => {
               if (!id || suggestingTags) return;
@@ -585,6 +568,7 @@ export default function StoryDetail() {
                     toast.error("Failed to pass story");
                   }
                 }}
+                onOmit={handleOmit}
               />
             )}
 
@@ -1072,5 +1056,6 @@ export default function StoryDetail() {
         </div>
       </div>
     </div>
+  </div>
   );
 }

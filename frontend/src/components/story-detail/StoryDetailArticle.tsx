@@ -1,26 +1,21 @@
-import { useState } from "react";
-import { Sparkles, RefreshCw, Loader2, Ban, ChevronUp, ExternalLink } from "lucide-react";
-import { AIWriterBox, type WriterState } from "@/components/AIWriterBox";
+import { FileText, Wand2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 export interface StoryDetailArticleProps {
   storyId: string | undefined;
   sourceUrl: string | null;
   articleContent: string | undefined;
   articleDisplayValue: string;
-  cleanupStatus: WriterState;
+  /** 0-100 during cleanup for progress bar */
+  cleanupProgress?: number;
   articleLoading: boolean;
   articleError: string | null;
-  showOmit: boolean;
   actionsDisabled: boolean;
   onCleanup: () => Promise<void>;
   onRefetch: () => Promise<void>;
-  onOmit: () => Promise<void>;
   onRetryFetch: () => Promise<void>;
-  /** Inline scores in header (e.g. "R 92 V 97 F 85 T 91") */
-  scoresInline?: string;
-  /** Relative date (e.g. "2 days ago") */
-  relativeDate?: string;
-  defaultOpen?: boolean;
+  /** When user edits article text in textarea */
+  onArticleChange?: (value: string) => void;
 }
 
 export function StoryDetailArticle({
@@ -28,25 +23,20 @@ export function StoryDetailArticle({
   sourceUrl,
   articleContent,
   articleDisplayValue,
-  cleanupStatus,
+  cleanupProgress = 0,
   articleLoading,
   articleError,
-  showOmit,
   actionsDisabled,
   onCleanup,
   onRefetch,
-  onOmit,
   onRetryFetch,
-  scoresInline,
-  relativeDate,
-  defaultOpen = true,
+  onArticleChange,
 }: StoryDetailArticleProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const isCleaning = actionsDisabled && cleanupProgress > 0;
   const isYouTube = articleContent === "__YOUTUBE__";
   const isScrapeFailed =
     !articleLoading && (!articleContent || articleContent === "__SCRAPE_FAILED__");
   const hasValidContent =
-    cleanupStatus !== "idle" ||
     !!articleDisplayValue ||
     (!!articleContent?.trim() &&
       articleContent !== "__SCRAPE_FAILED__" &&
@@ -59,73 +49,43 @@ export function StoryDetailArticle({
       ? articleContent
       : "");
 
+  const progressStatus =
+    cleanupProgress < 30
+      ? "Analyzing text…"
+      : cleanupProgress < 70
+        ? "Cleaning up…"
+        : cleanupProgress < 100
+          ? "Finalizing…"
+          : "Done!";
+
   return (
     <div className="rounded-xl bg-background border border-border overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-3 px-5 py-3 border-b border-border shrink-0 hover:bg-elevated/30 transition-colors text-left"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest shrink-0">
-            Original Story
-          </span>
-          {scoresInline && (
-            <span className="text-[11px] font-mono text-dim truncate">{scoresInline}</span>
-          )}
-          {relativeDate && (
-            <span className="text-[11px] text-dim shrink-0">{relativeDate}</span>
-          )}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-dim" />
+          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Article</span>
         </div>
-        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            data-button="cleanup-with-ai"
-            aria-label="Clean up with AI"
-            onClick={() => onCleanup()}
-            disabled={actionsDisabled}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none"
-          >
-            {actionsDisabled ? <Loader2 className="w-3 h-3 shrink-0 animate-spin" /> : <Sparkles className="w-3 h-3 shrink-0" />}
-            Clean up with AI
-          </button>
-          <button
-            type="button"
-            onClick={() => onRefetch()}
-            disabled={!sourceUrl || actionsDisabled}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:opacity-50"
-          >
-            <RefreshCw className="w-3 h-3 shrink-0" />
-            Re-fetch
-          </button>
-          {sourceUrl && (
-            <a
-              href={sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-mono text-dim hover:text-sensor transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ExternalLink className="w-3 h-3" />
-              READ SOURCE
-            </a>
-          )}
-          {showOmit && (
-            <button
-              type="button"
-              onClick={() => onOmit()}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
-              title="Omit"
-            >
-              <Ban className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-        <ChevronUp className={`w-4 h-4 text-dim shrink-0 transition-transform ${open ? "" : "rotate-180"}`} />
-      </button>
+        <button
+          type="button"
+          onClick={() => onCleanup()}
+          disabled={actionsDisabled || !displayValue.trim()}
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Wand2 className={`w-3 h-3 ${actionsDisabled ? "animate-spin" : ""}`} />
+          {actionsDisabled ? "Cleaning…" : "AI Clean Up"}
+        </button>
+      </div>
 
-      {open && (
-      <div className="px-5 py-6">
+      {isCleaning && (
+        <div className="px-5 pt-3">
+          <Progress value={cleanupProgress} className="h-1.5 bg-muted" />
+          <div className="text-[10px] font-mono text-dim mt-1.5 text-center">
+            {progressStatus}
+          </div>
+        </div>
+      )}
+
+      <div className="p-5">
         {isYouTube ? (
           <div className="text-center py-8 text-muted-foreground">
             <p className="mb-3">المصدر مقطع فيديو على يوتيوب</p>
@@ -166,28 +126,29 @@ export function StoryDetailArticle({
             </div>
           </div>
         ) : hasValidContent ? (
-          <AIWriterBox
-            mode="output"
-            label="Original Story"
-            status={articleDisplayValue && cleanupStatus === "idle" ? "done" : cleanupStatus}
+          <textarea
             value={displayValue}
+            onChange={(e) => onArticleChange?.(e.target.value)}
+            disabled={actionsDisabled}
+            placeholder="اكتب المقال الكامل هنا..."
+            rows={10}
+            dir="rtl"
+            className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim/50 focus:outline-none focus:border-primary/40 text-right leading-relaxed resize-y disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           />
         ) : articleLoading ? (
           <p className="text-[12px] text-dim text-right">Loading article…</p>
         ) : articleError ? (
           <p className="text-[12px] text-dim text-right">
-            {articleError}. Use “Read source” below to open the original article.
+            {articleError}. Use re-fetch or open the source link.
           </p>
         ) : !sourceUrl ? (
           <p className="text-[12px] text-dim text-right">
-            No source URL for this story. The original story can be shown when a source link is
-            available.
+            No source URL for this story.
           </p>
         ) : (
           <p className="text-[12px] text-dim text-right">Loading article…</p>
         )}
       </div>
-      )}
     </div>
   );
 }
