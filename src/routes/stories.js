@@ -470,6 +470,59 @@ Your job:
   }
 })
 
+// ── POST /api/stories/:id/suggest-tags — AI suggest min 5 YouTube tags from headline + script/summary
+router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
+    })
+    const project = story.project
+    if (!project?.anthropicApiKeyEncrypted) {
+      return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
+    }
+    const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+    const headline = (story.headline || '').trim()
+    const script = typeof brief.script === 'string' ? brief.script.trim() : ''
+    const summary = typeof brief.summary === 'string' ? brief.summary.trim() : ''
+    const context = [headline, summary, script].filter(Boolean).join('\n\n')
+    if (!context) {
+      return res.status(400).json({ error: 'Add a headline or generate a script first so the AI can suggest tags.' })
+    }
+    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+    const system = `You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.
+
+Rules:
+- Output at least 5 tags and up to 15. Prefer 8–12.
+- Tags can be in Arabic, English, or mixed depending on the content and target audience.
+- One tag per line. No numbers, bullets, or commas. No explanation.
+- Keep each tag short (1–4 words). No sentences.`
+    const userMessage = `Suggest YouTube tags for this video:\n\n${context.slice(0, 15000)}`
+    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+      system,
+      maxTokens: 512,
+      projectId: project.id,
+      action: 'Story Suggest Tags',
+    })
+    const text = (raw && typeof raw === 'string') ? raw.trim() : ''
+    const tags = text
+      .split(/\n/)
+      .map((s) => s.replace(/^[\d.)\-\s]+/, '').trim())
+      .filter((s) => s.length > 0 && s.length <= 100)
+    const youtubeTags = tags.slice(0, 15)
+    const newBrief = { ...brief, youtubeTags }
+    const updated = await db.story.update({
+      where: { id: story.id },
+      data: { brief: newBrief },
+    })
+    res.json({ tags: newBrief.youtubeTags, brief: updated.brief })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/suggest-tags]', e)
+    res.status(500).json({ error: e.message || 'Suggest tags failed' })
+  }
+})
+
 // ── GET /api/stories/:id
 router.get('/:id', async (req, res) => {
   try {
