@@ -22,10 +22,12 @@ async function searchWithFirecrawl(searchQuery, firecrawlApiKey) {
     body: JSON.stringify({
       query: searchQuery,
       limit: 10,
-      sources: ['web', 'news'],
-      tbs: 'qdr:w',
+      sources: [
+        { type: 'web', tbs: 'qdr:w' },
+        { type: 'news' },
+      ],
       scrapeOptions: {
-        formats: ['markdown'],
+        formats: [{ type: 'markdown' }],
         onlyMainContent: true,
       },
     }),
@@ -37,14 +39,24 @@ async function searchWithFirecrawl(searchQuery, firecrawlApiKey) {
   }
 
   const data = await res.json()
-  return data.data || []
+  const raw = data.data || {}
+  const web = Array.isArray(raw.web) ? raw.web : []
+  const news = Array.isArray(raw.news) ? raw.news : []
+  const articles = [...web, ...news]
+  if (articles.length === 0) {
+    console.warn('[firecrawlStories] Search returned 0 articles. query:', searchQuery.slice(0, 80), 'response keys:', Object.keys(raw))
+  }
+  return articles
 }
 
 async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, projectId) {
   const articlesText = articles
-    .map((a, i) =>
-      `--- ARTICLE ${i + 1} ---\nURL: ${a.url || a.metadata?.url || ''}\nTitle: ${(a.metadata?.title || a.title || '').slice(0, 200)}\n\n${(a.markdown || a.content || a.description || '').slice(0, 1500)}`
-    )
+    .map((a, i) => {
+      const url = a.url || a.metadata?.sourceURL || a.metadata?.url || ''
+      const title = (a.metadata?.title ?? a.title ?? '').slice(0, 200)
+      const body = (a.markdown || a.content || a.description || a.snippet || '').slice(0, 1500)
+      return `--- ARTICLE ${i + 1} ---\nURL: ${url}\nTitle: ${title}\n\n${body}`
+    })
     .join('\n\n')
 
   const systemPrompt = `أنت محلل محتوى لقناة يوتيوب عربية.
