@@ -118,10 +118,9 @@ export default function StoryDetail() {
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [cleanupSuccess, setCleanupSuccess] = useState(false);
   const [cleanupStatus, setCleanupStatus] = useState<WriterState>("idle");
+  const [articleDisplayValue, setArticleDisplayValue] = useState("");
   const [scriptStatus, setScriptStatus] = useState<WriterState>("idle");
   const [scriptText, setScriptText] = useState("");
-  const [typingTarget, setTypingTarget] = useState<string | null>(null);
-  const [typedLength, setTypedLength] = useState(0);
 
   // ── UI state (synced with brief JSON) ────────────────────────────────────
   const [brief, setBrief] = useState<StoryBrief>({});
@@ -205,29 +204,18 @@ export default function StoryDetail() {
       .finally(() => setArticleLoading(false));
   }, [id, story?.sourceUrl, brief.articleContent, articleLoading]);
 
-  // ── Typing effect after cleanup ───────────────────────────────────────────
+  // ── Sync article display for AI Writer Box (when not typing from cleanup) ─
   useEffect(() => {
-    if (typingTarget == null) return;
-    const len = typingTarget.length;
-    const initialChunk = Math.min(280, len);
-    if (initialChunk >= len) {
-      setTypingTarget(null);
-      return;
+    const raw = brief.articleContent;
+    if (
+      (cleanupStatus === "idle" || cleanupStatus === "done") &&
+      typeof raw === "string" &&
+      raw !== "__SCRAPE_FAILED__" &&
+      raw !== "__YOUTUBE__"
+    ) {
+      setArticleDisplayValue(raw);
     }
-    const charsPerTick = 5;
-    const intervalMs = 8;
-    const t = setInterval(() => {
-      setTypedLength((n) => {
-        const next = Math.min(n + charsPerTick, len);
-        if (next >= len) {
-          clearInterval(t);
-          setTypingTarget(null);
-        }
-        return next;
-      });
-    }, intervalMs);
-    return () => clearInterval(t);
-  }, [typingTarget]);
+  }, [brief.articleContent, cleanupStatus]);
 
   // ── Persist helpers ───────────────────────────────────────────────────────
 
@@ -431,23 +419,47 @@ export default function StoryDetail() {
                     setCleanupSuccess(false);
                     setCleaningUp(true);
                     setCleanupStatus("thinking");
+                    const CHAR_DELAY = 18;
+                    let charQueue: string[] = [];
+                    let isTyping = false;
+                    const appendChunk = (chunk: string) => {
+                      charQueue.push(...chunk.split(""));
+                      if (!isTyping) drainQueue();
+                    };
+                    const drainQueue = () => {
+                      if (charQueue.length === 0) {
+                        isTyping = false;
+                        return;
+                      }
+                      isTyping = true;
+                      const char = charQueue.shift()!;
+                      setArticleDisplayValue((prev) => prev + char);
+                      setTimeout(drainQueue, CHAR_DELAY);
+                    };
+                    const onStreamComplete = () =>
+                      new Promise<void>((resolve) => {
+                        const check = () => {
+                          if (charQueue.length === 0 && !isTyping) resolve();
+                          else setTimeout(check, 20);
+                        };
+                        check();
+                      });
                     try {
                       const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
                       const data = await r.json().catch(() => ({}));
                       const newBrief = data.brief && typeof data.brief === "object" ? data.brief : null;
                       const cleanedContent = newBrief && typeof newBrief.articleContent === "string" ? newBrief.articleContent : "";
                       if (r.ok && cleanedContent) {
-                        setCleanupStatus("writing");
                         setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
                         setBrief(newBrief);
                         setCleanupSuccess(true);
                         toast.success("Article cleaned");
-                        setTypingTarget(cleanedContent);
-                        const initialChunk = Math.min(280, cleanedContent.length);
-                        setTypedLength(initialChunk);
                         setTimeout(() => setCleanupSuccess(false), 2500);
-                        setTimeout(() => setCleanupStatus("done"), 300);
-                        setTimeout(() => setCleanupStatus("idle"), 2000);
+                        setCleanupStatus("writing");
+                        setArticleDisplayValue("");
+                        appendChunk(cleanedContent);
+                        await onStreamComplete();
+                        setCleanupStatus("done");
                       } else {
                         setCleanupStatus("idle");
                         toast.error(data.error || "Cleanup failed");
@@ -586,26 +598,9 @@ export default function StoryDetail() {
             </div>
           </div>
 
-          {/* Full article from source (read-only) — fetched from sourceUrl when available */}
-          <div className="rounded-xl bg-background p-5">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
-                Full article
-              </span>
-              {(cleanupStatus === "thinking" || cleanupStatus === "writing") && (
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-[5px] h-[5px] rounded-full shrink-0 ${
-                      cleanupStatus === "thinking" ? "bg-blue animate-pulse-dot" : "bg-foreground"
-                    }`}
-                  />
-                  <span className="ai-status-word ai-status-word--shimmer-rtl text-[11px]">
-                    {cleanupStatus === "thinking" ? "Thinking" : "Writing"}
-                  </span>
-                </div>
-              )}
-            </div>
-            {story?.brief?.articleContent === '__YOUTUBE__' ? (
+          {/* Full article — AI Writer Box when we have content; else YouTube / scrape-failed / loading */}
+          {story?.brief?.articleContent === '__YOUTUBE__' ? (
+            <div className="rounded-xl bg-background p-5">
               <div className="text-center py-8 text-muted-foreground">
                 <p className="mb-3">المصدر مقطع فيديو على يوتيوب</p>
                 <a
@@ -617,7 +612,8 @@ export default function StoryDetail() {
                   مشاهدة الفيديو على يوتيوب
                 </a>
               </div>
-            ) : !articleLoading && (!brief.articleContent || brief.articleContent === '__SCRAPE_FAILED__') ? (
+          ) : !articleLoading && (!brief.articleContent || brief.articleContent === '__SCRAPE_FAILED__') ? (
+            <div className="rounded-xl bg-background p-5">
               <div className="text-center py-8 text-muted-foreground space-y-4">
                 <p className="mb-1">تعذّر تحميل نص المقال من هذا المصدر</p>
                 <p className="text-[11px] text-dim">Source could not be scraped. Try re-fetching or open the link below.</p>
@@ -670,24 +666,16 @@ export default function StoryDetail() {
                   )}
                 </div>
               </div>
-            ) : (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__") ? (
-              <div className="max-h-[60vh] overflow-y-auto px-4 select-text" dir="rtl">
-                {typingTarget != null ? (
-                  <>
-                    <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
-                      {typingTarget.slice(0, typedLength)}
-                    </ReactMarkdown>
-                    {typedLength < typingTarget.length && (
-                      <span className="inline-block w-0.5 h-4 align-middle bg-sensor animate-pulse ml-0.5" aria-hidden />
-                    )}
-                  </>
-                ) : (
-                  <ReactMarkdown className="prose prose-invert max-w-none text-right text-[13px] leading-relaxed text-foreground">
-                    {brief.articleContent === "__SCRAPE_FAILED__" || brief.articleContent === "__YOUTUBE__" ? "" : (brief.articleContent ?? "")}
-                  </ReactMarkdown>
-                )}
-              </div>
-            ) : articleLoading ? (
+            ) : (cleanupStatus !== "idle" || articleDisplayValue || (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__")) ? (
+            <div className="px-5 pb-5">
+              <AIWriterBox
+                mode="output"
+                label="Full article"
+                status={articleDisplayValue && cleanupStatus === "idle" ? "done" : cleanupStatus}
+                value={articleDisplayValue || (brief.articleContent?.trim() && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__" ? brief.articleContent : "")}
+              />
+            </div>
+          ) : articleLoading ? (
               <p className="text-[12px] text-dim text-right">Loading article…</p>
             ) : articleError ? (
               <p className="text-[12px] text-dim text-right">

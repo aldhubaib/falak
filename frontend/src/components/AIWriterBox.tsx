@@ -1,6 +1,22 @@
 /**
- * AI Writer Box — status word shimmer + cursor, 4 states only.
- * Shimmer is only on the status word, never on the article/script text.
+ * AI Writer Box — reusable UI for AI text generation with status + cursor.
+ * Use anywhere you need: "Thinking" / "Writing" / "Done" + optional input area.
+ *
+ * Modes:
+ * - output: You control `value` and `status`. Good for streaming (e.g. script,
+ *   summary). Drive status: idle → thinking → writing → done.
+ * - input: User types in a textarea; optional `onAction(text)` button (e.g.
+ *   "Clean up with AI"). Use `defaultValue` / `onChange` if you need the text.
+ *
+ * Reuse example (output, e.g. generate script):
+ *   const [status, setStatus] = useState<WriterState>("idle");
+ *   const [text, setText] = useState("");
+ *   <AIWriterBox mode="output" label="Script" status={status} value={text} />
+ *
+ * Reuse example (input + action):
+ *   <AIWriterBox mode="input" label="Prompt" defaultValue="" onAction={(t) => submit(t)} actionLabel="Run" />
+ *
+ * Shimmer is only on the status word; cursor hides when status is "done".
  */
 import { useState, useRef, useEffect } from "react";
 
