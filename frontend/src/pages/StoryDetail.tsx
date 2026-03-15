@@ -1103,6 +1103,8 @@ export default function StoryDetail() {
               </>
             )}
           </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1360,10 +1362,6 @@ function ScriptBoxSaved({
           })}
         </div>
       )}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
