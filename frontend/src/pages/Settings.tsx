@@ -63,6 +63,15 @@ const KEY_DEFS: ApiKeyDef[] = [
     link: "https://youtube-transcript.io",
     linkLabel: "youtube-transcript.io ↗",
   },
+  {
+    service: "firecrawl",
+    name: "Firecrawl",
+    description: "Web scraping and LLM-ready markdown. Used to scrape article content from URLs (Stories). Get your key at firecrawl.dev — stored per project.",
+    icon: "data",
+    placeholder: "fc-...",
+    link: "https://www.firecrawl.dev/app",
+    linkLabel: "firecrawl.dev ↗",
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -71,7 +80,7 @@ const iconMap = { ai: Bot, data: Cog, search: Globe, transcript: FileText };
 const iconColorMap = { ai: "text-purple", data: "text-dim", search: "text-blue", transcript: "text-orange" };
 const apiNameColorMap: Record<string, string> = {
   Anthropic: "text-purple", "YouTube Data": "text-dim",
-  "YT Transcript": "text-orange", Perplexity: "text-blue",
+  "YT Transcript": "text-orange", Perplexity: "text-blue", Firecrawl: "text-dim",
 };
 
 function mapService(api: string): { name: string; icon: "ai" | "data" | "search" | "transcript" } {
@@ -79,6 +88,7 @@ function mapService(api: string): { name: string; icon: "ai" | "data" | "search"
   if (api === "youtube-data") return { name: "YouTube Data", icon: "data" };
   if (api === "yttranscript") return { name: "YT Transcript", icon: "transcript" };
   if (api === "perplexity")  return { name: "Perplexity",   icon: "search" };
+  if (api === "firecrawl")   return { name: "Firecrawl",   icon: "data" };
   return { name: api, icon: "data" };
 }
 
@@ -158,7 +168,7 @@ export default function Settings() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [usageHasMore, usageLoading, usageCursor, fetchUsagePage]);
 
-  // Load key status + YouTube keys
+  // Load key status + YouTube keys (global /api/settings) and project keys (for firecrawl)
   useEffect(() => {
     fetch("/api/settings", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -172,11 +182,44 @@ export default function Settings() {
       .catch(() => {});
   }, []);
 
-  // Save single key
+  // Merge project-scoped key status (e.g. Firecrawl) when projectId is set
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/projects/${projectId}/keys`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { hasFirecrawlKey?: boolean } | null) => {
+        if (!d) return;
+        setKeyStatus((prev) => ({
+          ...prev,
+          ...(d.hasFirecrawlKey !== undefined && { firecrawl: d.hasFirecrawlKey }),
+        }));
+      })
+      .catch(() => {});
+  }, [projectId]);
+
+  // Save single key (project-scoped for firecrawl, else global /api/settings/keys)
   const handleSave = (service: string, name: string) => {
     const val = editing[service]?.trim();
     if (!val) { toast.error("Please enter a key value"); return; }
     setSaving((p) => ({ ...p, [service]: true }));
+
+    if (service === "firecrawl" && projectId) {
+      fetch(`/api/projects/${projectId}/keys`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firecrawlKey: val }),
+      })
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then(() => {
+          setKeyStatus((p) => ({ ...p, firecrawl: true }));
+          setEditing((p) => { const n = { ...p }; delete n.firecrawl; return n; });
+          toast.success(`${name} key saved`);
+        })
+        .catch(() => toast.error("Failed to save key"))
+        .finally(() => setSaving((p) => ({ ...p, [service]: false })));
+      return;
+    }
+
     fetch("/api/settings/keys", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -192,9 +235,27 @@ export default function Settings() {
       .finally(() => setSaving((p) => ({ ...p, [service]: false })));
   };
 
-  // Clear single key
+  // Clear single key (project-scoped for firecrawl, else global DELETE)
   const handleClear = (service: string, name: string) => {
     setClearing((p) => ({ ...p, [service]: true }));
+
+    if (service === "firecrawl" && projectId) {
+      fetch(`/api/projects/${projectId}/keys`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firecrawlKey: null }),
+      })
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then(() => {
+          setKeyStatus((p) => ({ ...p, firecrawl: false }));
+          setEditing((p) => { const n = { ...p }; delete n.firecrawl; return n; });
+          toast(`${name} key cleared`);
+        })
+        .catch(() => toast.error("Failed to clear key"))
+        .finally(() => setClearing((p) => ({ ...p, [service]: false })));
+      return;
+    }
+
     fetch(`/api/settings/keys/${service}`, { method: "DELETE", credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(() => {

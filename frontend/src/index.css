@@ -143,6 +143,74 @@
   animation: scroll-down 30s linear infinite;
 }
 
+/* --- AI Writer Box: cursor + status word shimmer (do not apply shimmer to article/script text) --- */
+@keyframes blink-idle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+@keyframes blink-think {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.15; }
+}
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.6); }
+}
+@keyframes shimmer-sweep-ltr {
+  0% { background-position: 100% center; }
+  100% { background-position: -100% center; }
+}
+@keyframes shimmer-sweep-rtl {
+  0% { background-position: -100% center; }
+  100% { background-position: 100% center; }
+}
+
+.ai-cursor {
+  display: inline-block;
+  width: var(--cursor-width);
+  height: var(--cursor-height);
+  border-radius: var(--cursor-radius);
+  vertical-align: text-bottom;
+}
+.ai-cursor--idle {
+  background: var(--cursor-color-idle);
+  animation: blink-idle var(--cursor-blink-idle) ease-in-out infinite;
+}
+.ai-cursor--thinking {
+  background: var(--cursor-color-thinking);
+  animation: blink-think var(--cursor-blink-think) ease-in-out infinite;
+}
+.ai-cursor--writing {
+  background: var(--cursor-color-writing);
+  animation: none;
+}
+
+.ai-status-word {
+  display: inline-block;
+  color: hsl(var(--dim));
+}
+.ai-status-word--shimmer {
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    var(--shimmer-base) 0%,
+    var(--shimmer-base) 35%,
+    var(--shimmer-highlight) 50%,
+    var(--shimmer-base) 65%,
+    var(--shimmer-base) 100%
+  );
+  background-size: calc(var(--shimmer-spread) * 200%) 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: shimmer-sweep-ltr var(--shimmer-duration) linear infinite;
+}
+.ai-status-word--shimmer-rtl {
+  animation: shimmer-sweep-rtl var(--shimmer-duration) linear infinite;
+}
+.animate-pulse-dot {
+  animation: pulse-dot var(--dot-pulse-duration) ease-in-out infinite;
+}
+
 /* Text shimmer for loading states (inspired by motion-primitives.com/docs/text-shimmer) */
 @keyframes shimmer-sweep {
   0% { background-position: 200% 50%; }

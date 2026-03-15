@@ -9,6 +9,7 @@ function stripProjectKeys(p) {
     anthropicApiKeyEncrypted,
     perplexityApiKeyEncrypted,
     ytTranscriptApiKeyEncrypted,
+    firecrawlApiKeyEncrypted,
     ...rest
   } = p
   return {
@@ -17,6 +18,7 @@ function stripProjectKeys(p) {
     hasAnthropicKey:    !!anthropicApiKeyEncrypted,
     hasPerplexityKey:   !!perplexityApiKeyEncrypted,
     hasYtTranscriptKey: !!ytTranscriptApiKeyEncrypted,
+    hasFirecrawlKey:    !!firecrawlApiKeyEncrypted,
   }
 }
 
@@ -230,10 +232,12 @@ function buildKeyStatus(project) {
     perplexityKeyPreview:   keyPreview(project.perplexityApiKeyEncrypted, 16),
     hasYtTranscriptKey:     !!project.ytTranscriptApiKeyEncrypted,
     ytTranscriptKeyPreview: keyPreview(project.ytTranscriptApiKeyEncrypted, 16),
+    hasFirecrawlKey:        !!project.firecrawlApiKeyEncrypted,
+    firecrawlKeyPreview:    keyPreview(project.firecrawlApiKeyEncrypted, 12),
   }
 }
 
-// GET /api/projects/:id/keys — return key presence for all 4 services
+// GET /api/projects/:id/keys — return key presence for all 5 services
 projects.get('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const project = await db.project.findUnique({
@@ -243,6 +247,7 @@ projects.get('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
         anthropicApiKeyEncrypted: true,
         perplexityApiKeyEncrypted: true,
         ytTranscriptApiKeyEncrypted: true,
+        firecrawlApiKeyEncrypted: true,
       }
     })
     if (!project) return res.status(404).json({ error: 'Project not found' })
@@ -252,10 +257,10 @@ projects.get('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
   }
 })
 
-// PATCH /api/projects/:id/keys — save/clear anthropic, perplexity, ytTranscript keys
+// PATCH /api/projects/:id/keys — save/clear anthropic, perplexity, ytTranscript, firecrawl keys
 projects.patch('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { anthropicKey, perplexityKey, ytTranscriptKey } = req.body
+    const { anthropicKey, perplexityKey, ytTranscriptKey, firecrawlKey } = req.body
     const data = {}
     if (anthropicKey !== undefined)
       data.anthropicApiKeyEncrypted = anthropicKey ? encrypt(anthropicKey) : null
@@ -263,8 +268,20 @@ projects.patch('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
       data.perplexityApiKeyEncrypted = perplexityKey ? encrypt(perplexityKey) : null
     if (ytTranscriptKey !== undefined)
       data.ytTranscriptApiKeyEncrypted = ytTranscriptKey ? encrypt(ytTranscriptKey) : null
+    if (firecrawlKey !== undefined)
+      data.firecrawlApiKeyEncrypted = firecrawlKey ? encrypt(firecrawlKey) : null
 
-    const project = await db.project.update({ where: { id: req.params.id }, data })
+    const project = await db.project.update({
+      where: { id: req.params.id },
+      data,
+      select: {
+        youtubeApiKeyEncrypted: true,
+        anthropicApiKeyEncrypted: true,
+        perplexityApiKeyEncrypted: true,
+        ytTranscriptApiKeyEncrypted: true,
+        firecrawlApiKeyEncrypted: true,
+      }
+    })
     res.json(buildKeyStatus(project))
   } catch (e) {
     res.status(500).json({ error: e.message })
@@ -294,6 +311,7 @@ projects.post('/:id/keys/youtube', requireRole('owner', 'admin'), async (req, re
         anthropicApiKeyEncrypted: true,
         perplexityApiKeyEncrypted: true,
         ytTranscriptApiKeyEncrypted: true,
+        firecrawlApiKeyEncrypted: true,
       },
     })
     res.json(buildKeyStatus(updated))
@@ -324,6 +342,7 @@ projects.delete('/:id/keys/youtube/:idx', requireRole('owner', 'admin'), async (
         anthropicApiKeyEncrypted: true,
         perplexityApiKeyEncrypted: true,
         ytTranscriptApiKeyEncrypted: true,
+        firecrawlApiKeyEncrypted: true,
       },
     })
     res.json(buildKeyStatus(updated))

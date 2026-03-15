@@ -5,6 +5,7 @@ const { decrypt } = require('../services/crypto')
 const { fetchStorySuggestions } = require('../services/perplexity')
 const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
+const { scrapeUrl } = require('../services/firecrawl')
 const { callAnthropic } = require('../services/pipelineProcessor')
 const brainV2 = require('./brainV2')
 
@@ -199,7 +200,10 @@ router.get('/summary', async (req, res) => {
 // ── POST /api/stories/:id/fetch-article — fetch sourceUrl and store full article text in brief.articleContent
 router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const story = await db.story.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { project: { select: { firecrawlApiKeyEncrypted: true } } },
+    })
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
 
     const isYouTube = story.sourceUrl &&
@@ -219,15 +223,26 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
     const url = story.sourceUrl || brief.sourceUrl
     if (!url) return res.status(400).json({ error: 'No source URL for this story' })
 
-    try {
-      const result = await fetchArticleText(url)
-      if (result.error || !result.text || result.text.trim().length < 100) {
-        brief.articleContent = '__SCRAPE_FAILED__'
-      } else {
-        brief.articleContent = result.text
+    let result = null
+    if (story.project?.firecrawlApiKeyEncrypted) {
+      try {
+        const apiKey = decrypt(story.project.firecrawlApiKeyEncrypted)
+        result = await scrapeUrl(apiKey, url)
+      } catch (_) {
+        result = { error: 'Firecrawl key invalid' }
       }
-    } catch (err) {
+    }
+    if (!result || result.error) {
+      try {
+        result = await fetchArticleText(url)
+      } catch (err) {
+        result = { error: err.message || 'Fetch failed' }
+      }
+    }
+    if (result.error || !result.text || result.text.trim().length < 100) {
       brief.articleContent = '__SCRAPE_FAILED__'
+    } else {
+      brief.articleContent = result.text
     }
 
     await db.story.update({

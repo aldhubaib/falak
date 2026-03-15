@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { AIWriterBox, type WriterState } from "@/components/AIWriterBox";
 import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
@@ -116,6 +117,9 @@ export default function StoryDetail() {
   const [cleaningUp, setCleaningUp] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
   const [cleanupSuccess, setCleanupSuccess] = useState(false);
+  const [cleanupStatus, setCleanupStatus] = useState<WriterState>("idle");
+  const [scriptStatus, setScriptStatus] = useState<WriterState>("idle");
+  const [scriptText, setScriptText] = useState("");
   const [typingTarget, setTypingTarget] = useState<string | null>(null);
   const [typedLength, setTypedLength] = useState(0);
 
@@ -426,24 +430,30 @@ export default function StoryDetail() {
                     if (!id || cleaningUp) return;
                     setCleanupSuccess(false);
                     setCleaningUp(true);
+                    setCleanupStatus("thinking");
                     try {
                       const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
                       const data = await r.json().catch(() => ({}));
                       const newBrief = data.brief && typeof data.brief === "object" ? data.brief : null;
                       const cleanedContent = newBrief && typeof newBrief.articleContent === "string" ? newBrief.articleContent : "";
                       if (r.ok && cleanedContent) {
+                        setCleanupStatus("writing");
                         setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
                         setBrief(newBrief);
                         setCleanupSuccess(true);
                         toast.success("Article cleaned");
-                        setTimeout(() => setCleanupSuccess(false), 2500);
                         setTypingTarget(cleanedContent);
                         const initialChunk = Math.min(280, cleanedContent.length);
                         setTypedLength(initialChunk);
+                        setTimeout(() => setCleanupSuccess(false), 2500);
+                        setTimeout(() => setCleanupStatus("done"), 300);
+                        setTimeout(() => setCleanupStatus("idle"), 2000);
                       } else {
+                        setCleanupStatus("idle");
                         toast.error(data.error || "Cleanup failed");
                       }
                     } catch {
+                      setCleanupStatus("idle");
                       toast.error("Cleanup failed");
                     } finally {
                       setCleaningUp(false);
@@ -578,8 +588,22 @@ export default function StoryDetail() {
 
           {/* Full article from source (read-only) — fetched from sourceUrl when available */}
           <div className="rounded-xl bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
-              Full article
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                Full article
+              </span>
+              {(cleanupStatus === "thinking" || cleanupStatus === "writing") && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-[5px] h-[5px] rounded-full shrink-0 ${
+                      cleanupStatus === "thinking" ? "bg-blue animate-pulse-dot" : "bg-foreground"
+                    }`}
+                  />
+                  <span className="ai-status-word ai-status-word--shimmer-rtl text-[11px]">
+                    {cleanupStatus === "thinking" ? "Thinking" : "Writing"}
+                  </span>
+                </div>
+              )}
             </div>
             {story?.brief?.articleContent === '__YOUTUBE__' ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -662,11 +686,23 @@ export default function StoryDetail() {
                     ))}
                   </div>
                 </div>
+                {scriptStatus !== "idle" && (
+                  <div className="mt-3">
+                    <AIWriterBox
+                      mode="output"
+                      label="Script"
+                      status={scriptStatus}
+                      value={scriptText}
+                    />
+                  </div>
+                )}
                 <button
                     type="button"
                     onClick={async () => {
                       if (!id || generatingScript) return;
                       setGeneratingScript(true);
+                      setScriptStatus("thinking");
+                      setScriptText("");
                       try {
                         const r = await fetch(`/api/stories/${id}/generate-script`, {
                           method: "POST",
@@ -676,19 +712,31 @@ export default function StoryDetail() {
                         });
                         const data = await r.json().catch(() => ({}));
                         if (!r.ok) {
+                          setScriptStatus("idle");
                           toast.error(data.error || `Generate script failed (${r.status})`);
                           return;
                         }
-                        const newBrief = data.brief;
-                        if (!newBrief || typeof newBrief !== "object") {
-                          toast.error("Invalid response from server. Please try again.");
-                          return;
-                        }
+                        const script = data.brief?.script ?? data.scriptShort ?? data.scriptLong ?? "";
+                        setScriptStatus("writing");
+                        setScriptText(script);
+                        const newBrief =
+                          data.brief && typeof data.brief === "object"
+                            ? { ...data.brief, script: script || (data.brief as StoryBrief).script }
+                            : { script, scriptFormat: brief.scriptFormat ?? "short" };
                         setBrief(newBrief);
                         setStory((s) => (s ? { ...s, brief: newBrief } : s));
                         setScriptOpen(true);
                         toast.success("Script generated. Review in Script section below.");
+                        setTimeout(() => {
+                          setScriptStatus("done");
+                          setTimeout(() => {
+                            setScriptStatus("idle");
+                            setScriptText("");
+                          }, 800);
+                        }, 300);
                       } catch (err) {
+                        setScriptStatus("idle");
+                        setScriptText("");
                         const msg = err instanceof Error ? err.message : "Generate script failed";
                         toast.error(msg);
                       } finally {
