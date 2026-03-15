@@ -277,7 +277,9 @@ export default function BrainV2() {
               <div className="flex items-center justify-between mb-5">
                 <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Competitor Story Database</div>
                 <div className="flex items-center gap-3 flex-wrap justify-end">
-                  <span className="text-[10px] text-dim font-mono">Built from {competitorVideoCount} competitor video{competitorVideoCount === 1 ? "" : "s"}</span>
+                  <span className="text-[10px] text-dim font-mono" title="Source videos with completed pipeline analysis; stories below are grouped by topic (fewer rows).">
+                    Built from {competitorVideoCount} competitor video{competitorVideoCount === 1 ? "" : "s"}
+                  </span>
                   <span className="text-[10px] text-dim font-mono">Last extracted: {lastExtracted}</span>
                   <button onClick={handleReExtract} disabled={reExtracting} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
                     {reExtracting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}

@@ -31,7 +31,7 @@ export interface ApiStory {
 }
 
 const STAGES: { key: Stage; label: string; color: string; sub: string }[] = [
-  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     sub: "awaiting triage" },
+  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     sub: "awaiting triage · from Brain v2 + Perplexity" },
   { key: "liked",      label: "Liked",          color: "text-blue",       sub: "saved for review" },
   { key: "approved",   label: "Approved",        color: "text-purple",     sub: "brief generation ready" },
   { key: "filmed",     label: "Filmed",          color: "text-success",    sub: "waiting for URL" },
@@ -110,11 +110,14 @@ export default function Stories() {
     setStoriesDisplayLimit(STORIES_PAGE_SIZE);
   }, [activeStage]);
 
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const handleFetch = async () => {
     if (!projectId) {
       toast.error("Project not found. Open a project from the sidebar first.");
       return;
     }
+    setFetchError(null);
     setFetching(true);
     toast.info("Fetching new stories from Perplexity Sonar…");
     try {
@@ -125,14 +128,23 @@ export default function Stories() {
         body: JSON.stringify({ projectId }),
       });
       const data = await r.json().catch(() => ({}));
+      const errMsg = data?.error ?? data?.message ?? (r.ok ? null : `Server error (${r.status})`);
       if (!r.ok) {
-        toast.error(data.error || "Fetch failed");
+        setFetchError(errMsg || "Fetch failed");
+        toast.error(errMsg || "Fetch failed");
         return;
       }
-      toast.success(data.created > 0 ? `Added ${data.created} story suggestions` : "Fetch complete — no new suggestions this time");
+      if (data.created > 0) {
+        toast.success(`Added ${data.created} story suggestions`);
+      } else {
+        const hint = data.message || "No new suggestions this time.";
+        toast.success(hint);
+      }
       await loadStories();
-    } catch {
-      toast.error("Failed to fetch stories. Check the console for details.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Network or server error";
+      setFetchError(msg);
+      toast.error(msg);
     } finally {
       setFetching(false);
     }
@@ -197,7 +209,7 @@ export default function Stories() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleFetch}
-            disabled={fetching}
+            disabled={fetching || !projectId}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50"
           >
             {fetching ? (
@@ -214,6 +226,26 @@ export default function Stories() {
           </button>
         </div>
       </div>
+
+      {fetchError && (
+        <div className="mx-6 max-lg:mx-4 mt-3 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center justify-between gap-3">
+          <span className="text-[12px] text-destructive flex-1 min-w-0 break-words" title={fetchError}>{fetchError}</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(fetchError).then(() => toast.success("Copied"));
+              }}
+              className="text-[11px] font-medium text-dim hover:text-foreground"
+            >
+              Copy
+            </button>
+            <button type="button" onClick={() => setFetchError(null)} className="text-[11px] font-medium text-dim hover:text-foreground">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 relative overflow-auto">
         {/* Stats row */}

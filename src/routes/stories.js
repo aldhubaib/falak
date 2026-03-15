@@ -12,8 +12,8 @@ router.use(requireAuth)
 
 // ── POST /api/stories/fetch — call Perplexity Sonar with Brain v2 auto-search query, create suggestion stories
 router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  let projectId = req.body?.projectId
   try {
-    const { projectId } = req.body
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
     const project = await db.project.findUnique({
@@ -25,12 +25,22 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       return res.status(400).json({ error: 'Perplexity API key not set. Add it in Settings → API Keys.' })
     }
 
-    const apiKey = decrypt(project.perplexityApiKeyEncrypted)
+    let apiKey
+    try {
+      apiKey = decrypt(project.perplexityApiKeyEncrypted)
+    } catch (decErr) {
+      console.error('[stories/fetch] decrypt failed', decErr)
+      return res.status(400).json({ error: 'Perplexity API key could not be read. Re-save it in Settings → API Keys.' })
+    }
+    if (!apiKey || !apiKey.trim()) {
+      return res.status(400).json({ error: 'Perplexity API key is empty. Add it in Settings → API Keys.' })
+    }
+
     const brainData = await brainV2.getBrainV2Data(projectId)
     const autoSearchQuery = brainData?.autoSearchQuery
     if (!autoSearchQuery || !autoSearchQuery.trim()) {
       return res.status(400).json({
-        error: 'No search query yet. Add competitor and your channels, run the pipeline, then try Fetch again.',
+        error: 'No search query yet. Add competitor and your channels, run the pipeline to completion, then open Brain v2 once. After that, Fetch will work.',
       })
     }
 
@@ -53,12 +63,16 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
     const tokensUsed = 2000
     trackUsage({ projectId, service: 'perplexity', action: 'Fetch Stories', tokensUsed, status: 'ok' })
 
-    res.json({ ok: true, created: created.length, stories: created })
+    const message =
+      created.length > 0
+        ? null
+        : 'Perplexity returned 0 new stories (they may have been filtered for missing source URL, or try again).'
+    res.json({ ok: true, created: created.length, stories: created, message })
   } catch (e) {
     console.error('[stories/fetch]', e)
     const message = e instanceof Error ? e.message : String(e)
-    if (req.body?.projectId) {
-      trackUsage({ projectId: req.body.projectId, service: 'perplexity', action: 'Fetch Stories', status: 'fail', error: message })
+    if (projectId) {
+      trackUsage({ projectId, service: 'perplexity', action: 'Fetch Stories', status: 'fail', error: message })
     }
     res.status(500).json({ error: message })
   }
