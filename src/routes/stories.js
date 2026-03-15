@@ -5,6 +5,7 @@ const { decrypt } = require('../services/crypto')
 const { fetchStorySuggestions } = require('../services/perplexity')
 const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
+const { callAnthropic } = require('../services/pipelineProcessor')
 const brainV2 = require('./brainV2')
 
 const router = express.Router()
@@ -143,6 +144,57 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/stories/:id/cleanup — AI clean/normalize headline and brief text
+router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
+    })
+    const project = story.project
+    if (!project?.anthropicApiKeyEncrypted) {
+      return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys to use Clean up.' })
+    }
+    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+    const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+    const headline = (story.headline || '').trim()
+    const summary = [brief.summary, brief.suggestedTitle].filter(Boolean).join('\n') || headline
+
+    const system = `You are a copy editor. Clean and normalize the given story data. Fix: extra spaces, inconsistent punctuation, stray line breaks, trim whitespace. Keep meaning and language (Arabic/English) unchanged. Return ONLY a valid JSON object with optional keys: "headline" (string), "summary" (string), "suggestedTitle" (string). No other text or markdown.`
+    const userContent = `Clean this data and return JSON only:\n\nheadline: ${headline}\n\nsummary/suggestedTitle: ${summary}`
+    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userContent }], {
+      system,
+      maxTokens: 1024,
+      projectId: project.id,
+      action: 'Story Cleanup',
+    })
+    let cleaned = {}
+    const jsonMatch = raw.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      try {
+        cleaned = JSON.parse(jsonMatch[0])
+      } catch {
+        cleaned = { headline: headline }
+      }
+    }
+    const newHeadline = typeof cleaned.headline === 'string' && cleaned.headline.trim() ? cleaned.headline.trim() : headline
+    const newBrief = { ...brief }
+    if (typeof cleaned.suggestedTitle === 'string' && cleaned.suggestedTitle.trim()) newBrief.suggestedTitle = cleaned.suggestedTitle.trim()
+    if (typeof cleaned.summary === 'string' && cleaned.summary.trim()) newBrief.summary = cleaned.summary.trim()
+
+    const updated = await db.story.update({
+      where: { id: story.id },
+      data: { headline: newHeadline, brief: newBrief },
+    })
+    await addLog(story.id, req.user.id, 'note', 'AI cleanup applied')
+    res.json(updated)
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/cleanup]', e)
+    res.status(500).json({ error: e.message || 'Cleanup failed' })
   }
 })
 

@@ -356,4 +356,5 @@ module.exports = {
   doStageTranscribe,
   doStageComments,
   doStageAnalyzing,
+  callAnthropic,
 }

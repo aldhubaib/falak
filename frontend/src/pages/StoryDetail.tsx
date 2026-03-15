@@ -3,8 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   Copy, Check, ExternalLink, Trophy, Eye, ThumbsUp, MessageSquare,
-  Link2, ArrowLeft, ArrowUpRight, ChevronDown, Sparkles, Pencil,
-  RefreshCw, Loader2,
+  Link2, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, Sparkles, Pencil,
+  RefreshCw, Loader2, Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { ApiStory, Stage } from "./Stories";
@@ -109,8 +109,10 @@ export default function StoryDetail() {
   const [story, setStory] = useState<StoryWithLog | null>(null);
   const [ourChannels, setOurChannels] = useState<ApiChannel[]>([]);
   const [likedStories, setLikedStories] = useState<ApiStory[]>([]);
+  const [stageStories, setStageStories] = useState<ApiStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
 
   // ── UI state (synced with brief JSON) ────────────────────────────────────
   const [brief, setBrief] = useState<StoryBrief>({});
@@ -140,6 +142,20 @@ export default function StoryDetail() {
         setArticleError(null);
         setArticleLoading(false);
         if (b.youtubeUrl) setYoutubeInput(b.youtubeUrl);
+        // Fetch stories in same stage for prev/next navigation
+        const stageRes = await fetch(`/api/stories?projectId=${projectId}&stage=${s.stage}`, { credentials: "include" });
+        if (stageRes.ok) {
+          const list: ApiStory[] = await stageRes.json();
+          const sorted = [...list].sort((a, b) => {
+            const scoreA = a.compositeScore ?? 0;
+            const scoreB = b.compositeScore ?? 0;
+            if (scoreB !== scoreA) return scoreB - scoreA;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+          setStageStories(sorted);
+        } else {
+          setStageStories([]);
+        }
       }
       if (channelsRes.ok) {
         const data = await channelsRes.json();
@@ -219,9 +235,25 @@ export default function StoryDetail() {
   const moveStage = useCallback(
     async (to: Stage) => {
       const updated = await patchStory({ stage: to });
-      if (updated) toast.success(`Moved to ${STAGES.find((s) => s.key === to)?.label}`);
+      if (updated) {
+        toast.success(`Moved to ${STAGES.find((s) => s.key === to)?.label}`);
+        // Refresh stage list so prev/next match new stage
+        if (projectId) {
+          const stageRes = await fetch(`/api/stories?projectId=${projectId}&stage=${to}`, { credentials: "include" });
+          if (stageRes.ok) {
+            const list: ApiStory[] = await stageRes.json();
+            const sorted = [...list].sort((a, b) => {
+              const scoreA = a.compositeScore ?? 0;
+              const scoreB = b.compositeScore ?? 0;
+              if (scoreB !== scoreA) return scoreB - scoreA;
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+            setStageStories(sorted);
+          }
+        }
+      }
     },
-    [patchStory]
+    [patchStory, projectId]
   );
 
   // ── Loading / not found ───────────────────────────────────────────────────
@@ -276,6 +308,12 @@ export default function StoryDetail() {
   const likedSorted = [...likedStories].sort(
     (a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0)
   );
+
+  // Prev/next in current stage
+  const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
+  const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
+  const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
+  const showStageNav = stageStories.length > 1 && stageIndex >= 0;
 
   const fmt = (n?: number) =>
     !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
@@ -337,6 +375,24 @@ export default function StoryDetail() {
         </div>
         <div className="flex items-center gap-2">
           {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-dim" />}
+          {activeStage === "suggestion" && (
+            <button
+              type="button"
+              onClick={async () => {
+                const updated = await patchStory({ stage: "omit" });
+                if (updated) {
+                  setStory(updated);
+                  toast.success("Omitted — insufficient data");
+                } else {
+                  toast.error("Failed to omit story");
+                }
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0"
+              title="Omit (insufficient data to produce)"
+            >
+              <Ban className="w-4 h-4" />
+            </button>
+          )}
           <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-primary/15 text-primary">
             {STAGES.find((s) => s.key === activeStage)?.label}
           </span>
@@ -345,9 +401,68 @@ export default function StoryDetail() {
 
       <div className="flex-1 relative overflow-auto">
         <div className="max-w-[900px] mx-auto px-6 max-lg:px-4 py-6 space-y-6">
+          {/* Prev/next in current stage */}
+          {showStageNav && (
+            <div className="flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => prevStory && navigate(projectPath(`/story/${prevStory.id}`))}
+                disabled={!prevStory}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-border text-[13px] font-medium text-dim hover:text-sensor hover:border-sensor/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                title={prevStory ? `Previous: ${prevStory.headline.slice(0, 40)}…` : "No previous"}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Previous
+              </button>
+              <span className="text-[11px] font-mono text-dim">
+                {stageIndex + 1} / {stageStories.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => nextStory && navigate(projectPath(`/story/${nextStory.id}`))}
+                disabled={!nextStory}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-border text-[13px] font-medium text-dim hover:text-sensor hover:border-sensor/40 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                title={nextStory ? `Next: ${nextStory.headline.slice(0, 40)}…` : "No next"}
+              >
+                Next
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Title */}
           <div>
-            <h1 className="text-xl font-bold text-right leading-relaxed">{story.headline}</h1>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!id || cleaningUp) return;
+                  setCleaningUp(true);
+                  try {
+                    const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
+                    const data = await r.json().catch(() => ({}));
+                    if (r.ok && data.headline !== undefined) {
+                      setStory((s) => (s ? { ...s, headline: data.headline, brief: data.brief ?? s.brief } : s));
+                      setBrief((data.brief && typeof data.brief === "object") ? data.brief : {});
+                      toast.success("Data cleaned up");
+                    } else {
+                      toast.error(data.error || "Cleanup failed");
+                    }
+                  } catch {
+                    toast.error("Cleanup failed");
+                  } finally {
+                    setCleaningUp(false);
+                  }
+                }}
+                disabled={cleaningUp}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50"
+                title="Ask AI to normalize headline and summary (fix spacing, punctuation)"
+              >
+                {cleaningUp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Clean up with AI
+              </button>
+            </div>
+            <h1 className="text-xl font-bold text-right leading-relaxed mt-2">{story.headline}</h1>
             <div className="text-[11px] text-dim font-mono mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
               {[story.sourceName, story.sourceDate?.split("T")[0]].filter(Boolean).join(" · ")}
               {story.sourceUrl && (
@@ -436,20 +551,6 @@ export default function StoryDetail() {
                   className="flex-1 min-w-[120px] px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
                 >
                   Save to Liked
-                </button>
-                <button
-                  onClick={async () => {
-                    const updated = await patchStory({ stage: "omit" });
-                    if (updated) {
-                      setStory(updated);
-                      toast.success("Omitted — insufficient data");
-                    } else {
-                      toast.error("Failed to omit story");
-                    }
-                  }}
-                  className="link flex-1 min-w-[100px] px-4 py-2.5 text-[13px] font-medium rounded-full border border-border"
-                >
-                  Omit
                 </button>
                 <button
                   onClick={async () => {
