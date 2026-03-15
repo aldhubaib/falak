@@ -80,6 +80,7 @@ export default function Stories() {
     firstMoverPct: number;
   } | null>(null);
   const [storiesDisplayLimit, setStoriesDisplayLimit] = useState(STORIES_PAGE_SIZE);
+  const [listSort, setListSort] = useState<"score" | "date">("score");
   const [loadError, setLoadError] = useState<string | null>(null);
   const storyListScrollRef = useRef<HTMLDivElement>(null);
 
@@ -183,8 +184,10 @@ export default function Stories() {
   }
 
   const stageStories = stories.filter((s) => s.stage === activeStage);
-  // Sort by high score first (compositeScore desc, then createdAt desc)
   const stageStoriesSorted = [...stageStories].sort((a, b) => {
+    if (listSort === "date") {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
     const scoreA = a.compositeScore ?? 0;
     const scoreB = b.compositeScore ?? 0;
     if (scoreB !== scoreA) return scoreB - scoreA;
@@ -314,12 +317,29 @@ export default function Stories() {
             style={{ maxHeight: "calc(100vh - 300px)" }}
           >
             {/* Header */}
-            <div className="px-4 py-3 bg-background shrink-0 flex items-center justify-between">
+            <div className="px-4 py-3 bg-background shrink-0 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-[13px] font-semibold">
                   {STAGES.find((s) => s.key === activeStage)?.label}
                 </span>
                 <span className="text-[12px] text-dim font-mono">({stageStories.length})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-dim font-mono uppercase tracking-wider mr-1">Sort:</span>
+                {(["score", "date"] as const).map((sortKey) => (
+                  <button
+                    key={sortKey}
+                    type="button"
+                    onClick={() => setListSort(sortKey)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                      listSort === sortKey
+                        ? "bg-foreground/10 text-foreground border border-foreground/20"
+                        : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
+                    }`}
+                  >
+                    {sortKey === "score" ? "By score" : "By date"}
+                  </button>
+                ))}
               </div>
             </div>
 
