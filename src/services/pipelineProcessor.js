@@ -351,10 +351,77 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
   }
 }
 
+/**
+ * Stream Anthropic Messages API; yields text chunks from content_block_delta text_delta events.
+ * @param {string} apiKey
+ * @param {string} model
+ * @param {Array<{role: string, content: string}>} messages
+ * @param {{ system?: string, maxTokens?: number, projectId?: string, action?: string }} opts
+ * @yields {string} text delta
+ */
+async function * callAnthropicStream(apiKey, model, messages, { system, maxTokens, projectId, action } = {}) {
+  const body = {
+    model,
+    max_tokens: maxTokens || MAX_ANTHROPIC_TOKENS,
+    messages: messages.map(({ role, content }) => ({ role, content })),
+    stream: true,
+  }
+  if (system) body.system = system
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const t = await res.text()
+    trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
+    throw new Error(`Anthropic API: ${res.status} ${t}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+      const raw = line.slice(6).trim()
+      if (!raw) continue
+      try {
+        const obj = JSON.parse(raw)
+        if (obj.type === 'content_block_delta' && obj.delta?.type === 'text_delta' && obj.delta.text) {
+          yield obj.delta.text
+        }
+      } catch (_) {}
+    }
+  }
+  if (buffer.trim().startsWith('data: ')) {
+    try {
+      const obj = JSON.parse(buffer.slice(6).trim())
+      if (obj.type === 'content_block_delta' && obj.delta?.type === 'text_delta' && obj.delta.text) {
+        yield obj.delta.text
+      }
+    } catch (_) {}
+  }
+  trackUsage({ projectId, service: 'anthropic', action, tokensUsed: null, status: 'ok' })
+}
+
 module.exports = {
   doStageImport,
   doStageTranscribe,
   doStageComments,
   doStageAnalyzing,
   callAnthropic,
+  callAnthropicStream,
 }

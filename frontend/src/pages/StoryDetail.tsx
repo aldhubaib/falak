@@ -744,6 +744,7 @@ export default function StoryDetail() {
                       setGeneratingScript(true);
                       setScriptStatus("thinking");
                       setScriptText("");
+                      let firstChunk = true;
                       try {
                         const r = await fetch(`/api/stories/${id}/generate-script`, {
                           method: "POST",
@@ -751,31 +752,69 @@ export default function StoryDetail() {
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ format: brief.scriptFormat ?? "short" }),
                         });
-                        const data = await r.json().catch(() => ({}));
                         if (!r.ok) {
+                          const data = await r.json().catch(() => ({}));
                           setScriptStatus("idle");
                           toast.error(data.error || `Generate script failed (${r.status})`);
                           return;
                         }
-                        // API returns script in response.brief.script; scriptShort/scriptLong are legacy and often null
-                        const script = data.brief?.script ?? data.scriptShort ?? data.scriptLong ?? "";
-                        setScriptStatus("writing");
-                        setScriptText(script);
-                        const newBrief =
-                          data.brief && typeof data.brief === "object"
-                            ? { ...data.brief, script: script || (data.brief as StoryBrief).script }
-                            : { script, scriptFormat: brief.scriptFormat ?? "short" };
+                        const reader = r.body?.getReader();
+                        if (!reader) {
+                          setScriptStatus("idle");
+                          toast.error("Generate script failed (no stream)");
+                          return;
+                        }
+                        const decoder = new TextDecoder();
+                        let buffer = "";
+                        let fullScript = "";
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          buffer += decoder.decode(value, { stream: true });
+                          const lines = buffer.split("\n");
+                          buffer = lines.pop() ?? "";
+                          for (const line of lines) {
+                            if (!line.startsWith("data: ")) continue;
+                            const raw = line.slice(6).trim();
+                            if (raw === "[DONE]") continue;
+                            try {
+                              const obj = JSON.parse(raw);
+                              if (obj?.error) {
+                                setScriptStatus("idle");
+                                toast.error(obj.error);
+                                return;
+                              }
+                              const chunk =
+                                obj?.delta?.text ?? obj?.choices?.[0]?.delta?.content ?? "";
+                              if (chunk) {
+                                if (firstChunk) {
+                                  firstChunk = false;
+                                  setScriptStatus("writing");
+                                }
+                                fullScript += chunk;
+                                setScriptText((prev) => prev + chunk);
+                              }
+                            } catch {
+                              // ignore parse errors for non-JSON lines
+                            }
+                          }
+                        }
+                        if (firstChunk) setScriptStatus("writing");
+                        const script = fullScript.trim();
+                        const newBrief = {
+                          ...brief,
+                          script: script || undefined,
+                          scriptFormat: brief.scriptFormat ?? "short",
+                        };
                         setBrief(newBrief);
                         setStory((s) => (s ? { ...s, brief: newBrief } : s));
                         setScriptOpen(true);
                         toast.success("Script generated. Review in Script section below.");
+                        setScriptStatus("done");
                         setTimeout(() => {
-                          setScriptStatus("done");
-                          setTimeout(() => {
-                            setScriptStatus("idle");
-                            setScriptText("");
-                          }, 800);
-                        }, 300);
+                          setScriptStatus("idle");
+                          setScriptText("");
+                        }, 800);
                       } catch (err) {
                         setScriptStatus("idle");
                         setScriptText("");

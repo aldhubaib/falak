@@ -6,7 +6,7 @@ const { fetchStoriesViaFirecrawl } = require('../services/firecrawlStories')
 const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl } = require('../services/firecrawl')
-const { callAnthropic } = require('../services/pipelineProcessor')
+const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
 const brainV2 = require('./brainV2')
 
 const router = express.Router()
@@ -273,7 +273,7 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   }
 })
 
-// ── POST /api/stories/:id/generate-script — AI Writer: generate script from article
+// ── POST /api/stories/:id/generate-script — AI Writer: generate script from article (streaming SSE)
 router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
@@ -297,23 +297,40 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       : 'You are an expert Arabic YouTube Shorts scriptwriter. Given an article, write a short script (1–2 min read) in Arabic. Hook in the first line, then key facts. Output ONLY the script text, no explanations.'
 
     const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short'} script:\n\n${articleContent.slice(0, 120000)}`
-    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
-      system,
-      maxTokens: 8192,
-      projectId: project.id,
-      action: 'Story Generate Script',
-    })
-    const script = (raw && typeof raw === 'string') ? raw.trim() : ''
-    if (!script) {
-      return res.status(422).json({ error: 'AI returned no script. Try again or use a shorter article.' })
+
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('X-Accel-Buffering', 'no')
+    res.setHeader('Connection', 'keep-alive')
+    res.flushHeaders?.()
+
+    let fullScript = ''
+    try {
+      for await (const chunk of callAnthropicStream(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+        system,
+        maxTokens: 8192,
+        projectId: project.id,
+        action: 'Story Generate Script',
+      })) {
+        fullScript += chunk
+        res.write(`data: ${JSON.stringify({ delta: { text: chunk } })}\n\n`)
+        if (typeof res.flush === 'function') res.flush()
+      }
+    } catch (streamErr) {
+      console.error('[stories/generate-script]', streamErr)
+      res.write(`data: ${JSON.stringify({ error: streamErr.message || 'Stream failed' })}\n\n`)
+      res.end()
+      return
     }
 
-    const newBrief = { ...brief, script, scriptFormat: format }
-    const updated = await db.story.update({
+    const script = fullScript.trim()
+    const newBrief = { ...brief, script: script || undefined, scriptFormat: format }
+    await db.story.update({
       where: { id: story.id },
       data: { brief: newBrief },
     })
-    res.json(updated)
+    res.write('data: [DONE]\n\n')
+    res.end()
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     console.error('[stories/generate-script]', e)
