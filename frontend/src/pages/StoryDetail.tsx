@@ -116,7 +116,6 @@ export default function StoryDetail() {
   const [saving, setSaving] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
   const [fetchingArticle, setFetchingArticle] = useState(false);
-  const [cleanupSuccess, setCleanupSuccess] = useState(false);
   const [cleanupStatus, setCleanupStatus] = useState<WriterState>("idle");
   const [articleDisplayValue, setArticleDisplayValue] = useState("");
   const [scriptStatus, setScriptStatus] = useState<WriterState>("idle");
@@ -132,6 +131,8 @@ export default function StoryDetail() {
   const [articleLoading, setArticleLoading] = useState(false);
   const [articleError, setArticleError] = useState<string | null>(null);
   const [generatingScript, setGeneratingScript] = useState(false);
+
+  const isWriterBoxRunning = cleaningUp || fetchingArticle || generatingScript;
 
   // ── Fetch story + channels + liked peers ─────────────────────────────────
   const loadStory = useCallback(async () => {
@@ -415,8 +416,7 @@ export default function StoryDetail() {
                   data-button="cleanup-with-ai"
                   aria-label="Clean up with AI — remove website junk from article and format as clean Arabic markdown"
                   onClick={async () => {
-                    if (!id || cleaningUp) return;
-                    setCleanupSuccess(false);
+                    if (!id || isWriterBoxRunning) return;
                     setCleaningUp(true);
                     setCleanupStatus("thinking");
                     const CHAR_DELAY = 18;
@@ -452,9 +452,7 @@ export default function StoryDetail() {
                       if (r.ok && cleanedContent) {
                         setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
                         setBrief(newBrief);
-                        setCleanupSuccess(true);
                         toast.success("Article cleaned");
-                        setTimeout(() => setCleanupSuccess(false), 2500);
                         setCleanupStatus("writing");
                         setArticleDisplayValue("");
                         appendChunk(cleanedContent);
@@ -471,7 +469,7 @@ export default function StoryDetail() {
                       setCleaningUp(false);
                     }
                   }}
-                  disabled={cleaningUp}
+                  disabled={isWriterBoxRunning}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed"
                   title="Remove website junk from article and format as clean Arabic markdown"
                 >
@@ -485,7 +483,7 @@ export default function StoryDetail() {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!id || !story?.sourceUrl || fetchingArticle) return;
+                    if (!id || !story?.sourceUrl || isWriterBoxRunning) return;
                     setArticleError(null);
                     setFetchingArticle(true);
                     setCleanupStatus("thinking");
@@ -547,7 +545,7 @@ export default function StoryDetail() {
                       setFetchingArticle(false);
                     }
                   }}
-                  disabled={!story?.sourceUrl || fetchingArticle}
+                  disabled={!story?.sourceUrl || isWriterBoxRunning}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
                   title="Re-fetch article from source (use if something went wrong)"
                 >
@@ -578,14 +576,6 @@ export default function StoryDetail() {
                 </button>
               )}
             </div>
-
-            {/* In-box: cleanup done */}
-            {cleanupSuccess && !cleaningUp && (
-              <div className="flex items-center justify-center gap-2 px-5 py-3 bg-success/10 border-b border-success/20">
-                <Check className="w-4 h-4 text-success" />
-                <span className="text-[12px] font-medium text-success">Article cleaned. Full article updated.</span>
-              </div>
-            )}
 
             <div className="px-5 py-6 space-y-6">
           {/* Prev/next in current stage */}
@@ -768,7 +758,7 @@ export default function StoryDetail() {
                 <button
                     type="button"
                     onClick={async () => {
-                      if (!id || generatingScript) return;
+                      if (!id || isWriterBoxRunning) return;
                       setGeneratingScript(true);
                       setScriptStatus("thinking");
                       setScriptText("");
@@ -912,7 +902,7 @@ export default function StoryDetail() {
                         setGeneratingScript(false);
                       }
                     }}
-                    disabled={generatingScript}
+                    disabled={isWriterBoxRunning}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue bg-blue/10 rounded-full hover:bg-blue/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {generatingScript ? (
