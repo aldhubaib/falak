@@ -41,7 +41,7 @@ function detectDir(text: string): "ltr" | "rtl" {
   return "ltr";
 }
 
-/** Place cursor and text in container so cursor stays in DOM; RTL = cursor left of text, LTR = cursor right. */
+/** Place cursor after text so it trails the growing end; RTL = cursor left (end), LTR = cursor right (end). */
 function placeCursor(
   container: HTMLDivElement,
   textNode: Text,
@@ -50,10 +50,10 @@ function placeCursor(
 ): void {
   container.innerHTML = "";
   if (dir === "rtl") {
-    cursor.style.marginRight = "1px";
-    cursor.style.marginLeft = "0";
-    container.appendChild(cursor);
+    cursor.style.marginRight = "0";
+    cursor.style.marginLeft = "1px";
     container.appendChild(textNode);
+    container.appendChild(cursor);
   } else {
     cursor.style.marginLeft = "1px";
     cursor.style.marginRight = "0";
@@ -106,10 +106,8 @@ export function AIWriterBox({
     const cursor = cursorRef.current;
     textNode.nodeValue = value;
     const currentDir = dir;
-    if (lastDirRef.current !== currentDir) {
-      placeCursor(container, textNode, cursor, currentDir);
-      lastDirRef.current = currentDir;
-    }
+    lastDirRef.current = currentDir;
+    placeCursor(container, textNode, cursor, currentDir);
     cursor.style.display = status === "done" ? "none" : "inline-block";
     CURSOR_STATE_CLASSES.forEach((c) => cursor.classList.remove(c));
     if (status !== "done") {
