@@ -398,18 +398,39 @@ export default function StoryDetail() {
     }
   }, [id, articleLoading]);
 
-  // ── Loading / not found ───────────────────────────────────────────────────
+  // Derived values (safe when story is null — only used when !loading && story)
+  const scriptFormat = brief.scriptFormat ?? "short";
+  const activeStage = story?.stage ?? "suggestion";
+  const isFirst = story?.coverageStatus === "first";
+  const isLate = story?.coverageStatus === "late";
+  const selectedChannel = brief.channelId ?? "";
+  const assignedChannel = ourChannels.find((c) => c.id === selectedChannel) ?? null;
+  const scriptSaved = !!(brief.script !== undefined && brief.script !== null);
+  const likedSorted = [...likedStories].sort(
+    (a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0)
+  );
+  const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
+  const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
+  const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
+  const showStageNav = stageStories.length > 1 && stageIndex >= 0;
+  const fmt = (n?: number) =>
+    !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
 
+  const SCRIPT_FIELDS: ScriptField[] = [
+    { key: "suggestedTitle", label: "Suggested Title", placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...", type: "input" },
+    { key: "openingHook", label: "Opening Hook (first 10 sec)", placeholder: "الجملة الأولى التي تجذب المشاهد...", type: "input" },
+    { key: "hookStart", label: "Branded Hook Start", placeholder: "e.g. أهلاً وسهلاً بكم في قناة...", type: "input" },
+    { key: "script", label: "Script — with timestamps", placeholder: scriptFormat === "short" ? "00:00 هوك\n00:15 المحتوى..." : "00:00 مقدمة\n01:30 القصة تبدأ...", type: "textarea" },
+    { key: "hookEnd", label: "Branded Hook End", placeholder: "e.g. لا تنسوا الاشتراك وتفعيل الجرس...", type: "input" },
+  ];
+
+  // Single return with conditional UI — no early returns, so hook count is always the same (avoids React #310)
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-12 flex items-center px-6 border-b border-pageBorder shrink-0">
-          <button
-            onClick={() => navigate(projectPath("/stories"))}
-            className="link flex items-center gap-2 text-[13px]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            AI Intelligence
+          <button onClick={() => navigate(projectPath("/stories"))} className="link flex items-center gap-2 text-[13px]">
+            <ArrowLeft className="w-4 h-4" /> AI Intelligence
           </button>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -418,17 +439,12 @@ export default function StoryDetail() {
       </div>
     );
   }
-
   if (!story) {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-12 flex items-center px-6 border-b border-pageBorder shrink-0">
-          <button
-            onClick={() => navigate(projectPath("/stories"))}
-            className="link flex items-center gap-2 text-[13px]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Stories
+          <button onClick={() => navigate(projectPath("/stories"))} className="link flex items-center gap-2 text-[13px]">
+            <ArrowLeft className="w-4 h-4" /> Back to Stories
           </button>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -437,63 +453,6 @@ export default function StoryDetail() {
       </div>
     );
   }
-
-  const activeStage = story.stage;
-  const isFirst = story.coverageStatus === "first";
-  const isLate = story.coverageStatus === "late";
-  const scriptFormat = brief.scriptFormat ?? "short";
-  const selectedChannel = brief.channelId ?? "";
-  const assignedChannel = ourChannels.find((c) => c.id === selectedChannel) ?? null;
-  const scriptSaved = !!(brief.script !== undefined && brief.script !== null);
-
-  // Sorted liked peers by composite score desc
-  const likedSorted = [...likedStories].sort(
-    (a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0)
-  );
-
-  // Prev/next in current stage
-  const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
-  const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
-  const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
-  const showStageNav = stageStories.length > 1 && stageIndex >= 0;
-
-  const fmt = (n?: number) =>
-    !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
-
-  // ── Script fields ─────────────────────────────────────────────────────────
-
-  const SCRIPT_FIELDS: ScriptField[] = [
-    {
-      key: "suggestedTitle",
-      label: "Suggested Title",
-      placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...",
-      type: "input",
-    },
-    {
-      key: "openingHook",
-      label: "Opening Hook (first 10 sec)",
-      placeholder: "الجملة الأولى التي تجذب المشاهد...",
-      type: "input",
-    },
-    {
-      key: "hookStart",
-      label: "Branded Hook Start",
-      placeholder: "e.g. أهلاً وسهلاً بكم في قناة...",
-      type: "input",
-    },
-    {
-      key: "script",
-      label: "Script — with timestamps",
-      placeholder: scriptFormat === "short" ? "00:00 هوك\n00:15 المحتوى..." : "00:00 مقدمة\n01:30 القصة تبدأ...",
-      type: "textarea",
-    },
-    {
-      key: "hookEnd",
-      label: "Branded Hook End",
-      placeholder: "e.g. لا تنسوا الاشتراك وتفعيل الجرس...",
-      type: "input",
-    },
-  ];
 
   return (
     <div className="flex flex-col min-h-screen">
