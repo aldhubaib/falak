@@ -698,61 +698,6 @@ export default function StoryDetail() {
                   onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
                 />
 
-                {activeStage === "filmed" && (
-                  <div className="rounded-xl bg-background p-5">
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">
-                      {scriptFormat === "short" ? "Add YouTube Short URL" : "Add YouTube Video URL"}
-                    </div>
-                    <p className="text-[12px] text-dim leading-relaxed mb-4">
-                      Paste the published{" "}
-                      {scriptFormat === "short" ? "short" : "video"} URL to record performance and
-                      check Brain coverage.
-                    </p>
-                    <div className="flex items-center gap-2.5">
-                      <div className="relative flex-1">
-                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
-                        <input
-                          type="url"
-                          value={youtubeInput}
-                          onChange={(e) => setYoutubeInput(e.target.value)}
-                          placeholder={
-                            scriptFormat === "short"
-                              ? "https://youtube.com/shorts/..."
-                              : "https://youtube.com/watch?v=..."
-                          }
-                          className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-surface border border-border rounded-full text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
-                        />
-                      </div>
-                      <button
-                        onClick={async () => {
-                          if (!youtubeInput.trim()) {
-                            toast.error("Please paste a YouTube URL");
-                            return;
-                          }
-                          const produced = brief.producedFormats ?? [];
-                          const newFmt: "short" | "long" = scriptFormat === "short" ? "short" : "long";
-                          const newProduced = produced.includes(newFmt)
-                            ? produced
-                            : [...produced, newFmt];
-                          await patchStory({
-                            stage: "done",
-                            brief: {
-                              ...brief,
-                              youtubeUrl: youtubeInput.trim(),
-                              producedFormats: newProduced,
-                            },
-                          });
-                          setYoutubeInput("");
-                          toast.success("Moved to Done");
-                        }}
-                        className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap"
-                      >
-                        Submit
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {activeStage === "publish" && (
                   <div className="rounded-xl bg-background p-5">
                     <p className="text-[12px] text-dim font-mono mb-4">
