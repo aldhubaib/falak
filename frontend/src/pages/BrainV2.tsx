@@ -64,6 +64,10 @@ interface BrainV2Data {
   queryMeta?: { schemaVersion?: number; provider?: string; generatedAt?: string };
   queryPipeline?: PipelineStep[];
   querySections?: QuerySection[];
+  videoCounts?: {
+    totalInDb: number; oursTotal: number; oursAnalyzed: number;
+    competitorTotal: number; competitorAnalyzed: number;
+  };
 }
 
 /* ─── Small components ─── */
@@ -413,6 +417,7 @@ export default function BrainV2() {
     competitorChannels, competitorActivity, autoSearchQuery,
     competitorVideoCount = 0, stats, rankedOpportunities = [],
     modelSignals, queryPipeline = [], querySections = [],
+    videoCounts,
   } = data;
 
   const gapAvgViews = stats.gapWins > 0 ? Math.round(publishedVideos.filter(v => v.result === "gap_win").reduce((a, v) => a + v.viewsRaw, 0) / stats.gapWins) : 0;
@@ -459,7 +464,44 @@ export default function BrainV2() {
           <div className="flex gap-5 px-6 max-lg:px-4 py-6 max-lg:flex-col">
             {/* Left: Pipeline + Query */}
             <div className="flex-1 min-w-0 space-y-6">
-              {/* Stats bar */}
+              {/* Video funnel + Stats */}
+              {videoCounts && (
+                <div className="rounded-xl bg-background p-5">
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">Data Funnel</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface border border-border">
+                      <span className="text-[18px] font-mono font-semibold">{videoCounts.totalInDb}</span>
+                      <span className="text-[10px] text-dim font-mono">total videos</span>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-dim/40 shrink-0" />
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue/5 border border-blue/20">
+                      <span className="text-[18px] font-mono font-semibold text-blue">{videoCounts.oursTotal}</span>
+                      <span className="text-[10px] text-dim font-mono">yours</span>
+                    </div>
+                    <span className="text-[10px] text-dim font-mono">+</span>
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-orange/5 border border-orange/20">
+                      <span className="text-[18px] font-mono font-semibold text-orange">{videoCounts.competitorTotal}</span>
+                      <span className="text-[10px] text-dim font-mono">competitor</span>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-dim/40 shrink-0" />
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success/5 border border-success/20">
+                      <span className="text-[18px] font-mono font-semibold text-success">{videoCounts.oursAnalyzed}</span>
+                      <span className="text-[10px] text-dim font-mono">yours analyzed</span>
+                    </div>
+                    <span className="text-[10px] text-dim font-mono">+</span>
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success/5 border border-success/20">
+                      <span className="text-[18px] font-mono font-semibold text-success">{videoCounts.competitorAnalyzed}</span>
+                      <span className="text-[10px] text-dim font-mono">competitor analyzed</span>
+                    </div>
+                  </div>
+                  {videoCounts.oursTotal > 0 && videoCounts.oursAnalyzed < videoCounts.oursTotal && (
+                    <p className="text-[10px] text-orange font-mono mt-2">
+                      {videoCounts.oursTotal - videoCounts.oursAnalyzed} of your videos have no analysis — run the pipeline to include them in learning.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-4 gap-3">
                 <div className="rounded-xl bg-background p-4 text-center">
                   <div className="text-2xl font-semibold font-mono text-success">{stats.gapWins}</div>

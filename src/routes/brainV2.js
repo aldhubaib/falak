@@ -330,7 +330,6 @@ async function getBrainV2Data(projectId) {
       where: {
         channel: { projectId, type: 'ours' },
         analysisResult: { not: null },
-        pipelineItem: { is: { stage: 'done', status: 'done' } },
       },
       select: {
         id: true, titleAr: true, titleEn: true, publishedAt: true, viewCount: true, likeCount: true,
@@ -339,6 +338,15 @@ async function getBrainV2Data(projectId) {
       },
       orderBy: { publishedAt: 'desc' },
     })
+
+    debugStage = 'count-video-breakdown'
+    const videoCounts = {
+      totalInDb: await db.video.count({ where: { channel: { projectId } } }),
+      oursTotal: await db.video.count({ where: { channel: { projectId, type: 'ours' } } }),
+      oursAnalyzed: ourVideos.length,
+      competitorTotal: await db.video.count({ where: { channel: { projectId, type: 'competitor' } } }),
+      competitorAnalyzed: competitorVideos.length,
+    }
 
     debugStage = 'build-topic-map'
     const topicMap = new Map()
@@ -566,6 +574,7 @@ async function getBrainV2Data(projectId) {
     queryMeta,
     queryPipeline,
     querySections,
+    videoCounts,
   }
 
   } catch (err) {
