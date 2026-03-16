@@ -227,7 +227,24 @@ export default function StoryDetail() {
   const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [articleOpen, setArticleOpen] = useState(false);
-  const stageStories: { id: string }[] = [];
+  const [stageStories, setStageStories] = useState<{ id: string }[]>([]);
+
+  // Load stories in current stage for prev/next navigation
+  useEffect(() => {
+    if (!projectId || !story) return;
+    const stage = story.stage;
+    let cancelled = false;
+    fetch(`/api/stories?projectId=${projectId}&stage=${stage}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: { id: string }[]) => {
+        if (cancelled) return;
+        setStageStories((list || []).map((s) => ({ id: s.id })));
+      })
+      .catch(() => {
+        if (!cancelled) setStageStories([]);
+      });
+    return () => { cancelled = true; };
+  }, [projectId, story?.id, story?.stage]);
 
   // Original Story: expanded for Suggestion/Liked, collapsed for Scripting/Filmed/Publish/Done (on page load)
   useEffect(() => {
@@ -276,7 +293,9 @@ export default function StoryDetail() {
   );
 
   const generateScript = useCallback(async () => {
-    if (!id || !selectedChannel || generatingScript) return;
+    if (!id) { toast.error("No story ID"); return; }
+    if (!selectedChannel) { toast.error("Select a channel first"); return; }
+    if (generatingScript) return;
     setGeneratingScript(true);
     try {
       const res = await fetch(`/api/stories/${id}/generate-script`, {
@@ -295,7 +314,7 @@ export default function StoryDetail() {
         return;
       }
       const reader = res.body?.getReader();
-      if (!reader) return;
+      if (!reader) { toast.error("No response stream"); return; }
       const decoder = new TextDecoder();
       let fullText = "";
       while (true) {
