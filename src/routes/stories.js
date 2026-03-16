@@ -636,14 +636,20 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     const story = await db.story.update({ where: { id: req.params.id }, data })
 
     if (req.body.stage) {
-      await addLog(story.id, req.user.id, 'stage_change', `→ ${req.body.stage}`)
+      const stageLabel = req.body.stage.charAt(0).toUpperCase() + req.body.stage.slice(1)
+      await addLog(story.id, req.user.id, 'stage_change', `Status changed to ${stageLabel}`)
     }
     if (req.body.stage === 'approved') {
       setImmediate(() => {
         generateScriptForStory(req.params.id).catch((e) => console.error('[stories/generateScriptForStory]', e))
       })
     }
-    res.json(story)
+    // Return story with log so Edit History shows who changed status
+    const withLog = await db.story.findUnique({
+      where: { id: story.id },
+      include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' } } }
+    })
+    res.json(withLog || story)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

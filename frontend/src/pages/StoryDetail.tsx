@@ -527,14 +527,24 @@ export default function StoryDetail() {
               </div>
               <div className="max-h-[400px] overflow-y-auto">
                 {Array.isArray(story.log) && story.log.length > 0 ? (
-                  story.log.map((entry) => (
+                  story.log.map((entry) => {
+                    const actionLabel = entry.action === "stage_change" && entry.note
+                      ? entry.note
+                      : entry.action === "stage_change"
+                        ? "Status changed"
+                        : entry.action === "created"
+                          ? "Created"
+                          : entry.action === "script_edit"
+                            ? "Edited script"
+                            : entry.action
+                    return (
                     <div key={entry.id} className="flex items-center justify-between px-5 py-3 border-b border-border last:border-b-0">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-0.5 h-8 bg-blue/30 rounded-full shrink-0" />
                         <div className="min-w-0">
                           <span className="text-sensor text-[11px]">{formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}</span>
-                          <span className="text-dim text-[11px]"> · {entry.action}</span>
-                          {entry.note && <span className="font-mono text-[11px] text-dim ml-1">{entry.note}</span>}
+                          <span className="text-dim text-[11px]"> · {actionLabel}</span>
+                          {entry.note && entry.action !== "stage_change" && <span className="font-mono text-[11px] text-dim ml-1">{entry.note}</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -546,7 +556,7 @@ export default function StoryDetail() {
                         )}
                       </div>
                     </div>
-                  ))
+                  )})
                 ) : (
                   <div className="px-5 py-8 text-center text-dim text-[12px]">No edit history yet.</div>
                 )}
