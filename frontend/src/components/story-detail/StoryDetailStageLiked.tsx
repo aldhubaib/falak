@@ -4,14 +4,13 @@ export interface StoryDetailStageLikedProps {
   children: ReactNode;
   canApprove: boolean;
   onApprove: () => void;
-  onPass: () => void;
+  onPass?: () => void;
 }
 
 export function StoryDetailStageLiked({
   children,
   canApprove,
   onApprove,
-  onPass,
 }: StoryDetailStageLikedProps) {
   return (
     <>
@@ -28,13 +27,6 @@ export function StoryDetailStageLiked({
           }`}
         >
           Approve
-        </button>
-        <button
-          type="button"
-          onClick={onPass}
-          className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors"
-        >
-          Pass
         </button>
       </div>
     </>

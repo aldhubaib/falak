@@ -15,8 +15,6 @@ export type {
   StoryDetailPrevNextProps,
   StorySummary,
 } from "./StoryDetailPrevNext";
-export { StoryDetailTitle } from "./StoryDetailTitle";
-export type { StoryDetailTitleProps } from "./StoryDetailTitle";
 export { StoryDetailScores } from "./StoryDetailScores";
 export type { StoryDetailScoresProps } from "./StoryDetailScores";
 export { StoryDetailAIAnalysis } from "./StoryDetailAIAnalysis";

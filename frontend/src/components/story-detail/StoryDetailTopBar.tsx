@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Loader2,
   Clock,
-  Ban,
   EyeOff,
   SkipForward,
   X,
@@ -37,7 +36,7 @@ export interface StoryDetailTopBarProps {
   saving?: boolean;
   onBack: () => void;
   onMoveToNextStage: () => void;
-  onPass: () => void;
+  onPass?: () => void;
   onOmit: () => void;
   onHistoryClick: () => void;
   /** Compact prev/next */
@@ -82,7 +81,7 @@ export function StoryDetailTopBar({
   prevNext,
 }: StoryDetailTopBarProps) {
   const [actionDropOpen, setActionDropOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"pass" | "omit" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"omit" | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -163,17 +162,6 @@ export function StoryDetailTopBar({
                   type="button"
                   onClick={() => {
                     setActionDropOpen(false);
-                    setConfirmAction("pass");
-                  }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-orange hover:bg-elevated transition-colors"
-                >
-                  <Ban className="w-3.5 h-3.5 shrink-0" />
-                  Pass
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActionDropOpen(false);
                     setConfirmAction("omit");
                   }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-destructive hover:bg-elevated transition-colors"
@@ -213,30 +201,6 @@ export function StoryDetailTopBar({
           {saving && <Loader2 className="w-3 h-3 animate-spin text-dim shrink-0" />}
         </div>
       </div>
-
-      {/* Pass confirmation */}
-      <AlertDialog open={confirmAction === "pass"} onOpenChange={(open) => !open && setConfirmAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Pass on this story?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This story will be removed from the pipeline. You can always bring it back later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:opacity-90"
-              onClick={() => {
-                onPass();
-                setConfirmAction(null);
-              }}
-            >
-              Pass
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Omit confirmation */}
       <AlertDialog open={confirmAction === "omit"} onOpenChange={(open) => !open && setConfirmAction(null)}>
