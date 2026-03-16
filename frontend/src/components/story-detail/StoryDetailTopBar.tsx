@@ -8,6 +8,7 @@ import {
   Clock,
   EyeOff,
   SkipForward,
+  CircleSlash,
   X,
 } from "lucide-react";
 import {
@@ -154,6 +155,22 @@ export function StoryDetailTopBar({
                     >
                       <SkipForward className={`w-3.5 h-3.5 shrink-0 ${nextStageIconColor}`} />
                       <span className="font-medium">Move to {nextStageLabel}</span>
+                    </button>
+                    <div className="h-px bg-border" />
+                  </>
+                )}
+                {onPass && activeStage === "suggestion" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionDropOpen(false);
+                        onPass();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-foreground hover:bg-elevated transition-colors"
+                    >
+                      <CircleSlash className="w-3.5 h-3.5 shrink-0" />
+                      Pass
                     </button>
                     <div className="h-px bg-border" />
                   </>

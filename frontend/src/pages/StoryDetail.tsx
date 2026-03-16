@@ -16,10 +16,7 @@ import {
   StoryDetailTopBar,
   StoryDetailPrevNext,
   StoryDetailArticle,
-  StoryDetailScriptBox,
   StoryDetailScriptSection,
-  StoryDetailStageSuggestion,
-  StoryDetailStageLiked,
   StoryDetailStageApprovedFilmedPublish,
   StoryDetailStageDone,
   StoryDetailStagePassed,
@@ -600,22 +597,6 @@ export default function StoryDetail() {
           {/* Stage-specific content */}
           <div className="space-y-5">
 
-            {activeStage === "suggestion" && (
-              <StoryDetailStageSuggestion
-                onSaveToLiked={() => moveStage("liked")}
-                onPass={async () => {
-                  const updated = await patchStory({ stage: "passed" });
-                  if (updated) {
-                    toast.success("Passed");
-                    navigate(projectPath("/stories"));
-                  } else {
-                    toast.error("Failed to pass story");
-                  }
-                }}
-                onOmit={handleOmit}
-              />
-            )}
-
             {activeStage === "passed" && (
               <StoryDetailStagePassed onMoveBack={() => moveStage("suggestion")} />
             )}
@@ -624,111 +605,7 @@ export default function StoryDetail() {
               <StoryDetailStageOmit onMoveBack={() => moveStage("suggestion")} />
             )}
 
-            {activeStage === "liked" && (
-              <StoryDetailStageLiked
-                canApprove={
-                  !!(brief.script?.trim() || brief.suggestedTitle?.trim() || brief.openingHook?.trim())
-                }
-                onApprove={async () => {
-                  await patchStory({ stage: "approved", brief });
-                  toast.success("Moved to Approved");
-                }}
-                onPass={() => moveStage("suggestion")}
-              >
-                <StoryDetailScriptBox
-                  brief={brief}
-                  scriptSaved={scriptSaved}
-                  scriptOpen={scriptOpen}
-                  setScriptOpen={setScriptOpen}
-                  editingField={editingField}
-                  setEditingField={setEditingField}
-                  scriptFields={SCRIPT_FIELDS}
-                  scriptFormat={(brief.scriptFormat ?? "short") as "short" | "long"}
-                  onScriptFormatChange={(fmt) => setBrief((b) => ({ ...b, scriptFormat: fmt }))}
-                  onSave={async (newBrief) => {
-                    await saveBrief({ ...newBrief, script: newBrief.script ?? "" });
-                    toast.success("Script saved");
-                  }}
-                  onFieldDone={(key) => { setEditingField(null); saveBrief({ ...brief }); }}
-                  onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
-                  canGenerate={
-                    !!assignedChannel &&
-                    !!(
-                      articleDisplayValue?.trim() ||
-                      (brief.articleContent?.trim() &&
-                        brief.articleContent !== "__SCRAPE_FAILED__" &&
-                        brief.articleContent !== "__YOUTUBE__")
-                    )
-                  }
-                  generating={generatingScript}
-                  onGenerateScript={async () => {
-                    if (!id || !assignedChannel || generatingScript) return;
-                    const articleText =
-                      articleDisplayValue?.trim() ||
-                      (brief.articleContent?.trim() &&
-                      brief.articleContent !== "__SCRAPE_FAILED__" &&
-                      brief.articleContent !== "__YOUTUBE__"
-                        ? brief.articleContent
-                        : "");
-                    if (!articleText) {
-                      toast.error("No article content. Fetch and clean the article first.");
-                      return;
-                    }
-                    setGeneratingScript(true);
-                    try {
-                      const r = await fetch(`/api/stories/${id}/generate-script`, {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          format: brief.scriptFormat ?? "short",
-                          articleText,
-                          channelId: brief.channelId,
-                        }),
-                      });
-                      if (!r.ok) {
-                        const data = await r.json().catch(() => ({}));
-                        toast.error(data.error || `Generate script failed (${r.status})`);
-                        return;
-                      }
-                      const reader = r.body?.getReader();
-                      if (reader) {
-                        const decoder = new TextDecoder();
-                        let buffer = "";
-                        while (true) {
-                          const { done, value } = await reader.read();
-                          if (done) break;
-                          buffer += decoder.decode(value, { stream: true });
-                        }
-                        const lines = buffer.split("\n");
-                        for (const line of lines) {
-                          if (line.startsWith("data: ") && line.includes("error")) {
-                            try {
-                              const obj = JSON.parse(line.slice(6).trim());
-                              if (obj?.error) {
-                                toast.error(obj.error);
-                                return;
-                              }
-                            } catch {
-                              // ignore
-                            }
-                          }
-                        }
-                      }
-                      await loadStory();
-                      toast.success("Script generated");
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Generate script failed");
-                    } finally {
-                      setGeneratingScript(false);
-                    }
-                  }}
-                  scriptViewMode={scriptViewMode}
-                  onScriptViewModeChange={setScriptViewMode}
-                />
-              </StoryDetailStageLiked>
-            )}
-
+            {/* Liked stage: no script UI (removed per request) */}
 
             {/* ── APPROVED / SCRIPTING / FILMED / PUBLISH ───────────────────────────── */}
             {(activeStage === "approved" || activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
