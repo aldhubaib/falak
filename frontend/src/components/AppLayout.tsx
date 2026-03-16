@@ -52,17 +52,11 @@ export function AppLayout() {
         />
       </div>
 
-      {/* Mobile/Tablet header */}
+      {/* Mobile/Tablet header — match Lovabale: hamburger opens drawer only below lg */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-12 flex items-center justify-between px-4 border-b border-border bg-background z-[100]">
         <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setDrawerOpen(true);
-          }}
-          aria-label="Open menu"
-          className="w-8 h-8 rounded-md flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated transition-colors touch-manipulation"
+          onClick={() => setDrawerOpen(true)}
+          className="w-8 h-8 rounded-md flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated transition-colors"
         >
           <Menu className="w-4 h-4" />
         </button>
@@ -93,19 +87,8 @@ export function AppLayout() {
         <AppSidebar projectId={projectId ?? ""} isMobile onClose={() => setDrawerOpen(false)} />
       </div>
 
-      {/* Main content */}
+      {/* Main content — match Lovabale: no menu button on desktop; sidebar expand by hover/pin only */}
       <main className="flex-1 min-w-0 lg:pt-0 pt-12 bg-surface lg:rounded-l-2xl relative z-10">
-        {/* Desktop: menu button at sidebar edge to expand/collapse sidebar */}
-        <div className="hidden lg:flex absolute top-0 left-0 z-20 pt-3 pl-3">
-          <button
-            type="button"
-            onClick={() => setPinned(!pinned)}
-            aria-label={pinned ? "Collapse sidebar" : "Expand sidebar"}
-            className="w-9 h-9 rounded-md flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
-        </div>
         <Outlet />
       </main>
     </div>
