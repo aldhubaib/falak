@@ -460,46 +460,41 @@ export default function StoryDetail() {
     { key: "hookEnd", label: "Branded Hook End", placeholder: "e.g. لا تنسوا الاشتراك وتفعيل الجرس...", type: "input" },
   ];
 
-  // Single return with conditional UI — layout matches reference (vid-wise-owl)
+  // Layout matches Lovabale (Test.tsx): flex min-h-screen, no outer card/padding
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen bg-surface p-3 max-sm:p-0">
-        <div className="flex flex-col flex-1 bg-background rounded-xl max-sm:rounded-none overflow-hidden">
-          <div className="flex items-center justify-between px-6 max-sm:px-3 border-b border-[#151619] shrink-0 max-lg:px-4 py-2.5">
-            <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="max-sm:hidden">AI Intelligence</span>
-            </button>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="w-5 h-5 animate-spin text-dim" />
-          </div>
+      <div className="flex flex-col min-h-screen">
+        <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
+          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="max-sm:hidden">AI Intelligence</span>
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-5 h-5 animate-spin text-dim" />
         </div>
       </div>
     );
   }
   if (!story) {
     return (
-      <div className="flex flex-col min-h-screen bg-surface p-3 max-sm:p-0">
-        <div className="flex flex-col flex-1 bg-background rounded-xl max-sm:rounded-none overflow-hidden">
-          <div className="flex items-center justify-between px-6 max-sm:px-3 border-b border-[#151619] shrink-0 max-lg:px-4 py-2.5">
-            <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="max-sm:hidden">AI Intelligence</span>
-            </button>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <span className="text-[13px] text-dim font-mono">Story not found</span>
-          </div>
+      <div className="flex flex-col min-h-screen">
+        <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
+          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="max-sm:hidden">AI Intelligence</span>
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-[13px] text-dim font-mono">Story not found</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface p-3 max-sm:p-0">
-      <div className="flex flex-col flex-1 bg-background rounded-xl max-sm:rounded-none overflow-hidden">
-        <StoryDetailTopBar
+    <div className="flex flex-col min-h-screen">
+      <StoryDetailTopBar
           stageLabel={STAGES.find((s) => s.key === activeStage)?.label ?? ""}
           activeStage={activeStage}
           stages={STAGES}
@@ -531,14 +526,13 @@ export default function StoryDetail() {
 
         {/* Edit History modal */}
         {historyOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setHistoryOpen(false)}>
-            <div className="absolute inset-0 bg-black/60" aria-hidden />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setHistoryOpen(false)}>
             <div
-              className="relative w-full max-w-lg rounded-xl bg-background border border-border shadow-2xl overflow-hidden"
+              className="w-full max-w-lg rounded-xl bg-background border border-border overflow-hidden shadow-2xl mx-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-                <h2 className="text-[13px] font-medium">Edit History</h2>
+              <div className="px-5 py-4 flex items-center justify-between border-b border-border">
+                <span className="text-[13px] font-medium">Edit History</span>
                 <button type="button" onClick={() => setHistoryOpen(false)} className="p-1.5 text-dim hover:text-foreground transition-colors">
                   <X className="w-4 h-4" />
                 </button>
@@ -546,8 +540,8 @@ export default function StoryDetail() {
               <div className="max-h-[400px] overflow-y-auto">
                 {Array.isArray(story.log) && story.log.length > 0 ? (
                   story.log.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border last:border-b-0">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div key={entry.id} className="flex items-center justify-between px-5 py-3 border-b border-border last:border-b-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-0.5 h-8 bg-blue/30 rounded-full shrink-0" />
                         <div className="min-w-0">
                           <span className="text-sensor text-[11px]">{formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}</span>
@@ -1170,6 +1164,5 @@ export default function StoryDetail() {
         </div>
       </div>
     </div>
-  </div>
   );
 }
