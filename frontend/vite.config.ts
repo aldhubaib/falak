@@ -19,6 +19,10 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:3000",
         changeOrigin: true,
       },
+      "/collab": {
+        target: "ws://localhost:3000",
+        ws: true,
+      },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),

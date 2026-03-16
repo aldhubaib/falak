@@ -245,10 +245,22 @@ async function main() {
 
   server.on('upgrade', (req, socket, head) => {
     if (req.url?.startsWith('/collab')) {
-      hocuspocus.handleUpgrade(req, socket, head)
+      try {
+        hocuspocus.handleUpgrade(req, socket, head)
+      } catch (e) {
+        logger.error(e, '[collab] WebSocket upgrade failed')
+        socket.destroy()
+      }
     } else {
       socket.destroy()
     }
+  })
+
+  process.on('uncaughtException', (err) => {
+    logger.error(err, '[fatal] Uncaught exception')
+  })
+  process.on('unhandledRejection', (reason) => {
+    logger.error({ reason }, '[fatal] Unhandled rejection')
   })
 
   server.listen(config.PORT, () => {
