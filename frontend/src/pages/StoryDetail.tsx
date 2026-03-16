@@ -74,6 +74,12 @@ export default function StoryDetail() {
     [brief.scriptYoopta, brief.script]
   );
 
+  // Refs for redirect (avoid effect re-running when navigate/projectPath identity changes)
+  const navigateRef = useRef(navigate);
+  const projectPathRef = useRef(projectPath);
+  navigateRef.current = navigate;
+  projectPathRef.current = projectPath;
+
   // Load story (and brief) on mount so Yoopta content persists after refresh
   useEffect(() => {
     if (!id) {
@@ -97,14 +103,14 @@ export default function StoryDetail() {
         if (!cancelled) {
           setStory(null);
           setBrief({});
-          if (err.message === "Story not found") navigate(projectPath("/stories"), { replace: true });
+          if (err.message === "Story not found") navigateRef.current(projectPathRef.current("/stories"), { replace: true });
         }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [id, navigate, projectPath]);
+  }, [id]);
 
   useEffect(() => {
     return () => {
@@ -132,8 +138,8 @@ export default function StoryDetail() {
           })
           .then((updated) => {
             setStory((s) => (s && s.id === storyId ? (updated as StoryWithLog) : s));
-            const b = updated.brief && typeof updated.brief === "object" ? updated.brief as StoryBrief : {};
-            setBrief(b);
+            // Do not setBrief(updated): we already have the correct local state; updating would
+            // change scriptValue → editor syncs → onChange → save again (loop).
           })
           .catch(() => {})
           .finally(() => setSavingState(false));
