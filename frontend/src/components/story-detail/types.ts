@@ -1,4 +1,3 @@
-import type { YooptaContentValue } from "@yoopta/editor";
 import type { ApiStory, Stage } from "@/pages/Stories";
 
 export type { ApiStory, Stage };
@@ -34,8 +33,6 @@ export interface StoryBrief {
   script?: string;
   scriptFormat?: "short" | "long";
   scriptRaw?: string;
-  /** Yoopta editor content (JSON) for rich script editing */
-  scriptYoopta?: YooptaContentValue;
   channelId?: string;
   youtubeTags?: string[];
   youtubeUrl?: string;
