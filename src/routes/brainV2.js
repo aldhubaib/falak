@@ -432,7 +432,13 @@ async function getBrainV2Data(projectId) {
       if ((s.daysSince || 0) >= 7) reasons.push('closing-fast')
       if (viewPotential > 0.5) reasons.push('high-demand')
       const riskFlags = (s.daysSince || 0) >= 10 ? ['urgent'] : []
-      return { ...s, score, reasons, riskFlags }
+      const scoreBreakdown = {
+        weight: Math.round(normalizedWeight * 0.25 * 100) / 100,
+        viewPotential: Math.round(viewPotential * 0.20 * 100) / 100,
+        freshness: Math.round(freshness * 0.35 * 100) / 100,
+        saturation: -Math.round(saturationPenalty * 100) / 100,
+      }
+      return { ...s, score, reasons, riskFlags, scoreBreakdown }
     })
     scored.sort((a, b) => b.score - a.score)
     const rankedOpportunities = scored.slice(0, 5)
@@ -454,7 +460,16 @@ async function getBrainV2Data(projectId) {
     competitorVideoCount: competitorVideos.length,
     stats: { gapWins, lateCount, winRate, totalCompetitorStories: takenStories.length, untouchedCount: untouchedStories.length },
     rankedOpportunities,
-    modelSignals: { topicMemoryCount: topicMemories.length },
+    modelSignals: {
+      topicMemoryCount: topicMemories.length,
+      learnedTags: dynamicQueryMeta.learnedTags || [],
+      regionHints: dynamicQueryMeta.regionHints || [],
+      learnedFormat: dynamicQueryMeta.learnedFormat || 'long',
+      tier1Count: dynamicQueryMeta.tier1Count || 0,
+      tier2Count: dynamicQueryMeta.tier2Count || 0,
+      avoidCount: dynamicQueryMeta.avoidCount || 0,
+      decayHalfLife: DECAY_HALF_LIFE,
+    },
     queryMeta,
   }
 }

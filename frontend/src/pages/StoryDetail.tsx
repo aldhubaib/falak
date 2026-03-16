@@ -390,20 +390,6 @@ export default function StoryDetail() {
                   currentUser={currentUser}
                   collaborationWsUrl={collaborationWsUrl}
                 />
-
-                {activeStage === "publish" && (
-                  <div className="rounded-xl bg-background p-5">
-                    <p className="text-[12px] text-dim font-mono mb-4">
-                      Final details to confirm before marking done.
-                    </p>
-                    <button
-                      onClick={() => moveToStage("done")}
-                      className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
-                    >
-                      Mark as Done
-                    </button>
-                  </div>
-                )}
               </>
             )}
 

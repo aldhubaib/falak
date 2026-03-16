@@ -216,10 +216,6 @@ export default function Stories() {
   const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
   const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
 
-  const firstMoverPct = summary?.firstMoverPct ?? 0;
-  const firstMoverCount = summary?.firstMovers ?? 0;
-  const totalStories = summary?.total ?? stories.length;
-
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
@@ -273,41 +269,6 @@ export default function Stories() {
       )}
 
       <div className="flex-1 relative overflow-auto">
-        {/* Stats row */}
-        <div className="px-6 max-lg:px-4 mb-5 pt-5">
-          <div className="flex rounded-xl overflow-hidden">
-            {STAGES.map((s) => {
-              const count = stories.filter((st) => st.stage === s.key).length;
-              return (
-                <div
-                  key={s.key}
-                  className="flex-1 px-5 py-4 bg-background border-r border-background last:border-r-0"
-                >
-                  <div className={`text-2xl font-semibold font-mono tracking-tight ${s.color}`}>
-                    {count}
-                  </div>
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">
-                    {s.label}
-                  </div>
-                  <div className="mt-2 text-[11px] text-dim font-mono">{s.sub}</div>
-                </div>
-              );
-            })}
-            {/* First Mover aggregate */}
-            <div className="px-5 py-4 bg-background min-w-[120px]">
-              <div className="text-2xl font-semibold font-mono tracking-tight text-success">
-                {firstMoverPct}%
-              </div>
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">
-                First Mover
-              </div>
-              <div className="mt-2 text-[11px] text-dim font-mono">
-                {firstMoverCount} of {totalStories} stories · ↑ strong
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Stage filter pills */}
         <div className="px-6 max-lg:px-4 mb-5">
           <div className="flex items-center gap-2 flex-wrap">

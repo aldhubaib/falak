@@ -23,10 +23,18 @@ interface BrainStory {
   daysSince?: number;
 }
 
+interface ScoreBreakdown {
+  weight: number;
+  viewPotential: number;
+  freshness: number;
+  saturation: number;
+}
+
 interface RankedOpportunity extends BrainStory {
   score?: number;
   reasons?: string[];
   riskFlags?: string[];
+  scoreBreakdown?: ScoreBreakdown;
 }
 
 interface PublishedVideo {
@@ -63,7 +71,16 @@ interface BrainV2Data {
   autoSearchQuery: string;
   stats: { gapWins: number; lateCount: number; winRate: number; totalCompetitorStories: number; untouchedCount: number };
   rankedOpportunities?: RankedOpportunity[];
-  modelSignals?: { topicMemoryCount?: number };
+  modelSignals?: {
+    topicMemoryCount?: number;
+    learnedTags?: string[];
+    regionHints?: string[];
+    learnedFormat?: "shorts" | "long";
+    tier1Count?: number;
+    tier2Count?: number;
+    avoidCount?: number;
+    decayHalfLife?: number;
+  };
   queryMeta?: { schemaVersion?: number; provider?: string; generatedAt?: string };
 }
 
@@ -240,6 +257,7 @@ export default function BrainV2() {
     competitorVideoCount = 0,
     stats,
     rankedOpportunities = [],
+    modelSignals,
   } = data;
 
   const fmt = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
@@ -411,26 +429,101 @@ export default function BrainV2() {
             {rankedOpportunities.length > 0 && (
               <div className="rounded-xl bg-background p-5">
                 <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">Top Opportunities</div>
-                <p className="text-[12px] text-dim mb-3">Ranked by score (winner similarity, freshness, low saturation).</p>
+                <p className="text-[12px] text-dim mb-3">Ranked by score (winner similarity, view potential, freshness, saturation).</p>
                 <div className="space-y-2">
                   {rankedOpportunities.map((o, i) => (
-                    <div key={o.id} className="flex items-center gap-2 px-4 py-3 rounded-xl bg-surface hover:bg-elevated/60 transition-colors">
-                      <span className="text-[9px] font-mono font-bold text-dim w-4 shrink-0">{i + 1}</span>
-                      <span className="flex-1 text-[12px] truncate">{o.title}</span>
-                      {o.score != null && <span className="text-[10px] font-mono text-sensor shrink-0">{o.score}</span>}
-                      {o.reasons && o.reasons.length > 0 && (
-                        <div className="flex gap-1 shrink-0">
-                          {o.reasons.slice(0, 2).map((r) => (
-                            <span key={r} className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-success/15 text-success">{r}</span>
-                          ))}
-                        </div>
-                      )}
-                      {o.riskFlags?.includes("urgent") && <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-orange/15 text-orange shrink-0">urgent</span>}
+                    <div key={o.id} className="px-4 py-3 rounded-xl bg-surface hover:bg-elevated/60 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono font-bold text-dim w-4 shrink-0">{i + 1}</span>
+                        <span className="flex-1 text-[12px] truncate">{o.title}</span>
+                        {o.score != null && <span className="text-[10px] font-mono text-sensor shrink-0">{o.score}</span>}
+                        {o.riskFlags?.includes("urgent") && <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-orange/15 text-orange shrink-0">urgent</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2 ml-6">
+                        {o.reasons && o.reasons.map((r) => (
+                          <span key={r} className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-success/15 text-success">{r}</span>
+                        ))}
+                        {o.scoreBreakdown && (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-blue/10 text-blue cursor-help">breakdown</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="text-[11px] font-mono space-y-1 p-3">
+                                <div className="flex justify-between gap-4"><span className="text-dim">Winner match</span><span className={o.scoreBreakdown.weight > 0 ? "text-success" : "text-dim"}>{o.scoreBreakdown.weight > 0 ? "+" : ""}{o.scoreBreakdown.weight}</span></div>
+                                <div className="flex justify-between gap-4"><span className="text-dim">View potential</span><span className={o.scoreBreakdown.viewPotential > 0 ? "text-success" : "text-dim"}>{o.scoreBreakdown.viewPotential > 0 ? "+" : ""}{o.scoreBreakdown.viewPotential}</span></div>
+                                <div className="flex justify-between gap-4"><span className="text-dim">Freshness</span><span className="text-success">+{o.scoreBreakdown.freshness}</span></div>
+                                <div className="flex justify-between gap-4"><span className="text-dim">Saturation</span><span className={o.scoreBreakdown.saturation < 0 ? "text-destructive" : "text-dim"}>{o.scoreBreakdown.saturation}</span></div>
+                                <div className="border-t border-border pt-1 flex justify-between gap-4 font-bold"><span>Total</span><span>{o.score}</span></div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            {modelSignals && (modelSignals.learnedTags?.length || modelSignals.regionHints?.length || modelSignals.topicMemoryCount) ? (
+              <div className="rounded-xl bg-background p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Brain Learning</div>
+                  <span className="w-2 h-2 rounded-full bg-purple animate-pulse" />
+                </div>
+                <div className="space-y-3">
+                  {modelSignals.topicMemoryCount != null && modelSignals.topicMemoryCount > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-dim">Topics in memory</span>
+                      <span className="text-[11px] font-mono font-semibold">{modelSignals.topicMemoryCount}</span>
+                    </div>
+                  )}
+                  {modelSignals.learnedFormat && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-dim">Format preference</span>
+                      <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full ${modelSignals.learnedFormat === "shorts" ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
+                        {modelSignals.learnedFormat === "shorts" ? "Shorts" : "Long-form"}
+                      </span>
+                    </div>
+                  )}
+                  {(modelSignals.tier1Count != null || modelSignals.tier2Count != null || modelSignals.avoidCount != null) && (
+                    <div className="flex gap-2">
+                      {modelSignals.tier1Count != null && modelSignals.tier1Count > 0 && (
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success">{modelSignals.tier1Count} proven</span>
+                      )}
+                      {modelSignals.tier2Count != null && modelSignals.tier2Count > 0 && (
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange">{modelSignals.tier2Count} demand</span>
+                      )}
+                      {modelSignals.avoidCount != null && modelSignals.avoidCount > 0 && (
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">{modelSignals.avoidCount} avoid</span>
+                      )}
+                    </div>
+                  )}
+                  {modelSignals.learnedTags && modelSignals.learnedTags.length > 0 && (
+                    <div>
+                      <div className="text-[10px] text-dim font-mono mb-1.5">Top learned tags</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {modelSignals.learnedTags.map((tag) => (
+                          <span key={tag} className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface text-sensor">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {modelSignals.regionHints && modelSignals.regionHints.length > 0 && (
+                    <div>
+                      <div className="text-[10px] text-dim font-mono mb-1.5">Region hints</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {modelSignals.regionHints.map((r) => (
+                          <span key={r} className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/10 text-blue">{r}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="text-[10px] text-dim font-mono mt-3">Decay: {modelSignals.decayHalfLife ?? 30}d half-life</div>
+              </div>
+            ) : null}
 
             <div className="rounded-xl bg-background p-5">
               <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-4">Gap Win Rate</div>
