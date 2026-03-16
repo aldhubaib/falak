@@ -161,7 +161,7 @@ export default function StoryDetail() {
   const youtubeInput = "";
   const editingYoutubeUrl = false;
   const generatingScript = false;
-  const historyOpen = false;
+  const [historyOpen, setHistoryOpen] = useState(false);
   const articleOpen = true;
   const stageStories: { id: string }[] = [];
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
@@ -256,7 +256,7 @@ export default function StoryDetail() {
           onMoveToNextStage={() => nextStageKey && moveToStage(nextStageKey)}
           onPass={() => moveToStage("passed")}
           onOmit={() => moveToStage("omit")}
-          onHistoryClick={() => {}}
+          onHistoryClick={() => setHistoryOpen(true)}
           prevNext={showStageNav ? {
             currentIndex: stageIndex + 1,
             total: stageStories.length,
@@ -269,14 +269,14 @@ export default function StoryDetail() {
 
         {/* Edit History modal */}
         {historyOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => {}}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setHistoryOpen(false)}>
             <div
               className="w-full max-w-lg rounded-xl bg-background border border-border overflow-hidden shadow-2xl mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
                 <span className="text-[13px] font-medium">Edit History</span>
-                <button type="button" onClick={() => {}} className="p-1.5 text-dim hover:text-foreground transition-colors">
+                <button type="button" onClick={() => setHistoryOpen(false)} className="p-1.5 text-dim hover:text-foreground transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
