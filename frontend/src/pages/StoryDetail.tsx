@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { scriptTextToYooptaValue, yooptaValueToScriptText } from "@/data/editorInitialValue";
+import { scriptTextToEditorValue, editorValueToScriptText } from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -70,8 +70,8 @@ export default function StoryDetail() {
   const ourChannels: ApiChannel[] = [];
 
   const scriptValue = useMemo(
-    () => brief.scriptYoopta ?? scriptTextToYooptaValue(brief.script ?? ""),
-    [brief.scriptYoopta, brief.script]
+    () => brief.scriptTiptap ?? scriptTextToEditorValue(brief.script ?? ""),
+    [brief.scriptTiptap, brief.script]
   );
 
   // Refs for redirect (avoid effect re-running when navigate/projectPath identity changes)
@@ -118,7 +118,7 @@ export default function StoryDetail() {
     };
   }, []);
 
-  // Debounced save of script (scriptYoopta + script text) so refresh keeps content
+  // Debounced save of script (scriptTiptap + script text) so refresh keeps content
   const saveScriptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveScript = useCallback(
     (storyId: string, newBrief: StoryBrief) => {
@@ -353,9 +353,9 @@ export default function StoryDetail() {
                   scriptValue={scriptValue}
                   saving={saving}
                   onScriptChange={(value) => {
-                    const scriptText = yooptaValueToScriptText(value);
+                    const scriptText = editorValueToScriptText(value);
                     setBrief((b) => {
-                      const next = { ...b, scriptYoopta: value, script: scriptText };
+                      const next = { ...b, scriptTiptap: value, script: scriptText };
                       if (id) saveScript(id, next);
                       return next;
                     });

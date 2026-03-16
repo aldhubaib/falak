@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
 import { User, ChevronDown, Clock, Sparkles, Check, Loader2 } from "lucide-react";
-import type { YooptaContentValue } from "@yoopta/editor";
+import type { TiptapContentValue } from "@/data/editorInitialValue";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
-import { ScriptEditorYoopta, type CollaborationCurrentUser } from "@/components/ScriptEditorYoopta";
-import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
+import { ScriptEditorTiptap } from "@/components/ScriptEditorTiptap";
+import { scriptTextToEditorValue } from "@/data/editorInitialValue";
 
 export interface StoryDetailScriptSectionProps {
   channels: ApiChannel[];
@@ -18,12 +18,12 @@ export interface StoryDetailScriptSectionProps {
   generating: boolean;
   onGenerate: () => Promise<void>;
   readOnly: boolean;
-  /** Yoopta value for Scripting / Filmed / Publish / Done. */
-  scriptValue?: YooptaContentValue;
-  onScriptChange?: (value: YooptaContentValue) => void;
+  /** Tiptap value for Scripting / Filmed / Publish / Done. */
+  scriptValue?: TiptapContentValue;
+  onScriptChange?: (value: TiptapContentValue) => void;
   /** For live collaborators (avatars from Google sign-in). */
   storyId?: string;
-  currentUser?: CollaborationCurrentUser | null;
+  currentUser?: { id: string; name: string; avatarUrl: string | null } | null;
   collaborationWsUrl?: string;
   /** When true, show "Saving…" (auto-save in progress). */
   saving?: boolean;
@@ -51,7 +51,7 @@ export function StoryDetailScriptSection({
   const [channelDropOpen, setChannelDropOpen] = useState(false);
   const [collaborators, setCollaborators] = useState<{ id: string; name: string; avatar?: string; color?: string }[]>([]);
   const selectedCh = channels.find((c) => c.id === selectedChannelId);
-  const value = scriptValue ?? scriptTextToYooptaValue("");
+  const value = scriptValue ?? scriptTextToEditorValue("");
 
   const roomId = storyId ? `script-${storyId}` : undefined;
   const onCollaboratorsChange = useCallback((users: { id: string; name: string; avatar?: string; color?: string }[]) => {
@@ -227,14 +227,10 @@ export function StoryDetailScriptSection({
         </div>
 
         <div className="px-5 max-sm:px-3 py-4 overflow-visible bg-background">
-          <ScriptEditorYoopta
+          <ScriptEditorTiptap
             value={value}
             onChange={onScriptChange}
             readOnly={readOnly}
-            roomId={roomId}
-            collaborationWsUrl={collaborationWsUrl}
-            currentUser={currentUser ?? undefined}
-            onCollaboratorsChange={onCollaboratorsChange}
           />
         </div>
       </div>

@@ -1,64 +1,58 @@
-import type { YooptaContentValue } from "@yoopta/editor";
+import type { JSONContent } from "@tiptap/react";
 
-export const DEFAULT_SCRIPT_VALUE: YooptaContentValue = {
-  "block-1": {
-    id: "block-1",
-    type: "Paragraph",
-    value: [
-      {
-        id: "block-1-el",
-        type: "paragraph",
-        children: [{ text: "" }],
-        props: { nodeType: "block" },
-      },
-    ],
-    meta: { order: 0, depth: 0 },
-  },
+export type TiptapContentValue = JSONContent;
+
+export const DEFAULT_EDITOR_VALUE: TiptapContentValue = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
 };
 
-export function scriptTextToYooptaValue(text: string): YooptaContentValue {
-  return {
-    "block-1": {
-      id: "block-1",
-      type: "Paragraph",
-      value: [
-        {
-          id: "block-1-el",
-          type: "paragraph",
-          children: [{ text: text || "" }],
-          props: { nodeType: "block" },
-        },
-      ],
-      meta: { order: 0, depth: 0 },
-    },
-  };
+export function scriptTextToEditorValue(text: string): TiptapContentValue {
+  if (!text) return DEFAULT_EDITOR_VALUE;
+
+  const paragraphs = text.split("\n").map((line) => ({
+    type: "paragraph" as const,
+    content: line ? [{ type: "text" as const, text: line }] : undefined,
+  }));
+
+  return { type: "doc", content: paragraphs };
 }
 
-export function yooptaValueToScriptText(
-  value: YooptaContentValue | undefined | null,
+export function editorValueToScriptText(
+  value: TiptapContentValue | undefined | null,
 ): string {
   if (!value || typeof value !== "object") return "";
 
-  const blocks = Object.values(value)
-    .filter(
-      (b): b is NonNullable<typeof b> => b != null && typeof b === "object",
-    )
-    .sort((a, b) => (a.meta?.order ?? 0) - (b.meta?.order ?? 0));
-
   const lines: string[] = [];
-  for (const block of blocks) {
-    const elements = Array.isArray(block.value) ? block.value : [];
-    for (const el of elements) {
-      const children = Array.isArray(el?.children) ? el.children : [];
-      const text = children
-        .map((c) =>
-          c && typeof c === "object" && "text" in c
-            ? String((c as { text?: string }).text ?? "")
-            : "",
-        )
-        .join("");
-      if (text) lines.push(text);
+
+  function extractText(node: TiptapContentValue): void {
+    if (node.type === "text" && typeof node.text === "string") {
+      lines.push(node.text);
+      return;
+    }
+    if (Array.isArray(node.content)) {
+      const childTexts: string[] = [];
+      for (const child of node.content) {
+        const before = lines.length;
+        extractText(child);
+        const added = lines.splice(before);
+        childTexts.push(added.join(""));
+      }
+      if (
+        node.type === "paragraph" ||
+        node.type === "heading" ||
+        node.type === "blockquote" ||
+        node.type === "codeBlock" ||
+        node.type === "listItem" ||
+        node.type === "taskItem"
+      ) {
+        lines.push(childTexts.join(""));
+      } else {
+        lines.push(...childTexts);
+      }
     }
   }
-  return lines.join("\n");
+
+  extractText(value);
+  return lines.filter((l) => l.length > 0).join("\n");
 }
