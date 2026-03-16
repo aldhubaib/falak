@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { User, ChevronDown, Clock, Sparkles, Check, Loader2 } from "lucide-react";
 import type { TiptapContentValue } from "@/data/editorInitialValue";
 import type { ApiChannel } from "./types";
@@ -50,7 +50,19 @@ export function StoryDetailScriptSection({
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
   const [collaborators, setCollaborators] = useState<{ id: string; name: string; avatar?: string; color?: string }[]>([]);
+  const [durationInput, setDurationInput] = useState(() => String(scriptDuration));
+  const userClearedRef = useRef(false);
   const selectedCh = channels.find((c) => c.id === selectedChannelId);
+
+  // Sync duration input when format changes (parent sets new default)
+  useEffect(() => {
+    if (userClearedRef.current && scriptDuration === 0) {
+      setDurationInput("");
+      userClearedRef.current = false;
+    } else {
+      setDurationInput(String(scriptDuration));
+    }
+  }, [scriptDuration]);
   const value = scriptValue ?? scriptTextToEditorValue("");
 
   const roomId = storyId ? `script-${storyId}` : undefined;
@@ -171,17 +183,25 @@ export function StoryDetailScriptSection({
                     <input
                       type="number"
                       step="0.1"
-                      value={scriptDuration}
+                      value={durationInput}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => {
                         const val = e.target.value;
+                        setDurationInput(val);
                         if (val === "" || val === "-") {
+                          userClearedRef.current = true;
                           onScriptDurationChange(0);
                           return;
                         }
                         const raw = parseFloat(val);
                         if (!Number.isNaN(raw) && raw >= 0) {
+                          userClearedRef.current = false;
                           onScriptDurationChange(raw);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (durationInput === "") {
+                          setDurationInput(String(scriptDuration));
                         }
                       }}
                       className="w-12 bg-transparent font-mono text-[11px] text-foreground focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
