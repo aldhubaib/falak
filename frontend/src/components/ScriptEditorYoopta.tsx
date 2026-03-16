@@ -11,7 +11,7 @@ import Callout from "@yoopta/callout";
 import { NumberedList, BulletedList, TodoList } from "@yoopta/lists";
 import Divider from "@yoopta/divider";
 import Link from "@yoopta/link";
-import Code from "@yoopta/code";
+import { Code } from "@yoopta/code";
 import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
 import {
   FloatingToolbar,
