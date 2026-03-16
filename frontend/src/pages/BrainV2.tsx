@@ -137,6 +137,26 @@ export default function BrainV2() {
   const [reExtracting, setReExtracting] = useState(false);
   const [takenOpen, setTakenOpen] = useState(false);
   const [creatingStoryFor, setCreatingStoryFor] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+
+  const handleBackfill = async () => {
+    if (!projectId || backfilling) return;
+    setBackfilling(true);
+    try {
+      const r = await fetch(`/api/brain-v2/backfill?projectId=${projectId}`, { method: "POST", credentials: "include" });
+      const d = await r.json();
+      if (r.ok) {
+        toast.success(d.message || "Backfill complete");
+        fetchData();
+      } else {
+        toast.error(d.error || "Backfill failed");
+      }
+    } catch {
+      toast.error("Backfill failed");
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const handleOpenStory = async (headline: string) => {
     if (!projectId || creatingStoryFor) return;
@@ -466,12 +486,24 @@ export default function BrainV2() {
               </div>
             )}
 
-            {modelSignals && (modelSignals.learnedTags?.length || modelSignals.regionHints?.length || modelSignals.topicMemoryCount) ? (
-              <div className="rounded-xl bg-background p-5">
-                <div className="flex items-center gap-2 mb-4">
+            <div className="rounded-xl bg-background p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
                   <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Brain Learning</div>
                   <span className="w-2 h-2 rounded-full bg-purple animate-pulse" />
                 </div>
+                <button
+                  onClick={handleBackfill}
+                  disabled={backfilling}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[10px] text-dim font-mono hover:text-sensor transition-colors disabled:opacity-50"
+                >
+                  {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                  {backfilling ? "Learning…" : "Re-learn"}
+                </button>
+              </div>
+            {modelSignals && (modelSignals.learnedTags?.length || modelSignals.regionHints?.length || modelSignals.topicMemoryCount) ? (
+              <>
+
                 <div className="space-y-3">
                   {modelSignals.topicMemoryCount != null && modelSignals.topicMemoryCount > 0 && (
                     <div className="flex items-center justify-between">
@@ -522,8 +554,11 @@ export default function BrainV2() {
                   )}
                 </div>
                 <div className="text-[10px] text-dim font-mono mt-3">Decay: {modelSignals.decayHalfLife ?? 30}d half-life</div>
-              </div>
-            ) : null}
+              </>
+            ) : (
+              <p className="text-[11px] text-dim font-mono">No topics learned yet. Click Re-learn to analyze your existing videos.</p>
+            )}
+            </div>
 
             <div className="rounded-xl bg-background p-5">
               <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-4">Gap Win Rate</div>

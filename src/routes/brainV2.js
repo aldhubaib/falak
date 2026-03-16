@@ -5,7 +5,7 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth } = require('../middleware/auth')
-const { extractTopics, normTopic, median } = require('../services/topicMemory')
+const { updateTopicMemoryFromVideo, extractTopics, normTopic, median } = require('../services/topicMemory')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -518,6 +518,51 @@ router.get('/', async (req, res) => {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`[brainV2] error at stage=${stage}`, err)
     res.status(500).json({ error: msg, stage, detail: err.stack?.split('\n').slice(0, 3).join(' | ') })
+  }
+})
+
+router.post('/backfill', async (req, res) => {
+  try {
+    const { projectId } = req.query
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+
+    const videos = await db.video.findMany({
+      where: {
+        channel: { projectId, type: 'ours' },
+        analysisResult: { not: null },
+        pipelineItem: { is: { stage: 'done', status: 'done' } },
+      },
+      select: { id: true, titleAr: true, titleEn: true },
+      orderBy: { publishedAt: 'asc' },
+    })
+
+    if (!videos.length) {
+      return res.json({ backfilled: 0, message: 'No analyzed videos found to backfill.' })
+    }
+
+    let success = 0
+    let failed = 0
+    for (const v of videos) {
+      try {
+        await updateTopicMemoryFromVideo(v.id, projectId)
+        success++
+      } catch (e) {
+        console.warn('[brainV2] backfill failed for', v.id, e.message)
+        failed++
+      }
+    }
+
+    const memoryCount = await db.topicMemory.count({ where: { projectId } })
+    res.json({
+      backfilled: success,
+      failed,
+      total: videos.length,
+      topicMemoryCount: memoryCount,
+      message: `Backfilled ${success}/${videos.length} videos. ${memoryCount} topics now in memory.`,
+    })
+  } catch (err) {
+    console.error('[brainV2] backfill error', err)
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
   }
 })
 
