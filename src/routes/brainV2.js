@@ -21,10 +21,6 @@ function fmtViews(n) {
 // regionHints: soft preference only — bonus not requirement, can be empty
 // preferShorts: learned from winsShort vs winsLong ratio
 function buildDynamicBase(topTags, regionHints, preferShorts) {
-  const storyFocus = topTags.length
-    ? topTags.slice(0, 5).join('، ')
-    : 'قضايا مثيرة وصادمة'
-
   const regionSoft = regionHints.length
     ? `\n(إذا وجدت قصصاً مشابهة من ${regionHints.join(' أو ')} فهذا أفضل، لكن القصص العالمية مقبولة تماماً)`
     : ''
@@ -33,8 +29,16 @@ function buildDynamicBase(topTags, regionHints, preferShorts) {
     ? ' (أفضّل موضوعات قصيرة وصادمة تصلح لـ Shorts)'
     : ' (أفضّل موضوعات تصلح لفيديو مطوّل وعميق)'
 
+  if (!topTags.length) {
+    return (
+      `أعطني أبرز 8 قصص وقضايا متنوعة من أي مكان في العالم${formatHint}.` +
+      ` خليط من أخبار حديثة (آخر 7 أيام) وقصص قديمة لم تُروَ بالعربية بعد.` +
+      `${regionSoft}\n\n`
+    )
+  }
+
   return (
-    `أعطني أبرز 8 قصص وقضايا من أي مكان في العالم من نوع: ${storyFocus}${formatHint}.` +
+    `أعطني أبرز 8 قصص وقضايا من أي مكان في العالم من نوع: ${topTags.slice(0, 5).join('، ')}${formatHint}.` +
     ` خليط من أخبار حديثة (آخر 7 أيام) وقصص قديمة لم تُروَ بالعربية بعد.` +
     `${regionSoft}\n\n`
   )
@@ -78,33 +82,21 @@ function buildDynamicQuery({
     .slice(0, 6)
     .map(([tag]) => tag)
 
-  // ── 2. Region as soft hint only (not a filter, not a requirement) ──
-  // Only extracted from ABOVE-AVERAGE performing videos.
-  // GEOGRAPHIC_WORDS is a proper noun lookup — not content labels.
-  // The data decides which ones appear: only regions in high-view videos.
+  // ── 2. Region hints — fully learned from AI-extracted partA.location ──
+  // No hardcoded word lists. The AI extracts location from each video's
+  // transcript during pipeline analysis. We aggregate locations from
+  // above-median performing videos, weighted by views.
   const viewCounts = ourVideos.map(v => Number(v.viewCount) || 0)
   const medianViews = median(viewCounts) || 1
-
-  const GEOGRAPHIC_WORDS = [
-    'السعودية', 'الكويت', 'الإمارات', 'البحرين', 'قطر', 'عمان',
-    'اليمن', 'العراق', 'مصر', 'الأردن', 'لبنان', 'سوريا',
-    'الخليج', 'المغرب', 'تونس', 'الجزائر', 'ليبيا',
-    'أمريكا', 'لوس أنجلوس', 'نيويورك', 'بريطانيا',
-    'فرنسا', 'إيطاليا', 'ألمانيا', 'اليابان', 'الصين',
-  ]
 
   const regionViews = {}
   for (const v of ourVideos) {
     const views = Number(v.viewCount) || 0
     if (views < medianViews) continue
-    const allText = [
-      ...(v.analysisResult?.partA?.tags || []),
-      v.analysisResult?.partA?.topic || '',
-    ].join(' ')
-    for (const geo of GEOGRAPHIC_WORDS) {
-      if (allText.includes(geo)) {
-        regionViews[geo] = (regionViews[geo] || 0) + views
-      }
+    const loc = v.analysisResult?.partA?.location
+    if (typeof loc === 'string' && loc.trim()) {
+      const key = loc.trim()
+      regionViews[key] = (regionViews[key] || 0) + views
     }
   }
   const regionHints = Object.entries(regionViews)

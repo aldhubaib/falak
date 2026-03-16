@@ -119,6 +119,7 @@ Keys:
 - topic: one short sentence in Arabic only describing what this video is about
 - sentiment: how the AUDIENCE is likely to react to this video — "positive" if the content drives excitement, engagement, shares, and subscriptions; "negative" if it is likely to cause complaints, dislikes, or churn; "neutral" if it is informational with no strong emotional pull. Base this on the storytelling style, the hook, the pacing, and the content type — NOT on whether the subject matter is dark or light. A true crime video with strong storytelling that drives engagement should be "positive".
 - contentType: one of story|investigation|challenge|travel|vlog|tutorial|entertainment|other
+- location: the country or city where the main story takes place, in Arabic. If the story spans multiple locations, pick the primary one. If no specific location, return null.
 - tags: generate 4 to 8 tags in Arabic only that describe this video. Rules: Arabic only (no English), each tag is 1 to 3 words maximum, descriptive of genre/theme/subject/format, noun form (no verbs, no sentences), short and reusable. Examples: جريمة حقيقية، غموض، تحقيق، شخصية مشهورة، تاريخ، اختفاء، أدلة جنائية
 Transcript:\n${transcript.slice(0, 15000)}`,
     },
