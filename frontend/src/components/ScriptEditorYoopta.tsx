@@ -85,18 +85,6 @@ export function ScriptEditorYoopta({
     [onChange]
   );
 
-  const handleSlashSelect = useCallback(
-    (item: { id: string } | undefined) => {
-      if (!item?.id) return;
-      editor.toggleBlock(item.id, {
-        preserveContent: true,
-        focus: true,
-        at: editor.path.current,
-      });
-    },
-    [editor]
-  );
-
   return (
     <div className="yoopta-editor-container min-h-[200px] overflow-visible">
       <YooptaEditor
@@ -112,7 +100,7 @@ export function ScriptEditorYoopta({
             <FloatingBlockActions>
               <BlockOptions />
             </FloatingBlockActions>
-            <SlashCommandMenu trigger="/" onSelect={handleSlashSelect} />
+            <SlashCommandMenu />
           </>
         )}
       </YooptaEditor>
