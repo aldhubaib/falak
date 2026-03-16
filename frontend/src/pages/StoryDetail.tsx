@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
@@ -54,6 +55,10 @@ export default function StoryDetail() {
   const projectPath = useProjectPath();
 
   const [brief, setBrief] = useState<StoryBrief>({});
+  const scriptValue = useMemo(
+    () => brief.scriptYoopta ?? scriptTextToYooptaValue(brief.script ?? ""),
+    [brief.scriptYoopta, brief.script]
+  );
 
   // ── Constants (no logic; design only) ────────────────────────────────────
   const loading = false;
@@ -245,8 +250,8 @@ export default function StoryDetail() {
               <StoryDetailStageOmit onMoveBack={() => {}} />
             )}
 
-            {/* ── SCRIPTING / FILMED / PUBLISH ───────────────────────────────────────── */}
-            {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
+            {/* ── SCRIPTING / FILMED / PUBLISH / DONE (Yoopta script editor) ───────── */}
+            {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish" || activeStage === "done") && (
               <>
                 <StoryDetailScriptSection
                   key={id}
@@ -261,8 +266,8 @@ export default function StoryDetail() {
                   generating={generatingScript}
                   onGenerate={async () => {}}
                   readOnly={activeStage !== "scripting"}
-                  scriptValue={brief.script ?? ""}
-                  onScriptChange={(value) => setBrief((b) => ({ ...b, script: value }))}
+                  scriptValue={scriptValue}
+                  onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
                 />
 
                 {activeStage === "publish" && (

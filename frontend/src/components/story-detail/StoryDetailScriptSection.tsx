@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { User, ChevronDown, Clock, Sparkles, Check } from "lucide-react";
+import type { YooptaContentValue } from "@yoopta/editor";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
+import { ScriptEditorYoopta } from "@/components/ScriptEditorYoopta";
+import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
 
 export interface StoryDetailScriptSectionProps {
   channels: ApiChannel[];
@@ -15,8 +18,9 @@ export interface StoryDetailScriptSectionProps {
   generating: boolean;
   onGenerate: () => Promise<void>;
   readOnly: boolean;
-  scriptValue?: string;
-  onScriptChange?: (value: string) => void;
+  /** Yoopta value for Scripting / Filmed / Publish / Done. */
+  scriptValue?: YooptaContentValue;
+  onScriptChange?: (value: YooptaContentValue) => void;
 }
 
 export function StoryDetailScriptSection({
@@ -36,6 +40,7 @@ export function StoryDetailScriptSection({
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
   const selectedCh = channels.find((c) => c.id === selectedChannelId);
+  const value = scriptValue ?? scriptTextToYooptaValue("");
 
   return (
     <section>
@@ -177,13 +182,11 @@ export function StoryDetailScriptSection({
           </div>
         </div>
 
-        <div className="px-5 max-sm:px-3 py-4 overflow-visible">
-          <textarea
-            className="w-full min-h-[200px] p-0 text-[14px] bg-transparent text-foreground border-none resize-y focus:outline-none placeholder:text-dim"
-            value={scriptValue ?? ""}
-            onChange={(e) => onScriptChange?.(e.target.value)}
+        <div className="px-5 max-sm:px-3 py-4 overflow-visible bg-background">
+          <ScriptEditorYoopta
+            value={value}
+            onChange={onScriptChange}
             readOnly={readOnly}
-            placeholder="Type your script here…"
           />
         </div>
       </div>

@@ -239,3 +239,17 @@
   animation: shimmer-sweep 1.8s ease-in-out infinite;
   will-change: background-position;
 }
+
+/* Yoopta script editor: dark mode, match app background/foreground */
+.script-editor-yoopta {
+  --yoopta-bg: hsl(var(--background));
+  --yoopta-text: hsl(var(--foreground));
+}
+.script-editor-yoopta [data-slate-editor],
+.script-editor-yoopta [contenteditable] {
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+.script-editor-yoopta [data-slate-placeholder] {
+  color: hsl(var(--dim));
+}
