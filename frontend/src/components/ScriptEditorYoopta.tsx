@@ -110,11 +110,18 @@ export function ScriptEditorYoopta({
     [onChange]
   );
 
+  const handleBottomClick = useCallback(() => {
+    if (readOnly) return;
+    const blocks = editor.getEditorValue();
+    const blockCount = Object.keys(blocks).length;
+    editor.insertBlock("Paragraph", { at: blockCount, focus: true });
+  }, [editor, readOnly]);
+
   return (
-    <div className="script-editor-yoopta min-h-[500px] overflow-visible">
+    <div className="script-editor-yoopta min-h-[500px] overflow-visible flex flex-col">
       <YooptaEditor
         editor={editor}
-        style={{ width: "100%", minHeight: 500, paddingBottom: 60 }}
+        style={{ width: "100%", paddingBottom: 0 }}
         placeholder="Type / to open commands…"
         onChange={handleChange}
       >
@@ -149,6 +156,12 @@ export function ScriptEditorYoopta({
           </>
         )}
       </YooptaEditor>
+      {!readOnly && (
+        <div
+          className="flex-1 min-h-[200px] cursor-text"
+          onClick={handleBottomClick}
+        />
+      )}
     </div>
   );
 }
