@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import YooptaEditor, {
   createYooptaEditor,
+  useYooptaEditor,
   type YooptaContentValue,
   type YooptaPlugin,
 } from "@yoopta/editor";
@@ -22,7 +23,10 @@ import {
 } from "@yoopta/marks";
 import { FloatingToolbar } from "@yoopta/ui/floating-toolbar";
 import { FloatingBlockActions } from "@yoopta/ui/floating-block-actions";
-import { SlashCommandMenu } from "@yoopta/ui/slash-command-menu";
+import {
+  SlashCommandMenu,
+  useSlashCommandActions,
+} from "@yoopta/ui/slash-command-menu";
 import {
   DEFAULT_SCRIPT_VALUE,
   yooptaValueToScriptText,
@@ -49,6 +53,63 @@ const EDITOR_STYLE = {
   width: "100%" as const,
   paddingBottom: 200,
 };
+
+/**
+ * Custom slash command item that calls toggleBlock directly with the correct
+ * block type, working around a race condition in the library's default
+ * SlashCommandItem where stale selectedIndex causes the wrong block to be
+ * inserted on click.
+ */
+function DirectSlashItem({
+  blockType,
+  title,
+  description,
+  icon,
+}: {
+  blockType: string;
+  title?: string;
+  description?: string;
+  icon?: ReactNode;
+}) {
+  const editor = useYooptaEditor();
+  const actions = useSlashCommandActions();
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      editor.toggleBlock(blockType, {
+        scope: "auto",
+        focus: true,
+        preserveContent: false,
+      });
+      actions.close();
+    },
+    [editor, actions, blockType],
+  );
+
+  return (
+    <button
+      type="button"
+      role="option"
+      className="yoopta-ui-slash-command-item"
+      onClick={handleClick}
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      {icon && <div className="yoopta-ui-slash-command-item-icon">{icon}</div>}
+      <div className="yoopta-ui-slash-command-item-content">
+        {title && (
+          <div className="yoopta-ui-slash-command-item-title">{title}</div>
+        )}
+        {description && (
+          <div className="yoopta-ui-slash-command-item-description">
+            {description}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
 
 function areValuesEqual(
   a: YooptaContentValue | undefined | null,
@@ -128,9 +189,9 @@ export function ScriptEditorYoopta({
                     No blocks found
                   </SlashCommandMenu.Empty>
                   {items.map((item) => (
-                    <SlashCommandMenu.Item
+                    <DirectSlashItem
                       key={item.id}
-                      value={item.id}
+                      blockType={item.id}
                       title={item.title}
                       description={item.description}
                       icon={item.icon}
