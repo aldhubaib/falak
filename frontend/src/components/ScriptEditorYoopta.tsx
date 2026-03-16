@@ -45,6 +45,11 @@ const PLUGINS: YooptaPlugin<unknown, unknown>[] = [
 
 const MARKS = [Bold, Italic, Underline, Strike, CodeMark, Highlight];
 
+const EDITOR_STYLE = {
+  width: "100%" as const,
+  paddingBottom: 200,
+};
+
 function areValuesEqual(
   a: YooptaContentValue | undefined | null,
   b: YooptaContentValue | undefined | null,
@@ -78,7 +83,7 @@ export function ScriptEditorYoopta({
   const lastSyncedRef = useRef<YooptaContentValue | undefined>(undefined);
 
   const editor = useMemo(
-    () => createYooptaEditor({ plugins: PLUGINS, marks: MARKS, readOnly }),
+    () => createYooptaEditor({ plugins: PLUGINS, marks: MARKS }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -101,20 +106,14 @@ export function ScriptEditorYoopta({
     [onChange],
   );
 
-  const handleBottomClick = useCallback(() => {
-    if (readOnly) return;
-    const blocks = editor.getEditorValue();
-    const blockCount = Object.keys(blocks).length;
-    editor.insertBlock("Paragraph", { at: blockCount, focus: true });
-  }, [editor, readOnly]);
-
   return (
-    <div className="script-editor-yoopta min-h-[800px] overflow-visible flex flex-col">
+    <div className="script-editor-yoopta min-h-[800px] overflow-visible">
       <YooptaEditor
         editor={editor}
-        style={{ width: "100%" }}
+        style={EDITOR_STYLE}
         placeholder="Type / to open menu, or start typing..."
         onChange={handleChange}
+        readOnly={readOnly}
         autoFocus
       >
         {!readOnly && (
@@ -144,13 +143,6 @@ export function ScriptEditorYoopta({
           </>
         )}
       </YooptaEditor>
-
-      {!readOnly && (
-        <div
-          className="flex-1 min-h-[200px] cursor-text"
-          onClick={handleBottomClick}
-        />
-      )}
     </div>
   );
 }
