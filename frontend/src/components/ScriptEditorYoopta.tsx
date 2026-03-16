@@ -21,7 +21,6 @@ import File from "@yoopta/file";
 import Steps from "@yoopta/steps";
 import TableOfContents from "@yoopta/table-of-contents";
 import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
-import { applyTheme } from "@yoopta/themes-shadcn";
 import {
   SlashCommandMenu,
   FloatingToolbar,
@@ -111,14 +110,7 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
   const containerRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
 
-  const editor = useMemo(
-    () =>
-      createYooptaEditor({
-        plugins: applyTheme(PLUGINS) as YooptaPlugin<unknown, unknown>[],
-        marks: MARKS,
-      }),
-    []
-  );
+  const editor = useMemo(() => createYooptaEditor(), []);
 
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -162,6 +154,8 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
     <div ref={containerRef} className="yoopta-editor-container min-h-[200px] overflow-visible">
       <YooptaEditor
         editor={editor}
+        plugins={PLUGINS as YooptaPlugin<unknown, unknown>[]}
+        marks={MARKS}
         style={EDITOR_STYLES}
         placeholder="Type / to open commands…"
         onChange={handleChange}
