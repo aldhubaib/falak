@@ -8,7 +8,23 @@ import Paragraph from "@yoopta/paragraph";
 import { HeadingOne, HeadingTwo, HeadingThree } from "@yoopta/headings";
 import Blockquote from "@yoopta/blockquote";
 import { NumberedList, BulletedList, TodoList } from "@yoopta/lists";
+import Divider from "@yoopta/divider";
+import Link from "@yoopta/link";
+import { Code, CodeGroup } from "@yoopta/code";
+import Callout from "@yoopta/callout";
+import Accordion from "@yoopta/accordion";
 import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
+import Image from "@yoopta/image";
+import Video from "@yoopta/video";
+import File from "@yoopta/file";
+import Embed from "@yoopta/embed";
+import Table from "@yoopta/table";
+import Tabs from "@yoopta/tabs";
+import Steps from "@yoopta/steps";
+import Carousel from "@yoopta/carousel";
+import Mention from "@yoopta/mention";
+import Emoji from "@yoopta/emoji";
+import TableOfContents from "@yoopta/table-of-contents";
 import { FloatingToolbar, FloatingBlockActions, BlockOptions, SlashCommandMenu } from "@yoopta/ui";
 import { withCollaboration, RemoteCursors, useCollaboration } from "@yoopta/collaboration";
 import type { CollaborationUser, CollaborationYooEditor } from "@yoopta/collaboration";
@@ -31,9 +47,25 @@ const PLUGINS = [
   HeadingTwo,
   HeadingThree,
   Blockquote,
+  Callout,
   NumberedList,
   BulletedList,
   TodoList,
+  Divider,
+  Link,
+  Code,
+  CodeGroup,
+  Image,
+  Video,
+  File,
+  Embed,
+  Table,
+  Tabs,
+  Steps,
+  Carousel,
+  Mention,
+  Emoji,
+  TableOfContents,
 ] as YooptaPlugin<unknown, unknown>[];
 
 const MARKS = [Bold, Italic, Underline, Strike, CodeMark, Highlight];
