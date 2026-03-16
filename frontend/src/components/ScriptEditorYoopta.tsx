@@ -71,15 +71,29 @@ export function ScriptEditorYoopta({
   onChange,
   readOnly = false,
 }: ScriptEditorYooptaProps) {
+  const initialValueRef = useRef(value);
   const lastSyncedRef = useRef<YooptaContentValue | undefined>(undefined);
+  const mountedRef = useRef(false);
 
-  const editor = useMemo(
-    () => createYooptaEditor({ plugins: PLUGINS, marks: MARKS, readOnly }),
+  const editor = useMemo(() => {
+    const e = createYooptaEditor({ plugins: PLUGINS, marks: MARKS, readOnly });
+    const toSet =
+      initialValueRef.current && Object.keys(initialValueRef.current).length > 0
+        ? initialValueRef.current
+        : DEFAULT_SCRIPT_VALUE;
+    lastSyncedRef.current = toSet;
+    e.withoutSavingHistory(() => {
+      e.setEditorValue(toSet);
+    });
+    return e;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
+  }, []);
 
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
     const toSet =
       value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
     if (areYooptaValuesEqual(lastSyncedRef.current, toSet)) return;
@@ -97,10 +111,10 @@ export function ScriptEditorYoopta({
   );
 
   return (
-    <div className="script-editor-yoopta min-h-[200px] overflow-visible">
+    <div className="script-editor-yoopta min-h-[500px] overflow-visible">
       <YooptaEditor
         editor={editor}
-        style={{ width: "100%", minHeight: 200, paddingBottom: 60 }}
+        style={{ width: "100%", minHeight: 500, paddingBottom: 60 }}
         placeholder="Type / to open commands…"
         onChange={handleChange}
       >
