@@ -73,7 +73,11 @@ export function ScriptEditorYoopta({
 }: ScriptEditorYooptaProps) {
   const lastSyncedRef = useRef<YooptaContentValue | undefined>(undefined);
 
-  const editor = useMemo(() => createYooptaEditor(), []);
+  const editor = useMemo(
+    () => createYooptaEditor({ plugins: PLUGINS, marks: MARKS, readOnly }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   useEffect(() => {
     const toSet =
@@ -96,12 +100,9 @@ export function ScriptEditorYoopta({
     <div className="script-editor-yoopta min-h-[200px] overflow-visible">
       <YooptaEditor
         editor={editor}
-        plugins={PLUGINS}
-        marks={MARKS}
         style={{ width: "100%", minHeight: 200, paddingBottom: 60 }}
         placeholder="Type / to open commands…"
         onChange={handleChange}
-        readOnly={readOnly}
       >
         {!readOnly && (
           <>
