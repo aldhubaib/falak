@@ -209,7 +209,7 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
                 navigate(target);
                 onClose?.();
               }}
-              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-2 ${
+              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 ${
                 active
                   ? "bg-elevated text-foreground"
                   : "text-dim hover:bg-elevated/60 hover:text-sensor"
@@ -242,7 +242,7 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
                 navigate(target);
                 onClose?.();
               }}
-              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-2 ${
+              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 ${
                 active
                   ? "bg-elevated text-foreground"
                   : "text-dim hover:bg-elevated/60 hover:text-sensor"
