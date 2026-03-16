@@ -21,6 +21,7 @@ import File from "@yoopta/file";
 import Steps from "@yoopta/steps";
 import TableOfContents from "@yoopta/table-of-contents";
 import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
+import { applyTheme } from "@yoopta/themes-shadcn";
 import {
   SlashCommandMenu,
   FloatingToolbar,
@@ -90,7 +91,7 @@ const PLUGINS = [
       "step-list-item-content": { placeholder: "Describe this step..." },
     },
   }),
-] as YooptaPlugin<unknown, unknown>[];
+];
 
 const MARKS = [Bold, Italic, Underline, Strike, CodeMark, Highlight];
 
@@ -110,7 +111,14 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
   const containerRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
 
-  const editor = useMemo(() => createYooptaEditor(), []);
+  const editor = useMemo(
+    () =>
+      createYooptaEditor({
+        plugins: applyTheme(PLUGINS) as YooptaPlugin<unknown, unknown>[],
+        marks: MARKS,
+      }),
+    []
+  );
 
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -145,12 +153,7 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
   const handleSlashSelect = useCallback(
     (item: { id: string } | undefined) => {
       if (!item?.id) return;
-      const block = editor.blocks[item.id];
-      if (block?.create) {
-        block.create({ focus: true });
-      } else {
-        (editor as { insertBlock?: (id: string, opts?: { focus?: boolean }) => void }).insertBlock?.(item.id, { focus: true });
-      }
+      editor.toggleBlock(item.id, { preserveContent: true, focus: true, at: editor.path.current });
     },
     [editor]
   );
@@ -159,8 +162,6 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
     <div ref={containerRef} className="yoopta-editor-container min-h-[200px] overflow-visible">
       <YooptaEditor
         editor={editor}
-        plugins={PLUGINS}
-        marks={MARKS}
         style={EDITOR_STYLES}
         placeholder="Type / to open commands…"
         onChange={handleChange}
