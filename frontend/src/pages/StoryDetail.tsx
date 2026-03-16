@@ -607,8 +607,8 @@ export default function StoryDetail() {
 
             {/* Liked stage: no script UI (removed per request) */}
 
-            {/* ── APPROVED / SCRIPTING / FILMED / PUBLISH ───────────────────────────── */}
-            {(activeStage === "approved" || activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
+            {/* ── SCRIPTING / FILMED / PUBLISH (no script in approved) ───────────────── */}
+            {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
               <>
                 {/* Script section: Lovabale-style capsule bar + Yoopta editor */}
                 <StoryDetailScriptSection
