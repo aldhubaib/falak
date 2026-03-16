@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   Copy, Check, RefreshCw, Eye, ThumbsUp, MessageSquare, Trophy,
   ChevronDown, ChevronRight, ArrowUpRight, Zap, Loader2,
-  Brain, MapPin, Film, Sparkles, Database, Filter, Send, ArrowDown,
+  Brain, Film, Sparkles, Database, Send, ArrowDown,
 } from "lucide-react";
 import { nowGMT3 } from "@/lib/utils";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
@@ -57,7 +57,7 @@ interface BrainV2Data {
   stats: { gapWins: number; lateCount: number; winRate: number; totalCompetitorStories: number; untouchedCount: number };
   rankedOpportunities?: RankedOpportunity[];
   modelSignals?: {
-    topicMemoryCount?: number; learnedTags?: string[]; regionHints?: string[];
+    topicMemoryCount?: number; learnedTags?: string[];
     learnedFormat?: "shorts" | "long"; tier1Count?: number; tier2Count?: number;
     avoidCount?: number; decayHalfLife?: number;
   };
@@ -102,13 +102,13 @@ function daysOpen(dateStr: string): number {
 const fmt = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
 
 const STEP_ICONS: Record<string, typeof Brain> = {
-  tags: Sparkles, regions: MapPin, format: Film, patterns: Brain,
-  memory: Database, assembly: Send,
+  tags: Sparkles, patterns: Brain, format: Film,
+  execution: Trophy, memory: Database, assembly: Send,
 };
 
 const STEP_COLORS: Record<string, string> = {
-  tags: "blue", regions: "orange", format: "purple", patterns: "success",
-  memory: "sensor", assembly: "blue",
+  tags: "blue", patterns: "purple", format: "orange",
+  execution: "success", memory: "sensor", assembly: "blue",
 };
 
 const SECTION_COLOR_MAP: Record<string, string> = {
@@ -197,34 +197,14 @@ function StepDetails({ step }: { step: PipelineStep }) {
     );
   }
 
-  if (step.id === "regions" && Array.isArray(step.details)) {
-    return (
-      <div className="rounded-lg bg-surface/50 p-3">
-        <div className="text-[9px] font-mono text-dim uppercase mb-2">Regions from above-median videos (threshold: {fmt(step.threshold || 0)} views)</div>
-        {step.details.length === 0 ? (
-          <p className="text-[10px] text-dim font-mono">No location data yet — run pipeline with latest prompt to extract locations.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {step.details.map((r: any) => (
-              <div key={r.region} className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${step.selected.includes(r.region) ? "bg-orange/10 border border-orange/20" : "bg-surface"}`}>
-                <span className="text-[11px] font-mono">{r.region}</span>
-                <span className="text-[10px] text-dim font-mono">{r.videoCount} video{r.videoCount > 1 ? "s" : ""} · {fmt(r.views)} views</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   if (step.id === "format" && step.details) {
     const d = step.details;
-    const total = d.winsShort + d.winsLong;
-    const shortPct = total > 0 ? Math.round((d.winsShort / total) * 100) : 0;
+    const total = d.shortsCount + d.longCount;
+    const shortPct = total > 0 ? Math.round((d.shortsCount / total) * 100) : 0;
     const longPct = total > 0 ? 100 - shortPct : 0;
     return (
       <div className="rounded-lg bg-surface/50 p-3">
-        <div className="text-[9px] font-mono text-dim uppercase mb-2">Win distribution</div>
+        <div className="text-[9px] font-mono text-dim uppercase mb-2">Average views per format across competitors</div>
         <div className="flex items-center gap-2 mb-2">
           <div className="flex-1 h-3 bg-elevated rounded-full overflow-hidden flex">
             {shortPct > 0 && <div className="h-full bg-purple rounded-l-full" style={{ width: `${shortPct}%` }} />}
@@ -232,29 +212,34 @@ function StepDetails({ step }: { step: PipelineStep }) {
           </div>
         </div>
         <div className="flex justify-between text-[10px] font-mono">
-          <span className="text-purple">Shorts: {d.winsShort} wins ({shortPct}%)</span>
-          <span className="text-blue">Long: {d.winsLong} wins ({longPct}%)</span>
+          <span className="text-purple">Shorts: {d.shortsCount} videos · avg {fmt(d.avgShortsViews)} views</span>
+          <span className="text-blue">Long: {d.longCount} videos · avg {fmt(d.avgLongViews)} views</span>
         </div>
         <div className="mt-1.5 text-[10px] text-dim font-mono">
-          Decision: {d.winsShort > d.winsLong * 1.5 ? "Shorts preferred (shorts > 1.5x long)" : "Long-form preferred"}
+          Decision: {d.avgShortsViews > d.avgLongViews * 1.5 ? "Shorts win — higher avg views per video" : "Long-form wins — higher avg views per video"}
         </div>
       </div>
     );
   }
 
-  if (step.id === "patterns" && Array.isArray(step.details)) {
+  if ((step.id === "patterns" || step.id === "execution") && Array.isArray(step.details)) {
     return (
       <div className="rounded-lg bg-surface/50 p-3">
-        <div className="text-[9px] font-mono text-dim uppercase mb-2">Top-performing video topics sent to Perplexity</div>
+        <div className="text-[9px] font-mono text-dim uppercase mb-2">
+          {step.id === "patterns" ? "Top competitor videos by views" : "Your best-performing videos"}
+        </div>
         <div className="space-y-1.5">
           {step.details.map((v: any, i: number) => (
             <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface border border-border/50">
               <span className="text-[9px] font-mono text-dim shrink-0">#{i + 1}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] truncate">{v.title}</div>
-                <div className="text-[10px] text-success font-mono truncate">{v.topic}</div>
+                <div className={`text-[10px] font-mono truncate ${step.id === "patterns" ? "text-purple" : "text-success"}`}>{v.topic}</div>
               </div>
-              <span className="text-[10px] font-mono text-dim shrink-0">{fmt(v.views)} views</span>
+              <div className="text-right shrink-0">
+                <span className="text-[10px] font-mono text-dim">{fmt(v.views)} views</span>
+                {v.channel && <div className="text-[9px] font-mono text-dim/60">{v.channel}</div>}
+              </div>
             </div>
           ))}
         </div>

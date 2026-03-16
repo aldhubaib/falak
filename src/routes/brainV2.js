@@ -34,10 +34,11 @@ function buildDynamicBase(topTags, preferShorts) {
   )
 }
 
-// Builds the full dynamic query from live DB data.
-// Everything in this function comes from real data — no hardcoded strings.
-// Safe on day 1 with zero data: base + pattern sections still work.
+// Learns from COMPETITOR videos — they are your market research.
+// Their view counts tell you what audiences actually want.
+// YOUR videos are only used for gap-win/late analysis (execution tracking).
 function buildDynamicQuery({
+  competitorVideos,
   ourVideos,
   topicMemories,
   gapWinTitles,
@@ -47,10 +48,11 @@ function buildDynamicQuery({
 }) {
   const pipeline = []
 
-  // ── 1. Story focus: top Arabic tags weighted by viewCount ──
+  // ── 1. Audience Demand: tags from COMPETITOR videos weighted by views ──
+  // What topics get the most views in your niche?
   const tagViews = {}
   const tagAppearances = {}
-  for (const v of ourVideos) {
+  for (const v of competitorVideos) {
     const tags = v.analysisResult?.partA?.tags
     if (!Array.isArray(tags)) continue
     const views = Number(v.viewCount) || 0
@@ -73,100 +75,109 @@ function buildDynamicQuery({
 
   pipeline.push({
     id: 'tags',
-    title: 'Tag Extraction',
-    description: 'AI-extracted tags from your videos, weighted by view count and consistency.',
-    inputCount: ourVideos.length,
-    inputLabel: 'your videos',
+    title: 'Audience Demand',
+    description: `What topics get the most views? Learned from ${competitorVideos.length} competitor videos.`,
+    inputCount: competitorVideos.length,
+    inputLabel: 'competitor videos',
     outputCount: allTagScores.length,
-    outputLabel: 'unique tags',
+    outputLabel: 'topics found',
     selected: topTags,
-    details: allTagScores.slice(0, 12),
+    details: allTagScores.slice(0, 15),
     active: allTagScores.length > 0,
   })
 
-  // ── 2. Region hints — from AI-extracted partA.location ──
-  const viewCounts = ourVideos.map(v => Number(v.viewCount) || 0)
-  const medianViews = median(viewCounts) || 1
-
-  const regionViews = {}
-  const regionVideoCount = {}
-  for (const v of ourVideos) {
-    const views = Number(v.viewCount) || 0
-    if (views < medianViews) continue
-    const loc = v.analysisResult?.partA?.location
-    if (typeof loc === 'string' && loc.trim()) {
-      const key = loc.trim()
-      regionViews[key] = (regionViews[key] || 0) + views
-      regionVideoCount[key] = (regionVideoCount[key] || 0) + 1
-    }
-  }
-  const allRegions = Object.entries(regionViews)
-    .sort((a, b) => b[1] - a[1])
-    .map(([region, views]) => ({ region, views, videoCount: regionVideoCount[region] || 0 }))
-  const regionHints = allRegions.slice(0, 2).map(r => r.region)
-
-  pipeline.push({
-    id: 'regions',
-    title: 'Region Detection',
-    description: `AI-extracted locations from above-median videos (>${fmtViews(medianViews)} views).`,
-    inputCount: ourVideos.filter(v => (Number(v.viewCount) || 0) >= medianViews).length,
-    inputLabel: 'above-median videos',
-    outputCount: allRegions.length,
-    outputLabel: 'regions found',
-    selected: regionHints,
-    details: allRegions.slice(0, 6),
-    threshold: medianViews,
-    active: allRegions.length > 0,
-  })
-
-  // ── 3. Format preference learned from wins ──
-  const totalShort = topicMemories.reduce((s, m) => s + (m.winsShort || 0), 0)
-  const totalLong  = topicMemories.reduce((s, m) => s + (m.winsLong  || 0), 0)
-  const preferShorts = totalLong === 0 ? false : totalShort > totalLong * 1.5
-
-  pipeline.push({
-    id: 'format',
-    title: 'Format Preference',
-    description: 'Learned from short vs long-form win ratio across all topic memory.',
-    inputCount: topicMemories.length,
-    inputLabel: 'topics in memory',
-    outputCount: 1,
-    outputLabel: preferShorts ? 'Shorts' : 'Long-form',
-    selected: [preferShorts ? 'shorts' : 'long'],
-    details: { winsShort: totalShort, winsLong: totalLong, ratio: totalLong > 0 ? (totalShort / totalLong).toFixed(2) : 'n/a' },
-    active: totalShort + totalLong > 0,
-  })
-
-  // ── 4. Build dynamic base ──
-  const base = buildDynamicBase(topTags, regionHints, preferShorts)
-
-  // ── 5. Story pattern: actual topics from best videos ──
-  const topTopicVideos = ourVideos
-    .filter(v => (Number(v.viewCount) || 0) >= medianViews)
+  // ── 2. Winning Patterns: top-performing competitor video topics ──
+  // What exact story types get the highest views?
+  const compViewCounts = competitorVideos.map(v => Number(v.viewCount) || 0)
+  const medianCompViews = median(compViewCounts) || 1
+  const topCompVideos = competitorVideos
+    .filter(v => (Number(v.viewCount) || 0) >= medianCompViews)
     .sort((a, b) => (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0))
-    .slice(0, 3)
-  const topTopics = topTopicVideos
+    .slice(0, 5)
+  const topCompTopics = topCompVideos
     .map(v => v.analysisResult?.partA?.topic || '')
     .filter(Boolean)
 
   pipeline.push({
     id: 'patterns',
-    title: 'Story Patterns',
-    description: 'AI-extracted topics from your highest-performing videos — tells the search model what type of story works.',
-    inputCount: topTopicVideos.length,
-    inputLabel: 'top videos',
-    outputCount: topTopics.length,
+    title: 'Winning Patterns',
+    description: `Story types from the highest-performing competitor videos (>${fmtViews(medianCompViews)} views).`,
+    inputCount: topCompVideos.length,
+    inputLabel: 'top competitor videos',
+    outputCount: topCompTopics.length,
     outputLabel: 'patterns found',
-    selected: topTopics,
-    details: topTopicVideos.map(v => ({
+    selected: topCompTopics,
+    details: topCompVideos.map(v => ({
       title: v.titleAr || v.titleEn || '—',
       topic: v.analysisResult?.partA?.topic || '',
       views: Number(v.viewCount) || 0,
+      channel: v.channel?.nameAr || v.channel?.nameEn || v.channel?.handle || '',
     })),
-    active: topTopics.length > 0,
+    active: topCompTopics.length > 0,
   })
 
-  // ── 6. Memory tiers ──
+  // ── 3. Format preference from competitor data ──
+  // Do audiences in this niche prefer shorts or long-form?
+  let compShorts = 0
+  let compLong = 0
+  let compShortsViews = 0
+  let compLongViews = 0
+  for (const v of competitorVideos) {
+    const views = Number(v.viewCount) || 0
+    if (v.videoType === 'short') { compShorts++; compShortsViews += views }
+    else { compLong++; compLongViews += views }
+  }
+  const avgShortsViews = compShorts > 0 ? compShortsViews / compShorts : 0
+  const avgLongViews = compLong > 0 ? compLongViews / compLong : 0
+  const preferShorts = avgShortsViews > avgLongViews * 1.5
+
+  pipeline.push({
+    id: 'format',
+    title: 'Format Preference',
+    description: 'Which format gets more views per video in your niche?',
+    inputCount: competitorVideos.length,
+    inputLabel: 'competitor videos',
+    outputCount: 1,
+    outputLabel: preferShorts ? 'Shorts' : 'Long-form',
+    selected: [preferShorts ? 'shorts' : 'long'],
+    details: {
+      shortsCount: compShorts, longCount: compLong,
+      avgShortsViews: Math.round(avgShortsViews), avgLongViews: Math.round(avgLongViews),
+    },
+    active: competitorVideos.length > 0,
+  })
+
+  // ── 4. Your Execution: gap wins tell us what YOU do well ──
+  const ourViewCounts = ourVideos.map(v => Number(v.viewCount) || 0)
+  const medianOurViews = median(ourViewCounts) || 1
+  const ourWinTopics = ourVideos
+    .filter(v => (Number(v.viewCount) || 0) >= medianOurViews)
+    .sort((a, b) => (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0))
+    .slice(0, 3)
+    .map(v => v.analysisResult?.partA?.topic || '')
+    .filter(Boolean)
+
+  pipeline.push({
+    id: 'execution',
+    title: 'Your Strengths',
+    description: 'Topics from your own best-performing videos — what you execute well.',
+    inputCount: ourVideos.length,
+    inputLabel: 'your videos',
+    outputCount: ourWinTopics.length,
+    outputLabel: 'strengths found',
+    selected: ourWinTopics,
+    details: ourVideos
+      .sort((a, b) => (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0))
+      .slice(0, 5)
+      .map(v => ({
+        title: v.titleAr || v.titleEn || '—',
+        topic: v.analysisResult?.partA?.topic || '',
+        views: Number(v.viewCount) || 0,
+      })),
+    active: ourWinTopics.length > 0,
+  })
+
+  // ── 5. Topic Memory tiers ──
   const tier1Topics = topicMemories
     .filter(m =>
       (m.effectiveWeight || m.weight || 0) > 0.5 ||
@@ -194,17 +205,19 @@ function buildDynamicQuery({
     outputCount: tier1Topics.length + tier2Topics.length + avoidTopics.length,
     outputLabel: 'topics classified',
     selected: tier1Topics,
-    details: {
-      proven: tier1Topics,
-      demand: tier2Topics,
-      avoid: avoidTopics,
-    },
+    details: { proven: tier1Topics, demand: tier2Topics, avoid: avoidTopics },
     active: topicMemories.length > 0,
   })
 
-  // ── 7. Assemble all sections ──
-  const patternSection = topTopics.length
-    ? `قصصنا الأنجح كانت من هذا النوع — ابحث عن ما يشبهها:\n${topTopics.join('\n')}\n\n`
+  // ── 6. Build query from all signals ──
+  const base = buildDynamicBase(topTags, preferShorts)
+
+  const patternSection = topCompTopics.length
+    ? `القصص الأكثر مشاهدة عند المنافسين كانت من هذا النوع — ابحث عن ما يشبهها:\n${topCompTopics.join('\n')}\n\n`
+    : ''
+
+  const strengthSection = ourWinTopics.length
+    ? `قصصنا الأنجح كانت من هذا النوع — ابحث عن ما يشبهها:\n${ourWinTopics.join('\n')}\n\n`
     : ''
 
   const memorySection = tier1Topics.length
@@ -240,14 +253,15 @@ function buildDynamicQuery({
     : `لكل قصة: العنوان، ملخص جملتين، رابط المصدر.`
 
   const querySections = [
-    { id: 'base', label: 'Base Prompt', text: base, color: 'blue', active: true },
-    { id: 'pattern', label: 'Story Patterns', text: patternSection, color: 'purple', active: !!patternSection },
+    { id: 'base', label: 'Base + Demand Tags', text: base, color: 'blue', active: true },
+    { id: 'pattern', label: 'Competitor Patterns', text: patternSection, color: 'purple', active: !!patternSection },
+    { id: 'strength', label: 'Your Strengths', text: strengthSection, color: 'emerald', active: !!strengthSection },
     { id: 'proven', label: 'Proven Topics', text: memorySection, color: 'green', active: !!memorySection },
     { id: 'demand', label: 'Demand Gaps', text: demandSection, color: 'orange', active: !!demandSection },
     { id: 'open', label: 'Open Windows', text: openSection, color: 'cyan', active: !!openSection },
-    { id: 'gapwin', label: 'Gap Win Boost', text: gapSection, color: 'emerald', active: !!gapSection },
+    { id: 'gapwin', label: 'Gap Win Boost', text: gapSection, color: 'green', active: !!gapSection },
     { id: 'avoid', label: 'Avoid Filter', text: avoidSection, color: 'red', active: !!avoidSection },
-    { id: 'competitor', label: 'Output Format', text: competitorSection, color: 'slate', active: true },
+    { id: 'output', label: 'Output Format', text: competitorSection, color: 'slate', active: true },
   ]
 
   pipeline.push({
@@ -264,26 +278,19 @@ function buildDynamicQuery({
   })
 
   const query =
-    base +
-    patternSection +
-    memorySection +
-    demandSection +
-    openSection +
-    gapSection +
-    avoidSection +
-    competitorSection
+    base + patternSection + strengthSection + memorySection +
+    demandSection + openSection + gapSection + avoidSection + competitorSection
 
   return {
     query,
     meta: {
-      version:        'v2-dynamic',
+      version:        'v2-competitor-driven',
       learnedTags:    topTags,
-      regionHints:    regionHints,
       learnedFormat:  preferShorts ? 'shorts' : 'long',
       tier1Count:     tier1Topics.length,
       tier2Count:     tier2Topics.length,
       avoidCount:     avoidTopics.length,
-      patternCount:   topTopics.length,
+      patternCount:   topCompTopics.length,
       generatedAt:    new Date().toISOString(),
     },
     pipeline,
@@ -499,7 +506,7 @@ async function getBrainV2Data(projectId) {
     }
 
     const { query: autoSearchQuery, meta: dynamicQueryMeta, pipeline: queryPipeline, querySections } = buildDynamicQuery({
-      ourVideos, topicMemories: augmentedMemories, gapWinTitles, openTitles, takenTitles, competitorHandles,
+      competitorVideos, ourVideos, topicMemories: augmentedMemories, gapWinTitles, openTitles, takenTitles, competitorHandles,
     })
 
     debugStage = 'score-and-rank'
@@ -554,7 +561,6 @@ async function getBrainV2Data(projectId) {
     modelSignals: {
       topicMemoryCount: topicMemories.length,
       learnedTags: dynamicQueryMeta.learnedTags || [],
-      regionHints: dynamicQueryMeta.regionHints || [],
       learnedFormat: dynamicQueryMeta.learnedFormat || 'long',
       tier1Count: dynamicQueryMeta.tier1Count || 0,
       tier2Count: dynamicQueryMeta.tier2Count || 0,
