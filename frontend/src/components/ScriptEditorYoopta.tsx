@@ -9,17 +9,8 @@ import { HeadingOne, HeadingTwo, HeadingThree } from "@yoopta/headings";
 import Blockquote from "@yoopta/blockquote";
 import Callout from "@yoopta/callout";
 import { NumberedList, BulletedList, TodoList } from "@yoopta/lists";
-import Code from "@yoopta/code";
-import Table from "@yoopta/table";
-import Accordion from "@yoopta/accordion";
 import Divider from "@yoopta/divider";
 import Link from "@yoopta/link";
-import Embed from "@yoopta/embed";
-import Image from "@yoopta/image";
-import Video from "@yoopta/video";
-import File from "@yoopta/file";
-import Steps from "@yoopta/steps";
-import TableOfContents from "@yoopta/table-of-contents";
 import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
 import {
   SlashCommandMenu,
@@ -29,66 +20,18 @@ import {
 } from "@yoopta/ui";
 import { DEFAULT_SCRIPT_VALUE } from "@/data/editorInitialValue";
 
-const YImage = Image.extend({
-  options: {
-    upload: async (file: globalThis.File) => ({
-      id: file.name,
-      src: URL.createObjectURL(file),
-      alt: "uploaded",
-      fit: "cover" as const,
-      sizes: { width: file.size, height: file.size },
-    }),
-  },
-});
-
 const PLUGINS = [
-  TableOfContents,
-  File.extend({
-    options: {
-      upload: async (file: globalThis.File) => ({
-        id: file.name,
-        src: URL.createObjectURL(file),
-        name: file.name,
-        size: file.size,
-        format: file.name.split(".").pop(),
-      }),
-    },
-  }),
-  Code,
-  Table,
-  Accordion,
-  Divider,
   Paragraph,
-  HeadingOne.extend({
-    elements: { "heading-one": { placeholder: "Heading 1" } },
-  }),
+  HeadingOne,
   HeadingTwo,
   HeadingThree,
   Blockquote,
   Callout,
-  Link,
   NumberedList,
   BulletedList,
   TodoList,
-  Embed,
-  YImage,
-  Video.extend({
-    options: {
-      upload: async (file: globalThis.File) => ({
-        id: file.name,
-        src: URL.createObjectURL(file),
-        name: file.name,
-        size: file.size,
-        format: file.name.split(".").pop(),
-      }),
-    },
-  }),
-  Steps.extend({
-    elements: {
-      "step-list-item-heading": { placeholder: "Step title" },
-      "step-list-item-content": { placeholder: "Describe this step..." },
-    },
-  }),
+  Divider,
+  Link,
 ];
 
 const MARKS = [Bold, Italic, Underline, Strike, CodeMark, Highlight];
@@ -105,7 +48,11 @@ export interface ScriptEditorYooptaProps {
   readOnly?: boolean;
 }
 
-export function ScriptEditorYoopta({ value, onChange, readOnly = false }: ScriptEditorYooptaProps) {
+export function ScriptEditorYoopta({
+  value,
+  onChange,
+  readOnly = false,
+}: ScriptEditorYooptaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
 
@@ -114,7 +61,8 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
   useEffect(() => {
     if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
-    const toSet = value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
+    const toSet =
+      value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
     editor.withoutSavingHistory(() => {
       editor.setEditorValue(toSet);
     });
@@ -127,33 +75,49 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
     [onChange]
   );
 
-  const slashItems = useMemo(() =>
-    PLUGINS
-      .filter((p): p is NonNullable<typeof p> => p != null && typeof p === "object")
-      .map((plugin) => {
-        const p = plugin as { type?: string; options?: { display?: { title?: string; description?: string; icon?: unknown } } };
-        const type = p.type ?? "";
-        return {
-          id: type,
-          title: p.options?.display?.title ?? type,
-          description: p.options?.display?.description,
-          icon: p.options?.display?.icon,
-          keywords: [type, p.options?.display?.title].filter(Boolean) as string[],
-        };
-      })
-      .filter((item) => !!item.id)
-  , []);
-
   const handleSlashSelect = useCallback(
     (item: { id: string } | undefined) => {
       if (!item?.id) return;
-      editor.toggleBlock(item.id, { preserveContent: true, focus: true, at: editor.path.current });
+      editor.toggleBlock(item.id, {
+        preserveContent: true,
+        focus: true,
+        at: editor.path.current,
+      });
     },
     [editor]
   );
 
+  const slashItems = PLUGINS
+    .filter((p): p is NonNullable<typeof p> => p != null)
+    .map((plugin) => {
+      const p = plugin as {
+        type?: string;
+        options?: {
+          display?: {
+            title?: string;
+            description?: string;
+            icon?: unknown;
+          };
+        };
+      };
+      const type = p.type ?? "";
+      return {
+        id: type,
+        title: p.options?.display?.title ?? type,
+        description: p.options?.display?.description,
+        icon: p.options?.display?.icon,
+        keywords: [type, p.options?.display?.title].filter(
+          Boolean
+        ) as string[],
+      };
+    })
+    .filter((item) => !!item.id);
+
   return (
-    <div ref={containerRef} className="yoopta-editor-container min-h-[200px] overflow-visible">
+    <div
+      ref={containerRef}
+      className="yoopta-editor-container min-h-[200px] overflow-visible"
+    >
       <YooptaEditor
         editor={editor}
         plugins={PLUGINS as YooptaPlugin<unknown, unknown>[]}
