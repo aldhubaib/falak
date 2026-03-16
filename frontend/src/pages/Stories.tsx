@@ -307,36 +307,39 @@ export default function Stories() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-dim font-mono uppercase tracking-wider mr-1">Sort:</span>
-                {(["score", "date"] as const).flatMap((sortKey) =>
-                  (["desc", "asc"] as const).map((order) => {
-                    const isActive = listSort === sortKey && listOrder === order;
-                    const label =
-                      sortKey === "score"
-                        ? order === "desc"
-                          ? "Score ↓"
-                          : "Score ↑"
-                        : order === "desc"
-                          ? "Date ↓"
-                          : "Date ↑";
-                    return (
-                      <button
-                        key={`${sortKey}-${order}`}
-                        type="button"
-                        onClick={() => {
+                {(["score", "date"] as const).map((sortKey) => {
+                  const isActive = listSort === sortKey;
+                  const order = listSort === sortKey ? listOrder : "desc";
+                  const label =
+                    sortKey === "score"
+                      ? order === "desc"
+                        ? "Score ↓"
+                        : "Score ↑"
+                      : order === "desc"
+                        ? "Date ↓"
+                        : "Date ↑";
+                  return (
+                    <button
+                      key={sortKey}
+                      type="button"
+                      onClick={() => {
+                        if (listSort === sortKey) {
+                          setListOrder((o) => (o === "desc" ? "asc" : "desc"));
+                        } else {
                           setListSort(sortKey);
-                          setListOrder(order);
-                        }}
-                        className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                          isActive
-                            ? "bg-foreground/10 text-foreground border border-foreground/20"
-                            : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })
-                )}
+                          setListOrder("desc");
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                        isActive
+                          ? "bg-foreground/10 text-foreground border border-foreground/20"
+                          : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
