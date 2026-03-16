@@ -110,7 +110,28 @@ export function ScriptEditorYoopta({
             <FloatingBlockActions>
               <BlockOptions />
             </FloatingBlockActions>
-            <SlashCommandMenu trigger="/" />
+            <SlashCommandMenu trigger="/">
+              {({ items }) => (
+                <SlashCommandMenu.Content>
+                  <SlashCommandMenu.Input placeholder="Search blocks..." />
+                  <SlashCommandMenu.List>
+                    {items.map((item) => (
+                      <SlashCommandMenu.Item
+                        key={item.id}
+                        value={item.id}
+                        title={item.title}
+                        description={item.description}
+                        icon={item.icon}
+                      />
+                    ))}
+                  </SlashCommandMenu.List>
+                  <SlashCommandMenu.Empty>
+                    No results found
+                  </SlashCommandMenu.Empty>
+                  <SlashCommandMenu.Footer />
+                </SlashCommandMenu.Content>
+              )}
+            </SlashCommandMenu>
           </>
         )}
       </YooptaEditor>
