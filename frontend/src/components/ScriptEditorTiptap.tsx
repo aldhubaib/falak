@@ -7,6 +7,7 @@ import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Image from "@tiptap/extension-image";
 import {
   Bold,
   Italic,
@@ -25,6 +26,7 @@ import {
   Minus,
   Code2,
   Pilcrow,
+  ImageIcon,
 } from "lucide-react";
 import type { JSONContent, Editor } from "@tiptap/react";
 import { SlashCommandExtension } from "./tiptap/SlashCommand";
@@ -54,6 +56,11 @@ const EXTENSIONS = [
   }),
   TaskList,
   TaskItem.configure({ nested: true }),
+  Image.configure({
+    inline: false,
+    allowBase64: true,
+    HTMLAttributes: { class: "tiptap-image" },
+  }),
   SlashCommandExtension,
 ];
 
@@ -208,6 +215,28 @@ export const SLASH_MENU_ITEMS: {
     description: "Horizontal rule",
     icon: <Minus className="w-4 h-4" />,
     command: (e) => e.chain().focus().setHorizontalRule().run(),
+  },
+  {
+    id: "image",
+    title: "Image",
+    description: "Upload or paste image URL",
+    icon: <ImageIcon className="w-4 h-4" />,
+    command: (editor) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const src = reader.result as string;
+          editor.chain().focus().setImage({ src }).run();
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    },
   },
 ];
 
