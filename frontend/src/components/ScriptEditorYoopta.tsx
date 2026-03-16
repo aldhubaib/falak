@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import YooptaEditor, {
   createYooptaEditor,
-  useYooptaEditor,
   type YooptaContentValue,
   type YooptaPlugin,
 } from "@yoopta/editor";
@@ -23,10 +22,7 @@ import {
 } from "@yoopta/marks";
 import { FloatingToolbar } from "@yoopta/ui/floating-toolbar";
 import { FloatingBlockActions } from "@yoopta/ui/floating-block-actions";
-import {
-  SlashCommandMenu,
-  useSlashCommandActions,
-} from "@yoopta/ui/slash-command-menu";
+import { SlashCommandMenu } from "@yoopta/ui/slash-command-menu";
 import {
   DEFAULT_SCRIPT_VALUE,
   yooptaValueToScriptText,
@@ -55,61 +51,18 @@ const EDITOR_STYLE = {
 };
 
 /**
- * Custom slash command item that calls toggleBlock directly with the correct
- * block type, working around a race condition in the library's default
- * SlashCommandItem where stale selectedIndex causes the wrong block to be
- * inserted on click.
+ * Ref that stores the correct block type from each Item's onSelect callback.
+ * The library's executeSelected has a race condition where it reads a stale
+ * selectedIndex. We use the Item onSelect (fires first) to capture the correct
+ * type, then the Root onSelect (fires second inside executeSelected) reads it.
  */
-function DirectSlashItem({
-  blockType,
-  title,
-  description,
-  icon,
-}: {
-  blockType: string;
-  title?: string;
-  description?: string;
-  icon?: ReactNode;
-}) {
-  const editor = useYooptaEditor();
-  const actions = useSlashCommandActions();
+const pendingBlockRef = { current: "" };
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      editor.toggleBlock(blockType, {
-        scope: "auto",
-        focus: true,
-        preserveContent: false,
-      });
-      actions.close();
-    },
-    [editor, actions, blockType],
-  );
-
-  return (
-    <button
-      type="button"
-      role="option"
-      className="yoopta-ui-slash-command-item"
-      onClick={handleClick}
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      {icon && <div className="yoopta-ui-slash-command-item-icon">{icon}</div>}
-      <div className="yoopta-ui-slash-command-item-content">
-        {title && (
-          <div className="yoopta-ui-slash-command-item-title">{title}</div>
-        )}
-        {description && (
-          <div className="yoopta-ui-slash-command-item-description">
-            {description}
-          </div>
-        )}
-      </div>
-    </button>
-  );
-}
+const NOOP_ROOT_SELECT = () => {
+  // Intentional no-op: prevents the library's default toggleBlock call inside
+  // executeSelected, which would use the wrong item due to stale selectedIndex.
+  // The actual insertion is handled by each Item's onSelect callback.
+};
 
 function areValuesEqual(
   a: YooptaContentValue | undefined | null,
@@ -181,7 +134,7 @@ export function ScriptEditorYoopta({
           <>
             <FloatingToolbar />
             <FloatingBlockActions />
-            <SlashCommandMenu trigger="/">
+            <SlashCommandMenu trigger="/" onSelect={NOOP_ROOT_SELECT}>
               {({ items }) => (
                 <SlashCommandMenu.Content>
                   <SlashCommandMenu.Input placeholder="Search blocks..." />
@@ -189,12 +142,20 @@ export function ScriptEditorYoopta({
                     No blocks found
                   </SlashCommandMenu.Empty>
                   {items.map((item) => (
-                    <DirectSlashItem
+                    <SlashCommandMenu.Item
                       key={item.id}
-                      blockType={item.id}
+                      value={item.id}
                       title={item.title}
                       description={item.description}
                       icon={item.icon}
+                      onSelect={() => {
+                        pendingBlockRef.current = item.id;
+                        editor.toggleBlock(item.id, {
+                          scope: "auto",
+                          focus: true,
+                          preserveContent: false,
+                        });
+                      }}
                     />
                   ))}
                   <SlashCommandMenu.Footer />
