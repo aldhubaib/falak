@@ -5,7 +5,7 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth } = require('../middleware/auth')
-const { extractTopics, normTopic } = require('../services/topicMemory')
+const { extractTopics, normTopic, median } = require('../services/topicMemory')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -82,9 +82,8 @@ function buildDynamicQuery({
   // Only extracted from ABOVE-AVERAGE performing videos.
   // GEOGRAPHIC_WORDS is a proper noun lookup — not content labels.
   // The data decides which ones appear: only regions in high-view videos.
-  const avgViews = ourVideos.length
-    ? ourVideos.reduce((s, v) => s + (Number(v.viewCount) || 0), 0) / ourVideos.length
-    : 0
+  const viewCounts = ourVideos.map(v => Number(v.viewCount) || 0)
+  const medianViews = median(viewCounts) || 1
 
   const GEOGRAPHIC_WORDS = [
     'السعودية', 'الكويت', 'الإمارات', 'البحرين', 'قطر', 'عمان',
@@ -97,7 +96,7 @@ function buildDynamicQuery({
   const regionViews = {}
   for (const v of ourVideos) {
     const views = Number(v.viewCount) || 0
-    if (views < avgViews) continue
+    if (views < medianViews) continue
     const allText = [
       ...(v.analysisResult?.partA?.tags || []),
       v.analysisResult?.partA?.topic || '',
@@ -125,7 +124,7 @@ function buildDynamicQuery({
   // Tells Perplexity exactly what story type worked for this channel.
   // Not a genre label — the real AI-extracted topic sentence.
   const topTopics = ourVideos
-    .filter(v => (Number(v.viewCount) || 0) >= avgViews)
+    .filter(v => (Number(v.viewCount) || 0) >= medianViews)
     .sort((a, b) => (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0))
     .slice(0, 3)
     .map(v => v.analysisResult?.partA?.topic || '')
@@ -134,14 +133,14 @@ function buildDynamicQuery({
   // ── 6. Memory tiers (empty on day 1 — sections simply disappear) ──
   const tier1Topics = topicMemories
     .filter(m =>
-      (m.weight || 0) > 0.5 ||
-      ((m.weight || 0) > 0.3 && (m.velocityScore || 0) > 0)
+      (m.effectiveWeight || m.weight || 0) > 0.5 ||
+      ((m.effectiveWeight || m.weight || 0) > 0.3 && (m.velocityScore || 0) > 0)
     )
     .slice(0, 5)
     .map(m => m.topicLabel || m.topicKey)
 
   const tier2Topics = topicMemories
-    .filter(m => (m.demandScore || 0) > 0.6 && (m.weight || 0) < 0.3)
+    .filter(m => (m.demandScore || 0) > 0.6 && (m.effectiveWeight || m.weight || 0) < 0.3)
     .slice(0, 3)
     .map(m => m.topicLabel || m.topicKey)
 
@@ -306,6 +305,7 @@ async function getBrainV2Data(projectId) {
         status: ourTopicSet.has(normKey) ? 'taken_by_us' : 'taken',
         competitors: [...competitorMap.values()],
         totalViews: fmtViews(Number(totalViews)),
+        totalViewsRaw: Number(totalViews),
       }
       if (ourTopicSet.has(normKey)) {
         takenStories.push(story)
@@ -379,23 +379,58 @@ async function getBrainV2Data(projectId) {
       orderBy: { weight: 'desc' },
       take: 50,
     })
-    const memoryByKey = new Map(topicMemories.map((m) => [m.topicKey, m]))
+
+    const DECAY_HALF_LIFE = 30
+    const nowMs = Date.now()
+    const augmentedMemories = topicMemories.map(m => {
+      const daysSince = (nowMs - new Date(m.lastSeenAt).getTime()) / 86400000
+      const decayFactor = Math.exp(-daysSince / DECAY_HALF_LIFE * Math.LN2)
+      return { ...m, effectiveWeight: (m.weight || 0) * decayFactor }
+    })
+    const memoryByKey = new Map(augmentedMemories.map((m) => [m.topicKey, m]))
+
+    const thirtyDaysAgo = new Date(nowMs - 30 * 86400000)
+    const recentEvents = await db.topicMemoryEvent.findMany({
+      where: { projectId, occurredAt: { gte: thirtyDaysAgo } },
+      select: { topicKey: true, occurredAt: true },
+    })
+    const sevenDaysAgoMs = nowMs - 7 * 86400000
+    const velocityByKey = new Map()
+    for (const e of recentEvents) {
+      if (!velocityByKey.has(e.topicKey)) velocityByKey.set(e.topicKey, { recent: 0, older: 0 })
+      const bucket = velocityByKey.get(e.topicKey)
+      if (e.occurredAt.getTime() >= sevenDaysAgoMs) bucket.recent++
+      else bucket.older++
+    }
+    for (const m of augmentedMemories) {
+      const vel = velocityByKey.get(m.topicKey)
+      m.velocityScore = vel ? vel.recent / (vel.older + 1) : 0
+    }
 
     const { query: autoSearchQuery, meta: dynamicQueryMeta } = buildDynamicQuery({
-      ourVideos, topicMemories, gapWinTitles, openTitles, takenTitles, competitorHandles,
+      ourVideos, topicMemories: augmentedMemories, gapWinTitles, openTitles, takenTitles, competitorHandles,
     })
 
     debugStage = 'score-and-rank'
+    const maxStoryViews = Math.max(1, ...untouchedStories.map(s => s.totalViewsRaw || 0))
     const scored = untouchedStories.map((s) => {
       const mem = memoryByKey.get(s.id)
-      const winnerWeight = mem ? mem.weight : 0
-      const freshness = Math.max(0, 1 - (s.daysSince || 0) / 14)
-      const saturationPenalty = Math.min(1, (s.competitors?.length || 0) / 5) * 0.3
-      const score = Math.round((winnerWeight * 0.4 + freshness * 0.5 - saturationPenalty) * 100) / 100
+      const effectiveWeight = mem ? mem.effectiveWeight : 0
+      const normalizedWeight = Math.min(1, effectiveWeight / 2)
+      const viewPotential = Math.min(1, (s.totalViewsRaw || 0) / maxStoryViews)
+      const freshness = Math.exp(-(s.daysSince || 0) / 7 * Math.LN2)
+      const saturationPenalty = Math.log2(1 + (s.competitors?.length || 0)) * 0.10
+      const score = Math.round((
+        normalizedWeight * 0.25 +
+        viewPotential * 0.20 +
+        freshness * 0.35 -
+        saturationPenalty
+      ) * 100) / 100
       const reasons = []
-      if (winnerWeight > 0) reasons.push('winner-like')
+      if (effectiveWeight > 0) reasons.push('winner-like')
       if (freshness > 0.7) reasons.push('fresh')
       if ((s.daysSince || 0) >= 7) reasons.push('closing-fast')
+      if (viewPotential > 0.5) reasons.push('high-demand')
       const riskFlags = (s.daysSince || 0) >= 10 ? ['urgent'] : []
       return { ...s, score, reasons, riskFlags }
     })

@@ -118,8 +118,8 @@ flowchart TB
 | **7. query-competitor-channels** | `db.channel.findMany` — competitor channels, order by subscribers. | Handles for “did competitors cover this?” |
 | **8. Slice for prompt** | `gapWinTitles` = top 3 gap_win video titles (≈40 chars each).<br>`openTitles` = top 3 untouched story titles (≈60 chars, with bullet).<br>`takenTitles` = top 5 taken story titles (≈40 chars each).<br>`competitorHandles` = comma-separated handles. | **All four** go into `buildAutoSearchQuery()` |
 | **9. buildAutoSearchQuery** | Concatenate: **fixed base** (Arabic: “أعطني أبرز 8 قضايا…”) + **openSection** (priority open issues) + **gapSection** (search similar to our wins) + **takenSection** (avoid these, already filmed) + **competitorSection** (per story: title, summary, source URL, did competitors cover?). | **autoSearchQuery** (full string) |
-| **10. load-topic-memory** | Load `TopicMemory` for project (for scoring, not query text). | — |
-| **11. score-and-rank** | Score untouched stories (winner weight, freshness, saturation), sort, take top 5 → `rankedOpportunities`. | — |
+| **10. load-topic-memory** | Load `TopicMemory` for project. Apply **time decay** (half-life 30 days) → `effectiveWeight`. Query recent `TopicMemoryEvent` → compute **velocityScore** (7d events / 30d events). Augmented memories drive query building (tier1/tier2/avoid) and scoring. | tier1/tier2/avoid sections + scoring |
+| **11. score-and-rank** | Multi-signal scoring: `normalizedWeight × 0.25 + viewPotential × 0.20 + freshness × 0.35 − saturationPenalty`. Freshness = exponential decay (half-life 7d). viewPotential = competitor views / max. Saturation = log₂. Reason tags: `winner-like`, `fresh`, `closing-fast`, `high-demand`. Sort, top 5 → `rankedOpportunities`. | — |
 
 ---
 
@@ -161,9 +161,28 @@ flowchart TB
 
 ---
 
+## Learning system (topicMemory.js)
+
+When a video from "ours" channels completes analysis, `updateTopicMemoryFromVideo` fires:
+
+| Signal | How it's computed | What it affects |
+|--------|-------------------|-----------------|
+| **viewFactor** | `clamp(videoViews / projectMedianViews, 0.2, 3.0)` | Scales weight delta — high-view wins teach more |
+| **engagementFactor** | `clamp(videoEngagement / projectMedianEngagement, 0.5, 2.0)` | Boosts weight for high-engagement videos |
+| **weightDelta** | `(gap_win ? +0.3 : −0.15) × viewFactor × engagementFactor` | Drives `effectiveWeight` for scoring & query tiers |
+| **winsShort / winsLong** | Incremented based on `videoType` when outcome is `gap_win` | Drives format preference (shorts vs long) in query |
+| **demandScore** | `competitorViewsOnTopic / maxCompetitorViews` (0–1 scale) | Tier2 demand section in query |
+| **performanceScore** | `viewsSum / videosCount / projectMedianViews` | Normalized per-topic performance |
+
+View thresholds use **median** (not mean) to handle power-law distributions.
+
+---
+
 ## Summary
 
 1. **Data**: Competitor + our videos (done) → topics → taken vs untouched stories; our videos tagged gap_win/late; competitor channel list.
 2. **Slices**: Top gap-win titles, top open (untouched) titles, top taken titles, competitor handles.
-3. **Assembly**: Fixed base + open + gap + taken + competitor instructions → one Arabic prompt.
-4. That prompt is shown in the Brain v2 UI as **Auto Search Query** and is what **Fetch** sends to Perplexity to get story suggestions.
+3. **Learning**: TopicMemory stores per-topic weight (view-weighted, engagement-boosted), demandScore, performanceScore, format wins. Time-decayed on read (30-day half-life). Velocity computed from recent events.
+4. **Query**: Dynamic base (learned tags, region hints, format preference) + pattern section + memory tiers (tier1 proven winners, tier2 high-demand untouched) + open/gap/taken/avoid sections → one Arabic prompt.
+5. **Scoring**: Multi-signal ranking (time-decayed weight, competitor view potential, exponential freshness, log saturation penalty) → top 5 ranked opportunities.
+6. That prompt is shown in the Brain v2 UI as **Auto Search Query** and is what **Fetch** sends to Perplexity to get story suggestions.
