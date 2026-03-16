@@ -164,6 +164,14 @@ export default function StoryDetail() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [articleOpen, setArticleOpen] = useState(false);
   const stageStories: { id: string }[] = [];
+
+  // Original Story: expanded for Suggestion/Liked, collapsed for Scripting/Filmed/Publish/Done (on page load)
+  useEffect(() => {
+    if (story) {
+      const shouldExpand = activeStage === "suggestion" || activeStage === "liked";
+      setArticleOpen(shouldExpand);
+    }
+  }, [story?.id]);
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
   const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
