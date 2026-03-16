@@ -105,6 +105,7 @@ export function ScriptEditorYoopta({
 
   const handleChange = useCallback(
     (newValue: YooptaContentValue) => {
+      lastSyncedRef.current = newValue;
       onChange?.(newValue);
     },
     [onChange]
