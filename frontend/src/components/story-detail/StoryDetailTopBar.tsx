@@ -158,7 +158,7 @@ export function StoryDetailTopBar({
                     <div className="h-px bg-border" />
                   </>
                 )}
-                {onPass && activeStage === "suggestion" && (
+                {onPass && (activeStage === "suggestion" || activeStage === "liked") && (
                   <>
                     <button
                       type="button"
@@ -169,7 +169,7 @@ export function StoryDetailTopBar({
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-foreground hover:bg-elevated transition-colors"
                     >
                       <CircleSlash className="w-3.5 h-3.5 shrink-0" />
-                      Pass
+                      Passed
                     </button>
                     <div className="h-px bg-border" />
                   </>
