@@ -10,11 +10,20 @@ import Blockquote from "@yoopta/blockquote";
 import { NumberedList, BulletedList, TodoList } from "@yoopta/lists";
 import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
 import { FloatingToolbar, FloatingBlockActions, BlockOptions, SlashCommandMenu } from "@yoopta/ui";
+import { withCollaboration, RemoteCursors, useCollaboration } from "@yoopta/collaboration";
+import type { CollaborationUser, CollaborationYooEditor } from "@yoopta/collaboration";
 import {
   DEFAULT_SCRIPT_VALUE,
   scriptTextToYooptaValue,
   yooptaValueToScriptText,
 } from "@/data/editorInitialValue";
+
+function nameToColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h << 5) - h + name.charCodeAt(i);
+  h = Math.abs(h) % 360;
+  return `hsl(${h}, 65%, 55%)`;
+}
 
 const PLUGINS = [
   Paragraph,
@@ -38,28 +47,76 @@ function areYooptaValuesEqual(
   return yooptaValueToScriptText(a) === yooptaValueToScriptText(b);
 }
 
+export interface CollaborationCurrentUser {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
 export interface ScriptEditorYooptaProps {
   value?: YooptaContentValue;
   onChange?: (value: YooptaContentValue) => void;
   readOnly?: boolean;
+  /** When set, enables live collaboration and reports connected users for avatar display. */
+  roomId?: string;
+  collaborationWsUrl?: string;
+  currentUser?: CollaborationCurrentUser;
+  onCollaboratorsChange?: (users: CollaborationUser[]) => void;
+}
+
+/** Reports connectedUsers to parent; must be rendered inside YooptaEditor with collaboration. */
+function SyncCollaborators({ onCollaboratorsChange }: { onCollaboratorsChange?: (users: CollaborationUser[]) => void }) {
+  const { connectedUsers } = useCollaboration();
+  useEffect(() => {
+    onCollaboratorsChange?.(connectedUsers);
+  }, [connectedUsers, onCollaboratorsChange]);
+  return null;
 }
 
 export function ScriptEditorYoopta({
   value,
   onChange,
   readOnly = false,
+  roomId,
+  collaborationWsUrl,
+  currentUser,
+  onCollaboratorsChange,
 }: ScriptEditorYooptaProps) {
   const lastSyncedRef = useRef<YooptaContentValue | undefined>(undefined);
+  const editorRef = useRef<ReturnType<typeof createYooptaEditor> | CollaborationYooEditor | null>(null);
 
-  const editor = useMemo(
-    () =>
-      createYooptaEditor({
-        plugins: PLUGINS,
-        marks: MARKS,
-        readOnly,
-      }),
-    [readOnly]
-  );
+  const collaborationEnabled = Boolean(roomId && collaborationWsUrl && currentUser);
+
+  const editor = useMemo(() => {
+    const base = createYooptaEditor({
+      plugins: PLUGINS,
+      marks: MARKS,
+      readOnly,
+    });
+    if (!collaborationEnabled) {
+      editorRef.current = base;
+      return base;
+    }
+    const collab = withCollaboration(base, {
+      url: collaborationWsUrl!,
+      roomId: roomId!,
+      user: {
+        id: currentUser!.id,
+        name: currentUser!.name,
+        color: nameToColor(currentUser!.name),
+        avatar: currentUser!.avatarUrl ?? undefined,
+      },
+    });
+    editorRef.current = collab;
+    return collab;
+  }, [readOnly, collaborationEnabled, roomId, collaborationWsUrl, currentUser?.id, currentUser?.name, currentUser?.avatarUrl]);
+
+  useEffect(() => {
+    return () => {
+      const ed = editorRef.current as CollaborationYooEditor | undefined;
+      if (ed?.collaboration?.destroy) ed.collaboration.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     const toSet = value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
@@ -90,6 +147,12 @@ export function ScriptEditorYoopta({
         onChange={handleChange}
         readOnly={readOnly}
       >
+        {collaborationEnabled && (
+          <>
+            <SyncCollaborators onCollaboratorsChange={onCollaboratorsChange} />
+            <RemoteCursors />
+          </>
+        )}
         {!readOnly && (
           <>
             <FloatingToolbar />

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil, X,
@@ -53,6 +54,14 @@ export default function StoryDetail() {
   const { id, projectId } = useParams<{ id: string; projectId: string }>();
   const navigate = useNavigate();
   const projectPath = useProjectPath();
+  const currentUser = useCurrentUser();
+
+  const collaborationWsUrl = useMemo(
+    () =>
+      (import.meta.env.VITE_WS_URL as string | undefined) ||
+      `${typeof window !== "undefined" && window.location.protocol === "https:" ? "wss" : "ws"}://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:1234`,
+    []
+  );
 
   const [brief, setBrief] = useState<StoryBrief>({});
   const scriptValue = useMemo(
@@ -268,6 +277,9 @@ export default function StoryDetail() {
                   readOnly={activeStage !== "scripting"}
                   scriptValue={scriptValue}
                   onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
+                  storyId={id}
+                  currentUser={currentUser}
+                  collaborationWsUrl={collaborationWsUrl}
                 />
 
                 {activeStage === "publish" && (

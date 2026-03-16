@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { User, ChevronDown, Clock, Sparkles, Check } from "lucide-react";
 import type { YooptaContentValue } from "@yoopta/editor";
+import type { CollaborationUser } from "@yoopta/collaboration";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
-import { ScriptEditorYoopta } from "@/components/ScriptEditorYoopta";
+import { ScriptEditorYoopta, type CollaborationCurrentUser } from "@/components/ScriptEditorYoopta";
 import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
 
 export interface StoryDetailScriptSectionProps {
@@ -21,6 +22,10 @@ export interface StoryDetailScriptSectionProps {
   /** Yoopta value for Scripting / Filmed / Publish / Done. */
   scriptValue?: YooptaContentValue;
   onScriptChange?: (value: YooptaContentValue) => void;
+  /** For live collaborators (avatars from Google sign-in). */
+  storyId?: string;
+  currentUser?: CollaborationCurrentUser | null;
+  collaborationWsUrl?: string;
 }
 
 export function StoryDetailScriptSection({
@@ -37,10 +42,19 @@ export function StoryDetailScriptSection({
   readOnly,
   scriptValue,
   onScriptChange,
+  storyId,
+  currentUser,
+  collaborationWsUrl,
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
+  const [collaborators, setCollaborators] = useState<CollaborationUser[]>([]);
   const selectedCh = channels.find((c) => c.id === selectedChannelId);
   const value = scriptValue ?? scriptTextToYooptaValue("");
+
+  const roomId = storyId ? `script-${storyId}` : undefined;
+  const onCollaboratorsChange = useCallback((users: CollaborationUser[]) => {
+    setCollaborators(users);
+  }, []);
 
   return (
     <section>
@@ -168,17 +182,39 @@ export function StoryDetailScriptSection({
           </div>
 
           <div className="flex items-center -space-x-2 max-sm:hidden">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="relative">
-                <div className="w-7 h-7 rounded-full bg-elevated border-2 border-background flex items-center justify-center text-[10px] font-mono text-dim">
-                  {i}
-                </div>
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-background" />
+            {collaborators.length > 0 ? (
+              <>
+                {collaborators.slice(0, 5).map((u) => (
+                  <div key={u.id} className="relative">
+                    {u.avatar ? (
+                      <img
+                        src={u.avatar}
+                        alt={u.name}
+                        className="w-7 h-7 rounded-full object-cover border-2 border-background"
+                      />
+                    ) : (
+                      <div
+                        className="w-7 h-7 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-mono text-dim"
+                        style={{ backgroundColor: u.color ? `${u.color}33` : undefined }}
+                        title={u.name}
+                      >
+                        {(u.name || "?").slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-background" />
+                  </div>
+                ))}
+                {collaborators.length > 5 && (
+                  <div className="w-7 h-7 rounded-full bg-surface border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground font-medium">
+                    +{collaborators.length - 5}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-surface border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground">
+                —
               </div>
-            ))}
-            <div className="w-7 h-7 rounded-full bg-surface border-2 border-background flex items-center justify-center text-[10px] text-muted-foreground font-medium">
-              +2
-            </div>
+            )}
           </div>
         </div>
 
@@ -187,6 +223,10 @@ export function StoryDetailScriptSection({
             value={value}
             onChange={onScriptChange}
             readOnly={readOnly}
+            roomId={roomId}
+            collaborationWsUrl={collaborationWsUrl}
+            currentUser={currentUser ?? undefined}
+            onCollaboratorsChange={onCollaboratorsChange}
           />
         </div>
       </div>

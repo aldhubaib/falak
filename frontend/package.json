@@ -49,6 +49,7 @@
     "@tanstack/react-query": "^5.83.0",
     "@yoopta/blockquote": "^6.0.1",
     "@yoopta/code": "^6.0.1",
+    "@yoopta/collaboration": "^6.0.1",
     "@yoopta/editor": "^6.0.1",
     "@yoopta/headings": "^6.0.1",
     "@yoopta/lists": "^6.0.1",
