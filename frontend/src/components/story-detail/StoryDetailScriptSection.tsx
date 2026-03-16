@@ -3,7 +3,7 @@ import { User, ChevronDown, Clock, Sparkles, Check, Loader2 } from "lucide-react
 import type { TiptapContentValue } from "@/data/editorInitialValue";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
-import { ScriptEditorTiptap } from "@/components/ScriptEditorTiptap";
+import { ScriptEditorTiptap, type CollabUser } from "@/components/ScriptEditorTiptap";
 import { scriptTextToEditorValue } from "@/data/editorInitialValue";
 
 export interface StoryDetailScriptSectionProps {
@@ -54,8 +54,8 @@ export function StoryDetailScriptSection({
   const value = scriptValue ?? scriptTextToEditorValue("");
 
   const roomId = storyId ? `script-${storyId}` : undefined;
-  const onCollaboratorsChange = useCallback((users: { id: string; name: string; avatar?: string; color?: string }[]) => {
-    setCollaborators(users);
+  const onCollaboratorsChange = useCallback((users: CollabUser[]) => {
+    setCollaborators(users.map((u) => ({ id: u.id, name: u.name, avatar: u.avatarUrl ?? undefined })));
   }, []);
 
   return (
@@ -231,6 +231,9 @@ export function StoryDetailScriptSection({
             value={value}
             onChange={onScriptChange}
             readOnly={readOnly}
+            roomId={roomId}
+            currentUser={currentUser ?? undefined}
+            onCollaboratorsChange={onCollaboratorsChange}
           />
         </div>
       </div>

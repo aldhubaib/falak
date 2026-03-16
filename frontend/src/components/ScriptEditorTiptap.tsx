@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -8,6 +8,10 @@ import Link from "@tiptap/extension-link";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
 import {
   Bold,
   Italic,
@@ -33,36 +37,53 @@ import { SlashCommandExtension } from "./tiptap/SlashCommand";
 
 export type TiptapContentValue = JSONContent;
 
+const CURSOR_COLORS = [
+  "#f87171", "#fb923c", "#facc15", "#4ade80",
+  "#22d3ee", "#818cf8", "#e879f9", "#fb7185",
+];
+
+function pickColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
+}
+
+export interface CollabUser {
+  id: string;
+  name: string;
+  avatarUrl?: string | null;
+}
+
 export interface ScriptEditorTiptapProps {
   value?: TiptapContentValue;
   onChange?: (value: TiptapContentValue) => void;
   readOnly?: boolean;
+  roomId?: string;
+  currentUser?: CollabUser | null;
+  onCollaboratorsChange?: (users: CollabUser[]) => void;
 }
 
-const EXTENSIONS = [
-  StarterKit.configure({
-    heading: { levels: [1, 2, 3] },
-    codeBlock: { HTMLAttributes: { class: "tiptap-code-block" } },
-    blockquote: { HTMLAttributes: { class: "tiptap-blockquote" } },
-  }),
-  Placeholder.configure({
-    placeholder: "Type / to open menu, or start typing...",
-  }),
-  Underline,
-  Highlight.configure({ multicolor: false }),
-  Link.configure({
-    openOnClick: false,
-    HTMLAttributes: { class: "tiptap-link" },
-  }),
-  TaskList,
-  TaskItem.configure({ nested: true }),
-  Image.configure({
-    inline: false,
-    allowBase64: true,
-    HTMLAttributes: { class: "tiptap-image" },
-  }),
-  SlashCommandExtension,
-];
+function buildBaseExtensions() {
+  return [
+    Placeholder.configure({
+      placeholder: "Type / to open menu, or start typing...",
+    }),
+    Underline,
+    Highlight.configure({ multicolor: false }),
+    Link.configure({
+      openOnClick: false,
+      HTMLAttributes: { class: "tiptap-link" },
+    }),
+    TaskList,
+    TaskItem.configure({ nested: true }),
+    Image.configure({
+      inline: false,
+      allowBase64: true,
+      HTMLAttributes: { class: "tiptap-image" },
+    }),
+    SlashCommandExtension,
+  ];
+}
 
 function FloatingToolbar({ editor }: { editor: Editor }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -240,16 +261,104 @@ export const SLASH_MENU_ITEMS: {
   },
 ];
 
+function getCollabWsUrl() {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}/collab`;
+}
+
 export function ScriptEditorTiptap({
   value,
   onChange,
   readOnly = false,
+  roomId,
+  currentUser,
+  onCollaboratorsChange,
 }: ScriptEditorTiptapProps) {
   const suppressNextUpdate = useRef(false);
+  const isCollab = Boolean(roomId);
+
+  const ydoc = useMemo(() => (isCollab ? new Y.Doc() : null), [isCollab]);
+
+  const provider = useMemo(() => {
+    if (!ydoc || !roomId) return null;
+    const wsUrl = getCollabWsUrl();
+    const p = new WebsocketProvider(wsUrl, roomId, ydoc);
+    return p;
+  }, [ydoc, roomId]);
+
+  useEffect(() => {
+    if (!provider || !currentUser) return;
+    const color = pickColor(currentUser.name);
+    provider.awareness.setLocalStateField("user", {
+      name: currentUser.name,
+      color,
+      avatarUrl: currentUser.avatarUrl ?? null,
+    });
+  }, [provider, currentUser]);
+
+  useEffect(() => {
+    if (!provider || !onCollaboratorsChange) return;
+    const update = () => {
+      const states = Array.from(provider.awareness.getStates().entries());
+      const users: CollabUser[] = [];
+      for (const [clientId, state] of states) {
+        if (clientId === provider.awareness.clientID) continue;
+        const u = (state as { user?: { name?: string; color?: string; avatarUrl?: string } }).user;
+        if (u?.name) {
+          users.push({ id: String(clientId), name: u.name, avatarUrl: u.avatarUrl });
+        }
+      }
+      onCollaboratorsChange(users);
+    };
+    provider.awareness.on("change", update);
+    update();
+    return () => {
+      provider.awareness.off("change", update);
+    };
+  }, [provider, onCollaboratorsChange]);
+
+  useEffect(() => {
+    return () => {
+      provider?.disconnect();
+      ydoc?.destroy();
+    };
+  }, [provider, ydoc]);
+
+  const extensions = useMemo(() => {
+    const base = buildBaseExtensions();
+
+    if (ydoc && provider) {
+      return [
+        StarterKit.configure({
+          heading: { levels: [1, 2, 3] },
+          codeBlock: { HTMLAttributes: { class: "tiptap-code-block" } },
+          blockquote: { HTMLAttributes: { class: "tiptap-blockquote" } },
+          history: false,
+        }),
+        ...base,
+        Collaboration.configure({ document: ydoc }),
+        CollaborationCursor.configure({
+          provider,
+          user: currentUser
+            ? { name: currentUser.name, color: pickColor(currentUser.name) }
+            : { name: "Anonymous", color: "#888" },
+        }),
+      ];
+    }
+
+    return [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        codeBlock: { HTMLAttributes: { class: "tiptap-code-block" } },
+        blockquote: { HTMLAttributes: { class: "tiptap-blockquote" } },
+      }),
+      ...base,
+    ];
+  }, [ydoc, provider, currentUser]);
 
   const editor = useEditor({
-    extensions: EXTENSIONS,
-    content: value && Object.keys(value).length > 0 ? value : undefined,
+    extensions,
+    content: !isCollab && value && Object.keys(value).length > 0 ? value : undefined,
     editable: !readOnly,
     onUpdate: ({ editor: e }) => {
       if (suppressNextUpdate.current) {
@@ -271,7 +380,7 @@ export function ScriptEditorTiptap({
   }, [editor, readOnly]);
 
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || isCollab) return;
     if (!value || Object.keys(value).length === 0) return;
 
     const current = JSON.stringify(editor.getJSON());
@@ -280,7 +389,7 @@ export function ScriptEditorTiptap({
 
     suppressNextUpdate.current = true;
     editor.commands.setContent(value, false);
-  }, [editor, value]);
+  }, [editor, value, isCollab]);
 
   if (!editor) return null;
 

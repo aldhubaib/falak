@@ -220,13 +220,39 @@ async function migrateVideoTypes() {
   }
 }
 
+// ── Hocuspocus (Tiptap real-time collaboration WebSocket server) ──
+const http = require('http')
+const { Hocuspocus } = require('@hocuspocus/server')
+
+const hocuspocus = new Hocuspocus({
+  name: 'falak-collab',
+  quiet: true,
+  onConnect({ documentName }) {
+    logger.info({ doc: documentName }, '[collab] user connected')
+  },
+  onDisconnect({ documentName }) {
+    logger.info({ doc: documentName }, '[collab] user disconnected')
+  },
+})
+
 // ── Start ─────────────────────────────────────────────────────
 async function main() {
   await seedApiKeys()
   await migrateChannelTypes()
   migrateVideoTypes().catch(e => logger.warn('[migrate] videoTypes non-fatal:', e.message)) // run async, non-blocking
-  app.listen(config.PORT, () => {
-    logger.info({ port: config.PORT }, 'Falak running')
+
+  const server = http.createServer(app)
+
+  server.on('upgrade', (req, socket, head) => {
+    if (req.url?.startsWith('/collab')) {
+      hocuspocus.handleUpgrade(req, socket, head)
+    } else {
+      socket.destroy()
+    }
+  })
+
+  server.listen(config.PORT, () => {
+    logger.info({ port: config.PORT }, 'Falak running (HTTP + WebSocket collab)')
     // Start the pipeline worker in-process.
     // Railway runs a single service via `npm start` — there is no separate worker dyno.
     // Requiring here (not at top) avoids any circular-dep issues at module load time.
