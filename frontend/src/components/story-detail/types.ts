@@ -38,6 +38,7 @@ export interface StoryBrief {
   scriptTiptap?: TiptapContentValue;
   channelId?: string;
   youtubeTags?: string[];
+  subtitlesSRT?: string;
   youtubeUrl?: string;
   views?: number;
   likes?: number;

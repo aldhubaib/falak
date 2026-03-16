@@ -18,6 +18,8 @@ export interface StoryDetailScriptSectionProps {
   generating: boolean;
   onGenerate: () => Promise<void>;
   readOnly: boolean;
+  /** Show Generate button + channel/format controls. False in filmed/publish/done. */
+  showGenerateControls?: boolean;
   /** Tiptap value for Scripting / Filmed / Publish / Done. */
   scriptValue?: TiptapContentValue;
   onScriptChange?: (value: TiptapContentValue) => void;
@@ -41,6 +43,7 @@ export function StoryDetailScriptSection({
   generating,
   onGenerate,
   readOnly,
+  showGenerateControls = true,
   scriptValue,
   onScriptChange,
   storyId,
@@ -211,7 +214,7 @@ export function StoryDetailScriptSection({
                 )}
               </div>
 
-              {!readOnly && (
+              {showGenerateControls && !readOnly && (
                 <>
                   <span className="w-px h-4 bg-border" />
 

@@ -1,6 +1,11 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { scriptTextToEditorValue, editorValueToScriptText } from "@/data/editorInitialValue";
+import {
+  scriptTextToEditorValue,
+  editorValueToScriptText,
+  extractScriptBlocks,
+  buildScriptBlocksJSON,
+} from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -19,6 +24,43 @@ import {
   StoryDetailStageOmit,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
+
+function parseStructuredScript(text: string) {
+  const raw = (text || "").trim();
+  const sectionNames = ["TITLE", "OPENING_HOOK", "BRANDED_HOOK_START", "SCRIPT", "BRANDED_HOOK_END", "HASHTAGS"];
+  const sections: Record<string, string> = {};
+  let currentKey: string | null = null;
+  let currentLines: string[] = [];
+  for (const line of raw.split("\n")) {
+    const match = line.match(/^##\s*(.+?)\s*$/i);
+    if (match) {
+      const key = match[1].toUpperCase().replace(/[\s-]+/g, "_").replace(/_+/g, "_");
+      if (sectionNames.includes(key)) {
+        if (currentKey) sections[currentKey] = currentLines.join("\n").trim();
+        currentKey = key;
+        currentLines = [];
+        continue;
+      }
+    }
+    if (currentKey) currentLines.push(line);
+  }
+  if (currentKey) sections[currentKey] = currentLines.join("\n").trim();
+
+  const hashtagRaw = sections.HASHTAGS || "";
+  const hashtags = hashtagRaw
+    .split(/[\s,،\n]+/)
+    .map((t) => t.replace(/^#/, "").trim())
+    .filter(Boolean);
+
+  return {
+    title: sections.TITLE || "",
+    hook: sections.OPENING_HOOK || "",
+    hookStart: sections.BRANDED_HOOK_START || "",
+    script: sections.SCRIPT || raw,
+    hookEnd: sections.BRANDED_HOOK_END || "",
+    hashtags,
+  };
+}
 
 const STAGES: { key: Stage; label: string }[] = [
   { key: "suggestion", label: "Suggestion" },
@@ -182,7 +224,7 @@ export default function StoryDetail() {
   }, [scriptFormat]);
   const youtubeInput = "";
   const editingYoutubeUrl = false;
-  const generatingScript = false;
+  const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [articleOpen, setArticleOpen] = useState(false);
   const stageStories: { id: string }[] = [];
@@ -232,6 +274,77 @@ export default function StoryDetail() {
     },
     [id]
   );
+
+  const generateScript = useCallback(async () => {
+    if (!id || !selectedChannel || generatingScript) return;
+    setGeneratingScript(true);
+    try {
+      const res = await fetch(`/api/stories/${id}/generate-script`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          format: scriptFormat,
+          channelId: selectedChannel,
+          articleText: brief.articleContent ?? "",
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Generation failed" }));
+        toast.error(err.error || "Generation failed");
+        return;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let fullText = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed.delta?.text) fullText += parsed.delta.text;
+            if (parsed.error) toast.error(parsed.error);
+          } catch { /* skip non-JSON lines */ }
+        }
+      }
+      const sections = parseStructuredScript(fullText);
+      const tiptapValue = buildScriptBlocksJSON({
+        title: sections.title,
+        hook: sections.hook,
+        hookStart: sections.hookStart || brief.hookStart || "",
+        script: sections.script,
+        hookEnd: sections.hookEnd || brief.hookEnd || "",
+        hashtags: sections.hashtags,
+      });
+      setBrief((b) => {
+        const next: StoryBrief = {
+          ...b,
+          suggestedTitle: sections.title || b.suggestedTitle,
+          openingHook: sections.hook || b.openingHook,
+          hookStart: sections.hookStart,
+          script: sections.script || b.script,
+          hookEnd: sections.hookEnd,
+          scriptTiptap: tiptapValue,
+          scriptFormat: scriptFormat,
+          scriptRaw: fullText.trim(),
+          youtubeTags: sections.hashtags.length > 0 ? sections.hashtags : b.youtubeTags,
+        };
+        if (id) saveScript(id, next);
+        return next;
+      });
+      toast.success("Script generated");
+    } catch (err) {
+      toast.error("Failed to generate script");
+    } finally {
+      setGeneratingScript(false);
+    }
+  }, [id, selectedChannel, scriptFormat, brief.articleContent, ourChannels, generatingScript, saveScript]);
 
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...", type: "input" },
@@ -422,14 +535,25 @@ export default function StoryDetail() {
                       : scriptDurationMinutes >= 4)
                   }
                   generating={generatingScript}
-                  onGenerate={async () => {}}
-                  readOnly={activeStage !== "scripting"}
+                  onGenerate={generateScript}
+                  readOnly={activeStage !== "scripting" && activeStage !== "filmed"}
+                  showGenerateControls={activeStage === "scripting"}
                   scriptValue={scriptValue}
                   saving={saving}
                   onScriptChange={(value) => {
-                    const scriptText = editorValueToScriptText(value);
+                    const blocks = extractScriptBlocks(value);
+                    const scriptText = blocks.script || editorValueToScriptText(value);
                     setBrief((b) => {
-                      const next = { ...b, scriptTiptap: value, script: scriptText };
+                      const next: StoryBrief = {
+                        ...b,
+                        scriptTiptap: value,
+                        script: scriptText,
+                        suggestedTitle: blocks.title || b.suggestedTitle,
+                        openingHook: blocks.hook || b.openingHook,
+                        hookStart: blocks.hookStart !== "" ? blocks.hookStart : b.hookStart,
+                        hookEnd: blocks.hookEnd !== "" ? blocks.hookEnd : b.hookEnd,
+                        youtubeTags: blocks.hashtags.length > 0 ? blocks.hashtags : b.youtubeTags,
+                      };
                       if (id) saveScript(id, next);
                       return next;
                     });

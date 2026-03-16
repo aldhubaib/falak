@@ -7,6 +7,7 @@ const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
+const { getDialectForCountry } = require('../lib/dialects')
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
@@ -351,11 +352,11 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   }
 })
 
-// Parse structured script output into brief fields. Sections: ## TITLE, ## OPENING_HOOK, ## BRANDED_HOOK_START, ## SCRIPT, ## BRANDED_HOOK_END
+// Parse structured script output into brief fields. Sections: ## TITLE, ## OPENING_HOOK, ## BRANDED_HOOK_START, ## SCRIPT, ## BRANDED_HOOK_END, ## HASHTAGS
 function parseStructuredScript(text, channelStartHook = '', channelEndHook = '') {
   const raw = (text || '').trim()
   const sections = {}
-  const sectionNames = ['TITLE', 'OPENING_HOOK', 'BRANDED_HOOK_START', 'SCRIPT', 'BRANDED_HOOK_END']
+  const sectionNames = ['TITLE', 'OPENING_HOOK', 'BRANDED_HOOK_START', 'SCRIPT', 'BRANDED_HOOK_END', 'HASHTAGS']
   let currentKey = null
   let currentLines = []
   for (const line of raw.split('\n')) {
@@ -373,12 +374,20 @@ function parseStructuredScript(text, channelStartHook = '', channelEndHook = '')
   }
   if (currentKey) sections[currentKey] = currentLines.join('\n').trim()
 
+  const hashtagRaw = sections.HASHTAGS || ''
+  const youtubeTags = hashtagRaw
+    .split(/[\s,،\n]+/)
+    .map(t => t.replace(/^#/, '').trim())
+    .filter(t => t.length > 0 && t.length <= 100)
+    .slice(0, 15)
+
   return {
     suggestedTitle: sections.TITLE || '',
     openingHook: sections.OPENING_HOOK || '',
     hookStart: sections.BRANDED_HOOK_START !== undefined ? sections.BRANDED_HOOK_START : channelStartHook,
     script: sections.SCRIPT || raw,
     hookEnd: sections.BRANDED_HOOK_END !== undefined ? sections.BRANDED_HOOK_END : channelEndHook,
+    youtubeTags,
   }
 }
 
@@ -407,7 +416,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     }
     const channel = await db.channel.findFirst({
       where: { id: channelId, projectId: project.id },
-      select: { id: true, startHook: true, endHook: true },
+      select: { id: true, startHook: true, endHook: true, nationality: true },
     })
     if (!channel) {
       return res.status(400).json({ error: 'Channel not found or does not belong to this project.' })
@@ -416,27 +425,37 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     const startHook = (channel.startHook || '').trim()
     const endHook = (channel.endHook || '').trim()
 
+    const dialect = await getDialectForCountry(channel.nationality)
+    const dialectInstruction = dialect
+      ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
+      : 'Write the script in Arabic.'
+
     const apiKey = decrypt(project.anthropicApiKeyEncrypted)
     const durationShort = 'The script must be up to 3 minutes of speaking time (about 400–500 words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
     const durationLong = 'The script must be at least 3 minutes and can be as long as needed (e.g. 20–40+ minutes). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
-    const system = `You are an expert Arabic YouTube scriptwriter. Output ONLY a structured script in Arabic, using exactly these section headers (each on its own line). No other text or explanations.
+    const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
+
+Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
 
 ## TITLE
-(one line: suggested video title in Arabic)
+(one line: suggested video title)
 
 ## OPENING_HOOK
-(one short paragraph: the first 10 seconds hook in Arabic)
+(one short paragraph: the first 10 seconds hook)
 
 ## BRANDED_HOOK_START
 ${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
 
 ## SCRIPT
-(Main script body in Arabic with timestamps. ${format === 'long' ? durationLong : durationShort} Use format like 0:00 ... then 0:30 ... etc.)
+(Main script body with timestamps. ${format === 'long' ? durationLong : durationShort} Use format like 0:00 ... then 0:30 ... etc.)
 
 ## BRANDED_HOOK_END
-${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}`
+${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
 
-    const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short (up to 3 min)'} script in Arabic:\n\n${articleContent.slice(0, 120000)}`
+## HASHTAGS
+(5–15 relevant YouTube hashtags, one per line, each starting with #. Mix of Arabic and English tags for SEO.)`
+
+    const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short (up to 3 min)'} script:\n\n${articleContent.slice(0, 120000)}`
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
@@ -471,8 +490,9 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
       hookStart: parsed.hookStart !== undefined ? parsed.hookStart : brief.hookStart,
       script: parsed.script || brief.script,
       hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
+      youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
       scriptFormat: format,
-      scriptRaw: fullScript.trim() || brief.scriptRaw, // full AI output for "single box" view
+      scriptRaw: fullScript.trim() || brief.scriptRaw,
     }
     await db.story.update({
       where: { id: story.id },

@@ -34,9 +34,16 @@ import {
   Code2,
   Pilcrow,
   ImageIcon,
+  Type,
+  Zap,
+  Play,
+  FileText,
+  Square,
+  Hash,
 } from "lucide-react";
 import type { JSONContent, Editor } from "@tiptap/react";
 import { SlashCommandExtension } from "./tiptap/SlashCommand";
+import { ScriptBlockExtension, type ScriptBlockType } from "./tiptap/ScriptBlock";
 
 export type TiptapContentValue = JSONContent;
 
@@ -107,6 +114,7 @@ function buildBaseExtensions(getMentionUsers: () => MentionUser[]) {
     TextDirection.configure({
       types: ["heading", "paragraph"],
     }),
+    ScriptBlockExtension,
     SlashCommandExtension,
   ];
 }
@@ -285,7 +293,61 @@ export const SLASH_MENU_ITEMS: {
       input.click();
     },
   },
+  {
+    id: "scriptBlock-title",
+    title: "Title Block",
+    description: "العنوان — video title",
+    icon: <Type className="w-4 h-4" />,
+    command: (e) => insertScriptBlock(e, "title"),
+  },
+  {
+    id: "scriptBlock-hook",
+    title: "Hook Block",
+    description: "الهوك — opening hook",
+    icon: <Zap className="w-4 h-4" />,
+    command: (e) => insertScriptBlock(e, "hook"),
+  },
+  {
+    id: "scriptBlock-hookStart",
+    title: "Branded Intro",
+    description: "مقدمة القناة — channel intro",
+    icon: <Play className="w-4 h-4" />,
+    command: (e) => insertScriptBlock(e, "hookStart"),
+  },
+  {
+    id: "scriptBlock-script",
+    title: "Script Block",
+    description: "السكربت — main script body",
+    icon: <FileText className="w-4 h-4" />,
+    command: (e) => insertScriptBlock(e, "script"),
+  },
+  {
+    id: "scriptBlock-hookEnd",
+    title: "Branded Outro",
+    description: "خاتمة القناة — channel outro",
+    icon: <Square className="w-4 h-4" />,
+    command: (e) => insertScriptBlock(e, "hookEnd"),
+  },
+  {
+    id: "scriptBlock-hashtags",
+    title: "Hashtags Block",
+    description: "الهاشتاقات — tags",
+    icon: <Hash className="w-4 h-4" />,
+    command: (e) => insertScriptBlock(e, "hashtags"),
+  },
 ];
+
+function insertScriptBlock(editor: Editor, blockType: ScriptBlockType) {
+  editor
+    .chain()
+    .focus()
+    .insertContent({
+      type: "scriptBlock",
+      attrs: { blockType },
+      content: [{ type: "paragraph" }],
+    })
+    .run();
+}
 
 function getCollabWsUrl() {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
