@@ -240,40 +240,19 @@
   will-change: background-position;
 }
 
-/* ── Yoopta editor: align with app dark theme ── */
+/* ── Yoopta editor — dark-theme overrides ── */
 
-.script-editor-yoopta {
-  --yoopta-bg: hsl(var(--background));
-  --yoopta-text: hsl(var(--foreground));
-}
-
-/* Override Yoopta UI tokens so slash-command, toolbar etc match app palette */
-:root {
-  --yoopta-ui-background: var(--background);
-  --yoopta-ui-foreground: var(--foreground);
-  --yoopta-ui-muted: var(--muted);
-  --yoopta-ui-muted-foreground: var(--muted-foreground);
-  --yoopta-ui-border: var(--border);
-  --yoopta-ui-accent: var(--accent);
-  --yoopta-ui-accent-foreground: var(--accent-foreground);
-  --yoopta-ui-primary: var(--primary);
-  --yoopta-ui-primary-foreground: var(--primary-foreground);
-}
-
-/* Slate editor text and background */
 .script-editor-yoopta [data-slate-editor],
 .script-editor-yoopta [contenteditable] {
   color: hsl(var(--foreground));
   background: transparent;
 }
 
-/* Placeholder: visible gray on dark bg */
 .script-editor-yoopta [data-slate-placeholder] {
   color: hsl(var(--muted-foreground)) !important;
   opacity: 1 !important;
 }
 
-/* Divider <hr>: subtle line that works on dark backgrounds */
 .script-editor-yoopta hr {
   border: none;
   height: 1px;
@@ -281,13 +260,6 @@
   margin: 0.75rem 0;
 }
 
-/* Remove blue focus ring on void elements (Divider, etc.) */
 .script-editor-yoopta [data-slate-void] {
   outline: none;
-}
-
-/* Slash command menu: keep above app chrome */
-.yoopta-ui-slash-command-root,
-.yoopta-ui-slash-command-content {
-  z-index: 9999 !important;
 }

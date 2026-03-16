@@ -12,8 +12,17 @@ import { NumberedList, BulletedList, TodoList } from "@yoopta/lists";
 import Divider from "@yoopta/divider";
 import Link from "@yoopta/link";
 import { Code } from "@yoopta/code";
-import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
-import { FloatingToolbar, FloatingBlockActions, SlashCommandMenu } from "@yoopta/ui";
+import {
+  Bold,
+  Italic,
+  Underline,
+  Strike,
+  CodeMark,
+  Highlight,
+} from "@yoopta/marks";
+import { FloatingToolbar } from "@yoopta/ui/floating-toolbar";
+import { FloatingBlockActions } from "@yoopta/ui/floating-block-actions";
+import { SlashCommandMenu } from "@yoopta/ui/slash-command-menu";
 import {
   DEFAULT_SCRIPT_VALUE,
   yooptaValueToScriptText,
@@ -36,9 +45,9 @@ const PLUGINS: YooptaPlugin<unknown, unknown>[] = [
 
 const MARKS = [Bold, Italic, Underline, Strike, CodeMark, Highlight];
 
-function areYooptaValuesEqual(
+function areValuesEqual(
   a: YooptaContentValue | undefined | null,
-  b: YooptaContentValue | undefined | null
+  b: YooptaContentValue | undefined | null,
 ): boolean {
   if (a === b) return true;
   if (!a || !b) return !a && !b;
@@ -71,13 +80,13 @@ export function ScriptEditorYoopta({
   const editor = useMemo(
     () => createYooptaEditor({ plugins: PLUGINS, marks: MARKS, readOnly }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [],
   );
 
   useEffect(() => {
     const toSet =
       value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
-    if (areYooptaValuesEqual(lastSyncedRef.current, toSet)) return;
+    if (areValuesEqual(lastSyncedRef.current, toSet)) return;
     lastSyncedRef.current = toSet;
     editor.withoutSavingHistory(() => {
       editor.setEditorValue(toSet);
@@ -89,7 +98,7 @@ export function ScriptEditorYoopta({
       lastSyncedRef.current = newValue;
       onChange?.(newValue);
     },
-    [onChange]
+    [onChange],
   );
 
   const handleBottomClick = useCallback(() => {
@@ -103,7 +112,7 @@ export function ScriptEditorYoopta({
     <div className="script-editor-yoopta min-h-[800px] overflow-visible flex flex-col">
       <YooptaEditor
         editor={editor}
-        style={{ width: "100%", paddingBottom: 0 }}
+        style={{ width: "100%" }}
         placeholder="Type / to open menu, or start typing..."
         onChange={handleChange}
         autoFocus
@@ -116,7 +125,9 @@ export function ScriptEditorYoopta({
               {({ items }) => (
                 <SlashCommandMenu.Content>
                   <SlashCommandMenu.Input placeholder="Search blocks..." />
-                  <SlashCommandMenu.Empty>No blocks found</SlashCommandMenu.Empty>
+                  <SlashCommandMenu.Empty>
+                    No blocks found
+                  </SlashCommandMenu.Empty>
                   {items.map((item) => (
                     <SlashCommandMenu.Item
                       key={item.id}
@@ -133,6 +144,7 @@ export function ScriptEditorYoopta({
           </>
         )}
       </YooptaEditor>
+
       {!readOnly && (
         <div
           className="flex-1 min-h-[200px] cursor-text"
