@@ -10,10 +10,11 @@ import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
 import Mention from "@tiptap/extension-mention";
 import Collaboration from "@tiptap/extension-collaboration";
-import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import { createMentionSuggestion, type MentionUser } from "./tiptap/MentionSuggestion";
+import { TextDirection } from "./tiptap/TextDirection";
 import {
   Bold,
   Italic,
@@ -87,6 +88,7 @@ function buildBaseExtensions(getMentionUsers: () => MentionUser[]) {
       HTMLAttributes: { class: "tiptap-mention" },
       suggestion: createMentionSuggestion(getMentionUsers),
     }),
+    TextDirection,
     SlashCommandExtension,
   ];
 }
@@ -352,7 +354,7 @@ export function ScriptEditorTiptap({
         }),
         ...base,
         Collaboration.configure({ document: ydoc }),
-        CollaborationCursor.configure({
+        CollaborationCaret.configure({
           provider,
           user: currentUser
             ? { name: currentUser.name, color: pickColor(currentUser.name) }

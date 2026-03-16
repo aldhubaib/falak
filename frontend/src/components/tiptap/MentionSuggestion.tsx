@@ -2,6 +2,7 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from "rea
 import { createRoot, type Root } from "react-dom/client";
 import tippy, { type Instance as TippyInstance } from "tippy.js";
 import type { SuggestionOptions, SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion";
+import { isChangeOrigin } from "@tiptap/extension-collaboration";
 
 export interface MentionUser {
   id: string;
@@ -81,6 +82,7 @@ export function createMentionSuggestion(
   getUsers: () => MentionUser[],
 ): Omit<SuggestionOptions<MentionUser>, "editor"> {
   return {
+    shouldShow: ({ transaction }) => !isChangeOrigin(transaction),
     items: ({ query }) => {
       return getUsers()
         .filter((u) => u.name.toLowerCase().includes(query.toLowerCase()))
