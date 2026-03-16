@@ -171,8 +171,6 @@ export function StoryDetailScriptSection({
                     <input
                       type="number"
                       step="0.1"
-                      min={scriptFormat === "short" ? 1 : 4}
-                      max={scriptFormat === "short" ? 3 : undefined}
                       value={scriptDuration}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => {
@@ -182,14 +180,11 @@ export function StoryDetailScriptSection({
                           return;
                         }
                         const raw = parseFloat(val);
-                        if (Number.isNaN(raw)) return;
-                        const clamped =
-                          scriptFormat === "short"
-                            ? Math.min(3, Math.max(1, raw))
-                            : Math.max(4, raw);
-                        onScriptDurationChange(clamped);
+                        if (!Number.isNaN(raw) && raw >= 0) {
+                          onScriptDurationChange(raw);
+                        }
                       }}
-                      className="w-10 bg-transparent font-mono text-[11px] text-foreground focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-12 bg-transparent font-mono text-[11px] text-foreground focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <span className="font-mono text-[10px]">m</span>
                   </>
@@ -205,7 +200,7 @@ export function StoryDetailScriptSection({
                     onClick={() => canGenerate && !generating && onGenerate()}
                     disabled={!canGenerate}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
-                      canGenerate ? "text-dim hover:text-foreground hover:bg-elevated" : "text-dim/30 cursor-not-allowed"
+                      canGenerate ? "text-foreground hover:bg-elevated" : "text-dim/30 cursor-not-allowed"
                     }`}
                   >
                     {generating ? (
