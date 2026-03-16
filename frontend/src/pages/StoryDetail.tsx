@@ -15,9 +15,6 @@ import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-de
 import {
   StoryDetailTopBar,
   StoryDetailPrevNext,
-  StoryDetailTitle,
-  StoryDetailScores,
-  StoryDetailAIAnalysis,
   StoryDetailArticle,
   StoryDetailScriptBox,
   StoryDetailScriptSection,
@@ -27,7 +24,6 @@ import {
   StoryDetailStageDone,
   StoryDetailStagePassed,
   StoryDetailStageOmit,
-  ScoreBar,
   CopyBtn,
   channelName,
 } from "@/components/story-detail";
@@ -561,27 +557,6 @@ export default function StoryDetail() {
 
         <div className="flex-1 overflow-auto">
           <div className="px-6 max-lg:px-4 max-sm:px-3 py-5 pb-16 space-y-5">
-            <StoryDetailTitle
-              headline={story.headline}
-              sourceName={story.sourceName ?? null}
-              sourceDate={story.sourceDate ?? null}
-            />
-
-            <StoryDetailScores
-              relevance={story.relevanceScore ?? 0}
-              viral={story.viralScore ?? 0}
-              firstMover={story.firstMoverScore ?? 0}
-              total={story.compositeScore ?? 0}
-            />
-
-            {brief.suggestedTitle && (
-              <StoryDetailAIAnalysis
-                text={brief.suggestedTitle}
-                isFirst={isFirst}
-                isLate={isLate}
-              />
-            )}
-
             <StoryDetailArticle
               storyId={id}
               sourceUrl={story.sourceUrl}
@@ -837,15 +812,6 @@ export default function StoryDetail() {
                   onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
                 />
 
-                {(activeStage === "approved" || activeStage === "scripting") && (
-                  <button
-                    onClick={() => moveStage("filmed")}
-                    className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
-                  >
-                    + Mark as Filmed
-                  </button>
-                )}
-
                 {activeStage === "filmed" && (
                   <div className="rounded-xl bg-background p-5">
                     <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">
@@ -976,16 +942,6 @@ export default function StoryDetail() {
                       </div>
                     ))}
                   </div>
-                </div>
-
-                {/* Original scores */}
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
-                  Original Scores
-                </div>
-                <div className="flex rounded-xl overflow-hidden">
-                  <ScoreBar label="Relevance"   value={story.relevanceScore ?? 0} />
-                  <ScoreBar label="Virality"    value={story.viralScore ?? 0} />
-                  <ScoreBar label="First Mover" value={story.firstMoverScore ?? 0} />
                 </div>
 
                 {/* YouTube URL */}

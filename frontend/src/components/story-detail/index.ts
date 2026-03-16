@@ -23,8 +23,6 @@ export { StoryDetailAIAnalysis } from "./StoryDetailAIAnalysis";
 export type { StoryDetailAIAnalysisProps } from "./StoryDetailAIAnalysis";
 export { StoryDetailArticle } from "./StoryDetailArticle";
 export type { StoryDetailArticleProps } from "./StoryDetailArticle";
-export { StoryDetailYouTubeTags } from "./StoryDetailYouTubeTags";
-export type { StoryDetailYouTubeTagsProps } from "./StoryDetailYouTubeTags";
 export { StoryDetailRankingList } from "./StoryDetailRankingList";
 export type {
   StoryDetailRankingListProps,
