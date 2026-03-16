@@ -253,3 +253,9 @@
 .script-editor-yoopta [data-slate-placeholder] {
   color: hsl(var(--dim));
 }
+
+/* Slash command menu portals to body; keep it above app chrome */
+.yoopta-ui-slash-command-root,
+.yoopta-ui-slash-command-content {
+  z-index: 9999 !important;
+}

@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
+import { scriptTextToYooptaValue, yooptaValueToScriptText } from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -64,18 +64,87 @@ export default function StoryDetail() {
   );
 
   const [brief, setBrief] = useState<StoryBrief>({});
+  const [story, setStory] = useState<StoryWithLog | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSavingState] = useState(false);
+  const ourChannels: ApiChannel[] = [];
+
   const scriptValue = useMemo(
     () => brief.scriptYoopta ?? scriptTextToYooptaValue(brief.script ?? ""),
     [brief.scriptYoopta, brief.script]
   );
 
+  // Load story (and brief) on mount so Yoopta content persists after refresh
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/stories/${id}`, { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) throw new Error(res.status === 404 ? "Story not found" : "Failed to load story");
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setStory(data as StoryWithLog);
+        const b = data.brief && typeof data.brief === "object" ? data.brief as StoryBrief : {};
+        setBrief(b);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setStory(null);
+          setBrief({});
+          if (err.message === "Story not found") navigate(projectPath("/stories"), { replace: true });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [id, navigate, projectPath]);
+
+  useEffect(() => {
+    return () => {
+      if (saveScriptTimeoutRef.current) clearTimeout(saveScriptTimeoutRef.current);
+    };
+  }, []);
+
+  // Debounced save of script (scriptYoopta + script text) so refresh keeps content
+  const saveScriptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveScript = useCallback(
+    (storyId: string, newBrief: StoryBrief) => {
+      if (saveScriptTimeoutRef.current) clearTimeout(saveScriptTimeoutRef.current);
+      saveScriptTimeoutRef.current = setTimeout(() => {
+        saveScriptTimeoutRef.current = null;
+        setSavingState(true);
+        fetch(`/api/stories/${storyId}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brief: newBrief }),
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to save");
+            return res.json();
+          })
+          .then((updated) => {
+            setStory((s) => (s && s.id === storyId ? (updated as StoryWithLog) : s));
+            const b = updated.brief && typeof updated.brief === "object" ? updated.brief as StoryBrief : {};
+            setBrief(b);
+          })
+          .catch(() => {})
+          .finally(() => setSavingState(false));
+      }, 800);
+    },
+    []
+  );
+
   // ── Constants (no logic; design only) ────────────────────────────────────
-  const loading = false;
-  const story: StoryWithLog | null = MOCK_STORY;
-  const ourChannels: ApiChannel[] = [];
   const scriptFormat = brief.scriptFormat ?? "short";
   const activeStage: Stage = story?.stage ?? "scripting";
-  const saving = false;
   const articleDisplayValue = "";
   const cleanupProgress = 0;
   const articleLoading = false;
@@ -276,7 +345,15 @@ export default function StoryDetail() {
                   onGenerate={async () => {}}
                   readOnly={activeStage !== "scripting"}
                   scriptValue={scriptValue}
-                  onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
+                  saving={saving}
+                  onScriptChange={(value) => {
+                    const scriptText = yooptaValueToScriptText(value);
+                    setBrief((b) => {
+                      const next = { ...b, scriptYoopta: value, script: scriptText };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
                   storyId={id}
                   currentUser={currentUser}
                   collaborationWsUrl={collaborationWsUrl}

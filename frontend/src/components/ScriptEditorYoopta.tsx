@@ -150,6 +150,14 @@ export function ScriptEditorYoopta({
     };
   }, []);
 
+  // Slash menu portals to body; ensure dark theme and z-index apply there
+  useEffect(() => {
+    document.documentElement.setAttribute("data-yoopta-theme", "dark");
+    return () => {
+      document.documentElement.removeAttribute("data-yoopta-theme");
+    };
+  }, []);
+
   useEffect(() => {
     const toSet = value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
     if (areYooptaValuesEqual(lastSyncedRef.current, toSet)) return;
@@ -191,7 +199,7 @@ export function ScriptEditorYoopta({
             <FloatingBlockActions>
               <BlockOptions />
             </FloatingBlockActions>
-            <SlashCommandMenu />
+            <SlashCommandMenu trigger="/" />
           </>
         )}
       </YooptaEditor>

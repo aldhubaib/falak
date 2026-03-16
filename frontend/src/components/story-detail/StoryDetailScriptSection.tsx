@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { User, ChevronDown, Clock, Sparkles, Check } from "lucide-react";
+import { User, ChevronDown, Clock, Sparkles, Check, Loader2 } from "lucide-react";
 import type { YooptaContentValue } from "@yoopta/editor";
 import type { CollaborationUser } from "@yoopta/collaboration";
 import type { ApiChannel } from "./types";
@@ -26,6 +26,8 @@ export interface StoryDetailScriptSectionProps {
   storyId?: string;
   currentUser?: CollaborationCurrentUser | null;
   collaborationWsUrl?: string;
+  /** When true, show "Saving…" (auto-save in progress). */
+  saving?: boolean;
 }
 
 export function StoryDetailScriptSection({
@@ -45,6 +47,7 @@ export function StoryDetailScriptSection({
   storyId,
   currentUser,
   collaborationWsUrl,
+  saving = false,
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
   const [collaborators, setCollaborators] = useState<CollaborationUser[]>([]);
@@ -58,8 +61,14 @@ export function StoryDetailScriptSection({
 
   return (
     <section>
-      <div className="mb-2">
+      <div className="mb-2 flex items-center gap-2">
         <span className="text-[12px] text-dim font-medium">Script</span>
+        {saving && (
+          <span className="flex items-center gap-1 text-[11px] text-dim font-normal">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Saving…
+          </span>
+        )}
       </div>
       <div className="rounded-xl bg-background border border-border overflow-visible">
         <div className="px-4 max-sm:px-3 py-3 flex items-center justify-between border-b border-border flex-wrap gap-2">
