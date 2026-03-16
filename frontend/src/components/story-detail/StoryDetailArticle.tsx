@@ -51,7 +51,7 @@ export function StoryDetailArticle({
   onArticleTitleChange,
   onArticleTitleBlur,
 }: StoryDetailArticleProps) {
-  const [internalOpen, setInternalOpen] = useState(true);
+  const [internalOpen, setInternalOpen] = useState(false);
   const articleOpen = controlledOpen ?? internalOpen;
   const setArticleOpen = onArticleOpenChange ?? setInternalOpen;
 

@@ -162,7 +162,7 @@ export default function StoryDetail() {
   const editingYoutubeUrl = false;
   const generatingScript = false;
   const [historyOpen, setHistoryOpen] = useState(false);
-  const articleOpen = true;
+  const [articleOpen, setArticleOpen] = useState(false);
   const stageStories: { id: string }[] = [];
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
@@ -340,7 +340,7 @@ export default function StoryDetail() {
               }}
               relativeDate={relativeDate}
               articleOpen={articleOpen}
-              onArticleOpenChange={() => {}}
+              onArticleOpenChange={setArticleOpen}
               onCleanup={async () => {}}
               onRefetch={async () => {}}
               onRetryFetch={async () => {}}
