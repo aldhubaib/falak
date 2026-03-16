@@ -18,7 +18,10 @@ import {
   FloatingBlockActions,
   BlockOptions,
 } from "@yoopta/ui";
-import { DEFAULT_SCRIPT_VALUE } from "@/data/editorInitialValue";
+import {
+  DEFAULT_SCRIPT_VALUE,
+  areYooptaValuesEqual,
+} from "@/data/editorInitialValue";
 
 const PLUGINS = [
   Paragraph,
@@ -53,23 +56,27 @@ export function ScriptEditorYoopta({
   onChange,
   readOnly = false,
 }: ScriptEditorYooptaProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const hasInitializedRef = useRef(false);
+  const lastSyncedValueRef = useRef<YooptaContentValue | undefined>(undefined);
 
   const editor = useMemo(
-    () => createYooptaEditor({ plugins: PLUGINS as YooptaPlugin<unknown, unknown>[], marks: MARKS }),
-    []
+    () =>
+      createYooptaEditor({
+        plugins: PLUGINS as YooptaPlugin<unknown, unknown>[],
+        marks: MARKS,
+        readOnly,
+      }),
+    [readOnly]
   );
 
   useEffect(() => {
-    if (hasInitializedRef.current) return;
-    hasInitializedRef.current = true;
     const toSet =
       value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
+    if (areYooptaValuesEqual(lastSyncedValueRef.current, toSet)) return;
+    lastSyncedValueRef.current = toSet;
     editor.withoutSavingHistory(() => {
       editor.setEditorValue(toSet);
     });
-  }, [editor]);
+  }, [editor, value]);
 
   const handleChange = useCallback(
     (newValue: YooptaContentValue) => {
@@ -91,10 +98,7 @@ export function ScriptEditorYoopta({
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="yoopta-editor-container min-h-[200px] overflow-visible"
-    >
+    <div className="yoopta-editor-container min-h-[200px] overflow-visible">
       <YooptaEditor
         editor={editor}
         style={EDITOR_STYLES}

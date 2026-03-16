@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { User, ChevronDown, Clock, Sparkles, Check } from "lucide-react";
 import type { YooptaContentValue } from "@yoopta/editor";
+import { ScriptEditorErrorBoundary } from "@/components/ScriptEditorErrorBoundary";
 import { ScriptEditorYoopta } from "@/components/ScriptEditorYoopta";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
@@ -180,11 +181,17 @@ export function StoryDetailScriptSection({
         </div>
 
         <div className="px-5 max-sm:px-3 py-4 overflow-visible">
-          <ScriptEditorYoopta
+          <ScriptEditorErrorBoundary
             value={scriptValue}
             onChange={onScriptChange}
             readOnly={readOnly}
-          />
+          >
+            <ScriptEditorYoopta
+              value={scriptValue}
+              onChange={onScriptChange}
+              readOnly={readOnly}
+            />
+          </ScriptEditorErrorBoundary>
         </div>
       </div>
     </section>

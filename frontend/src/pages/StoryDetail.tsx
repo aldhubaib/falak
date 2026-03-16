@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { AIWriterBox, type WriterState } from "@/components/AIWriterBox";
 import { useParams, useNavigate } from "react-router-dom";
-import type { YooptaContentValue } from "@yoopta/editor";
 import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
@@ -75,6 +74,12 @@ export default function StoryDetail() {
   const [scriptDurationMinutes, setScriptDurationMinutes] = useState(3);
 
   const isWriterBoxRunning = cleaningUp || fetchingArticle || generatingScript;
+
+  const scriptValue = useMemo(
+    () =>
+      brief.scriptYoopta ?? scriptTextToYooptaValue(brief.script ?? ""),
+    [brief.scriptYoopta, brief.script]
+  );
 
   // Fetch current user when showing ScriptEditor (scripting or filmed)
   useEffect(() => {
@@ -248,7 +253,7 @@ export default function StoryDetail() {
     setCleanupStatus("thinking");
     setCleanupProgress(20);
     const CHAR_DELAY = 18;
-    let charQueue: string[] = [];
+    const charQueue: string[] = [];
     let isTyping = false;
     const appendChunk = (chunk: string) => {
       charQueue.push(...chunk.split(""));
@@ -308,7 +313,7 @@ export default function StoryDetail() {
     setFetchingArticle(true);
     setCleanupStatus("thinking");
     const CHAR_DELAY = 18;
-    let charQueue: string[] = [];
+    const charQueue: string[] = [];
     let isTyping = false;
     const appendChunk = (chunk: string) => {
       charQueue.push(...chunk.split(""));
@@ -422,7 +427,7 @@ export default function StoryDetail() {
   const isLate = story?.coverageStatus === "late";
   const selectedChannel = brief.channelId ?? "";
   const assignedChannel = ourChannels.find((c) => c.id === selectedChannel) ?? null;
-  const scriptSaved = !!(brief.script !== undefined && brief.script !== null);
+  const scriptSaved = !!(brief.scriptYoopta ?? brief.script);
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
   const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
@@ -611,6 +616,7 @@ export default function StoryDetail() {
               <>
                 {/* Script section: Lovabale-style capsule bar + Yoopta editor */}
                 <StoryDetailScriptSection
+                  key={id}
                   channels={ourChannels}
                   selectedChannelId={selectedChannel}
                   onChannelSelect={(channelId) => saveBrief({ ...brief, channelId })}
@@ -683,10 +689,7 @@ export default function StoryDetail() {
                     }
                   }}
                   readOnly={activeStage !== "scripting"}
-                  scriptValue={
-                    (brief.scriptYoopta as YooptaContentValue | undefined) ??
-                    scriptTextToYooptaValue(brief.script ?? "")
-                  }
+                  scriptValue={scriptValue}
                   onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
                 />
 
