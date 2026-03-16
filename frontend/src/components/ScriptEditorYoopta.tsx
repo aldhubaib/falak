@@ -54,8 +54,7 @@ const PLUGINS = [
       }),
     },
   }),
-  Code.Code,
-  Code.CodeGroup,
+  Code,
   Table,
   Accordion,
   Divider,
@@ -128,19 +127,22 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
     [onChange]
   );
 
-  const slashItems = useMemo(() => {
-    const plugins = editor.plugins;
-    if (!plugins || typeof plugins !== "object") return [];
-    return Object.entries(plugins)
-      .filter((entry): entry is [string, NonNullable<typeof entry[1]>] => entry[1] != null)
-      .map(([type, plugin]) => ({
-        id: type,
-        title: (plugin as { options?: { display?: { title?: string } } }).options?.display?.title ?? type,
-        description: (plugin as { options?: { display?: { description?: string } } }).options?.display?.description,
-        icon: (plugin as { options?: { display?: { icon?: unknown } } }).options?.display?.icon,
-        keywords: [type, (plugin as { options?: { display?: { title?: string } } }).options?.display?.title].filter(Boolean) as string[],
-      }));
-  }, [editor]);
+  const slashItems = useMemo(() =>
+    PLUGINS
+      .filter((p): p is NonNullable<typeof p> => p != null && typeof p === "object")
+      .map((plugin) => {
+        const p = plugin as { type?: string; options?: { display?: { title?: string; description?: string; icon?: unknown } } };
+        const type = p.type ?? "";
+        return {
+          id: type,
+          title: p.options?.display?.title ?? type,
+          description: p.options?.display?.description,
+          icon: p.options?.display?.icon,
+          keywords: [type, p.options?.display?.title].filter(Boolean) as string[],
+        };
+      })
+      .filter((item) => !!item.id)
+  , []);
 
   const handleSlashSelect = useCallback(
     (item: { id: string } | undefined) => {
