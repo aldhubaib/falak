@@ -56,7 +56,10 @@ export function ScriptEditorYoopta({
   const containerRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
 
-  const editor = useMemo(() => createYooptaEditor(), []);
+  const editor = useMemo(
+    () => createYooptaEditor({ plugins: PLUGINS as YooptaPlugin<unknown, unknown>[], marks: MARKS }),
+    []
+  );
 
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -87,32 +90,6 @@ export function ScriptEditorYoopta({
     [editor]
   );
 
-  const slashItems = PLUGINS
-    .filter((p): p is NonNullable<typeof p> => p != null)
-    .map((plugin) => {
-      const p = plugin as {
-        type?: string;
-        options?: {
-          display?: {
-            title?: string;
-            description?: string;
-            icon?: unknown;
-          };
-        };
-      };
-      const type = p.type ?? "";
-      return {
-        id: type,
-        title: p.options?.display?.title ?? type,
-        description: p.options?.display?.description,
-        icon: p.options?.display?.icon,
-        keywords: [type, p.options?.display?.title].filter(
-          Boolean
-        ) as string[],
-      };
-    })
-    .filter((item) => !!item.id);
-
   return (
     <div
       ref={containerRef}
@@ -120,8 +97,6 @@ export function ScriptEditorYoopta({
     >
       <YooptaEditor
         editor={editor}
-        plugins={PLUGINS as YooptaPlugin<unknown, unknown>[]}
-        marks={MARKS}
         style={EDITOR_STYLES}
         placeholder="Type / to open commands…"
         onChange={handleChange}
@@ -133,7 +108,7 @@ export function ScriptEditorYoopta({
             <FloatingBlockActions>
               <BlockOptions />
             </FloatingBlockActions>
-            <SlashCommandMenu items={slashItems} trigger="/" onSelect={handleSlashSelect} />
+            <SlashCommandMenu trigger="/" onSelect={handleSlashSelect} />
           </>
         )}
       </YooptaEditor>
