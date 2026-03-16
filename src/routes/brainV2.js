@@ -221,6 +221,8 @@ async function getBrainV2Data(projectId) {
   const requestTime = new Date()
   let debugStage = 'init'
 
+  try {
+
   const competitorVideos = await db.video.findMany({
       where: {
         channel: { projectId, type: 'competitor' },
@@ -472,6 +474,11 @@ async function getBrainV2Data(projectId) {
     },
     queryMeta,
   }
+
+  } catch (err) {
+    err._brainStage = debugStage
+    throw err
+  }
 }
 
 /**
@@ -499,16 +506,24 @@ async function syncUntouchedToStories(projectId, untouchedStories) {
   }
 }
 
+function safeBigInt(_key, value) {
+  return typeof value === 'bigint' ? Number(value) : value
+}
+
 router.get('/', async (req, res) => {
   try {
     const { projectId } = req.query
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
     const data = await getBrainV2Data(projectId)
     await syncUntouchedToStories(projectId, data.untouchedStories)
-    return res.json(data)
+    const json = JSON.stringify(data, safeBigInt)
+    res.setHeader('Content-Type', 'application/json')
+    return res.send(json)
   } catch (err) {
-    console.error('[brainV2] error', err)
-    res.status(500).json({ error: 'Internal server error', message: err instanceof Error ? err.message : String(err) })
+    const stage = err._brainStage || 'unknown'
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[brainV2] error at stage=${stage}`, err)
+    res.status(500).json({ error: msg, stage, detail: err.stack?.split('\n').slice(0, 3).join(' | ') })
   }
 })
 

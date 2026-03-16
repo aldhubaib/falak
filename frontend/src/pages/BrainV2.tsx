@@ -173,7 +173,7 @@ export default function BrainV2() {
       if (!r.ok) {
         const msg = r.status === 401
           ? "Please log in again."
-          : (body.error || body.message) || `Request failed (${r.status})`;
+          : [body.error, body.stage && `(stage: ${body.stage})`].filter(Boolean).join(' ') || `Request failed (${r.status})`;
         setError(msg);
         return;
       }
