@@ -14,7 +14,7 @@ import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import { createMentionSuggestion, type MentionUser } from "./tiptap/MentionSuggestion";
-import { TextDirection } from "./tiptap/TextDirection";
+import TextDirection from "tiptap-text-direction";
 import {
   Bold,
   Italic,
@@ -84,11 +84,29 @@ function buildBaseExtensions(getMentionUsers: () => MentionUser[]) {
       allowBase64: true,
       HTMLAttributes: { class: "tiptap-image" },
     }),
-    Mention.configure({
-      HTMLAttributes: { class: "tiptap-mention" },
+    Mention.extend({
+      addAttributes() {
+        return {
+          ...this.parent?.(),
+          avatarUrl: { default: null, parseHTML: (el) => el.getAttribute("data-avatar-url"), renderHTML: (attrs) => attrs.avatarUrl ? { "data-avatar-url": attrs.avatarUrl } : {} },
+        };
+      },
+      renderHTML({ node, HTMLAttributes }) {
+        const label = node.attrs.label ?? node.attrs.id;
+        const avatar = node.attrs.avatarUrl;
+        const attrs = { ...HTMLAttributes, class: "tiptap-mention" };
+
+        if (avatar) {
+          return ["span", attrs, ["img", { src: avatar, class: "tiptap-mention-avatar" }], `@${label}`];
+        }
+        return ["span", attrs, `@${label}`];
+      },
+    }).configure({
       suggestion: createMentionSuggestion(getMentionUsers),
     }),
-    TextDirection,
+    TextDirection.configure({
+      types: ["heading", "paragraph"],
+    }),
     SlashCommandExtension,
   ];
 }

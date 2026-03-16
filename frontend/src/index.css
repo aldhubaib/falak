@@ -255,7 +255,7 @@
 .script-editor-tiptap .tiptap-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: hsl(var(--muted-foreground));
-  float: left;
+  float: inline-start;
   height: 0;
   pointer-events: none;
 }
@@ -283,7 +283,7 @@
 
 .script-editor-tiptap .tiptap-editor ul,
 .script-editor-tiptap .tiptap-editor ol {
-  padding-left: 1.5em;
+  padding-inline-start: 1.5em;
 }
 
 .script-editor-tiptap .tiptap-editor ul {
@@ -296,7 +296,7 @@
 
 .script-editor-tiptap .tiptap-editor ul[data-type="taskList"] {
   list-style: none;
-  padding-left: 0;
+  padding-inline-start: 0;
 }
 
 .script-editor-tiptap .tiptap-editor ul[data-type="taskList"] li {
@@ -315,8 +315,8 @@
 }
 
 .script-editor-tiptap .tiptap-editor .tiptap-blockquote {
-  border-left: 3px solid hsl(var(--border));
-  padding-left: 1em;
+  border-inline-start: 3px solid hsl(var(--border));
+  padding-inline-start: 1em;
   color: hsl(var(--muted-foreground));
   font-style: italic;
 }
@@ -361,6 +361,16 @@
   color: hsl(var(--primary));
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* ── RTL / LTR direction support ── */
+
+.script-editor-tiptap .tiptap-editor [dir="rtl"] {
+  text-align: right;
+}
+
+.script-editor-tiptap .tiptap-editor [dir="ltr"] {
+  text-align: left;
 }
 
 /* ── Slash command menu ── */
@@ -458,12 +468,24 @@
 /* ── Mentions ── */
 
 .script-editor-tiptap .tiptap-editor .tiptap-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
   background: hsl(var(--primary) / 0.15);
   color: hsl(var(--primary));
   border-radius: 0.25rem;
-  padding: 0.05em 0.25em;
+  padding: 0.05em 0.3em;
   font-weight: 500;
   box-decoration-break: clone;
+  vertical-align: baseline;
+}
+
+.script-editor-tiptap .tiptap-editor .tiptap-mention-avatar {
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
 }
 
 .tippy-box[data-theme="mention-menu"] {
@@ -542,10 +564,9 @@
 
 .collaboration-cursor__caret {
   position: relative;
-  margin-left: -1px;
-  margin-right: -1px;
-  border-left: 2px solid;
-  border-right: none;
+  margin-inline: -1px;
+  border-inline-start: 2px solid;
+  border-inline-end: none;
   word-break: normal;
   pointer-events: none;
 }
@@ -553,7 +574,7 @@
 .collaboration-cursor__label {
   position: absolute;
   top: -1.4em;
-  left: -1px;
+  inset-inline-start: -1px;
   font-size: 0.7rem;
   font-weight: 600;
   line-height: 1;

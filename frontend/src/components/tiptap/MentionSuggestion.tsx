@@ -14,9 +14,16 @@ interface MentionListRef {
   onKeyDown: (props: SuggestionKeyDownProps) => boolean;
 }
 
+function selectItem(
+  item: MentionUser,
+  command: (attrs: Record<string, unknown>) => void,
+) {
+  command({ id: item.id, label: item.name, avatarUrl: item.avatarUrl ?? null });
+}
+
 const MentionList = forwardRef<
   MentionListRef,
-  { items: MentionUser[]; command: (item: MentionUser) => void }
+  { items: MentionUser[]; command: (attrs: Record<string, unknown>) => void }
 >(({ items, command }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -38,7 +45,7 @@ const MentionList = forwardRef<
       }
       if (event.key === "Enter") {
         event.preventDefault();
-        if (items[selectedIndex]) command(items[selectedIndex]);
+        if (items[selectedIndex]) selectItem(items[selectedIndex], command);
         return true;
       }
       return false;
@@ -56,7 +63,7 @@ const MentionList = forwardRef<
           key={item.id}
           type="button"
           className={`mention-menu-item ${index === selectedIndex ? "is-selected" : ""}`}
-          onClick={() => command(item)}
+          onClick={() => selectItem(item, command)}
           onMouseEnter={() => setSelectedIndex(index)}
         >
           {item.avatarUrl ? (
