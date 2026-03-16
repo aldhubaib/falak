@@ -25,6 +25,15 @@ export function AppLayout() {
       });
   }, [navigate, location.pathname, location.search]);
 
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [drawerOpen]);
+
   const expanded = pinned || hovered;
 
   return (
@@ -46,8 +55,14 @@ export function AppLayout() {
       {/* Mobile/Tablet header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-12 flex items-center justify-between px-4 border-b border-border bg-background z-[100]">
         <button
-          onClick={() => setDrawerOpen(true)}
-          className="w-8 h-8 rounded-md flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated transition-colors"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDrawerOpen(true);
+          }}
+          aria-label="Open menu"
+          className="w-8 h-8 rounded-md flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated transition-colors touch-manipulation"
         >
           <Menu className="w-4 h-4" />
         </button>
@@ -65,6 +80,7 @@ export function AppLayout() {
         <div
           className="fixed inset-0 bg-black/60 z-[500] backdrop-blur-sm lg:hidden"
           onClick={() => setDrawerOpen(false)}
+          aria-hidden
         />
       )}
 
@@ -79,6 +95,17 @@ export function AppLayout() {
 
       {/* Main content */}
       <main className="flex-1 min-w-0 lg:pt-0 pt-12 bg-surface lg:rounded-l-2xl relative z-10">
+        {/* Desktop: menu button at sidebar edge to expand/collapse sidebar */}
+        <div className="hidden lg:flex absolute top-0 left-0 z-20 pt-3 pl-3">
+          <button
+            type="button"
+            onClick={() => setPinned(!pinned)}
+            aria-label={pinned ? "Collapse sidebar" : "Expand sidebar"}
+            className="w-9 h-9 rounded-md flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        </div>
         <Outlet />
       </main>
     </div>
