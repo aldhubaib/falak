@@ -19,9 +19,6 @@ import {
   StoryDetailScores,
   StoryDetailAIAnalysis,
   StoryDetailArticle,
-  StoryDetailYouTubeTags,
-  StoryDetailRankingList,
-  StoryDetailChannelSelector,
   StoryDetailScriptBox,
   StoryDetailScriptSection,
   StoryDetailStageSuggestion,
@@ -73,14 +70,12 @@ export default function StoryDetail() {
   // ── UI state (synced with brief JSON) ────────────────────────────────────
   const [brief, setBrief] = useState<StoryBrief>({});
   const [youtubeInput, setYoutubeInput] = useState("");
-  const [channelDropOpen, setChannelDropOpen] = useState(false);
   const [scriptOpen, setScriptOpen] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingYoutubeUrl, setEditingYoutubeUrl] = useState(false);
   const [articleLoading, setArticleLoading] = useState(false);
   const [articleError, setArticleError] = useState<string | null>(null);
   const [generatingScript, setGeneratingScript] = useState(false);
-  const [suggestingTags, setSuggestingTags] = useState(false);
   const [scriptViewMode, setScriptViewMode] = useState<"structured" | "full">("structured");
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -436,9 +431,6 @@ export default function StoryDetail() {
   const selectedChannel = brief.channelId ?? "";
   const assignedChannel = ourChannels.find((c) => c.id === selectedChannel) ?? null;
   const scriptSaved = !!(brief.script !== undefined && brief.script !== null);
-  const likedSorted = [...likedStories].sort(
-    (a, b) => (b.compositeScore ?? 0) - (a.compositeScore ?? 0)
-  );
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
   const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
@@ -620,35 +612,6 @@ export default function StoryDetail() {
               onArticleTitleBlur={(title) => patchStory({ brief: { ...brief, articleTitle: title } }).catch(() => {})}
             />
 
-            <StoryDetailYouTubeTags
-              tags={brief.youtubeTags}
-            suggesting={suggestingTags}
-            onSuggest={async () => {
-              if (!id || suggestingTags) return;
-              setSuggestingTags(true);
-              try {
-                const r = await fetch(`/api/stories/${id}/suggest-tags`, {
-                  method: "POST",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                });
-                const data = await r.json().catch(() => ({}));
-                if (r.ok && data.brief) {
-                  setBrief(data.brief);
-                  setStory((s) => (s?.brief ? { ...s, brief: data.brief } : s));
-                  const count = Array.isArray(data.tags) ? data.tags.length : (data.brief.youtubeTags?.length ?? 0);
-                  toast.success(`Suggested ${count} tags. Copy below for YouTube.`);
-                } else {
-                  toast.error(data.error || "Could not suggest tags");
-                }
-              } catch {
-                toast.error("Could not suggest tags");
-              } finally {
-                setSuggestingTags(false);
-              }
-            }}
-          />
-
           {/* Stage-specific content */}
           <div className="space-y-5">
 
@@ -679,7 +642,6 @@ export default function StoryDetail() {
             {activeStage === "liked" && (
               <StoryDetailStageLiked
                 canApprove={
-                  !!selectedChannel &&
                   !!(brief.script?.trim() || brief.suggestedTitle?.trim() || brief.openingHook?.trim())
                 }
                 onApprove={async () => {
@@ -688,27 +650,6 @@ export default function StoryDetail() {
                 }}
                 onPass={() => moveStage("suggestion")}
               >
-                <StoryDetailRankingList
-                  stories={likedSorted.map((s) => ({
-                    id: s.id,
-                    headline: s.headline,
-                    coverageStatus: s.coverageStatus ?? null,
-                    compositeScore: s.compositeScore ?? null,
-                  }))}
-                  currentId={id}
-                  currentScore={story.compositeScore ?? null}
-                  onSelect={(storyId) => navigate(projectPath(`/story/${storyId}`))}
-                />
-                <StoryDetailChannelSelector
-                  channels={ourChannels}
-                  selectedId={brief.channelId ?? ""}
-                  open={channelDropOpen}
-                  onToggleOpen={() => setChannelDropOpen(!channelDropOpen)}
-                  onSelect={(channelId) => {
-                    saveBrief({ ...brief, channelId });
-                    setChannelDropOpen(false);
-                  }}
-                />
                 <StoryDetailScriptBox
                   brief={brief}
                   scriptSaved={scriptSaved}
