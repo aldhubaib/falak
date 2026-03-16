@@ -38,6 +38,7 @@ interface PipelineData {
     failed: number;
   };
   byStage: Record<string, ApiPipelineItem[]>;
+  paused: boolean;
 }
 
 const STAGE_DEFS: { id: string; number: number; label: string; color: string }[] = [
@@ -61,11 +62,15 @@ export default function Pipeline() {
       ? `/api/pipeline?limit=2000&projectId=${encodeURIComponent(projectId)}`
       : "/api/pipeline?limit=2000";
     fetch(url, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: PipelineData | null) => {
-        if (d) setData(d);
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
-      .catch(() => {})
+      .then((d: PipelineData) => {
+        setData(d);
+        setPaused(d.paused);
+      })
+      .catch(() => toast.error("Failed to load pipeline data"))
       .finally(() => setLoading(false));
   }, [projectId]);
 
@@ -124,7 +129,9 @@ export default function Pipeline() {
           <h1 className="text-[13px] font-medium text-foreground">Pipeline</h1>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 text-success text-[11px] font-medium">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+            paused ? "bg-orange/15 text-orange" : "bg-success/15 text-success"
+          }`}>
             <Circle className="w-2 h-2 fill-current" />
             {paused ? "Paused" : `Running · ${countdown}s`}
           </span>

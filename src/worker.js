@@ -81,16 +81,22 @@ async function processItem(item) {
     })
   } catch (err) {
     const errorMsg = (err && err.message) || String(err)
-    await db.pipelineItem.update({
+    const updated = await db.pipelineItem.update({
       where: { id: item.id },
       data: {
-        stage: 'failed',
-        status: 'failed',
         error: errorMsg,
         retries: { increment: 1 },
         finishedAt: new Date(),
+        stage: item.stage,
+        status: 'queued',
       },
     })
+    if (updated.retries >= MAX_RETRIES) {
+      await db.pipelineItem.update({
+        where: { id: item.id },
+        data: { stage: 'failed', status: 'failed' },
+      })
+    }
   }
 }
 

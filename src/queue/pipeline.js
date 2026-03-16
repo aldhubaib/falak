@@ -97,19 +97,25 @@ async function processJob(job) {
     }
   } catch (err) {
     const errorMsg = (err && err.message) || String(err)
-    const retries = (item.retries || 0) + 1
-    await db.pipelineItem.update({
+    const updated = await db.pipelineItem.update({
       where: { id: item.id },
       data: {
-        stage: 'failed',
-        status: 'failed',
         error: errorMsg,
-        retries,
+        retries: { increment: 1 },
         finishedAt: new Date(),
+        // Keep the original stage and re-queue if retries remain;
+        // only move to 'failed' when retries are exhausted.
+        stage,
+        status: 'queued',
       },
     })
-    if (retries < MAX_RETRIES) {
-      await addJob(item.id, item.lastStage || stage)
+    if (updated.retries >= MAX_RETRIES) {
+      await db.pipelineItem.update({
+        where: { id: item.id },
+        data: { stage: 'failed', status: 'failed' },
+      })
+    } else {
+      await addJob(item.id, stage)
     }
     throw err
   }

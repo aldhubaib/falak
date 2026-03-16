@@ -24,15 +24,17 @@ const pipelineQuerySchema = z.object({
 })
 const PER_STAGE_CAP = 100
 
-// ── GET /api/pipeline?limit=1000&stage=xxx&projectId=xxx — pipeline state (capped), optional project scope
+// ── GET /api/pipeline?limit=1000&stage=xxx&projectId=xxx — pipeline state, optional project scope
 router.get('/', async (req, res) => {
   const { limit, stage, projectId } = parseQuery(req.query, pipelineQuerySchema)
-  const where = { ...(stage ? { stage } : {}) }
+  const baseWhere = {}
   if (projectId) {
-    where.video = { channel: { projectId } }
+    baseWhere.video = { channel: { projectId } }
   }
+
+  const itemWhere = { ...baseWhere, ...(stage ? { stage } : {}) }
   const items = await db.pipelineItem.findMany({
-    where,
+    where: itemWhere,
     include: {
       video: {
         select: {
@@ -52,17 +54,30 @@ router.get('/', async (req, res) => {
     byStage[s] = items.filter(i => i.stage === s).slice(0, PER_STAGE_CAP)
   }
 
+  // Real counts from DB (not affected by limit/cap)
+  const [counts, totalCount, pausedCount] = await Promise.all([
+    db.pipelineItem.groupBy({
+      by: ['stage'],
+      where: baseWhere,
+      _count: true,
+    }),
+    db.pipelineItem.count({ where: baseWhere }),
+    db.project.count({ where: { status: 'paused' } }),
+  ])
+
+  const countMap = {}
+  for (const row of counts) countMap[row.stage] = row._count
   const stats = {
-    total:      items.length,
-    import:     byStage.import.length,
-    transcribe: byStage.transcribe.length,
-    comments:   byStage.comments.length,
-    analyzing:  byStage.analyzing.length,
-    done:       byStage.done.length,
-    failed:     byStage.failed.length,
+    total:      totalCount,
+    import:     countMap.import || 0,
+    transcribe: countMap.transcribe || 0,
+    comments:   countMap.comments || 0,
+    analyzing:  countMap.analyzing || 0,
+    done:       countMap.done || 0,
+    failed:     countMap.failed || 0,
   }
 
-  res.json({ stats, byStage })
+  res.json({ stats, byStage, paused: pausedCount > 0 })
 })
 
 // ── POST /api/pipeline/process — enqueue one job (if Redis) or run one step in-process
@@ -116,15 +131,18 @@ router.post('/retry-all-failed', strictRateLimit, requireRole('owner', 'admin', 
   try {
     const failed = await db.pipelineItem.findMany({ where: { stage: 'failed' } })
     const queue = getQueue()
+    let retried = 0
     for (const item of failed) {
+      if (item.retries >= MAX_RETRIES * 3) continue
       const stage = item.lastStage || 'import'
       await db.pipelineItem.update({
         where: { id: item.id },
-        data: { status: 'queued', stage, error: null, retries: 0 },
+        data: { status: 'queued', stage, error: null },
       })
       if (queue) await addJob(item.id, stage)
+      retried++
     }
-    res.json({ retried: failed.length })
+    res.json({ retried })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
@@ -134,10 +152,14 @@ router.post('/retry-all-failed', strictRateLimit, requireRole('owner', 'admin', 
 router.post('/:id/retry', strictRateLimit, requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const existing = await db.pipelineItem.findUnique({ where: { id: req.params.id } })
+    if (!existing) return res.status(404).json({ error: 'Pipeline item not found' })
+    if (existing.retries >= MAX_RETRIES * 3) {
+      return res.status(400).json({ error: 'Maximum retry limit reached' })
+    }
     const resumeStage = existing?.lastStage || 'import'
     const item = await db.pipelineItem.update({
       where: { id: req.params.id },
-      data: { status: 'queued', stage: resumeStage, error: null, retries: 0 },
+      data: { status: 'queued', stage: resumeStage, error: null },
     })
     const queue = getQueue()
     if (queue) await addJob(item.id, resumeStage)

@@ -16,15 +16,7 @@ function fmtViews(n) {
   return String(n)
 }
 
-// Builds the Arabic base sentence from learned data.
-// topTags: Arabic tags from highest-view videos (already in Arabic, no translation)
-// regionHints: soft preference only — bonus not requirement, can be empty
-// preferShorts: learned from winsShort vs winsLong ratio
-function buildDynamicBase(topTags, regionHints, preferShorts) {
-  const regionSoft = regionHints.length
-    ? `\n(إذا وجدت قصصاً مشابهة من ${regionHints.join(' أو ')} فهذا أفضل، لكن القصص العالمية مقبولة تماماً)`
-    : ''
-
+function buildDynamicBase(topTags, preferShorts) {
   const formatHint = preferShorts
     ? ' (أفضّل موضوعات قصيرة وصادمة تصلح لـ Shorts)'
     : ' (أفضّل موضوعات تصلح لفيديو مطوّل وعميق)'
@@ -32,15 +24,13 @@ function buildDynamicBase(topTags, regionHints, preferShorts) {
   if (!topTags.length) {
     return (
       `أعطني أبرز 8 قصص وقضايا متنوعة من أي مكان في العالم${formatHint}.` +
-      ` خليط من أخبار حديثة (آخر 7 أيام) وقصص قديمة لم تُروَ بالعربية بعد.` +
-      `${regionSoft}\n\n`
+      ` خليط من أخبار حديثة (آخر 7 أيام) وقصص قديمة لم تُروَ بالعربية بعد.\n\n`
     )
   }
 
   return (
     `أعطني أبرز 8 قصص وقضايا من أي مكان في العالم من نوع: ${topTags.slice(0, 5).join('، ')}${formatHint}.` +
-    ` خليط من أخبار حديثة (آخر 7 أيام) وقصص قديمة لم تُروَ بالعربية بعد.` +
-    `${regionSoft}\n\n`
+    ` خليط من أخبار حديثة (آخر 7 أيام) وقصص قديمة لم تُروَ بالعربية بعد.\n\n`
   )
 }
 
