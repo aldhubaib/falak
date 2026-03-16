@@ -33,7 +33,7 @@ interface PageAccess {
   active: boolean;
 }
 
-const allPages = ["Channels", "Pipeline", "Monitor", "Analytics", "Stories", "Brain", "Settings", "Admin", "Fun", "Horror", "Travel"];
+const allPages = ["Channels", "Pipeline", "Monitor", "Analytics", "Stories", "Settings", "Admin", "Fun", "Horror", "Travel"];
 
 const initialUsers: AllowedUser[] = [
   {

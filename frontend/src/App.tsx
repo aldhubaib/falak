@@ -16,8 +16,6 @@ import Analytics from "./pages/Analytics";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
 import Stories from "./pages/Stories";
-import StoriesV2 from "./pages/StoriesV2";
-import Brain from "./pages/Brain";
 import BrainV2 from "./pages/BrainV2";
 import StoryDetail from "./pages/StoryDetail";
 import NotFound from "./pages/NotFound";
@@ -70,9 +68,6 @@ const App = () => (
               <Route path="analytics" element={<Analytics />} />
               <Route path="admin" element={<Admin />} />
               <Route path="stories" element={<Stories />} />
-              <Route path="stories-v2" element={<StoriesV2 />} />
-              <Route path="stories-v2/story/:id" element={<StoryDetail />} />
-              <Route path="brain" element={<Brain />} />
               <Route path="brain-v2" element={<BrainV2 />} />
               <Route path="story/:id" element={<StoryDetail />} />
               <Route path="settings" element={<Settings />} />
