@@ -179,7 +179,7 @@ export function StoryDetailScriptSection({
           </div>
         </div>
 
-        <div className="px-5 max-sm:px-3 py-4">
+        <div className="px-5 max-sm:px-3 py-4 overflow-visible">
           <ScriptEditorYoopta
             value={scriptValue}
             onChange={onScriptChange}

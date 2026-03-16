@@ -97,6 +97,7 @@ const MARKS = [Bold, Italic, Underline, Strike, CodeMark, Highlight];
 
 const EDITOR_STYLES = {
   width: "100%",
+  minHeight: 200,
   paddingBottom: 60,
 };
 
@@ -109,6 +110,7 @@ export interface ScriptEditorYooptaProps {
 export function ScriptEditorYoopta({ value, onChange, readOnly = false }: ScriptEditorYooptaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const initialValueRef = useRef<YooptaContentValue | undefined>(value);
+  const isInternalChangeRef = useRef(false);
 
   const editor = useMemo(() => {
     return createYooptaEditor({
@@ -118,6 +120,10 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
   }, []);
 
   useEffect(() => {
+    if (isInternalChangeRef.current) {
+      isInternalChangeRef.current = false;
+      return;
+    }
     const toSet = value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
     initialValueRef.current = toSet;
     editor.withoutSavingHistory(() => {
@@ -127,6 +133,7 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
 
   const handleChange = useCallback(
     (newValue: YooptaContentValue) => {
+      isInternalChangeRef.current = true;
       onChange?.(newValue);
     },
     [onChange]
@@ -154,7 +161,7 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
   );
 
   return (
-    <div ref={containerRef} className="yoopta-editor-container">
+    <div ref={containerRef} className="yoopta-editor-container min-h-[200px] overflow-visible">
       <YooptaEditor
         editor={editor}
         style={EDITOR_STYLES}
