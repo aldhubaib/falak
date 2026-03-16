@@ -618,15 +618,7 @@ export default function StoryDetail() {
                   onScriptFormatChange={(fmt) => setBrief((b) => ({ ...b, scriptFormat: fmt }))}
                   scriptDuration={scriptDurationMinutes}
                   onScriptDurationChange={setScriptDurationMinutes}
-                  canGenerate={
-                    !!selectedChannel &&
-                    !!(
-                      articleDisplayValue?.trim() ||
-                      (brief.articleContent?.trim() &&
-                        brief.articleContent !== "__SCRAPE_FAILED__" &&
-                        brief.articleContent !== "__YOUTUBE__")
-                    )
-                  }
+                  canGenerate={!!selectedChannel && !generatingScript}
                   generating={generatingScript}
                   onGenerate={async () => {
                     if (!id || !selectedChannel || generatingScript) return;

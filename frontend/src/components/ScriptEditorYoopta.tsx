@@ -21,7 +21,6 @@ import File from "@yoopta/file";
 import Steps from "@yoopta/steps";
 import TableOfContents from "@yoopta/table-of-contents";
 import { Bold, Italic, Underline, Strike, CodeMark, Highlight } from "@yoopta/marks";
-import { applyTheme } from "@yoopta/themes-shadcn";
 import {
   SlashCommandMenu,
   FloatingToolbar,
@@ -42,7 +41,7 @@ const YImage = Image.extend({
   },
 });
 
-const PLUGINS: unknown[] = [
+const PLUGINS = [
   TableOfContents,
   File.extend({
     options: {
@@ -91,7 +90,7 @@ const PLUGINS: unknown[] = [
       "step-list-item-content": { placeholder: "Describe this step..." },
     },
   }),
-];
+] as YooptaPlugin<unknown, unknown>[];
 
 const MARKS = [Bold, Italic, Underline, Strike, CodeMark, Highlight];
 
@@ -109,31 +108,21 @@ export interface ScriptEditorYooptaProps {
 
 export function ScriptEditorYoopta({ value, onChange, readOnly = false }: ScriptEditorYooptaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const initialValueRef = useRef<YooptaContentValue | undefined>(value);
-  const isInternalChangeRef = useRef(false);
+  const hasInitializedRef = useRef(false);
 
-  const editor = useMemo(() => {
-    return createYooptaEditor({
-      plugins: applyTheme(PLUGINS) as unknown as YooptaPlugin<unknown, unknown>[],
-      marks: MARKS,
-    });
-  }, []);
+  const editor = useMemo(() => createYooptaEditor(), []);
 
   useEffect(() => {
-    if (isInternalChangeRef.current) {
-      isInternalChangeRef.current = false;
-      return;
-    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
     const toSet = value && Object.keys(value).length > 0 ? value : DEFAULT_SCRIPT_VALUE;
-    initialValueRef.current = toSet;
     editor.withoutSavingHistory(() => {
       editor.setEditorValue(toSet);
     });
-  }, [editor, value]);
+  }, [editor]);
 
   const handleChange = useCallback(
     (newValue: YooptaContentValue) => {
-      isInternalChangeRef.current = true;
       onChange?.(newValue);
     },
     [onChange]
@@ -151,11 +140,12 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
 
   const handleSlashSelect = useCallback(
     (item: { id: string }) => {
-      editor.toggleBlock(item.id, {
-        preserveContent: true,
-        focus: true,
-        at: editor.path.current,
-      });
+      const block = editor.blocks[item.id];
+      if (block?.create) {
+        block.create({ focus: true });
+      } else {
+        (editor as { insertBlock?: (id: string, opts?: { focus?: boolean }) => void }).insertBlock?.(item.id, { focus: true });
+      }
     },
     [editor]
   );
@@ -164,6 +154,8 @@ export function ScriptEditorYoopta({ value, onChange, readOnly = false }: Script
     <div ref={containerRef} className="yoopta-editor-container min-h-[200px] overflow-visible">
       <YooptaEditor
         editor={editor}
+        plugins={PLUGINS}
+        marks={MARKS}
         style={EDITOR_STYLES}
         placeholder="Type / to open commands…"
         onChange={handleChange}
