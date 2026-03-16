@@ -118,7 +118,7 @@ export function ScriptEditorYoopta({
   }, [editor, readOnly]);
 
   return (
-    <div className="script-editor-yoopta min-h-[500px] overflow-visible flex flex-col">
+    <div className="script-editor-yoopta min-h-[800px] overflow-visible flex flex-col">
       <YooptaEditor
         editor={editor}
         style={{ width: "100%", paddingBottom: 0 }}
