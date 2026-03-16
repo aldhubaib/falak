@@ -54,7 +54,6 @@ export interface StoryDetailTopBarProps {
 const STAGE_COLOR_CLASS: Record<string, string> = {
   suggestion: "text-orange",
   liked: "text-blue",
-  approved: "text-purple",
   scripting: "text-purple",
   filmed: "text-success",
   publish: "text-pink-400",
@@ -95,12 +94,12 @@ export function StoryDetailTopBar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const displayLabel = activeStage === "approved" ? "Scripting" : stageLabel;
+  const displayLabel = stageLabel;
   const colorClass = getStageColor(activeStage);
   const nextStageIconColor =
     nextStageKey === "liked"
       ? "text-blue"
-      : nextStageKey === "approved" || nextStageKey === "scripting"
+      : nextStageKey === "scripting"
         ? "text-purple"
         : nextStageKey === "filmed"
           ? "text-success"

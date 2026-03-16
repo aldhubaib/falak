@@ -6,12 +6,12 @@ import { storiesV2Mock, type StoryV2, channelsV2Mock } from "@/data/storiesV2Moc
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { Progress } from "@/components/ui/progress";
 
-type Stage = "suggestion" | "liked" | "approved" | "filmed" | "publish" | "done";
+type Stage = "suggestion" | "liked" | "scripting" | "filmed" | "publish" | "done";
 
 const stages: { key: Stage; label: string }[] = [
   { key: "suggestion", label: "AI Suggestion" },
   { key: "liked", label: "Liked" },
-  { key: "approved", label: "Approved" },
+  { key: "scripting", label: "Scripting" },
   { key: "filmed", label: "Filmed" },
   { key: "publish", label: "Publish" },
   { key: "done", label: "Done" },
@@ -456,10 +456,10 @@ export default function StoryDetailV2() {
                           setStories((prev) => prev.map((s) => s.id === id ? {
                             ...s,
                             channelId: selectedChannel,
-                            stage: "approved" as Stage,
+                            stage: "scripting" as Stage,
                             ...(scriptFormat === "long" ? { script: parsed || s.script } : { shortScript: parsed }),
                           } : s));
-                          toast.success(`Moved to ${stages.find((s) => s.key === "approved")?.label}`);
+                          toast.success(`Moved to ${stages.find((s) => s.key === "scripting")?.label}`);
                         }}
                         className={`flex-1 px-4 py-2.5 text-[13px] font-semibold rounded-full transition-opacity ${canApprove ? "bg-blue text-blue-foreground hover:opacity-90" : "bg-blue/30 text-blue-foreground/40 cursor-not-allowed"}`}
                       >
@@ -475,7 +475,7 @@ export default function StoryDetailV2() {
             )}
 
             {/* APPROVED / FILMED / PUBLISH — same layout as liked, fields already filled */}
-            {(activeStage === "approved" || activeStage === "filmed" || activeStage === "publish") && (
+            {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
               <>
                 {story.channelId && (() => {
                   const ch = channelsV2Mock.find((c) => c.id === story.channelId);
@@ -554,7 +554,7 @@ export default function StoryDetailV2() {
                   )}
                 </div>
 
-                {activeStage === "approved" && (
+                {activeStage === "scripting" && (
                   <button onClick={() => moveStory("filmed")} className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity">
                     + Mark as Filmed
                   </button>
@@ -723,7 +723,7 @@ export default function StoryDetailV2() {
                             onClick={() => {
                               setStories((prev) => prev.map((s) => s.id === id ? {
                                 ...s,
-                                stage: "approved" as Stage,
+                                stage: "scripting" as Stage,
                                 producedFormats: [...(s.producedFormats || [])],
                               } : s));
                               setScriptFormat("short");
@@ -748,7 +748,7 @@ export default function StoryDetailV2() {
                             onClick={() => {
                               setStories((prev) => prev.map((s) => s.id === id ? {
                                 ...s,
-                                stage: "approved" as Stage,
+                                stage: "scripting" as Stage,
                                 producedFormats: [...(s.producedFormats || [])],
                               } : s));
                               setScriptFormat("long");

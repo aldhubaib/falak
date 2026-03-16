@@ -8,7 +8,7 @@ const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
 
-// Run script generation in background (non-streaming). Used when PATCH sets stage to approved.
+// Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
   const story = await db.story.findUniqueOrThrow({
     where: { id: storyId },
@@ -273,7 +273,7 @@ router.get('/summary', async (req, res) => {
     const where = projectId ? { projectId } : {}
 
     const all = await db.story.findMany({ where, select: { stage: true, coverageStatus: true } })
-    const stages = ['suggestion', 'liked', 'approved', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit']
+    const stages = ['suggestion', 'liked', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit']
     const counts = {}
     for (const s of stages) counts[s] = all.filter(x => x.stage === s).length
 
@@ -638,11 +638,6 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     if (req.body.stage) {
       const stageLabel = req.body.stage.charAt(0).toUpperCase() + req.body.stage.slice(1)
       await addLog(story.id, req.user.id, 'stage_change', `Status changed to ${stageLabel}`)
-    }
-    if (req.body.stage === 'approved') {
-      setImmediate(() => {
-        generateScriptForStory(req.params.id).catch((e) => console.error('[stories/generateScriptForStory]', e))
-      })
     }
     // Return story with log so Edit History shows who changed status
     const withLog = await db.story.findUnique({

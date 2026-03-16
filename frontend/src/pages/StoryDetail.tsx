@@ -29,7 +29,6 @@ import type { ScriptField } from "@/components/story-detail";
 const STAGES: { key: Stage; label: string }[] = [
   { key: "suggestion", label: "Suggestion" },
   { key: "liked", label: "Liked" },
-  { key: "approved", label: "Scripting" },
   { key: "scripting", label: "Scripting" },
   { key: "filmed", label: "Filmed" },
   { key: "publish", label: "Publish" },
@@ -38,7 +37,7 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "omit", label: "Omitted" },
 ];
 
-const STAGE_ORDER: Stage[] = ["suggestion", "liked", "approved", "scripting", "filmed", "publish", "done"];
+const STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done"];
 
 export default function StoryDetail() {
   const { id, projectId } = useParams<{ id: string; projectId: string }>();
@@ -607,7 +606,7 @@ export default function StoryDetail() {
 
             {/* Liked stage: no script UI (removed per request) */}
 
-            {/* ── SCRIPTING / FILMED / PUBLISH (no script in approved) ───────────────── */}
+            {/* ── SCRIPTING / FILMED / PUBLISH ───────────────────────────────────────── */}
             {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
               <>
                 {/* Script section: Lovabale-style capsule bar + Yoopta editor */}
@@ -912,7 +911,7 @@ export default function StoryDetail() {
                           <button
                             onClick={async () => {
                               await patchStory({
-                                stage: "approved",
+                                stage: "scripting",
                                 brief: { ...brief, scriptFormat: "short" },
                               });
                               toast.success("Restarted pipeline for Short format");
@@ -927,7 +926,7 @@ export default function StoryDetail() {
                           <button
                             onClick={async () => {
                               await patchStory({
-                                stage: "approved",
+                                stage: "scripting",
                                 brief: { ...brief, scriptFormat: "long" },
                               });
                               toast.success("Restarted pipeline for Long Video format");

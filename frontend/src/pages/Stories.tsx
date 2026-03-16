@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Stage = "suggestion" | "liked" | "approved" | "scripting" | "filmed" | "publish" | "done" | "passed" | "omit";
+export type Stage = "suggestion" | "liked" | "scripting" | "filmed" | "publish" | "done" | "passed" | "omit";
 
 export interface ApiStory {
   id: string;
@@ -34,7 +34,6 @@ export interface ApiStory {
 const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
   { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-orange",     sub: "awaiting triage · from Brain v2 + Perplexity" },
   { key: "liked",      label: "Liked",          color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "saved for review" },
-  { key: "approved",   label: "Approved",       color: "text-purple",     pillClass: "bg-purple/15 text-purple",   sub: "brief generation ready" },
   { key: "scripting",  label: "Scripting",      color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "editing script" },
   { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-success", sub: "waiting for URL" },
   { key: "publish",    label: "Publish",        color: "text-primary",   pillClass: "bg-primary/15 text-primary", sub: "final details needed" },
