@@ -87,19 +87,20 @@ export function StoryDetailArticle({
       <button
         type="button"
         onClick={() => setArticleOpen(!articleOpen)}
-        className="w-full px-5 max-sm:px-3 py-3.5 flex items-center justify-between gap-3 hover:bg-surface/30 transition-colors text-left"
+        className="w-full px-5 max-sm:px-3 py-3.5 flex items-center justify-between hover:bg-surface/30 transition-colors text-left"
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2">
           {articleOpen ? (
-            <ChevronUp className="w-4 h-4 text-dim shrink-0" />
+            <ChevronUp className="w-4 h-4 text-dim" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-dim shrink-0" />
+            <ChevronDown className="w-4 h-4 text-dim" />
           )}
           <span className="text-[12px] text-dim font-medium">Original Story</span>
         </div>
-        <div className="flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 max-sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
           {scores && (
             <>
+            <div className="flex items-center gap-1.5 max-sm:gap-1">
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <span className="inline-flex items-center gap-1 cursor-default">
@@ -136,7 +137,8 @@ export function StoryDetailArticle({
                 </TooltipTrigger>
                 <TooltipContent>Total</TooltipContent>
               </Tooltip>
-              <div className="w-px h-3 bg-border max-sm:hidden" />
+            </div>
+              <span className="w-px h-3 bg-border max-sm:hidden" />
               {relativeDate != null && relativeDate !== "" && (
                 <span className="text-[11px] text-dim font-mono max-sm:hidden">{relativeDate}</span>
               )}
@@ -148,7 +150,7 @@ export function StoryDetailArticle({
       {articleOpen && (
         <>
           {/* Action bar */}
-          <div className="px-4 py-2.5 border-t border-border flex flex-wrap gap-1.5">
+          <div className="px-4 py-2.5 border-t border-border flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => onCleanup()}
@@ -171,20 +173,20 @@ export function StoryDetailArticle({
 
           {/* Title row */}
           <div className="px-5 pt-4" dir="rtl">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] text-dim font-mono uppercase">Title</span>
+            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 flex items-center justify-between" dir="rtl">
+              <span>Title</span>
               {sourceUrl && (
                 <a
                   href={sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] text-blue hover:underline"
+                  className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-blue hover:text-blue/80 transition-colors no-underline"
                 >
                   <ExternalLink className="w-3 h-3" />
                   Read source
                 </a>
               )}
-            </div>
+            </label>
             <input
               type="text"
               value={articleTitle}
@@ -201,7 +203,7 @@ export function StoryDetailArticle({
           {isCleaning && (
             <div className="px-5 pt-3">
               <Progress value={cleanupProgress} className="h-1 bg-muted" />
-              <div className="text-[10px] font-mono text-dim text-center mt-1.5">
+              <div className="text-[10px] font-mono text-dim mt-1 text-center">
                 {progressStatus}
               </div>
             </div>
@@ -254,9 +256,7 @@ export function StoryDetailArticle({
               </div>
             ) : hasValidContent ? (
               <>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] text-dim font-mono uppercase">Content ({displayValue.length.toLocaleString()})</span>
-                </div>
+                <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 block text-right">Content ({displayValue.length.toLocaleString()})</label>
                 <textarea
                   value={displayValue}
                   onChange={(e) => onArticleChange?.(e.target.value)}

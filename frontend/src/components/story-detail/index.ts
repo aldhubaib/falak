@@ -42,6 +42,8 @@ export type {
 } from "./StoryDetailScriptBox";
 export { StoryDetailScriptBoxSaved } from "./StoryDetailScriptBoxSaved";
 export type { StoryDetailScriptBoxSavedProps } from "./StoryDetailScriptBoxSaved";
+export { StoryDetailScriptSection } from "./StoryDetailScriptSection";
+export type { StoryDetailScriptSectionProps } from "./StoryDetailScriptSection";
 export { StoryDetailStageSuggestion } from "./StoryDetailStageSuggestion";
 export type { StoryDetailStageSuggestionProps } from "./StoryDetailStageSuggestion";
 export { StoryDetailStageLiked } from "./StoryDetailStageLiked";

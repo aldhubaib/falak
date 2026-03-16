@@ -33,6 +33,8 @@ export interface StoryBrief {
   script?: string;
   scriptFormat?: "short" | "long";
   scriptRaw?: string;
+  /** Yoopta editor content (JSON) for rich script editing */
+  scriptYoopta?: unknown;
   channelId?: string;
   youtubeTags?: string[];
   youtubeUrl?: string;

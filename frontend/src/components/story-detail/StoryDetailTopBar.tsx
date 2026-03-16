@@ -97,10 +97,20 @@ export function StoryDetailTopBar({
 
   const displayLabel = activeStage === "approved" ? "Scripting" : stageLabel;
   const colorClass = getStageColor(activeStage);
+  const nextStageIconColor =
+    nextStageKey === "liked"
+      ? "text-blue"
+      : nextStageKey === "approved" || nextStageKey === "scripting"
+        ? "text-purple"
+        : nextStageKey === "filmed"
+          ? "text-success"
+          : nextStageKey === "publish"
+            ? "text-pink-400"
+            : "text-foreground";
 
   return (
     <>
-      <div className="min-h-[48px] flex items-center justify-between px-6 max-lg:px-4 max-sm:px-3 border-b border-[#151619] shrink-0 gap-2 flex-wrap max-sm:py-2">
+      <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
@@ -126,13 +136,13 @@ export function StoryDetailTopBar({
             <button
               type="button"
               onClick={() => setActionDropOpen(!actionDropOpen)}
-              className={`inline-flex items-center gap-1 py-1 px-2.5 max-sm:px-2 rounded-full text-[11px] max-sm:text-[10px] font-medium border border-border ${colorClass} hover:text-foreground hover:border-primary/40 transition-colors truncate max-w-[140px]`}
+              className="inline-flex items-center gap-1 py-1 px-2.5 max-sm:px-2 rounded-full text-[11px] max-sm:text-[10px] font-medium border border-border text-dim hover:text-foreground hover:border-primary/40 transition-colors"
             >
-              <span className="truncate">{displayLabel}</span>
-              <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${actionDropOpen ? "rotate-180" : ""}`} />
+              <span className={`font-mono truncate ${colorClass}`}>{displayLabel}</span>
+              <ChevronDown className={`w-3 h-3 text-dim/40 transition-transform shrink-0 ${actionDropOpen ? "rotate-180" : ""}`} />
             </button>
             {actionDropOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-surface border border-border shadow-lg z-20 overflow-hidden">
+              <div className="absolute z-20 mt-2 right-0 w-48 rounded-xl bg-surface border border-border overflow-hidden shadow-lg">
                 {nextStageKey && nextStageLabel && (
                   <>
                     <button
@@ -143,8 +153,8 @@ export function StoryDetailTopBar({
                       }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-foreground hover:bg-elevated transition-colors"
                     >
-                      <SkipForward className="w-3.5 h-3.5 text-blue shrink-0" />
-                      Move to {nextStageLabel}
+                      <SkipForward className={`w-3.5 h-3.5 shrink-0 ${nextStageIconColor}`} />
+                      <span className="font-medium">Move to {nextStageLabel}</span>
                     </button>
                     <div className="h-px bg-border" />
                   </>

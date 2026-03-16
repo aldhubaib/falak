@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AIWriterBox, type WriterState } from "@/components/AIWriterBox";
-import { ScriptEditor } from "@/components/ScriptEditor";
 import { useParams, useNavigate } from "react-router-dom";
+import type { YooptaContentValue } from "@yoopta/editor";
+import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
@@ -22,7 +23,7 @@ import {
   StoryDetailRankingList,
   StoryDetailChannelSelector,
   StoryDetailScriptBox,
-  StoryDetailScriptBoxSaved,
+  StoryDetailScriptSection,
   StoryDetailStageSuggestion,
   StoryDetailStageLiked,
   StoryDetailStageApprovedFilmedPublish,
@@ -36,9 +37,9 @@ import {
 import type { ScriptField } from "@/components/story-detail";
 
 const STAGES: { key: Stage; label: string }[] = [
-  { key: "suggestion", label: "AI Suggestion" },
+  { key: "suggestion", label: "Suggestion" },
   { key: "liked", label: "Liked" },
-  { key: "approved", label: "Approved" },
+  { key: "approved", label: "Scripting" },
   { key: "scripting", label: "Scripting" },
   { key: "filmed", label: "Filmed" },
   { key: "publish", label: "Publish" },
@@ -84,6 +85,7 @@ export default function StoryDetail() {
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [articleOpen, setArticleOpen] = useState(true);
+  const [scriptDurationMinutes, setScriptDurationMinutes] = useState(3);
 
   const isWriterBoxRunning = cleaningUp || fetchingArticle || generatingScript;
 
@@ -224,6 +226,9 @@ export default function StoryDetail() {
     },
     [patchStory]
   );
+
+  const briefRef = useRef(brief);
+  briefRef.current = brief;
 
   /** Move to a new stage — persists and updates local state */
   const moveStage = useCallback(
@@ -417,6 +422,15 @@ export default function StoryDetail() {
   // Derived values (safe when story is null — only used when !loading && story)
   const scriptFormat = brief.scriptFormat ?? "short";
   const activeStage = story?.stage ?? "suggestion";
+
+  useEffect(() => {
+    if (activeStage !== "scripting") return;
+    const t = setTimeout(() => {
+      saveBrief(briefRef.current);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [brief.scriptYoopta, activeStage, saveBrief]);
+
   const isFirst = story?.coverageStatus === "first";
   const isLate = story?.coverageStatus === "late";
   const selectedChannel = brief.channelId ?? "";
@@ -799,82 +813,94 @@ export default function StoryDetail() {
             {/* ── APPROVED / SCRIPTING / FILMED / PUBLISH ───────────────────────────── */}
             {(activeStage === "approved" || activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
               <>
-                {/* Assigned channel */}
-                {assignedChannel && (
-                  <div className="rounded-xl bg-background p-5 flex items-center gap-3">
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
-                      Channel
-                    </div>
-                    <button
-                      onClick={() => navigate(projectPath(`/channel/${assignedChannel.id}`))}
-                      className="group relative flex items-center gap-2"
-                    >
-                      {assignedChannel.avatarUrl ? (
-                        <img
-                          src={assignedChannel.avatarUrl}
-                          alt={channelName(assignedChannel)}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-elevated flex items-center justify-center text-[10px] font-mono text-dim uppercase">
-                          {channelName(assignedChannel).slice(0, 2)}
-                        </div>
-                      )}
-                      <span className="absolute left-10 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-elevated text-[12px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        {channelName(assignedChannel)}
-                      </span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Script: BlockNote editor when scripting/filmed, else saved fields */}
-                {(activeStage === "scripting" || activeStage === "filmed") && currentUser ? (
-                  <div className="rounded-xl bg-background p-5">
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">
-                      Script
-                    </div>
-                    <ScriptEditor
-                      storyId={id!}
-                      currentUser={currentUser}
-                      initialScript={brief.script ?? ""}
-                      format={scriptFormat}
-                      log={story.log}
-                      readOnly={activeStage !== "scripting"}
-                      onAutosave={async (scriptText) => {
-                        await saveBrief({ ...brief, script: scriptText });
-                        try {
-                          await fetch(`/api/stories/${id}/log`, {
-                            method: "POST",
-                            credentials: "include",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "script_edit", note: "Edited script" }),
-                          });
-                          await loadStory();
-                        } catch {
-                          toast.error("Failed to log edit");
+                {/* Script section: Lovabale-style capsule bar + Yoopta editor */}
+                <StoryDetailScriptSection
+                  channels={ourChannels}
+                  selectedChannelId={selectedChannel}
+                  onChannelSelect={(channelId) => saveBrief({ ...brief, channelId })}
+                  scriptFormat={scriptFormat}
+                  onScriptFormatChange={(fmt) => setBrief((b) => ({ ...b, scriptFormat: fmt }))}
+                  scriptDuration={scriptDurationMinutes}
+                  onScriptDurationChange={setScriptDurationMinutes}
+                  canGenerate={
+                    !!selectedChannel &&
+                    !!(
+                      articleDisplayValue?.trim() ||
+                      (brief.articleContent?.trim() &&
+                        brief.articleContent !== "__SCRAPE_FAILED__" &&
+                        brief.articleContent !== "__YOUTUBE__")
+                    )
+                  }
+                  generating={generatingScript}
+                  onGenerate={async () => {
+                    if (!id || !selectedChannel || generatingScript) return;
+                    const articleText =
+                      articleDisplayValue?.trim() ||
+                      (brief.articleContent?.trim() &&
+                      brief.articleContent !== "__SCRAPE_FAILED__" &&
+                      brief.articleContent !== "__YOUTUBE__"
+                        ? brief.articleContent
+                        : "");
+                    if (!articleText) {
+                      toast.error("No article content. Fetch and clean the article first.");
+                      return;
+                    }
+                    setGeneratingScript(true);
+                    try {
+                      const r = await fetch(`/api/stories/${id}/generate-script`, {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          format: brief.scriptFormat ?? "short",
+                          articleText,
+                          channelId: brief.channelId,
+                        }),
+                      });
+                      if (!r.ok) {
+                        const data = await r.json().catch(() => ({}));
+                        toast.error(data.error || `Generate script failed (${r.status})`);
+                        return;
+                      }
+                      const reader = r.body?.getReader();
+                      if (reader) {
+                        const decoder = new TextDecoder();
+                        let buffer = "";
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          buffer += decoder.decode(value, { stream: true });
                         }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <StoryDetailScriptBoxSaved
-                    brief={brief}
-                    scriptOpen={scriptOpen}
-                    setScriptOpen={setScriptOpen}
-                    editingField={editingField}
-                    setEditingField={setEditingField}
-                    scriptFields={SCRIPT_FIELDS}
-                    scriptFormat={(brief.scriptFormat ?? "short") as "short" | "long"}
-                    onFieldDone={(key) => {
-                      setEditingField(null);
-                      saveBrief({ ...brief });
-                      toast.success("Field updated");
-                    }}
-                    onBriefChange={(key, val) => setBrief((b) => ({ ...b, [key]: val }))}
-                    scriptViewMode={scriptViewMode}
-                    onScriptViewModeChange={setScriptViewMode}
-                  />
-                )}
+                        const lines = buffer.split("\n");
+                        for (const line of lines) {
+                          if (line.startsWith("data: ") && line.includes("error")) {
+                            try {
+                              const obj = JSON.parse(line.slice(6).trim());
+                              if (obj?.error) {
+                                toast.error(obj.error);
+                                return;
+                              }
+                            } catch {
+                              // ignore
+                            }
+                          }
+                        }
+                      }
+                      await loadStory();
+                      toast.success("Script generated");
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Generate script failed");
+                    } finally {
+                      setGeneratingScript(false);
+                    }
+                  }}
+                  readOnly={activeStage !== "scripting"}
+                  scriptValue={
+                    (brief.scriptYoopta as YooptaContentValue | undefined) ??
+                    scriptTextToYooptaValue(brief.script ?? "")
+                  }
+                  onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
+                />
 
                 {(activeStage === "approved" || activeStage === "scripting") && (
                   <button
