@@ -176,7 +176,12 @@ export function StoryDetailScriptSection({
                       value={scriptDuration}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => {
-                        const raw = parseFloat(e.target.value);
+                        const val = e.target.value;
+                        if (val === "" || val === "-") {
+                          onScriptDurationChange(0);
+                          return;
+                        }
+                        const raw = parseFloat(val);
                         if (Number.isNaN(raw)) return;
                         const clamped =
                           scriptFormat === "short"
