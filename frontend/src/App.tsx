@@ -20,7 +20,6 @@ import StoriesV2 from "./pages/StoriesV2";
 import Brain from "./pages/Brain";
 import BrainV2 from "./pages/BrainV2";
 import StoryDetail from "./pages/StoryDetail";
-import StoryDetailV2 from "./pages/StoryDetailV2";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,7 +71,7 @@ const App = () => (
               <Route path="admin" element={<Admin />} />
               <Route path="stories" element={<Stories />} />
               <Route path="stories-v2" element={<StoriesV2 />} />
-              <Route path="stories-v2/story/:id" element={<StoryDetailV2 />} />
+              <Route path="stories-v2/story/:id" element={<StoryDetail />} />
               <Route path="brain" element={<Brain />} />
               <Route path="brain-v2" element={<BrainV2 />} />
               <Route path="story/:id" element={<StoryDetail />} />
