@@ -68,7 +68,7 @@ export default function StoryDetail() {
   const [story, setStory] = useState<StoryWithLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSavingState] = useState(false);
-  const ourChannels: ApiChannel[] = [];
+  const [ourChannels, setOurChannels] = useState<ApiChannel[]>([]);
 
   const scriptValue = useMemo(
     () => brief.scriptTiptap ?? scriptTextToEditorValue(brief.script ?? ""),
@@ -80,6 +80,23 @@ export default function StoryDetail() {
   const projectPathRef = useRef(projectPath);
   navigateRef.current = navigate;
   projectPathRef.current = projectPath;
+
+  // Load "ours" channels for the channel selector modal
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    fetch(`/api/channels?projectId=${projectId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed to load channels"))))
+      .then((data: { channels: ApiChannel[] }) => {
+        if (cancelled) return;
+        const ours = (data.channels || []).filter((c) => c.type === "ours");
+        setOurChannels(ours);
+      })
+      .catch(() => {
+        if (!cancelled) setOurChannels([]);
+      });
+    return () => { cancelled = true; };
+  }, [projectId]);
 
   // Load story (and brief) on mount so Yoopta content persists after refresh
   useEffect(() => {

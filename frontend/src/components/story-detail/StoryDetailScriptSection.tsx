@@ -100,7 +100,12 @@ export function StoryDetailScriptSection({
                 </button>
                 {channelDropOpen && !readOnly && (
                   <div className="absolute z-10 mt-2 left-0 w-64 rounded-xl bg-surface border border-border overflow-hidden shadow-lg">
-                    {channels.map((c) => (
+                    {channels.length === 0 ? (
+                      <div className="px-4 py-3 text-[12px] text-dim text-center">
+                        No channels added yet. Add your channels in the Channels page.
+                      </div>
+                    ) : (
+                    channels.map((c) => (
                       <button
                         key={c.id}
                         type="button"
@@ -122,7 +127,8 @@ export function StoryDetailScriptSection({
                         <span className="flex-1 text-right font-medium">{channelName(c)}</span>
                         {selectedChannelId === c.id && <Check className="w-3.5 h-3.5 text-blue" />}
                       </button>
-                    ))}
+                    ))
+                    )}
                   </div>
                 )}
               </div>
