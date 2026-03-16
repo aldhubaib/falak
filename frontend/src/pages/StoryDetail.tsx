@@ -8,6 +8,7 @@ import {
   RefreshCw, ExternalLink, Pencil, X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import type { Stage } from "./Stories";
 import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-detail";
 import {
@@ -177,6 +178,31 @@ export default function StoryDetail() {
     !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
   const selectedChannel = brief.channelId ?? "";
 
+  const moveToStage = useCallback(
+    async (toStage: Stage) => {
+      if (!id) return;
+      setSavingState(true);
+      try {
+        const res = await fetch(`/api/stories/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage: toStage }),
+        });
+        if (!res.ok) throw new Error("Failed to update stage");
+        const updated = await res.json();
+        setStory(updated as StoryWithLog);
+        const label = STAGES.find((s) => s.key === toStage)?.label ?? toStage;
+        toast.success(`Moved to ${label}`);
+      } catch {
+        toast.error("Failed to change stage");
+      } finally {
+        setSavingState(false);
+      }
+    },
+    [id]
+  );
+
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...", type: "input" },
     { key: "openingHook", label: "Opening Hook (first 10 sec)", placeholder: "الجملة الأولى التي تجذب المشاهد...", type: "input" },
@@ -227,9 +253,9 @@ export default function StoryDetail() {
           nextStageLabel={nextStageLabel}
           saving={saving}
           onBack={() => navigate(projectPath("/stories"))}
-          onMoveToNextStage={() => {}}
-          onPass={async () => {}}
-          onOmit={async () => {}}
+          onMoveToNextStage={() => nextStageKey && moveToStage(nextStageKey)}
+          onPass={() => moveToStage("passed")}
+          onOmit={() => moveToStage("omit")}
           onHistoryClick={() => {}}
           prevNext={showStageNav ? {
             currentIndex: stageIndex + 1,
@@ -327,11 +353,11 @@ export default function StoryDetail() {
           <div className="space-y-5">
 
             {activeStage === "passed" && (
-              <StoryDetailStagePassed onMoveBack={() => {}} />
+              <StoryDetailStagePassed onMoveBack={() => moveToStage("suggestion")} />
             )}
 
             {activeStage === "omit" && (
-              <StoryDetailStageOmit onMoveBack={() => {}} />
+              <StoryDetailStageOmit onMoveBack={() => moveToStage("suggestion")} />
             )}
 
             {/* ── SCRIPTING / FILMED / PUBLISH / DONE (Yoopta script editor) ───────── */}
@@ -371,7 +397,7 @@ export default function StoryDetail() {
                       Final details to confirm before marking done.
                     </p>
                     <button
-                      onClick={() => {}}
+                      onClick={() => moveToStage("done")}
                       className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
                     >
                       Mark as Done
