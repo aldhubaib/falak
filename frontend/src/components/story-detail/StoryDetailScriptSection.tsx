@@ -76,7 +76,7 @@ export function StoryDetailScriptSection({
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setChannelDropOpen(!channelDropOpen)}
+                  onClick={() => !readOnly && setChannelDropOpen(!channelDropOpen)}
                   className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 hover:bg-elevated transition-colors rounded-l-full"
                 >
                   {selectedCh ? (
@@ -96,9 +96,9 @@ export function StoryDetailScriptSection({
                       <User className="w-3 h-3 text-dim" />
                     </div>
                   )}
-                  <ChevronDown className={`w-2.5 h-2.5 text-dim transition-transform ${channelDropOpen ? "rotate-180" : ""}`} />
+                  {!readOnly && <ChevronDown className={`w-2.5 h-2.5 text-dim transition-transform ${channelDropOpen ? "rotate-180" : ""}`} />}
                 </button>
-                {channelDropOpen && (
+                {channelDropOpen && !readOnly && (
                   <div className="absolute z-10 mt-2 left-0 w-64 rounded-xl bg-surface border border-border overflow-hidden shadow-lg">
                     {channels.map((c) => (
                       <button
@@ -135,14 +135,16 @@ export function StoryDetailScriptSection({
                     key={fmt}
                     type="button"
                     onClick={() => {
-                      onScriptFormatChange(fmt);
-                      onScriptDurationChange(fmt === "short" ? 3 : 40);
+                      if (!readOnly) {
+                        onScriptFormatChange(fmt);
+                        onScriptDurationChange(fmt === "short" ? 3 : 40);
+                      }
                     }}
                     className={`px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors whitespace-nowrap ${
                       scriptFormat === fmt
                         ? "bg-background text-foreground shadow-sm"
                         : "text-dim hover:text-sensor"
-                    }`}
+                    } ${readOnly ? "pointer-events-none" : ""}`}
                   >
                     {fmt === "short" ? "Short" : "Video"}
                   </button>
@@ -153,39 +155,31 @@ export function StoryDetailScriptSection({
 
               <div className="flex items-center gap-1 px-2.5 text-[11px] text-dim">
                 <Clock className="w-3 h-3" />
-                <input
-                  type="number"
-                  value={scriptDuration}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    if (scriptFormat === "short") {
-                      onScriptDurationChange(Math.max(1, Math.min(3, val)));
-                    } else {
-                      onScriptDurationChange(Math.max(3, val));
-                    }
-                  }}
-                  className="w-10 px-1 py-0.5 text-[11px] font-mono bg-background border border-border rounded-full text-foreground text-center focus:outline-none focus:border-blue [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+                <span className="font-mono text-[11px]">{scriptDuration}</span>
                 <span className="font-mono text-[10px]">m</span>
               </div>
 
-              <span className="w-px h-4 bg-border" />
+              {!readOnly && (
+                <>
+                  <span className="w-px h-4 bg-border" />
 
-              <button
-                type="button"
-                onClick={() => canGenerate && !generating && onGenerate()}
-                disabled={!canGenerate}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
-                  canGenerate ? "text-dim hover:text-foreground hover:bg-elevated" : "text-dim/30 cursor-not-allowed"
-                }`}
-              >
-                {generating ? (
-                  <span className="w-3 h-3 border border-dim border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Sparkles className="w-3 h-3" />
-                )}
-                Generate
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => canGenerate && !generating && onGenerate()}
+                    disabled={!canGenerate}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
+                      canGenerate ? "text-dim hover:text-foreground hover:bg-elevated" : "text-dim/30 cursor-not-allowed"
+                    }`}
+                  >
+                    {generating ? (
+                      <span className="w-3 h-3 border border-dim border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3" />
+                    )}
+                    Generate
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
