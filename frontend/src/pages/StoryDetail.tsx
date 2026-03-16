@@ -174,7 +174,12 @@ export default function StoryDetail() {
   const articleLoading = false;
   const articleError: string | null = null;
   const isWriterBoxRunning = false;
-  const scriptDurationMinutes = 3;
+  const [scriptDurationMinutes, setScriptDurationMinutes] = useState(3);
+
+  // Sync script duration when format changes (e.g. from loaded brief)
+  useEffect(() => {
+    setScriptDurationMinutes(scriptFormat === "short" ? 3 : 40);
+  }, [scriptFormat]);
   const youtubeInput = "";
   const editingYoutubeUrl = false;
   const generatingScript = false;
@@ -392,12 +397,30 @@ export default function StoryDetail() {
                   key={id}
                   channels={ourChannels}
                   selectedChannelId={selectedChannel}
-                  onChannelSelect={() => {}}
+                  onChannelSelect={(channelId) => {
+                    setBrief((b) => {
+                      const next = { ...b, channelId };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
                   scriptFormat={scriptFormat}
-                  onScriptFormatChange={() => {}}
+                  onScriptFormatChange={(fmt) => {
+                    setBrief((b) => {
+                      const next = { ...b, scriptFormat: fmt };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                    setScriptDurationMinutes(fmt === "short" ? 3 : 40);
+                  }}
                   scriptDuration={scriptDurationMinutes}
-                  onScriptDurationChange={() => {}}
-                  canGenerate={false}
+                  onScriptDurationChange={setScriptDurationMinutes}
+                  canGenerate={
+                    !!selectedChannel &&
+                    (scriptFormat === "short"
+                      ? scriptDurationMinutes >= 1 && scriptDurationMinutes <= 3
+                      : scriptDurationMinutes >= 4)
+                  }
                   generating={generatingScript}
                   onGenerate={async () => {}}
                   readOnly={activeStage !== "scripting"}

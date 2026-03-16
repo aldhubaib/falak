@@ -160,9 +160,33 @@ export function StoryDetailScriptSection({
               <span className="w-px h-4 bg-border" />
 
               <div className="flex items-center gap-1 px-2.5 text-[11px] text-dim">
-                <Clock className="w-3 h-3" />
-                <span className="font-mono text-[11px]">{scriptDuration}</span>
-                <span className="font-mono text-[10px]">m</span>
+                <Clock className="w-3 h-3 shrink-0" />
+                {readOnly ? (
+                  <>
+                    <span className="font-mono text-[11px]">{scriptDuration}</span>
+                    <span className="font-mono text-[10px]">m</span>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="number"
+                      min={scriptFormat === "short" ? 1 : 4}
+                      max={scriptFormat === "short" ? 3 : undefined}
+                      value={scriptDuration}
+                      onChange={(e) => {
+                        const raw = parseInt(e.target.value, 10);
+                        if (Number.isNaN(raw)) return;
+                        const clamped =
+                          scriptFormat === "short"
+                            ? Math.min(3, Math.max(1, raw))
+                            : Math.max(4, raw);
+                        onScriptDurationChange(clamped);
+                      }}
+                      className="w-10 bg-transparent font-mono text-[11px] text-foreground focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="font-mono text-[10px]">m</span>
+                  </>
+                )}
               </div>
 
               {!readOnly && (
