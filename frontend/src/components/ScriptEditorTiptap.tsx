@@ -8,10 +8,12 @@ import Link from "@tiptap/extension-link";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Image from "@tiptap/extension-image";
+import Mention from "@tiptap/extension-mention";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
+import { createMentionSuggestion, type MentionUser } from "./tiptap/MentionSuggestion";
 import {
   Bold,
   Italic,
@@ -63,7 +65,7 @@ export interface ScriptEditorTiptapProps {
   onCollaboratorsChange?: (users: CollabUser[]) => void;
 }
 
-function buildBaseExtensions() {
+function buildBaseExtensions(getMentionUsers: () => MentionUser[]) {
   return [
     Placeholder.configure({
       placeholder: "Type / to open menu, or start typing...",
@@ -80,6 +82,10 @@ function buildBaseExtensions() {
       inline: false,
       allowBase64: true,
       HTMLAttributes: { class: "tiptap-image" },
+    }),
+    Mention.configure({
+      HTMLAttributes: { class: "tiptap-mention" },
+      suggestion: createMentionSuggestion(getMentionUsers),
     }),
     SlashCommandExtension,
   ];
@@ -276,6 +282,7 @@ export function ScriptEditorTiptap({
 }: ScriptEditorTiptapProps) {
   const suppressNextUpdate = useRef(false);
   const isCollab = Boolean(roomId);
+  const mentionUsersRef = useRef<MentionUser[]>([]);
 
   const ydoc = useMemo(() => (isCollab ? new Y.Doc() : null), [isCollab]);
 
@@ -297,18 +304,21 @@ export function ScriptEditorTiptap({
   }, [provider, currentUser]);
 
   useEffect(() => {
-    if (!provider || !onCollaboratorsChange) return;
+    if (!provider) return;
     const update = () => {
       const states = Array.from(provider.awareness.getStates().entries());
-      const users: CollabUser[] = [];
+      const others: CollabUser[] = [];
+      const allForMention: MentionUser[] = [];
       for (const [clientId, state] of states) {
-        if (clientId === provider.awareness.clientID) continue;
         const u = (state as { user?: { name?: string; color?: string; avatarUrl?: string } }).user;
-        if (u?.name) {
-          users.push({ id: String(clientId), name: u.name, avatarUrl: u.avatarUrl });
+        if (!u?.name) continue;
+        allForMention.push({ id: String(clientId), name: u.name, avatarUrl: u.avatarUrl });
+        if (clientId !== provider.awareness.clientID) {
+          others.push({ id: String(clientId), name: u.name, avatarUrl: u.avatarUrl });
         }
       }
-      onCollaboratorsChange(users);
+      mentionUsersRef.current = allForMention;
+      onCollaboratorsChange?.(others);
     };
     provider.awareness.on("change", update);
     update();
@@ -324,8 +334,13 @@ export function ScriptEditorTiptap({
     };
   }, [provider, ydoc]);
 
+  const getMentionUsers = useMemo(
+    () => () => mentionUsersRef.current,
+    [],
+  );
+
   const extensions = useMemo(() => {
-    const base = buildBaseExtensions();
+    const base = buildBaseExtensions(getMentionUsers);
 
     if (ydoc && provider) {
       return [
@@ -354,7 +369,7 @@ export function ScriptEditorTiptap({
       }),
       ...base,
     ];
-  }, [ydoc, provider, currentUser]);
+  }, [ydoc, provider, currentUser, getMentionUsers]);
 
   const editor = useEditor({
     extensions,
