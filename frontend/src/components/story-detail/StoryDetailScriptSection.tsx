@@ -170,11 +170,13 @@ export function StoryDetailScriptSection({
                   <>
                     <input
                       type="number"
+                      step="0.1"
                       min={scriptFormat === "short" ? 1 : 4}
                       max={scriptFormat === "short" ? 3 : undefined}
                       value={scriptDuration}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => {
-                        const raw = parseInt(e.target.value, 10);
+                        const raw = parseFloat(e.target.value);
                         if (Number.isNaN(raw)) return;
                         const clamped =
                           scriptFormat === "short"
