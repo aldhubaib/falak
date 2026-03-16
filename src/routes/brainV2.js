@@ -385,7 +385,8 @@ async function getBrainV2Data(projectId) {
     const DECAY_HALF_LIFE = 30
     const nowMs = Date.now()
     const augmentedMemories = topicMemories.map(m => {
-      const daysSince = (nowMs - new Date(m.lastSeenAt).getTime()) / 86400000
+      const lastSeen = m.lastSeenAt ? new Date(m.lastSeenAt).getTime() : nowMs
+      const daysSince = (nowMs - lastSeen) / 86400000
       const decayFactor = Math.exp(-daysSince / DECAY_HALF_LIFE * Math.LN2)
       return { ...m, effectiveWeight: (m.weight || 0) * decayFactor }
     })
@@ -401,7 +402,8 @@ async function getBrainV2Data(projectId) {
     for (const e of recentEvents) {
       if (!velocityByKey.has(e.topicKey)) velocityByKey.set(e.topicKey, { recent: 0, older: 0 })
       const bucket = velocityByKey.get(e.topicKey)
-      if (e.occurredAt.getTime() >= sevenDaysAgoMs) bucket.recent++
+      const ts = new Date(e.occurredAt).getTime()
+      if (ts >= sevenDaysAgoMs) bucket.recent++
       else bucket.older++
     }
     for (const m of augmentedMemories) {
