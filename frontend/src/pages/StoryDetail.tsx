@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { AIWriterBox, type WriterState } from "@/components/AIWriterBox";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { scriptTextToYooptaValue } from "@/data/editorInitialValue";
 import { useProjectPath } from "@/hooks/useProjectPath";
@@ -8,20 +7,14 @@ import {
   RefreshCw, ExternalLink, Pencil, X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { toast } from "sonner";
-import type { ApiStory, Stage } from "./Stories";
+import type { Stage } from "./Stories";
 import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-detail";
 import {
   StoryDetailTopBar,
-  StoryDetailPrevNext,
   StoryDetailArticle,
   StoryDetailScriptSection,
-  StoryDetailStageApprovedFilmedPublish,
-  StoryDetailStageDone,
   StoryDetailStagePassed,
   StoryDetailStageOmit,
-  CopyBtn,
-  channelName,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
 
@@ -38,396 +31,56 @@ const STAGES: { key: Stage; label: string }[] = [
 
 const STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done"];
 
+/** Minimal mock so main content renders (design only). */
+const MOCK_STORY: StoryWithLog = {
+  id: "",
+  headline: "",
+  stage: "scripting",
+  sourceUrl: null,
+  sourceName: null,
+  sourceDate: null,
+  createdAt: "",
+  relevanceScore: 0,
+  viralScore: 0,
+  firstMoverScore: 0,
+  compositeScore: 0,
+  coverageStatus: null,
+  brief: null,
+  log: [],
+} as StoryWithLog;
+
 export default function StoryDetail() {
   const { id, projectId } = useParams<{ id: string; projectId: string }>();
   const navigate = useNavigate();
   const projectPath = useProjectPath();
 
-  // ── Server state ──────────────────────────────────────────────────────────
-  const [story, setStory] = useState<StoryWithLog | null>(null);
-  const [ourChannels, setOurChannels] = useState<ApiChannel[]>([]);
-  const [likedStories, setLikedStories] = useState<ApiStory[]>([]);
-  const [stageStories, setStageStories] = useState<ApiStory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [cleaningUp, setCleaningUp] = useState(false);
-  const [fetchingArticle, setFetchingArticle] = useState(false);
-  const [cleanupStatus, setCleanupStatus] = useState<WriterState>("idle");
-  const [cleanupProgress, setCleanupProgress] = useState(0);
-  const [articleDisplayValue, setArticleDisplayValue] = useState("");
-  const [scriptStatus, setScriptStatus] = useState<WriterState>("idle");
-  const [scriptText, setScriptText] = useState("");
-
-  // ── UI state (synced with brief JSON) ────────────────────────────────────
+  // ── Kept for Yoopta (design + script editor) ─────────────────────────────
   const [brief, setBrief] = useState<StoryBrief>({});
-  const [youtubeInput, setYoutubeInput] = useState("");
-  const [scriptOpen, setScriptOpen] = useState(true);
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [editingYoutubeUrl, setEditingYoutubeUrl] = useState(false);
-  const [articleLoading, setArticleLoading] = useState(false);
-  const [articleError, setArticleError] = useState<string | null>(null);
-  const [generatingScript, setGeneratingScript] = useState(false);
-  const [scriptViewMode, setScriptViewMode] = useState<"structured" | "full">("structured");
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; avatarUrl: string } | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [articleOpen, setArticleOpen] = useState(true);
-  const [scriptDurationMinutes, setScriptDurationMinutes] = useState(3);
-
-  const isWriterBoxRunning = cleaningUp || fetchingArticle || generatingScript;
-
   const scriptValue = useMemo(
     () =>
       brief.scriptYoopta ?? scriptTextToYooptaValue(brief.script ?? ""),
     [brief.scriptYoopta, brief.script]
   );
 
-  // Fetch current user when showing ScriptEditor (scripting or filmed)
-  useEffect(() => {
-    if (story && (story.stage === "scripting" || story.stage === "filmed") && !currentUser) {
-      fetch("/api/auth/me", { credentials: "include" })
-        .then((r) => r.ok ? r.json() : null)
-        .then((u) => {
-          if (u?.id) setCurrentUser({ id: u.id, name: u.name ?? "Unknown", avatarUrl: u.avatarUrl ?? "" });
-        })
-        .catch(() => {});
-    }
-  }, [story?.stage, currentUser]);
-
-  // ── Fetch story + channels + liked peers ─────────────────────────────────
-  const loadStory = useCallback(async () => {
-    if (!id || !projectId) return;
-    try {
-      const [storyRes, channelsRes, likedRes] = await Promise.all([
-        fetch(`/api/stories/${id}`, { credentials: "include" }),
-        fetch(`/api/channels?projectId=${projectId}&type=ours`, { credentials: "include" }),
-        fetch(`/api/stories?projectId=${projectId}&stage=liked`, { credentials: "include" }),
-      ]);
-
-      if (storyRes.ok) {
-        const s: StoryWithLog = await storyRes.json();
-        setStory(s);
-        const b: StoryBrief = (s.brief as StoryBrief) || {};
-        setBrief(b);
-        setArticleError(null);
-        setArticleLoading(false);
-        if (b.youtubeUrl) setYoutubeInput(b.youtubeUrl);
-        // Fetch all stories for prev/next navigation (one list order: score desc, then date desc)
-        const listRes = await fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" });
-        if (listRes.ok) {
-          const list: ApiStory[] = await listRes.json();
-          const sorted = [...list].sort((a, b) => {
-            const scoreA = a.compositeScore ?? 0;
-            const scoreB = b.compositeScore ?? 0;
-            if (scoreB !== scoreA) return scoreB - scoreA;
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          });
-          setStageStories(sorted);
-        } else {
-          setStageStories([]);
-        }
-      }
-      if (channelsRes.ok) {
-        const data = await channelsRes.json();
-        const list: ApiChannel[] = Array.isArray(data) ? data : (data.channels ?? []);
-        setOurChannels(list.filter((c: ApiChannel) => c.type === "ours"));
-      }
-      if (likedRes.ok) {
-        setLikedStories(await likedRes.json());
-      }
-    } catch {
-      toast.error("Failed to load story");
-    } finally {
-      setLoading(false);
-    }
-  }, [id, projectId]);
-
-  useEffect(() => {
-    loadStory();
-  }, [loadStory]);
-
-  // ── Fetch full article from sourceUrl when we have URL but no articleContent ─
-  useEffect(() => {
-    if (!id || !story?.sourceUrl || articleLoading) return;
-    if (brief.articleContent && brief.articleContent !== '__SCRAPE_FAILED__' && brief.articleContent !== '__YOUTUBE__') return;
-    setArticleError(null);
-    setArticleLoading(true);
-    fetch(`/api/stories/${id}/fetch-article`, { method: "POST", credentials: "include" })
-      .then(async (r) => {
-        const data = await r.json().catch(() => ({}));
-        if (r.ok && data.articleContent) {
-          setBrief((b) => ({ ...b, articleContent: data.articleContent }));
-        } else {
-          setArticleError(data.error || "Could not load article");
-        }
-      })
-      .catch(() => setArticleError("Could not load article"))
-      .finally(() => setArticleLoading(false));
-  }, [id, story?.sourceUrl, brief.articleContent, articleLoading]);
-
-  // ── Sync article display (when not cleaning) ─
-  useEffect(() => {
-    const raw = brief.articleContent;
-    if (
-      (cleanupStatus === "idle" || cleanupStatus === "done") &&
-      typeof raw === "string" &&
-      raw !== "__SCRAPE_FAILED__" &&
-      raw !== "__YOUTUBE__"
-    ) {
-      setArticleDisplayValue(raw);
-    }
-  }, [brief.articleContent, cleanupStatus]);
-
-  // Reset cleanup progress when idle
-  useEffect(() => {
-    if (cleanupStatus === "idle" && !cleaningUp) setCleanupProgress(0);
-  }, [cleanupStatus, cleaningUp]);
-
-  // ── Persist helpers ───────────────────────────────────────────────────────
-
-  /** PATCH story with arbitrary fields, returns updated story */
-  const patchStory = useCallback(
-    async (fields: Record<string, unknown>): Promise<StoryWithLog | null> => {
-      if (!id) return null;
-      setSaving(true);
-      try {
-        const r = await fetch(`/api/stories/${id}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(fields),
-        });
-        if (!r.ok) throw new Error(await r.text());
-        const updated: StoryWithLog = await r.json();
-        setStory(updated);
-        return updated;
-      } catch {
-        toast.error("Failed to save");
-        return null;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [id]
-  );
-
-  /** Persist brief JSON to DB */
-  const saveBrief = useCallback(
-    async (newBrief: StoryBrief) => {
-      setBrief(newBrief);
-      await patchStory({ brief: newBrief });
-    },
-    [patchStory]
-  );
-
-  const briefRef = useRef(brief);
-  briefRef.current = brief;
-
-  /** Move to a new stage — persists and updates local state */
-  const moveStage = useCallback(
-    async (to: Stage) => {
-      const updated = await patchStory({ stage: to });
-      if (updated) {
-        toast.success(`Moved to ${STAGES.find((s) => s.key === to)?.label}`);
-        // Refresh full list so prev/next order is up to date
-        if (projectId) {
-          const listRes = await fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" });
-          if (listRes.ok) {
-            const list: ApiStory[] = await listRes.json();
-            const sorted = [...list].sort((a, b) => {
-              const scoreA = a.compositeScore ?? 0;
-              const scoreB = b.compositeScore ?? 0;
-              if (scoreB !== scoreA) return scoreB - scoreA;
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            });
-            setStageStories(sorted);
-          }
-        }
-      }
-    },
-    [patchStory, projectId]
-  );
-
-  const handleCleanup = useCallback(async () => {
-    if (!id || isWriterBoxRunning) return;
-    setCleaningUp(true);
-    setCleanupStatus("thinking");
-    setCleanupProgress(20);
-    const CHAR_DELAY = 18;
-    const charQueue: string[] = [];
-    let isTyping = false;
-    const appendChunk = (chunk: string) => {
-      charQueue.push(...chunk.split(""));
-      if (!isTyping) drainQueue();
-    };
-    const drainQueue = () => {
-      if (charQueue.length === 0) {
-        isTyping = false;
-        return;
-      }
-      isTyping = true;
-      const char = charQueue.shift()!;
-      setArticleDisplayValue((prev) => prev + char);
-      setTimeout(drainQueue, CHAR_DELAY);
-    };
-    const onStreamComplete = () =>
-      new Promise<void>((resolve) => {
-        const check = () => {
-          if (charQueue.length === 0 && !isTyping) resolve();
-          else setTimeout(check, 20);
-        };
-        check();
-      });
-    try {
-      const r = await fetch(`/api/stories/${id}/cleanup`, { method: "POST", credentials: "include" });
-      const data = await r.json().catch(() => ({}));
-      const newBrief = data.brief && typeof data.brief === "object" ? data.brief : null;
-      const cleanedContent = newBrief && typeof newBrief.articleContent === "string" ? newBrief.articleContent : "";
-      if (r.ok && cleanedContent) {
-        setStory((s) => (s ? { ...s, headline: data.headline ?? s.headline, brief: newBrief ?? s.brief } : s));
-        setBrief(newBrief as StoryBrief);
-        toast.success("Article cleaned");
-        setCleanupProgress(50);
-        setCleanupStatus("writing");
-        setArticleDisplayValue("");
-        appendChunk(cleanedContent);
-        await onStreamComplete();
-        setCleanupProgress(100);
-        setCleanupStatus("done");
-      } else {
-        setCleanupStatus("idle");
-        setCleanupProgress(0);
-        toast.error(data.error || "Cleanup failed");
-      }
-    } catch {
-      setCleanupStatus("idle");
-      setCleanupProgress(0);
-      toast.error("Cleanup failed");
-    } finally {
-      setCleaningUp(false);
-    }
-  }, [id, isWriterBoxRunning]);
-
-  const handleRefetch = useCallback(async () => {
-    if (!id || !story?.sourceUrl || isWriterBoxRunning) return;
-    setArticleError(null);
-    setFetchingArticle(true);
-    setCleanupStatus("thinking");
-    const CHAR_DELAY = 18;
-    const charQueue: string[] = [];
-    let isTyping = false;
-    const appendChunk = (chunk: string) => {
-      charQueue.push(...chunk.split(""));
-      if (!isTyping) drainQueue();
-    };
-    const drainQueue = () => {
-      if (charQueue.length === 0) {
-        isTyping = false;
-        return;
-      }
-      isTyping = true;
-      const char = charQueue.shift()!;
-      setArticleDisplayValue((prev) => prev + char);
-      setTimeout(drainQueue, CHAR_DELAY);
-    };
-    const onStreamComplete = () =>
-      new Promise<void>((resolve) => {
-        const check = () => {
-          if (charQueue.length === 0 && !isTyping) resolve();
-          else setTimeout(check, 20);
-        };
-        check();
-      });
-    try {
-      const r = await fetch(`/api/stories/${id}/fetch-article`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: true }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (r.ok && data.articleContent !== undefined) {
-        setBrief((b) => ({ ...b, articleContent: data.articleContent }));
-        setStory((s) => (s && s.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
-        if (data.articleContent !== "__SCRAPE_FAILED__" && data.articleContent !== "__YOUTUBE__" && String(data.articleContent).trim()) {
-          setCleanupStatus("writing");
-          setArticleDisplayValue("");
-          appendChunk(String(data.articleContent));
-          await onStreamComplete();
-          setCleanupStatus("done");
-          toast.success("Article re-fetched");
-        } else {
-          setCleanupStatus("idle");
-          toast.info(data.articleContent === "__SCRAPE_FAILED__" ? "Source could not be scraped" : "Article re-fetched");
-        }
-      } else {
-        setCleanupStatus("idle");
-        toast.error(data.error || "Could not fetch article");
-      }
-    } catch {
-      setCleanupStatus("idle");
-      toast.error("Could not fetch article");
-    } finally {
-      setFetchingArticle(false);
-    }
-  }, [id, story?.sourceUrl, isWriterBoxRunning]);
-
-  const handleOmit = useCallback(async () => {
-    const updated = await patchStory({ stage: "omit" });
-    if (updated) {
-      setStory(updated);
-      toast.success("Omitted — insufficient data");
-    } else {
-      toast.error("Failed to omit story");
-    }
-  }, [patchStory]);
-
-  const handleRetryFetch = useCallback(async () => {
-    if (!id || articleLoading) return;
-    setArticleError(null);
-    setArticleLoading(true);
-    try {
-      const r = await fetch(`/api/stories/${id}/fetch-article`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: true }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (r.ok && data.articleContent !== undefined) {
-        setBrief((b) => ({ ...b, articleContent: data.articleContent }));
-        setStory((s) => (s?.brief ? { ...s, brief: { ...s.brief, articleContent: data.articleContent } } : s));
-        if (data.articleContent !== "__SCRAPE_FAILED__") {
-          toast.success("Article re-fetched");
-        } else {
-          toast.info("Source could not be scraped");
-        }
-      } else {
-        toast.error(data.error || "Could not fetch article");
-      }
-    } catch {
-      toast.error("Could not fetch article");
-    } finally {
-      setArticleLoading(false);
-    }
-  }, [id, articleLoading]);
-
-  // Derived values (safe when story is null — only used when !loading && story)
+  // ── Constants (no logic; design only) ────────────────────────────────────
+  const loading = false;
+  const story: StoryWithLog | null = MOCK_STORY;
+  const ourChannels: ApiChannel[] = [];
   const scriptFormat = brief.scriptFormat ?? "short";
-  const activeStage = story?.stage ?? "suggestion";
-
-  useEffect(() => {
-    if (activeStage !== "scripting") return;
-    const t = setTimeout(() => {
-      saveBrief(briefRef.current);
-    }, 1500);
-    return () => clearTimeout(t);
-  }, [brief.scriptYoopta, activeStage, saveBrief]);
-
-  const isFirst = story?.coverageStatus === "first";
-  const isLate = story?.coverageStatus === "late";
-  const selectedChannel = brief.channelId ?? "";
-  const assignedChannel = ourChannels.find((c) => c.id === selectedChannel) ?? null;
-  const scriptSaved = !!(brief.scriptYoopta ?? brief.script);
+  const activeStage: Stage = story?.stage ?? "scripting";
+  const saving = false;
+  const articleDisplayValue = "";
+  const cleanupProgress = 0;
+  const articleLoading = false;
+  const articleError: string | null = null;
+  const isWriterBoxRunning = false;
+  const scriptDurationMinutes = 3;
+  const youtubeInput = "";
+  const editingYoutubeUrl = false;
+  const generatingScript = false;
+  const historyOpen = false;
+  const articleOpen = true;
+  const stageStories: { id: string }[] = [];
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
   const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
@@ -440,6 +93,7 @@ export default function StoryDetail() {
     : null;
   const fmt = (n?: number) =>
     !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
+  const selectedChannel = brief.channelId ?? "";
 
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...", type: "input" },
@@ -491,23 +145,15 @@ export default function StoryDetail() {
           nextStageLabel={nextStageLabel}
           saving={saving}
           onBack={() => navigate(projectPath("/stories"))}
-          onMoveToNextStage={() => nextStageKey && moveStage(nextStageKey)}
-          onPass={async () => {
-            const updated = await patchStory({ stage: "passed" });
-            if (updated) {
-              toast.success("Passed");
-              navigate(projectPath("/stories"));
-            } else {
-              toast.error("Failed to pass story");
-            }
-          }}
-          onOmit={handleOmit}
-          onHistoryClick={() => setHistoryOpen(true)}
+          onMoveToNextStage={() => {}}
+          onPass={async () => {}}
+          onOmit={async () => {}}
+          onHistoryClick={() => {}}
           prevNext={showStageNav ? {
             currentIndex: stageIndex + 1,
             total: stageStories.length,
-            onPrev: () => prevStory && navigate(projectPath(`/story/${prevStory.id}`)),
-            onNext: () => nextStory && navigate(projectPath(`/story/${nextStory.id}`)),
+            onPrev: () => prevStory && navigate(projectPath(`/story/${(prevStory as { id: string }).id}`)),
+            onNext: () => nextStory && navigate(projectPath(`/story/${(nextStory as { id: string }).id}`)),
             hasPrev: !!prevStory,
             hasNext: !!nextStory,
           } : undefined}
@@ -515,14 +161,14 @@ export default function StoryDetail() {
 
         {/* Edit History modal */}
         {historyOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setHistoryOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => {}}>
             <div
               className="w-full max-w-lg rounded-xl bg-background border border-border overflow-hidden shadow-2xl mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
                 <span className="text-[13px] font-medium">Edit History</span>
-                <button type="button" onClick={() => setHistoryOpen(false)} className="p-1.5 text-dim hover:text-foreground transition-colors">
+                <button type="button" onClick={() => {}} className="p-1.5 text-dim hover:text-foreground transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -586,108 +232,41 @@ export default function StoryDetail() {
               }}
               relativeDate={relativeDate}
               articleOpen={articleOpen}
-              onArticleOpenChange={setArticleOpen}
-              onCleanup={handleCleanup}
-              onRefetch={handleRefetch}
-              onRetryFetch={handleRetryFetch}
-              onArticleChange={(value) => {
-                setArticleDisplayValue(value);
-                setBrief((b) => ({ ...b, articleContent: value }));
-              }}
-              onArticleTitleChange={(value) => setBrief((b) => ({ ...b, articleTitle: value }))}
-              onArticleTitleBlur={(title) => patchStory({ brief: { ...brief, articleTitle: title } }).catch(() => {})}
+              onArticleOpenChange={() => {}}
+              onCleanup={async () => {}}
+              onRefetch={async () => {}}
+              onRetryFetch={async () => {}}
+              onArticleChange={() => {}}
+              onArticleTitleChange={() => {}}
+              onArticleTitleBlur={() => {}}
             />
 
           {/* Stage-specific content */}
           <div className="space-y-5">
 
             {activeStage === "passed" && (
-              <StoryDetailStagePassed onMoveBack={() => moveStage("suggestion")} />
+              <StoryDetailStagePassed onMoveBack={() => {}} />
             )}
 
             {activeStage === "omit" && (
-              <StoryDetailStageOmit onMoveBack={() => moveStage("suggestion")} />
+              <StoryDetailStageOmit onMoveBack={() => {}} />
             )}
-
-            {/* Liked stage: no script UI (removed per request) */}
 
             {/* ── SCRIPTING / FILMED / PUBLISH ───────────────────────────────────────── */}
             {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish") && (
               <>
-                {/* Script section: Lovabale-style capsule bar + Yoopta editor */}
                 <StoryDetailScriptSection
                   key={id}
                   channels={ourChannels}
                   selectedChannelId={selectedChannel}
-                  onChannelSelect={(channelId) => saveBrief({ ...brief, channelId })}
+                  onChannelSelect={() => {}}
                   scriptFormat={scriptFormat}
-                  onScriptFormatChange={(fmt) => setBrief((b) => ({ ...b, scriptFormat: fmt }))}
+                  onScriptFormatChange={() => {}}
                   scriptDuration={scriptDurationMinutes}
-                  onScriptDurationChange={setScriptDurationMinutes}
-                  canGenerate={!!selectedChannel && !generatingScript}
+                  onScriptDurationChange={() => {}}
+                  canGenerate={false}
                   generating={generatingScript}
-                  onGenerate={async () => {
-                    if (!id || !selectedChannel || generatingScript) return;
-                    const articleText =
-                      articleDisplayValue?.trim() ||
-                      (brief.articleContent?.trim() &&
-                      brief.articleContent !== "__SCRAPE_FAILED__" &&
-                      brief.articleContent !== "__YOUTUBE__"
-                        ? brief.articleContent
-                        : "");
-                    if (!articleText) {
-                      toast.error("No article content. Fetch and clean the article first.");
-                      return;
-                    }
-                    setGeneratingScript(true);
-                    try {
-                      const r = await fetch(`/api/stories/${id}/generate-script`, {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          format: brief.scriptFormat ?? "short",
-                          articleText,
-                          channelId: brief.channelId,
-                        }),
-                      });
-                      if (!r.ok) {
-                        const data = await r.json().catch(() => ({}));
-                        toast.error(data.error || `Generate script failed (${r.status})`);
-                        return;
-                      }
-                      const reader = r.body?.getReader();
-                      if (reader) {
-                        const decoder = new TextDecoder();
-                        let buffer = "";
-                        while (true) {
-                          const { done, value } = await reader.read();
-                          if (done) break;
-                          buffer += decoder.decode(value, { stream: true });
-                        }
-                        const lines = buffer.split("\n");
-                        for (const line of lines) {
-                          if (line.startsWith("data: ") && line.includes("error")) {
-                            try {
-                              const obj = JSON.parse(line.slice(6).trim());
-                              if (obj?.error) {
-                                toast.error(obj.error);
-                                return;
-                              }
-                            } catch {
-                              // ignore
-                            }
-                          }
-                        }
-                      }
-                      await loadStory();
-                      toast.success("Script generated");
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Generate script failed");
-                    } finally {
-                      setGeneratingScript(false);
-                    }
-                  }}
+                  onGenerate={async () => {}}
                   readOnly={activeStage !== "scripting"}
                   scriptValue={scriptValue}
                   onScriptChange={(value) => setBrief((b) => ({ ...b, scriptYoopta: value }))}
@@ -699,7 +278,7 @@ export default function StoryDetail() {
                       Final details to confirm before marking done.
                     </p>
                     <button
-                      onClick={() => moveStage("done")}
+                      onClick={() => {}}
                       className="w-full px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
                     >
                       Mark as Done
@@ -724,7 +303,6 @@ export default function StoryDetail() {
                   </div>
                 )}
 
-                {/* Produced formats */}
                 {brief.producedFormats && brief.producedFormats.length > 0 && (
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
@@ -741,7 +319,6 @@ export default function StoryDetail() {
                   </div>
                 )}
 
-                {/* Video performance */}
                 <div>
                   <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
                     Video Performance
@@ -770,7 +347,6 @@ export default function StoryDetail() {
                   </div>
                 </div>
 
-                {/* YouTube URL */}
                 {brief.youtubeUrl && (
                   <div className="rounded-xl bg-background p-5">
                     <div className="flex items-center justify-between mb-3">
@@ -789,10 +365,7 @@ export default function StoryDetail() {
                               <ExternalLink className="w-3 h-3" /> Open
                             </a>
                             <button
-                              onClick={() => {
-                                setYoutubeInput(brief.youtubeUrl ?? "");
-                                setEditingYoutubeUrl(true);
-                              }}
+                              onClick={() => {}}
                               className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
                             >
                               <Pencil className="w-3 h-3" /> Edit
@@ -801,15 +374,7 @@ export default function StoryDetail() {
                         )}
                         {editingYoutubeUrl && (
                           <button
-                            onClick={async () => {
-                              if (!youtubeInput.trim()) {
-                                toast.error("URL cannot be empty");
-                                return;
-                              }
-                              await saveBrief({ ...brief, youtubeUrl: youtubeInput.trim() });
-                              setEditingYoutubeUrl(false);
-                              toast.success("URL updated");
-                            }}
+                            onClick={() => {}}
                             className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
                           >
                             Done
@@ -821,7 +386,7 @@ export default function StoryDetail() {
                       <input
                         type="url"
                         value={youtubeInput}
-                        onChange={(e) => setYoutubeInput(e.target.value)}
+                        onChange={() => {}}
                         className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
                       />
                     ) : (
@@ -832,7 +397,6 @@ export default function StoryDetail() {
                   </div>
                 )}
 
-                {/* Produce Another Format */}
                 {(() => {
                   const produced = brief.producedFormats ?? [];
                   const canShort = !produced.includes("short");
@@ -849,13 +413,7 @@ export default function StoryDetail() {
                       <div className="flex gap-2">
                         {canShort && (
                           <button
-                            onClick={async () => {
-                              await patchStory({
-                                stage: "scripting",
-                                brief: { ...brief, scriptFormat: "short" },
-                              });
-                              toast.success("Restarted pipeline for Short format");
-                            }}
+                            onClick={() => {}}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
@@ -864,13 +422,7 @@ export default function StoryDetail() {
                         )}
                         {canLong && (
                           <button
-                            onClick={async () => {
-                              await patchStory({
-                                stage: "scripting",
-                                brief: { ...brief, scriptFormat: "long" },
-                              });
-                              toast.success("Restarted pipeline for Long Video format");
-                            }}
+                            onClick={() => {}}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
