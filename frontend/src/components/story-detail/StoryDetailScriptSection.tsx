@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import { User, ChevronDown, Clock, Sparkles, Check, Loader2 } from "lucide-react";
 import type { YooptaContentValue } from "@yoopta/editor";
-import type { CollaborationUser } from "@yoopta/collaboration";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
 import { ScriptEditorYoopta, type CollaborationCurrentUser } from "@/components/ScriptEditorYoopta";
@@ -50,12 +49,12 @@ export function StoryDetailScriptSection({
   saving = false,
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
-  const [collaborators, setCollaborators] = useState<CollaborationUser[]>([]);
+  const [collaborators, setCollaborators] = useState<{ id: string; name: string; avatar?: string; color?: string }[]>([]);
   const selectedCh = channels.find((c) => c.id === selectedChannelId);
   const value = scriptValue ?? scriptTextToYooptaValue("");
 
   const roomId = storyId ? `script-${storyId}` : undefined;
-  const onCollaboratorsChange = useCallback((users: CollaborationUser[]) => {
+  const onCollaboratorsChange = useCallback((users: { id: string; name: string; avatar?: string; color?: string }[]) => {
     setCollaborators(users);
   }, []);
 
