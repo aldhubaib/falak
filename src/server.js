@@ -47,9 +47,13 @@ app.use(cors({
   credentials: true,
 }))
 
-// Rate limiting: global API 200/min; auth 30/15min
+// Rate limiting: global API 200/min; auth mutations 30/15min (GET /me exempt)
 app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 200, message: { error: { code: 'rate_limit', message: 'Too many requests' } } }))
-app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, max: 30 }))
+app.use('/api/auth', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  skip: (req) => req.method === 'GET' && req.path === '/me',
+}))
 
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/auth',      authRoutes)
