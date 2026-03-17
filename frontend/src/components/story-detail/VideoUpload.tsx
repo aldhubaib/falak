@@ -1,10 +1,10 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useStoryUpload } from "@/hooks/useUpload";
 import { Upload, X, CheckCircle2, AlertCircle, Film, Loader2 } from "lucide-react";
 
 interface VideoUploadProps {
   storyId: string | undefined;
-  videoR2Url?: string;
+  videoR2Key?: string;
   videoFileName?: string;
   videoFileSize?: number;
   readOnly?: boolean;
@@ -27,7 +27,7 @@ const ACCEPTED_TYPES = [
 
 export function VideoUpload({
   storyId,
-  videoR2Url,
+  videoR2Key,
   videoFileName,
   videoFileSize,
   readOnly,
@@ -35,6 +35,17 @@ export function VideoUpload({
   const { task, upload, abort, dismiss } = useStoryUpload(storyId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!videoR2Key) { setSignedUrl(null); return; }
+    let cancelled = false;
+    fetch(`/api/upload/signed-url/${videoR2Key}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled && data.url) setSignedUrl(data.url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [videoR2Key]);
 
   const handleFile = useCallback(
     (file: File) => {
@@ -59,7 +70,7 @@ export function VideoUpload({
   const isUploading = task?.status === "uploading";
   const isComplete = task?.status === "completed";
   const isFailed = task?.status === "failed";
-  const hasVideo = !!videoR2Url || isComplete;
+  const hasVideo = !!videoR2Key || isComplete;
 
   // Uploading state
   if (isUploading && task) {
@@ -136,7 +147,7 @@ export function VideoUpload({
 
   // Already has video
   if (hasVideo) {
-    const url = isComplete ? task?.videoUrl : videoR2Url;
+    const url = isComplete ? task?.videoUrl : signedUrl;
     const name = isComplete ? task?.file.name : videoFileName;
     const size = isComplete ? task?.file.size : videoFileSize;
 

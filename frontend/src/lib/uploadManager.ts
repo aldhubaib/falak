@@ -22,8 +22,10 @@ type Listener = () => void;
 
 const tasks = new Map<string, UploadTask>();
 const listeners = new Set<Listener>();
+let cachedSnapshot: UploadTask[] = [];
 
 function notify() {
+  cachedSnapshot = Array.from(tasks.values());
   listeners.forEach((fn) => fn());
 }
 
@@ -33,7 +35,7 @@ export function subscribe(listener: Listener): () => void {
 }
 
 export function getTasks(): UploadTask[] {
-  return Array.from(tasks.values());
+  return cachedSnapshot;
 }
 
 export function getTaskByStoryId(storyId: string): UploadTask | undefined {

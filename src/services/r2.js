@@ -1,4 +1,4 @@
-const { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3')
+const { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3')
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 const config = require('../config')
 
@@ -90,6 +90,13 @@ async function abortMultipartUpload(key, uploadId) {
   } catch (_) {}
 }
 
+async function getSignedReadUrl(key, expiresIn = 3600) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured')
+  const cmd = new GetObjectCommand({ Bucket: getBucket(), Key: key })
+  return getSignedUrl(client, cmd, { expiresIn })
+}
+
 async function deleteObject(key) {
   const client = getClient()
   if (!client) return
@@ -106,6 +113,7 @@ module.exports = {
   getClient,
   getBucket,
   getPublicUrl,
+  getSignedReadUrl,
   initMultipartUpload,
   getPartPresignedUrls,
   completeMultipartUpload,

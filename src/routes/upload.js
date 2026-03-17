@@ -1,6 +1,6 @@
 const express = require('express')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { initMultipartUpload, getPartPresignedUrls, completeMultipartUpload, abortMultipartUpload, deleteObject, CHUNK_SIZE, getPublicUrl } = require('../services/r2')
+const { initMultipartUpload, getPartPresignedUrls, completeMultipartUpload, abortMultipartUpload, deleteObject, CHUNK_SIZE, getPublicUrl, getSignedReadUrl } = require('../services/r2')
 const db = require('../lib/db')
 const { v4: uuidv4 } = require('uuid')
 
@@ -75,6 +75,19 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
   } catch (e) {
     console.error('[upload/complete]', e)
     res.status(500).json({ error: e.message || 'Failed to complete upload' })
+  }
+})
+
+// GET /api/upload/signed-url/:key(*) — get a temporary signed URL to read a private R2 object
+router.get('/signed-url/:key(*)', async (req, res) => {
+  try {
+    const { key } = req.params
+    if (!key) return res.status(400).json({ error: 'key is required' })
+    const url = await getSignedReadUrl(key, 3600)
+    res.json({ url })
+  } catch (e) {
+    console.error('[upload/signed-url]', e)
+    res.status(500).json({ error: e.message || 'Failed to generate signed URL' })
   }
 })
 

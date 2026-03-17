@@ -301,12 +301,11 @@ export default function StoryDetail() {
   const [articleOpen, setArticleOpen] = useState(true);
   const [stageStories, setStageStories] = useState<{ id: string }[]>([]);
 
-  // Load stories in current stage for prev/next navigation
+  // Load all stories for prev/next navigation (cycle across all stages)
   useEffect(() => {
     if (!projectId || !story) return;
-    const stage = story.stage;
     let cancelled = false;
-    fetch(`/api/stories?projectId=${projectId}&stage=${stage}`, { credentials: "include" })
+    fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then((list: { id: string }[]) => {
         if (cancelled) return;
@@ -316,7 +315,7 @@ export default function StoryDetail() {
         if (!cancelled) setStageStories([]);
       });
     return () => { cancelled = true; };
-  }, [projectId, story?.id, story?.stage]);
+  }, [projectId, story?.id]);
 
   // Original Story: always expanded by default on page load
   useEffect(() => {
@@ -609,7 +608,7 @@ export default function StoryDetail() {
                 {activeStage === "filmed" && (
                   <VideoUpload
                     storyId={id}
-                    videoR2Url={brief.videoR2Url}
+                    videoR2Key={brief.videoR2Key}
                     videoFileName={brief.videoFileName}
                     videoFileSize={brief.videoFileSize}
                   />
