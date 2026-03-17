@@ -45,4 +45,10 @@ export interface StoryBrief {
   comments?: number;
   gapWin?: boolean;
   producedFormats?: ("short" | "long")[];
+  /** Video format: "short" for YouTube Shorts, "long" for regular videos. Set at Scripting stage. */
+  videoFormat?: "short" | "long";
+  /** AI-generated YouTube description for the Publish stage. */
+  youtubeDescription?: string;
+  /** Publish visibility: public, unlisted, private, or scheduled. */
+  visibility?: "public" | "unlisted" | "private";
 }

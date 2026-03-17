@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { User, ChevronDown, Clock, Sparkles, Check, Loader2 } from "lucide-react";
+import { User, ChevronDown, Clock, Sparkles, Check, Loader2, Film, Smartphone } from "lucide-react";
 import type { TiptapContentValue } from "@/data/editorInitialValue";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
@@ -28,6 +28,9 @@ export interface StoryDetailScriptSectionProps {
   /** When true, show "Saving…" (auto-save in progress). */
   saving?: boolean;
   editorRef?: React.MutableRefObject<{ setContent: (v: TiptapContentValue) => void } | null>;
+  /** Video format: "short" or "long". Controls duration constraints. */
+  videoFormat?: "short" | "long";
+  onVideoFormatChange?: (format: "short" | "long") => void;
 }
 
 export function StoryDetailScriptSection({
@@ -48,6 +51,8 @@ export function StoryDetailScriptSection({
   collaborationWsUrl,
   saving = false,
   editorRef,
+  videoFormat,
+  onVideoFormatChange,
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
   const [collaborators, setCollaborators] = useState<{ id: string; name: string; avatar?: string; color?: string }[]>([]);
@@ -73,6 +78,45 @@ export function StoryDetailScriptSection({
 
   return (
     <section>
+      {showGenerateControls && onVideoFormatChange && (
+        <div className="mb-3">
+          <div className="mb-1.5 text-[12px] text-dim font-medium">Format</div>
+          <div className="inline-flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => onVideoFormatChange("long")}
+              className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors ${
+                videoFormat === "long"
+                  ? "bg-blue/15 text-blue"
+                  : "bg-surface text-dim hover:text-foreground hover:bg-elevated"
+              }`}
+            >
+              <Film className="w-3.5 h-3.5" />
+              Long Video
+            </button>
+            <button
+              type="button"
+              onClick={() => onVideoFormatChange("short")}
+              className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors border-l border-border ${
+                videoFormat === "short"
+                  ? "bg-blue/15 text-blue"
+                  : "bg-surface text-dim hover:text-foreground hover:bg-elevated"
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              Short
+            </button>
+          </div>
+        </div>
+      )}
+      {!showGenerateControls && videoFormat && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Format</span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue">
+            {videoFormat === "short" ? "Short" : "Long Video"}
+          </span>
+        </div>
+      )}
       <div className="mb-2 flex items-center gap-2">
         <span className="text-[12px] text-dim font-medium">Script</span>
         {saving && (

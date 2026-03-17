@@ -614,6 +614,73 @@ Your job:
   }
 })
 
+// ── POST /api/stories/:id/generate-description — AI: compose a YouTube description from script, title, hooks, tags.
+router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
+    })
+    const project = story.project
+    if (!project?.anthropicApiKeyEncrypted) {
+      return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
+    }
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    const title = brief.suggestedTitle || story.headline || ''
+    const script = brief.script || ''
+    const hook = brief.openingHook || ''
+    const hookEnd = brief.hookEnd || ''
+    const tags = Array.isArray(brief.youtubeTags) ? brief.youtubeTags : []
+    const sourceUrl = story.sourceUrl || ''
+    const isShort = brief.videoFormat === 'short'
+
+    if (!script && !title) {
+      return res.status(400).json({ error: 'No script or title available. Generate a script first.' })
+    }
+
+    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+
+    const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.
+
+Given a video title, script, hooks, and tags, create an optimized YouTube description in Arabic.
+
+Rules:
+- Start with 1-2 compelling sentences summarizing the video (this appears in search results)
+${isShort ? '- Keep it short (3-5 lines max). Shorts descriptions should be concise.' : `- Include timestamps/chapters derived from the script timestamps (format: 0:00 Title)
+- Add a "Follow us" / subscribe call-to-action section`}
+- End with hashtags from the provided tags (format: #tag1 #tag2)
+${sourceUrl ? '- Include the source link with a label like "المصدر:"' : ''}
+- Output ONLY the description text. No explanations or meta-text.`
+
+    const userMessage = `Title: ${title}
+${hook ? `Opening Hook: ${hook}` : ''}
+Script: ${script.slice(0, 15000)}
+${hookEnd ? `Outro: ${hookEnd}` : ''}
+Tags: ${tags.join(', ')}
+${sourceUrl ? `Source URL: ${sourceUrl}` : ''}`
+
+    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+      system,
+      maxTokens: 2048,
+      projectId: project.id,
+      action: 'Story Generate Description',
+    })
+
+    const description = (raw && typeof raw === 'string') ? raw.trim() : ''
+    const newBrief = { ...brief, youtubeDescription: description }
+    await db.story.update({
+      where: { id: story.id },
+      data: { brief: newBrief },
+    })
+    await addLog(story.id, req.user.id, 'note', 'AI description generated')
+    res.json({ description, brief: newBrief })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/generate-description]', e)
+    res.status(500).json({ error: e.message || 'Generate description failed' })
+  }
+})
+
 // ── POST /api/stories/:id/suggest-tags — AI suggest min 5 YouTube tags from headline + script/summary
 router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {

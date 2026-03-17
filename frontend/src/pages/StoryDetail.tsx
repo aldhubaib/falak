@@ -22,6 +22,7 @@ import {
   StoryDetailScriptSection,
   StoryDetailStagePassed,
   StoryDetailStageOmit,
+  StoryDetailStagePublish,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
 
@@ -528,8 +529,8 @@ export default function StoryDetail() {
               <StoryDetailStageOmit onMoveBack={() => moveToStage("suggestion")} />
             )}
 
-            {/* ── SCRIPTING / FILMED / PUBLISH / DONE (Yoopta script editor) ───────── */}
-            {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "publish" || activeStage === "done") && (
+            {/* ── SCRIPTING / FILMED / DONE (Yoopta script editor) ───────── */}
+            {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "done") && (
               <>
                 <StoryDetailScriptSection
                   key={id}
@@ -544,7 +545,14 @@ export default function StoryDetail() {
                     });
                   }}
                   scriptDuration={scriptDurationMinutes}
-                  onScriptDurationChange={setScriptDurationMinutes}
+                  onScriptDurationChange={(mins) => {
+                    setScriptDurationMinutes(mins);
+                    setBrief((b) => {
+                      const next = { ...b, scriptDuration: mins };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
                   canGenerate={!!selectedChannel && scriptDurationMinutes > 0}
                   generating={generatingScript}
                   onGenerate={generateScript}
@@ -553,6 +561,16 @@ export default function StoryDetail() {
                   scriptValue={scriptValue}
                   saving={saving}
                   editorRef={scriptEditorRef}
+                  videoFormat={brief.videoFormat || "long"}
+                  onVideoFormatChange={(fmt) => {
+                    const defaultDuration = fmt === "short" ? 1 : 3;
+                    setScriptDurationMinutes(defaultDuration);
+                    setBrief((b) => {
+                      const next: StoryBrief = { ...b, videoFormat: fmt, scriptDuration: defaultDuration };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
                   onScriptChange={(value) => {
                     const blocks = extractScriptBlocks(value);
                     const scriptText = blocks.script || editorValueToScriptText(value);
@@ -574,6 +592,44 @@ export default function StoryDetail() {
                   storyId={id}
                   currentUser={currentUser}
                   collaborationWsUrl={collaborationWsUrl}
+                />
+              </>
+            )}
+
+            {/* ── PUBLISH (title, description, tags, thumbnail, visibility) ───────── */}
+            {activeStage === "publish" && id && (
+              <>
+                <StoryDetailScriptSection
+                  key={`script-${id}`}
+                  channels={ourChannels}
+                  selectedChannelId={selectedChannel}
+                  onChannelSelect={() => {}}
+                  scriptDuration={scriptDurationMinutes}
+                  onScriptDurationChange={() => {}}
+                  canGenerate={false}
+                  generating={false}
+                  onGenerate={async () => {}}
+                  readOnly
+                  showGenerateControls={false}
+                  scriptValue={scriptValue}
+                  saving={false}
+                  editorRef={scriptEditorRef}
+                  videoFormat={brief.videoFormat || "long"}
+                  storyId={id}
+                  currentUser={currentUser}
+                  collaborationWsUrl={collaborationWsUrl}
+                />
+                <StoryDetailStagePublish
+                  brief={brief}
+                  storyId={id}
+                  saving={saving}
+                  onBriefChange={(updater) => {
+                    setBrief((b) => {
+                      const next = updater(b);
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
                 />
               </>
             )}

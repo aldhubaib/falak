@@ -50,3 +50,5 @@ export { StoryDetailStagePassed } from "./StoryDetailStagePassed";
 export type { StoryDetailStagePassedProps } from "./StoryDetailStagePassed";
 export { StoryDetailStageOmit } from "./StoryDetailStageOmit";
 export type { StoryDetailStageOmitProps } from "./StoryDetailStageOmit";
+export { StoryDetailStagePublish } from "./StoryDetailStagePublish";
+export type { StoryDetailStagePublishProps } from "./StoryDetailStagePublish";
