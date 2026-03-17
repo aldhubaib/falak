@@ -88,7 +88,7 @@ export default function Stories() {
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
-  const [activeStage, setActiveStage] = useState<Stage>("suggestion");
+  const [activeStage, setActiveStage] = useState<Stage | "all">("suggestion");
 
   const [summary, setSummary] = useState<{
     total: number;
@@ -200,7 +200,7 @@ export default function Stories() {
     );
   }
 
-  const stageStories = stories.filter((s) => s.stage === activeStage);
+  const stageStories = activeStage === "all" ? stories : stories.filter((s) => s.stage === activeStage);
   const stageStoriesSorted = [...stageStories].sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime();
     const dateB = new Date(b.createdAt).getTime();
@@ -272,6 +272,16 @@ export default function Stories() {
         {/* Stage filter pills */}
         <div className="px-6 max-lg:px-4 mb-5">
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setActiveStage("all")}
+              className={`px-4 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+                activeStage === "all"
+                  ? "bg-foreground/10 text-foreground border border-foreground/20"
+                  : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
+              }`}
+            >
+              All ({stories.length})
+            </button>
             {STAGES.map((s) => {
               const count = stories.filter((st) => st.stage === s.key).length;
               return (
@@ -301,7 +311,7 @@ export default function Stories() {
             <div className="px-4 py-3 bg-background shrink-0 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-[13px] font-semibold">
-                  {STAGES.find((s) => s.key === activeStage)?.label}
+                  {activeStage === "all" ? "All" : STAGES.find((s) => s.key === activeStage)?.label}
                 </span>
                 <span className="text-[12px] text-dim font-mono">({stageStories.length})</span>
               </div>
