@@ -8,7 +8,7 @@
 const db = require('../lib/db')
 const logger = require('../lib/logger')
 const { decrypt } = require('./crypto')
-const { getApifyToken, fetchLatestDatasetItems } = require('./apify')
+const { getApifyToken, fetchLatestSuccessfulRun, fetchDatasetItemsByDatasetId } = require('./apify')
 const {
   searchNewsAPI,
   searchGNews,
@@ -79,15 +79,14 @@ function resolveApiKey(project, sourceType) {
     guardian: 'guardianApiKeyEncrypted',
     nyt_search: 'nytApiKeyEncrypted',
     nyt_top: 'nytApiKeyEncrypted',
-    apify_actor: 'apifyApiKeyEncrypted',
   }
   const field = keyMap[sourceType]
   if (!field || !project[field]) return null
   try { return decrypt(project[field]) } catch { return null }
 }
 
-function hasApiKey(project, sourceType) {
-  if (sourceType === 'apify_actor') return !!getApifyToken(project)
+function hasApiKey(project, sourceType, source = null) {
+  if (sourceType === 'apify_actor') return !!getApifyToken(source)
   if (sourceType === 'rss') return true
   return !!resolveApiKey(project, sourceType)
 }
@@ -135,11 +134,29 @@ async function fetchFromSource(source, apiKey) {
       return fetchNYTTopStories(apiKey, config.section)
     case 'rss':
       return fetchRSS(config.url)
-    case 'apify_actor':
-      return fetchLatestDatasetItems(config, apiKey, source.language || 'en')
     default:
       throw new Error(`Unknown source type: ${type}`)
   }
+}
+
+async function fetchFromApifySource(source, apiKey) {
+  const { config } = source
+
+  if (config.datasetId) {
+    const result = await fetchDatasetItemsByDatasetId(config.datasetId, apiKey, config.limit || 100, source.language || 'en')
+    return { ...result, latestRun: null }
+  }
+
+  const latestRun = await fetchLatestSuccessfulRun(config.actorId, apiKey)
+  if (!latestRun) {
+    return { articles: [], rawCount: 0, latestRun: null }
+  }
+  if (!latestRun.datasetId) {
+    throw new Error('Latest successful Apify run is missing a dataset ID')
+  }
+
+  const result = await fetchDatasetItemsByDatasetId(latestRun.datasetId, apiKey, config.limit || 100, source.language || 'en')
+  return { ...result, latestRun }
 }
 
 // ── RSS fetch ─────────────────────────────────────────────────────────────
@@ -282,9 +299,9 @@ async function ingestSource(source, project, { force = false } = {}) {
 
   let apiKey = null
   if (source.type === 'apify_actor') {
-    apiKey = getApifyToken(project)
+    apiKey = getApifyToken(source)
     if (!apiKey) {
-      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: 'No Apify API key configured for this project' }
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: 'No Apify API key configured for this source' }
     }
   } else if (source.type !== 'rss') {
     apiKey = resolveApiKey(project, source.type)
@@ -294,8 +311,21 @@ async function ingestSource(source, project, { force = false } = {}) {
   }
 
   let rawArticles
+  let latestRun = null
   try {
-    const result = await fetchFromSource(source, apiKey)
+    const result = source.type === 'apify_actor'
+      ? await fetchFromApifySource(source, apiKey)
+      : await fetchFromSource(source, apiKey)
+    latestRun = result.latestRun || null
+    if (source.type === 'apify_actor' && latestRun?.id && !force && source.lastImportedRunId === latestRun.id) {
+      const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: null, ms: Date.now() - startTime, skipped: 'no_new_run', runId: latestRun.id }
+      await appendFetchLog(sourceId, logEntry)
+      await db.articleSource.update({
+        where: { id: sourceId },
+        data: { lastPolledAt: new Date() },
+      })
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: null, skipped: 'no_new_run', runId: latestRun.id }
+    }
     rawArticles = result.articles || []
   } catch (e) {
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
@@ -347,12 +377,16 @@ async function ingestSource(source, project, { force = false } = {}) {
     inserted,
     error: null,
     ms: Date.now() - startTime,
+    ...(latestRun?.id ? { runId: latestRun.id } : {}),
   }
   await appendFetchLog(sourceId, logEntry)
 
   await db.articleSource.update({
     where: { id: sourceId },
-    data: { lastPolledAt: new Date() },
+    data: {
+      lastPolledAt: new Date(),
+      ...(latestRun?.id ? { lastImportedRunId: latestRun.id } : {}),
+    },
   })
 
   logger.info({ sourceId, type: source.type, label: source.label, ...logEntry }, '[articlePipeline] fetch complete')
@@ -378,7 +412,6 @@ async function ingestAll(projectId) {
       gnewsApiKeyEncrypted: true,
       guardianApiKeyEncrypted: true,
       nytApiKeyEncrypted: true,
-      apifyApiKeyEncrypted: true,
     },
   })
   if (!project) throw new Error('Project not found')
@@ -398,18 +431,20 @@ async function ingestAll(projectId) {
 
 // ── Test fetch: dry-run for a source config (no DB save) ──────────────────
 
-async function testSourceFetch(sourceType, config, project) {
+async function testSourceFetch(sourceType, config, project, source = null) {
   let apiKey = null
   if (sourceType === 'apify_actor') {
-    apiKey = getApifyToken(project)
-    if (!apiKey) throw new Error('No Apify API key configured for this project')
+    apiKey = getApifyToken(source)
+    if (!apiKey) throw new Error('No Apify API key configured for this source')
   } else if (sourceType !== 'rss') {
     apiKey = resolveApiKey(project, sourceType)
     if (!apiKey) throw new Error(`No API key configured for ${sourceType}`)
   }
 
   const fakeSource = { type: sourceType, config, language: 'en' }
-  const result = await fetchFromSource(fakeSource, apiKey)
+  const result = sourceType === 'apify_actor'
+    ? await fetchFromApifySource(fakeSource, apiKey)
+    : await fetchFromSource(fakeSource, apiKey)
   const raw = (result.articles || []).slice(0, 10)
 
   const searchConfig = config?.search || null

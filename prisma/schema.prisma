@@ -335,6 +335,8 @@ model ArticleSource {
   type         String    // newsapi | gnews | gnews_top | guardian | nyt_search | nyt_top | rss
   label        String
   config       Json      // native API params per type + search filters + source budget
+  apiKeyEncrypted String? @db.Text
+  lastImportedRunId String?
   isActive     Boolean   @default(true)
   language     String    @default("en")
   lastPolledAt DateTime?

@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
       for (const row of stageCounts) stats[row.stage] = row._count
       const totalArticles = Object.values(stats).reduce((s, c) => s + c, 0)
 
-      const keyConnected = hasApiKey(project, source.type)
+      const keyConnected = hasApiKey(project, source.type, source)
       const budget = checkBudget(source)
       const cooldown = checkCooldown(source)
 

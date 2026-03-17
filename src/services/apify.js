@@ -5,12 +5,13 @@ const { decrypt } = require('./crypto')
 const APIFY_API_BASE = 'https://api.apify.com/v2'
 const DEFAULT_ITEM_LIMIT = 100
 
-function getApifyToken(project) {
-  if (!project?.apifyApiKeyEncrypted) return null
+function getApifyToken(source) {
+  const encrypted = source?.apiKeyEncrypted
+  if (!encrypted) return null
   try {
-    return decrypt(project.apifyApiKeyEncrypted)
+    return decrypt(encrypted)
   } catch (error) {
-    logger.error({ error: error.message }, '[apify] failed to decrypt project token')
+    logger.error({ error: error.message }, '[apify] failed to decrypt token')
     return null
   }
 }
@@ -45,24 +46,43 @@ function normalizeApifyItem(item, defaultLanguage = 'en') {
   }
 }
 
-function buildDatasetItemsUrl(config, token) {
+function buildLatestRunUrl(actorId, token) {
+  return `${APIFY_API_BASE}/acts/${encodeURIComponent(actorId)}/runs/last?status=SUCCEEDED&token=${encodeURIComponent(token)}`
+}
+
+async function fetchLatestSuccessfulRun(actorId, token) {
+  const response = await fetch(buildLatestRunUrl(actorId, token), { headers: { Accept: 'application/json' } })
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Apify latest run request failed (${response.status}): ${body.slice(0, 300)}`)
+  }
+
+  const payload = await response.json()
+  const run = payload?.data
+  if (!run?.id) return null
+
+  return {
+    id: run.id,
+    datasetId: run.defaultDatasetId || null,
+    status: run.status || null,
+    startedAt: run.startedAt || null,
+    finishedAt: run.finishedAt || null,
+  }
+}
+
+function buildDatasetItemsUrl(datasetId, token, limit = DEFAULT_ITEM_LIMIT) {
   const params = new URLSearchParams({
     token,
     clean: '1',
     format: 'json',
     desc: '1',
-    limit: String(config.limit || DEFAULT_ITEM_LIMIT),
+    limit: String(limit),
   })
-
-  if (config.datasetId) {
-    return `${APIFY_API_BASE}/datasets/${encodeURIComponent(config.datasetId)}/items?${params.toString()}`
-  }
-
-  return `${APIFY_API_BASE}/acts/${encodeURIComponent(config.actorId)}/runs/last/dataset/items?status=SUCCEEDED&${params.toString()}`
+  return `${APIFY_API_BASE}/datasets/${encodeURIComponent(datasetId)}/items?${params.toString()}`
 }
 
-async function fetchLatestDatasetItems(config, token, defaultLanguage = 'en') {
-  const url = buildDatasetItemsUrl(config, token)
+async function fetchDatasetItemsByDatasetId(datasetId, token, limit = DEFAULT_ITEM_LIMIT, defaultLanguage = 'en') {
+  const url = buildDatasetItemsUrl(datasetId, token, limit)
   const response = await fetch(url, { headers: { Accept: 'application/json' } })
 
   if (!response.ok) {
@@ -84,5 +104,6 @@ async function fetchLatestDatasetItems(config, token, defaultLanguage = 'en') {
 
 module.exports = {
   getApifyToken,
-  fetchLatestDatasetItems,
+  fetchLatestSuccessfulRun,
+  fetchDatasetItemsByDatasetId,
 }

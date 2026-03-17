@@ -77,17 +77,6 @@ const NEWS_KEYS: ApiKeyDef[] = [
     projectScoped: true,
     bodyField: "nytKey",
   },
-  {
-    service: "apify",
-    name: "Apify",
-    description: "Generic actor sync for scraped articles",
-    icon: "news",
-    placeholder: "your-apify-token...",
-    link: "https://docs.apify.com/",
-    linkLabel: "docs.apify.com ↗",
-    projectScoped: true,
-    bodyField: "apifyKey",
-  },
 ];
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -123,7 +112,6 @@ export default function Source() {
           ...(d.hasGnewsKey !== undefined && { gnews: d.hasGnewsKey }),
           ...(d.hasGuardianKey !== undefined && { guardian: d.hasGuardianKey }),
           ...(d.hasNytKey !== undefined && { nyt: d.hasNytKey }),
-            ...(d.hasApifyKey !== undefined && { apify: d.hasApifyKey }),
         }));
       })
       .catch(() => {});
@@ -216,7 +204,7 @@ export default function Source() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Source</h1>
-          <span className="text-[11px] text-dim font-mono">News APIs and Apify actors for story discovery</span>
+          <span className="text-[11px] text-dim font-mono">News APIs for story discovery and actor-based article sources</span>
         </div>
       </div>
 
@@ -227,7 +215,7 @@ export default function Source() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">STORY DISCOVERY</div>
-                <p className="text-[12px] text-dim">Native news APIs and Apify actors are checked when you fetch stories. More sources = better coverage.</p>
+                <p className="text-[12px] text-dim">Native news APIs are checked when you fetch stories. Article actors are configured below per source.</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold ${newsConnected === NEWS_KEYS.length ? "bg-success/10 text-success" : newsConnected > 0 ? "bg-amber-500/10 text-amber-400" : "bg-muted text-dim"}`}>
@@ -330,6 +318,7 @@ interface ArticleSourceData {
   lastPolledAt: string | null;
   articleCount: number;
   stats: Record<string, number>;
+  hasApiKey?: boolean;
 }
 
 const SOURCE_TYPES = [
@@ -409,7 +398,7 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">ARTICLE SOURCES</div>
-          <p className="text-[12px] text-dim">Configure native APIs, RSS feeds, or Apify actors for the Brain v3 pipeline. Each source has its own pipeline.</p>
+          <p className="text-[12px] text-dim">Configure native APIs, RSS feeds, or Apify actors for the Brain v3 pipeline. Apify tokens are saved per source.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] text-dim font-mono">{totalArticles} articles · {activeCount}/{sources.length} active</span>
@@ -470,6 +459,13 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
                     <span key={k} className="mr-3">{k}: <span className="text-foreground">{String(v)}</span></span>
                   ))}
                 </div>
+                {s.type === "apify_actor" && (
+                  <div className="mb-2">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${s.hasApiKey ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
+                      {s.hasApiKey ? "Actor API token saved" : "Actor API token missing"}
+                    </span>
+                  </div>
+                )}
 
                 {/* Stage stats */}
                 <div className="flex items-center gap-3 text-[10px] font-mono">
@@ -531,6 +527,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
   const [label, setLabel] = useState("");
   const [language, setLanguage] = useState("en");
   const [config, setConfig] = useState<Record<string, string>>({});
+  const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState<{ url: string; title: string }[] | null>(null);
@@ -540,6 +537,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
   const handleTypeChange = (newType: string) => {
     setType(newType);
     setConfig({});
+    setApiKey("");
     setTestResults(null);
   };
 
@@ -567,7 +565,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
     fetch("/api/article-sources/test-config", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, type, config: buildConfig() }),
+      body: JSON.stringify({ projectId, type, config: buildConfig(), ...(type === "apify_actor" ? { apiKey } : {}) }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
       .then((d) => { setTestResults(d.articles || []); toast.success(`${d.count} articles found`); })
@@ -581,10 +579,10 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
     fetch("/api/article-sources", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, type, label: finalLabel, config: buildConfig(), language }),
+      body: JSON.stringify({ projectId, type, label: finalLabel, config: buildConfig(), language, ...(type === "apify_actor" ? { apiKey } : {}) }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
-      .then(() => { toast.success("Source created"); onCreated(); onClose(); setLabel(""); setConfig({}); setTestResults(null); })
+      .then(() => { toast.success("Source created"); onCreated(); onClose(); setLabel(""); setConfig({}); setApiKey(""); setTestResults(null); })
       .catch((e) => toast.error(e?.error || "Failed to create"))
       .finally(() => setSaving(false));
   };
@@ -668,6 +666,22 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
                 ))}
               </div>
             )}
+            {typeDef.format === "apify" && (
+              <div className="mt-3">
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-[10px] text-dim font-mono">Actor API Token</span>
+                  <span className="text-[9px] text-destructive">*</span>
+                </div>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Apify token for this actor"
+                  className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+                />
+                <p className="mt-1 text-[10px] text-dim">Saved on this source only, so each actor can use a different Apify account/token.</p>
+              </div>
+            )}
           </div>
 
           {/* Test results */}
@@ -707,9 +721,17 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
   const [label, setLabel] = useState(source.label);
   const [language, setLanguage] = useState(source.language);
   const [config, setConfig] = useState<Record<string, string>>(source.config as Record<string, string>);
+  const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
 
   const typeDef = SOURCE_TYPES.find(t => t.value === source.type)!;
+
+  useEffect(() => {
+    setLabel(source.label);
+    setLanguage(source.language);
+    setConfig(source.config as Record<string, string>);
+    setApiKey("");
+  }, [source]);
 
   const buildConfig = () => {
     if (typeDef.format === "category") return { category: config.category || "general" };
@@ -734,7 +756,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
     fetch(`/api/article-sources/${source.id}`, {
       method: "PATCH", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: label.trim(), language, config: buildConfig() }),
+      body: JSON.stringify({ label: label.trim(), language, config: buildConfig(), ...(typeDef.format === "apify" && apiKey ? { apiKey } : {}) }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
       .then(() => { toast.success("Source updated"); onUpdated(); onClose(); })
@@ -797,6 +819,20 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                       className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40" />
                   </div>
                 ))}
+              </div>
+            )}
+            {typeDef.format === "apify" && (
+              <div className="mt-3">
+                <span className={`inline-flex mb-2 text-[10px] px-2 py-0.5 rounded-full font-mono ${source.hasApiKey ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
+                  {source.hasApiKey ? "Actor API token saved" : "Actor API token missing"}
+                </span>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={source.hasApiKey ? "Leave blank to keep current token" : "Paste actor API token"}
+                  className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+                />
               </div>
             )}
           </div>

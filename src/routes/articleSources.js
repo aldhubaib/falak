@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
+const { encrypt } = require('../services/crypto')
 const {
   VALID_SOURCE_TYPES,
   GNEWS_CATEGORIES,
@@ -11,6 +12,15 @@ const {
 
 const router = express.Router()
 router.use(requireAuth)
+
+function sanitizeSource(source) {
+  const { apiKeyEncrypted, _count, ...rest } = source
+  return {
+    ...rest,
+    hasApiKey: !!apiKeyEncrypted,
+    ...(typeof _count?.articles === 'number' ? { articleCount: _count.articles } : {}),
+  }
+}
 
 // ── GET /api/article-sources?projectId=X ──────────────────────────────────
 router.get('/', async (req, res) => {
@@ -36,7 +46,7 @@ router.get('/', async (req, res) => {
       for (const row of stageCounts) {
         stats[row.stage] = row._count
       }
-      return { ...s, articleCount: s._count.articles, stats }
+      return { ...sanitizeSource(s), stats }
     }))
 
     res.json(withStats)
@@ -48,7 +58,7 @@ router.get('/', async (req, res) => {
 // ── POST /api/article-sources ─────────────────────────────────────────────
 router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, type, label, config, language } = req.body
+    const { projectId, type, label, config, language, apiKey } = req.body
     if (!projectId || !type || !label || !config) {
       return res.status(400).json({ error: 'projectId, type, label, and config are required' })
     }
@@ -58,16 +68,21 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
     const configError = validateConfig(type, config)
     if (configError) return res.status(400).json({ error: configError })
 
+    if (type === 'apify_actor' && !apiKey?.trim()) {
+      return res.status(400).json({ error: 'Apify Actor requires an API token for this source' })
+    }
+
     const source = await db.articleSource.create({
       data: {
         projectId,
         type,
         label: label.trim(),
         config,
+        apiKeyEncrypted: type === 'apify_actor' ? encrypt(apiKey.trim()) : null,
         language: language || 'en',
       },
     })
-    res.json(source)
+    res.json(sanitizeSource(source))
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
@@ -80,19 +95,26 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     if (!existing) return res.status(404).json({ error: 'Source not found' })
 
     const data = {}
+    const nextType = req.body.type || existing.type
     if (req.body.label !== undefined) data.label = req.body.label.trim()
     if (req.body.isActive !== undefined) data.isActive = !!req.body.isActive
     if (req.body.language !== undefined) data.language = req.body.language
+    if (req.body.apiKey !== undefined) {
+      if (nextType === 'apify_actor') {
+        data.apiKeyEncrypted = req.body.apiKey ? encrypt(req.body.apiKey.trim()) : null
+      }
+    } else if (req.body.type && nextType !== 'apify_actor') {
+      data.apiKeyEncrypted = null
+    }
     if (req.body.config !== undefined) {
-      const type = req.body.type || existing.type
-      const configError = validateConfig(type, req.body.config)
+      const configError = validateConfig(nextType, req.body.config)
       if (configError) return res.status(400).json({ error: configError })
       data.config = req.body.config
       if (req.body.type) data.type = req.body.type
     }
 
     const updated = await db.articleSource.update({ where: { id: req.params.id }, data })
-    res.json(updated)
+    res.json(sanitizeSource(updated))
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
@@ -118,7 +140,7 @@ router.post('/:id/test', requireRole('owner', 'admin', 'editor'), async (req, re
     })
     if (!source) return res.status(404).json({ error: 'Source not found' })
 
-    const articles = await testSourceFetch(source.type, source.config, source.project)
+    const articles = await testSourceFetch(source.type, source.config, source.project, source)
     res.json({ articles, count: articles.length })
   } catch (e) {
     res.status(500).json({ error: e.message })
@@ -214,7 +236,7 @@ router.get('/field-schema', async (req, res) => {
 // ── POST /api/article-sources/test-config — dry-run with arbitrary config ─
 router.post('/test-config', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, type, config } = req.body
+    const { projectId, type, config, apiKey } = req.body
     if (!projectId || !type || !config) {
       return res.status(400).json({ error: 'projectId, type, and config required' })
     }
@@ -224,7 +246,8 @@ router.post('/test-config', requireRole('owner', 'admin', 'editor'), async (req,
     const project = await db.project.findUnique({ where: { id: projectId } })
     if (!project) return res.status(404).json({ error: 'Project not found' })
 
-    const articles = await testSourceFetch(type, config, project)
+    const source = type === 'apify_actor' && apiKey ? { apiKeyEncrypted: encrypt(apiKey.trim()) } : null
+    const articles = await testSourceFetch(type, config, project, source)
     res.json({ articles, count: articles.length })
   } catch (e) {
     res.status(500).json({ error: e.message })
