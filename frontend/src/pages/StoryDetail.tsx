@@ -419,6 +419,7 @@ export default function StoryDetail() {
           onBack={() => navigate(projectPath("/stories"))}
           onMoveToNextStage={() => nextStageKey && moveToStage(nextStageKey)}
           onPass={() => moveToStage("passed")}
+          onRestart={() => moveToStage("suggestion")}
           onOmit={() => moveToStage("omit")}
           onHistoryClick={() => setHistoryOpen(true)}
           prevNext={showStageNav ? {

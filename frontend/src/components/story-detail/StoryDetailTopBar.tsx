@@ -9,6 +9,7 @@ import {
   EyeOff,
   SkipForward,
   CircleSlash,
+  RotateCcw,
   X,
 } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ export interface StoryDetailTopBarProps {
   onBack: () => void;
   onMoveToNextStage: () => void;
   onPass?: () => void;
+  onRestart?: () => void;
   onOmit: () => void;
   onHistoryClick: () => void;
   /** Compact prev/next */
@@ -76,6 +78,7 @@ export function StoryDetailTopBar({
   onBack,
   onMoveToNextStage,
   onPass,
+  onRestart,
   onOmit,
   onHistoryClick,
   prevNext,
@@ -158,7 +161,7 @@ export function StoryDetailTopBar({
                     <div className="h-px bg-border" />
                   </>
                 )}
-                {onPass && (activeStage === "suggestion" || activeStage === "liked") && (
+                {onPass && (
                   <>
                     <button
                       type="button"
@@ -170,6 +173,22 @@ export function StoryDetailTopBar({
                     >
                       <CircleSlash className="w-3.5 h-3.5 shrink-0" />
                       Passed
+                    </button>
+                    <div className="h-px bg-border" />
+                  </>
+                )}
+                {onRestart && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionDropOpen(false);
+                        onRestart();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-foreground hover:bg-elevated transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                      Restart
                     </button>
                     <div className="h-px bg-border" />
                   </>
