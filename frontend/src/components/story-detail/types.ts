@@ -51,4 +51,12 @@ export interface StoryBrief {
   youtubeDescription?: string;
   /** Publish visibility: public, unlisted, private, or scheduled. */
   visibility?: "public" | "unlisted" | "private";
+  /** Cloudflare R2 object key for the uploaded video file. */
+  videoR2Key?: string;
+  /** Public URL for the uploaded video file on R2. */
+  videoR2Url?: string;
+  /** Original filename of the uploaded video. */
+  videoFileName?: string;
+  /** File size in bytes of the uploaded video. */
+  videoFileSize?: number;
 }

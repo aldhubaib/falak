@@ -52,3 +52,4 @@ export { StoryDetailStageOmit } from "./StoryDetailStageOmit";
 export type { StoryDetailStageOmitProps } from "./StoryDetailStageOmit";
 export { StoryDetailStagePublish } from "./StoryDetailStagePublish";
 export type { StoryDetailStagePublishProps } from "./StoryDetailStagePublish";
+export { VideoUpload } from "./VideoUpload";

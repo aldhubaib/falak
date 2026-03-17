@@ -1,0 +1,115 @@
+const { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3')
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
+const config = require('../config')
+
+const CHUNK_SIZE = 10 * 1024 * 1024 // 10 MB
+
+let _client = null
+
+function getClient() {
+  if (_client) return _client
+  if (!config.R2_ACCOUNT_ID || !config.R2_ACCESS_KEY_ID || !config.R2_SECRET_ACCESS_KEY) {
+    return null
+  }
+  _client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${config.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: config.R2_ACCESS_KEY_ID,
+      secretAccessKey: config.R2_SECRET_ACCESS_KEY,
+    },
+  })
+  return _client
+}
+
+function getBucket() {
+  return config.R2_BUCKET_NAME || 'falak-uploads'
+}
+
+function getPublicUrl(key) {
+  if (config.R2_PUBLIC_URL) {
+    return `${config.R2_PUBLIC_URL.replace(/\/+$/, '')}/${key}`
+  }
+  return `https://${config.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${getBucket()}/${key}`
+}
+
+async function initMultipartUpload(key, contentType) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY in env.')
+  const cmd = new CreateMultipartUploadCommand({
+    Bucket: getBucket(),
+    Key: key,
+    ContentType: contentType,
+  })
+  const res = await client.send(cmd)
+  return res.UploadId
+}
+
+async function getPartPresignedUrls(key, uploadId, totalParts) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured')
+  const urls = []
+  for (let part = 1; part <= totalParts; part++) {
+    const cmd = new UploadPartCommand({
+      Bucket: getBucket(),
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: part,
+    })
+    const url = await getSignedUrl(client, cmd, { expiresIn: 3600 })
+    urls.push({ partNumber: part, url })
+  }
+  return urls
+}
+
+async function completeMultipartUpload(key, uploadId, parts) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured')
+  const cmd = new CompleteMultipartUploadCommand({
+    Bucket: getBucket(),
+    Key: key,
+    UploadId: uploadId,
+    MultipartUpload: {
+      Parts: parts.map(p => ({ PartNumber: p.partNumber, ETag: p.etag })),
+    },
+  })
+  await client.send(cmd)
+  return getPublicUrl(key)
+}
+
+async function abortMultipartUpload(key, uploadId) {
+  const client = getClient()
+  if (!client) return
+  try {
+    const cmd = new AbortMultipartUploadCommand({
+      Bucket: getBucket(),
+      Key: key,
+      UploadId: uploadId,
+    })
+    await client.send(cmd)
+  } catch (_) {}
+}
+
+async function deleteObject(key) {
+  const client = getClient()
+  if (!client) return
+  try {
+    const cmd = new DeleteObjectCommand({
+      Bucket: getBucket(),
+      Key: key,
+    })
+    await client.send(cmd)
+  } catch (_) {}
+}
+
+module.exports = {
+  getClient,
+  getBucket,
+  getPublicUrl,
+  initMultipartUpload,
+  getPartPresignedUrls,
+  completeMultipartUpload,
+  abortMultipartUpload,
+  deleteObject,
+  CHUNK_SIZE,
+}

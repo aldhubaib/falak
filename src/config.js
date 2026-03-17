@@ -17,6 +17,11 @@ const optional = {
   OWNER_EMAIL: null,
   ANTHROPIC_API_KEY: null,
   ENCRYPTION_KEY: null,
+  R2_ACCOUNT_ID: null,
+  R2_ACCESS_KEY_ID: null,
+  R2_SECRET_ACCESS_KEY: null,
+  R2_BUCKET_NAME: 'falak-uploads',
+  R2_PUBLIC_URL: null,
 }
 
 function load() {

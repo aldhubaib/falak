@@ -23,6 +23,7 @@ import {
   StoryDetailStagePassed,
   StoryDetailStageOmit,
   StoryDetailStagePublish,
+  VideoUpload,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
 
@@ -605,6 +606,14 @@ export default function StoryDetail() {
             {/* ── SCRIPTING / FILMED / DONE (Yoopta script editor) ───────── */}
             {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "done") && (
               <>
+                {activeStage === "filmed" && (
+                  <VideoUpload
+                    storyId={id}
+                    videoR2Url={brief.videoR2Url}
+                    videoFileName={brief.videoFileName}
+                    videoFileSize={brief.videoFileSize}
+                  />
+                )}
                 <StoryDetailScriptSection
                   key={id}
                   channels={ourChannels}

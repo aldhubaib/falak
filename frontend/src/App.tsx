@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { UploadIndicator } from "@/components/UploadIndicator";
 import { PageError } from "@/components/PageError";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectLayout, ProjectRootRedirect } from "@/components/ProjectLayout";
@@ -56,6 +57,7 @@ const App = () => (
       <TooltipProvider>
         <BrowserRouter>
           <Toaster position="top-center" richColors closeButton />
+          <UploadIndicator />
           <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProjectRootRedirect />} />
