@@ -32,7 +32,7 @@ export interface StoryBrief {
   hookStart?: string;
   hookEnd?: string;
   script?: string;
-  scriptFormat?: "short" | "long";
+  scriptDuration?: number;
   scriptRaw?: string;
   /** Tiptap editor content for script (Scripting / Filmed / Publish / Done). */
   scriptTiptap?: TiptapContentValue;

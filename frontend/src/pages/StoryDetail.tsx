@@ -210,19 +210,19 @@ export default function StoryDetail() {
   );
 
   // ── Constants (no logic; design only) ────────────────────────────────────
-  const scriptFormat = brief.scriptFormat ?? "short";
   const activeStage: Stage = story?.stage ?? "scripting";
   const articleDisplayValue = "";
   const cleanupProgress = 0;
   const articleLoading = false;
   const articleError: string | null = null;
   const isWriterBoxRunning = false;
-  const [scriptDurationMinutes, setScriptDurationMinutes] = useState(3);
+  const [scriptDurationMinutes, setScriptDurationMinutes] = useState(
+    () => brief.scriptDuration || 3
+  );
 
-  // Sync script duration when format changes (e.g. from loaded brief)
   useEffect(() => {
-    setScriptDurationMinutes(scriptFormat === "short" ? 3 : 40);
-  }, [scriptFormat]);
+    if (brief.scriptDuration) setScriptDurationMinutes(brief.scriptDuration);
+  }, [brief.scriptDuration]);
   const youtubeInput = "";
   const editingYoutubeUrl = false;
   const [generatingScript, setGeneratingScript] = useState(false);
@@ -305,7 +305,7 @@ export default function StoryDetail() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          format: scriptFormat,
+          durationMinutes: scriptDurationMinutes,
           channelId: selectedChannel,
           articleText: brief.articleContent ?? "",
         }),
@@ -355,7 +355,7 @@ export default function StoryDetail() {
           script: sections.script || b.script,
           hookEnd: sections.hookEnd,
           scriptTiptap: tiptapValue,
-          scriptFormat: scriptFormat,
+          scriptDuration: scriptDurationMinutes,
           scriptRaw: fullText.trim(),
           youtubeTags: sections.hashtags.length > 0 ? sections.hashtags : b.youtubeTags,
         };
@@ -368,13 +368,13 @@ export default function StoryDetail() {
     } finally {
       setGeneratingScript(false);
     }
-  }, [id, selectedChannel, scriptFormat, brief.articleContent, ourChannels, generatingScript, saveScript]);
+  }, [id, selectedChannel, scriptDurationMinutes, brief.articleContent, ourChannels, generatingScript, saveScript]);
 
   const SCRIPT_FIELDS: ScriptField[] = [
-    { key: "suggestedTitle", label: "Suggested Title", placeholder: scriptFormat === "short" ? "عنوان الشورت المقترح..." : "عنوان الفيديو المقترح...", type: "input" },
+    { key: "suggestedTitle", label: "Suggested Title", placeholder: "عنوان الفيديو المقترح...", type: "input" },
     { key: "openingHook", label: "Opening Hook (first 10 sec)", placeholder: "الجملة الأولى التي تجذب المشاهد...", type: "input" },
     { key: "hookStart", label: "Branded Hook Start", placeholder: "e.g. أهلاً وسهلاً بكم في قناة...", type: "input" },
-    { key: "script", label: "Script — with timestamps", placeholder: scriptFormat === "short" ? "00:00 هوك\n00:15 المحتوى..." : "00:00 مقدمة\n01:30 القصة تبدأ...", type: "textarea" },
+    { key: "script", label: "Script — with timestamps", placeholder: "00:00 مقدمة\n01:30 القصة تبدأ...", type: "textarea" },
     { key: "hookEnd", label: "Branded Hook End", placeholder: "e.g. لا تنسوا الاشتراك وتفعيل الجرس...", type: "input" },
   ];
 
@@ -543,23 +543,9 @@ export default function StoryDetail() {
                       return next;
                     });
                   }}
-                  scriptFormat={scriptFormat}
-                  onScriptFormatChange={(fmt) => {
-                    setBrief((b) => {
-                      const next = { ...b, scriptFormat: fmt };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                    setScriptDurationMinutes(fmt === "short" ? 3 : 40);
-                  }}
                   scriptDuration={scriptDurationMinutes}
                   onScriptDurationChange={setScriptDurationMinutes}
-                  canGenerate={
-                    !!selectedChannel &&
-                    (scriptFormat === "short"
-                      ? scriptDurationMinutes >= 1 && scriptDurationMinutes <= 3
-                      : scriptDurationMinutes >= 4)
-                  }
+                  canGenerate={!!selectedChannel && scriptDurationMinutes > 0}
                   generating={generatingScript}
                   onGenerate={generateScript}
                   readOnly={activeStage !== "scripting" && activeStage !== "filmed"}
@@ -655,7 +641,7 @@ export default function StoryDetail() {
                   <div className="rounded-xl bg-background p-5">
                     <div className="flex items-center justify-between mb-3">
                       <label className="text-[10px] text-dim font-mono uppercase tracking-widest">
-                        {scriptFormat === "short" ? "YouTube Short URL" : "YouTube Video URL"}
+                        YouTube Video URL
                       </label>
                       <div className="flex items-center gap-2">
                         {!editingYoutubeUrl && (

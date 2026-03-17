@@ -10,17 +10,12 @@ export interface StoryDetailScriptBoxSavedProps {
   editingField: string | null;
   setEditingField: (v: string | null) => void;
   scriptFields: ScriptField[];
-  scriptFormat: "short" | "long";
+  scriptDuration?: number;
   onFieldDone: (key: string) => void;
   onBriefChange: (key: keyof StoryBrief, val: string) => void;
   scriptViewMode?: "structured" | "full";
   onScriptViewModeChange?: (mode: "structured" | "full") => void;
 }
-
-const FORMAT_LABELS: Record<"short" | "long", string> = {
-  short: "Short (1–2 min)",
-  long: "Video (20–40 min)",
-};
 
 export function StoryDetailScriptBoxSaved({
   brief,
@@ -29,7 +24,7 @@ export function StoryDetailScriptBoxSaved({
   editingField,
   setEditingField,
   scriptFields,
-  scriptFormat,
+  scriptDuration,
   onFieldDone,
   onBriefChange,
   scriptViewMode = "structured",
@@ -44,9 +39,11 @@ export function StoryDetailScriptBoxSaved({
       >
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Script</span>
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue/15 text-blue">
-            {FORMAT_LABELS[scriptFormat]}
-          </span>
+          {scriptDuration ? (
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-blue/15 text-blue">
+              {scriptDuration} min
+            </span>
+          ) : null}
           <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-success/15 text-success">
             Saved
           </span>
@@ -162,7 +159,7 @@ export function StoryDetailScriptBoxSaved({
                         <textarea
                           value={val}
                           onChange={(e) => onBriefChange(field.key, e.target.value)}
-                          rows={scriptFormat === "short" ? 3 : 5}
+                          rows={5}
                           className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y"
                         />
                       ) : (

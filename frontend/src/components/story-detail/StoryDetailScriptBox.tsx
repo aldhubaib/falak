@@ -9,10 +9,6 @@ export interface ScriptField {
   type: "input" | "textarea";
 }
 
-const FORMAT_LABELS: Record<"short" | "long", string> = {
-  short: "Short (up to 3 min)",
-  long: "Video (3 min – unlimited)",
-};
 
 export interface StoryDetailScriptBoxProps {
   brief: StoryBrief;
@@ -22,8 +18,6 @@ export interface StoryDetailScriptBoxProps {
   editingField: string | null;
   setEditingField: (v: string | null) => void;
   scriptFields: ScriptField[];
-  scriptFormat: "short" | "long";
-  onScriptFormatChange: (format: "short" | "long") => void;
   onSave: (b: StoryBrief) => Promise<void>;
   onFieldDone: (key: string) => void;
   onBriefChange: (key: keyof StoryBrief, val: string) => void;
@@ -42,8 +36,6 @@ export function StoryDetailScriptBox({
   editingField,
   setEditingField,
   scriptFields,
-  scriptFormat,
-  onScriptFormatChange,
   onSave,
   onFieldDone,
   onBriefChange,
@@ -95,21 +87,6 @@ export function StoryDetailScriptBox({
       </button>
       {scriptOpen && (
         <div className="px-5 pb-5 space-y-4">
-          <div className="flex items-center gap-1 p-1 bg-surface rounded-full w-fit">
-            {(["short", "long"] as const).map((fmt) => (
-              <button
-                key={fmt}
-                type="button"
-                onClick={() => onScriptFormatChange(fmt)}
-                className={`px-4 py-1.5 text-[11px] font-semibold rounded-full transition-colors ${
-                  scriptFormat === fmt ? "bg-foreground/10 text-foreground" : "text-dim hover:text-sensor"
-                }`}
-              >
-                {FORMAT_LABELS[fmt]}
-              </button>
-            ))}
-          </div>
-
           {onScriptViewModeChange && (
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-dim font-mono uppercase tracking-wider">View</span>
@@ -213,7 +190,7 @@ export function StoryDetailScriptBox({
                           value={val}
                           onChange={(e) => onBriefChange(field.key, e.target.value)}
                           placeholder={field.placeholder}
-                          rows={scriptFormat === "short" ? 3 : 5}
+                          rows={5}
                           className="w-full px-4 py-3 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 text-right leading-relaxed resize-y"
                         />
                       ) : (

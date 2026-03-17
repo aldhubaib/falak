@@ -10,8 +10,6 @@ export interface StoryDetailScriptSectionProps {
   channels: ApiChannel[];
   selectedChannelId: string;
   onChannelSelect: (id: string) => void;
-  scriptFormat: "short" | "long";
-  onScriptFormatChange: (format: "short" | "long") => void;
   scriptDuration: number;
   onScriptDurationChange: (minutes: number) => void;
   canGenerate: boolean;
@@ -36,8 +34,6 @@ export function StoryDetailScriptSection({
   channels,
   selectedChannelId,
   onChannelSelect,
-  scriptFormat,
-  onScriptFormatChange,
   scriptDuration,
   onScriptDurationChange,
   canGenerate,
@@ -152,30 +148,6 @@ export function StoryDetailScriptSection({
 
               <span className="w-px h-4 bg-border" />
 
-              <div className="flex items-center px-1">
-                {(["short", "long"] as const).map((fmt) => (
-                  <button
-                    key={fmt}
-                    type="button"
-                    onClick={() => {
-                      if (!readOnly) {
-                        onScriptFormatChange(fmt);
-                        onScriptDurationChange(fmt === "short" ? 3 : 40);
-                      }
-                    }}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors whitespace-nowrap ${
-                      scriptFormat === fmt
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-dim hover:text-sensor"
-                    } ${readOnly ? "pointer-events-none" : ""}`}
-                  >
-                    {fmt === "short" ? "Short" : "Video"}
-                  </button>
-                ))}
-              </div>
-
-              <span className="w-px h-4 bg-border" />
-
               <div className="flex items-center gap-1 px-2.5 text-[11px] text-dim">
                 <Clock className="w-3 h-3 shrink-0" />
                 {readOnly ? (
@@ -208,6 +180,7 @@ export function StoryDetailScriptSection({
                       }}
                       className="w-12 bg-transparent font-mono text-[11px] text-foreground focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
+                    <span className="font-mono text-[10px]">min</span>
                   </>
                 )}
               </div>

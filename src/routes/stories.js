@@ -27,12 +27,14 @@ async function generateScriptForStory(storyId) {
     select: { id: true, startHook: true, endHook: true },
   })
   if (!channel) return
-  const format = brief.scriptFormat === 'long' ? 'long' : 'short'
+  const durationMinutes = Math.max(0.5, parseFloat(brief.scriptDuration) || 3)
+  const isShort = durationMinutes <= 3
   const startHook = (channel.startHook || '').trim()
   const endHook = (channel.endHook || '').trim()
   const apiKey = decrypt(project.anthropicApiKeyEncrypted)
-  const durationShort = 'The script must be up to 3 minutes of speaking time (about 400–500 words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
-  const durationLong = 'The script must be at least 3 minutes and can be as long as needed (e.g. 20–40+ minutes). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
+  const durationInstruction = isShort
+    ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
+    : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
   const system = `You are an expert Arabic YouTube scriptwriter. Output ONLY a structured script in Arabic, using exactly these section headers (each on its own line). No other text or explanations.
 
 ## TITLE
@@ -45,12 +47,12 @@ async function generateScriptForStory(storyId) {
 ${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
 
 ## SCRIPT
-(Main script body in Arabic with timestamps. ${format === 'long' ? durationLong : durationShort} Use format like 0:00 ... then 0:30 ... etc.)
+(Main script body in Arabic with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
 
 ## BRANDED_HOOK_END
 ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}`
 
-  const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short (up to 3 min)'} script in Arabic:\n\n${articleContent.slice(0, 120000)}`
+  const userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script in Arabic:\n\n${articleContent.slice(0, 120000)}`
 
   let fullScript = ''
   try {
@@ -72,7 +74,7 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
     hookStart: parsed.hookStart !== undefined ? parsed.hookStart : brief.hookStart,
     script: parsed.script || brief.script,
     hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
-    scriptFormat: format,
+    scriptDuration: durationMinutes,
     scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
   }
   await db.story.update({
@@ -440,7 +442,7 @@ function parseStructuredScript(text, channelStartHook = '', channelEndHook = '')
 }
 
 // ── POST /api/stories/:id/generate-script — AI: full script (title, hooks, script with timestamps). Requires channelId for branded hooks.
-// Body: format ('short'|'long'), articleText, channelId (required).
+// Body: durationMinutes (number), articleText, channelId (required).
 router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
@@ -469,7 +471,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     if (!channel) {
       return res.status(400).json({ error: 'Channel not found or does not belong to this project.' })
     }
-    const format = req.body?.format === 'long' ? 'long' : 'short'
+    const durationMinutes = Math.max(0.5, parseFloat(req.body?.durationMinutes) || 3)
     const startHook = (channel.startHook || '').trim()
     const endHook = (channel.endHook || '').trim()
 
@@ -479,8 +481,10 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       : 'Write the script in Arabic.'
 
     const apiKey = decrypt(project.anthropicApiKeyEncrypted)
-    const durationShort = 'The script must be up to 3 minutes of speaking time (about 400–500 words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
-    const durationLong = 'The script must be at least 3 minutes and can be as long as needed (e.g. 20–40+ minutes). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
+    const isShort = durationMinutes <= 3
+    const durationInstruction = isShort
+      ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
+      : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
     const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
@@ -495,7 +499,7 @@ Output ONLY a structured script using exactly these section headers (each on its
 ${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
 
 ## SCRIPT
-(Main script body with timestamps. ${format === 'long' ? durationLong : durationShort} Use format like 0:00 ... then 0:30 ... etc.)
+(Main script body with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
 
 ## BRANDED_HOOK_END
 ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
@@ -503,7 +507,7 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
 
-    const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short (up to 3 min)'} script:\n\n${articleContent.slice(0, 120000)}`
+    const userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
@@ -539,7 +543,7 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
       script: parsed.script || brief.script,
       hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
       youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
-      scriptFormat: format,
+      scriptDuration: durationMinutes,
       scriptRaw: fullScript.trim() || brief.scriptRaw,
     }
     await db.story.update({
