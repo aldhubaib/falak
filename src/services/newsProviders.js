@@ -22,7 +22,6 @@ async function searchNewsAPI(query, apiKey, { pageSize = 20, sortBy = 'relevancy
       q: query,
       sortBy,
       pageSize: String(pageSize),
-      language: 'en',
       apiKey,
     })
     const res = await fetch(`https://newsapi.org/v2/everything?${params}`, { signal })
@@ -58,7 +57,6 @@ async function searchGNews(query, apiKey, { max = 10, sortby = 'relevance' } = {
       q: query,
       max: String(max),
       sortby,
-      lang: 'en',
       apikey: apiKey,
     })
     const res = await fetch(`https://gnews.io/api/v4/search?${params}`, { signal })
