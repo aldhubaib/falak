@@ -104,15 +104,8 @@ export function buildScriptBlocksJSON(fields: {
   hookEnd?: string;
   hashtags?: string[];
 }): TiptapContentValue {
-  const tags = (fields.hashtags ?? []).map((t) =>
-    t.startsWith("#") ? t : `#${t}`
-  );
-  const hashtagParagraphs: JSONContent[] = tags.length
-    ? tags.map((tag) => ({
-        type: "paragraph" as const,
-        content: [{ type: "text" as const, text: tag }],
-      }))
-    : [{ type: "paragraph" as const }];
+  const tags = (fields.hashtags ?? []).map((t) => t.replace(/^#/, "").trim()).filter(Boolean);
+  const hashtagText = tags.join(", ");
 
   return {
     type: "doc",
@@ -122,11 +115,7 @@ export function buildScriptBlocksJSON(fields: {
       makeBlock("hookStart", fields.hookStart ?? ""),
       makeBlock("script", fields.script ?? ""),
       makeBlock("hookEnd", fields.hookEnd ?? ""),
-      {
-        type: "scriptBlock",
-        attrs: { blockType: "hashtags" },
-        content: hashtagParagraphs,
-      },
+      makeBlock("hashtags", hashtagText),
     ],
   };
 }

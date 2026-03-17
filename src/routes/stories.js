@@ -501,7 +501,7 @@ ${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a bri
 ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
 
 ## HASHTAGS
-(5–15 relevant YouTube hashtags, one per line, each starting with #. Mix of Arabic and English tags for SEO.)`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
 
     const userMessage = `Article to turn into a ${format === 'long' ? 'long video' : 'Short (up to 3 min)'} script:\n\n${articleContent.slice(0, 120000)}`
 
