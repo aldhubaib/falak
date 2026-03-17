@@ -585,6 +585,8 @@ export default function StoryDetail() {
                 videoR2Key={brief.videoR2Key}
                 videoFileName={brief.videoFileName}
                 videoFileSize={brief.videoFileSize}
+                videoFormat={(brief.videoFormat as "short" | "long") || "long"}
+                headline={brief.articleTitle ?? story.headline ?? ""}
                 readOnly={activeStage === "done"}
                 required={activeStage === "filmed"}
               />
