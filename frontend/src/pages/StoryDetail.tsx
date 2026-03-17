@@ -675,6 +675,18 @@ export default function StoryDetail() {
             {/* ── PUBLISH (title, description, tags, thumbnail, visibility) ───────── */}
             {activeStage === "publish" && id && (
               <>
+                <StoryDetailStagePublish
+                  brief={brief}
+                  storyId={id}
+                  saving={saving}
+                  onBriefChange={(updater) => {
+                    setBrief((b) => {
+                      const next = updater(b);
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
+                />
                 <StoryDetailScriptSection
                   key={`script-${id}`}
                   channels={ourChannels}
@@ -694,19 +706,6 @@ export default function StoryDetail() {
                   storyId={id}
                   currentUser={currentUser}
                   collaborationWsUrl={collaborationWsUrl}
-                />
-                <StoryDetailStagePublish
-                  brief={brief}
-                  storyId={id}
-                  saving={saving}
-                  channelHandle={ourChannels.find((c) => c.id === selectedChannel)?.handle}
-                  onBriefChange={(updater) => {
-                    setBrief((b) => {
-                      const next = updater(b);
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
                 />
               </>
             )}
