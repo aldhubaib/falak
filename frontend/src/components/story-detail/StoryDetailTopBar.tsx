@@ -84,7 +84,7 @@ export function StoryDetailTopBar({
   prevNext,
 }: StoryDetailTopBarProps) {
   const [actionDropOpen, setActionDropOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"omit" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"omit" | "passed" | "restart" | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -167,7 +167,7 @@ export function StoryDetailTopBar({
                       type="button"
                       onClick={() => {
                         setActionDropOpen(false);
-                        onPass();
+                        setConfirmAction("passed");
                       }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-foreground hover:bg-elevated transition-colors"
                     >
@@ -183,7 +183,7 @@ export function StoryDetailTopBar({
                       type="button"
                       onClick={() => {
                         setActionDropOpen(false);
-                        onRestart();
+                        setConfirmAction("restart");
                       }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-foreground hover:bg-elevated transition-colors"
                     >
@@ -237,13 +237,76 @@ export function StoryDetailTopBar({
         </div>
       </div>
 
+      {/* Pass confirmation */}
+      <AlertDialog open={confirmAction === "passed"} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pass on this story?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-[13px]">
+                <p>The topic doesn&apos;t fit the channel and you don&apos;t want to produce it.</p>
+                <p className="text-dim/80 text-[12px]">
+                  <strong className="text-foreground/70">Brain effect:</strong> The headline will be added to the &quot;avoid&quot; list so the Brain stops suggesting similar topics in future searches.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-dim/20 text-foreground hover:bg-dim/30"
+              onClick={() => {
+                onPass?.();
+                setConfirmAction(null);
+              }}
+            >
+              Pass
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restart confirmation */}
+      <AlertDialog open={confirmAction === "restart"} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restart this story?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-[13px]">
+                <p>The story will be moved back to <strong className="text-foreground/70">Suggestions</strong> so you can re-evaluate it from scratch.</p>
+                <p className="text-dim/80 text-[12px]">
+                  <strong className="text-foreground/70">Brain effect:</strong> No change — the story stays neutral in the Brain&apos;s memory. Any script or edits you made will be kept.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-blue text-white hover:opacity-90"
+              onClick={() => {
+                onRestart?.();
+                setConfirmAction(null);
+              }}
+            >
+              Restart
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Omit confirmation */}
       <AlertDialog open={confirmAction === "omit"} onOpenChange={(open) => !open && setConfirmAction(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Omit this story?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This story will be skipped and won&apos;t appear in future suggestions.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-[13px]">
+                <p>The source article is broken or unusable — you can&apos;t produce anything from it.</p>
+                <p className="text-dim/80 text-[12px]">
+                  <strong className="text-foreground/70">Brain effect:</strong> The source domain will be blocked so the Brain never fetches articles from that website again.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
