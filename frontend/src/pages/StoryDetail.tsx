@@ -76,6 +76,7 @@ const STAGES: { key: Stage; label: string }[] = [
 ];
 
 const STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done"];
+const NAV_STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done", "passed", "omit"];
 
 /** Minimal mock so main content renders (design only). */
 const MOCK_STORY: StoryWithLog = {
@@ -317,17 +318,25 @@ export default function StoryDetail() {
   const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [articleOpen, setArticleOpen] = useState(true);
-  const [stageStories, setStageStories] = useState<{ id: string }[]>([]);
+  const [stageStories, setStageStories] = useState<{ id: string; stage: string; createdAt: string }[]>([]);
 
-  // Load all stories for prev/next navigation (cycle across all stages)
+  // Load all stories for prev/next navigation, grouped by stage then newest-first within each stage
   useEffect(() => {
     if (!projectId || !story) return;
     let cancelled = false;
     fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
-      .then((list: { id: string }[]) => {
+      .then((list: { id: string; stage: string; createdAt: string }[]) => {
         if (cancelled) return;
-        setStageStories((list || []).map((s) => ({ id: s.id })));
+        const sorted = (list || []).slice().sort((a, b) => {
+          const ai = NAV_STAGE_ORDER.indexOf(a.stage as Stage);
+          const bi = NAV_STAGE_ORDER.indexOf(b.stage as Stage);
+          const stageA = ai === -1 ? NAV_STAGE_ORDER.length : ai;
+          const stageB = bi === -1 ? NAV_STAGE_ORDER.length : bi;
+          if (stageA !== stageB) return stageA - stageB;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        setStageStories(sorted);
       })
       .catch(() => {
         if (!cancelled) setStageStories([]);
@@ -343,6 +352,8 @@ export default function StoryDetail() {
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
   const nextStory = stageIndex >= 0 && stageIndex < stageStories.length - 1 ? stageStories[stageIndex + 1] : null;
   const showStageNav = stageStories.length > 1 && stageIndex >= 0;
+  const sameStageStories = stageStories.filter((s) => s.stage === activeStage);
+  const withinStageIndex = id ? sameStageStories.findIndex((s) => s.id === id) : -1;
   const stageOrderIdx = STAGE_ORDER.indexOf(activeStage);
   const nextStageKey: Stage | null = stageOrderIdx >= 0 && stageOrderIdx < STAGE_ORDER.length - 1 ? STAGE_ORDER[stageOrderIdx + 1]! : null;
   const nextStageLabel = nextStageKey ? STAGES.find((s) => s.key === nextStageKey)?.label ?? null : null;
@@ -515,8 +526,8 @@ export default function StoryDetail() {
           onOmit={() => moveToStage("omit")}
           onHistoryClick={() => setHistoryOpen(true)}
           prevNext={showStageNav ? {
-            currentIndex: stageIndex + 1,
-            total: stageStories.length,
+            currentIndex: withinStageIndex >= 0 ? withinStageIndex + 1 : stageIndex + 1,
+            total: sameStageStories.length > 0 ? sameStageStories.length : stageStories.length,
             onPrev: () => prevStory && navigate(projectPath(`/story/${(prevStory as { id: string }).id}`)),
             onNext: () => nextStory && navigate(projectPath(`/story/${(nextStory as { id: string }).id}`)),
             hasPrev: !!prevStory,

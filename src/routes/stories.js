@@ -3,6 +3,7 @@ const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { decrypt } = require('../services/crypto')
 const { fetchStoriesViaFirecrawl } = require('../services/firecrawlStories')
+const { fetchStoriesMultiSource } = require('../services/multiSourceNews')
 const { trackUsage } = require('../services/usageTracker')
 const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
@@ -88,38 +89,53 @@ const brainV2 = require('./brainV2')
 const router = express.Router()
 router.use(requireAuth)
 
-// ── POST /api/stories/fetch — Firecrawl search (learnedTags) + Claude structure (autoSearchQuery), create suggestion stories
+// ── POST /api/stories/fetch — Multi-source news search + Claude structure, fallback to Firecrawl
 router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   let projectId = req.body?.projectId
+  let engine = 'unknown'
   try {
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
     const project = await db.project.findUnique({
       where: { id: projectId },
-      select: { id: true, firecrawlApiKeyEncrypted: true, anthropicApiKeyEncrypted: true },
+      select: {
+        id: true,
+        firecrawlApiKeyEncrypted: true,
+        anthropicApiKeyEncrypted: true,
+        newsapiApiKeyEncrypted: true,
+        gnewsApiKeyEncrypted: true,
+        guardianApiKeyEncrypted: true,
+        nytApiKeyEncrypted: true,
+      },
     })
     if (!project) return res.status(404).json({ error: 'Project not found' })
-    if (!project.firecrawlApiKeyEncrypted) {
-      return res.status(400).json({ error: 'Firecrawl API key not set. Add it in Settings → API Keys.' })
-    }
     if (!project.anthropicApiKeyEncrypted) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
 
-    let firecrawlKey
     let anthropicKey
     try {
-      firecrawlKey = decrypt(project.firecrawlApiKeyEncrypted)
       anthropicKey = decrypt(project.anthropicApiKeyEncrypted)
     } catch (decErr) {
-      console.error('[stories/fetch] decrypt failed', decErr)
-      return res.status(400).json({ error: 'API key could not be read. Re-save it in Settings → API Keys.' })
-    }
-    if (!firecrawlKey || !firecrawlKey.trim()) {
-      return res.status(400).json({ error: 'Firecrawl API key is empty. Add it in Settings → API Keys.' })
+      console.error('[stories/fetch] decrypt anthropic failed', decErr)
+      return res.status(400).json({ error: 'Anthropic API key could not be read. Re-save it in Settings → API Keys.' })
     }
     if (!anthropicKey || !anthropicKey.trim()) {
       return res.status(400).json({ error: 'Anthropic API key is empty. Add it in Settings → API Keys.' })
+    }
+
+    // Decrypt all available news API keys (non-fatal if missing)
+    const newsApiKeys = {}
+    const tryDecrypt = (enc) => { try { return enc ? decrypt(enc) : null } catch { return null } }
+    newsApiKeys.newsapi  = tryDecrypt(project.newsapiApiKeyEncrypted)
+    newsApiKeys.gnews    = tryDecrypt(project.gnewsApiKeyEncrypted)
+    newsApiKeys.guardian = tryDecrypt(project.guardianApiKeyEncrypted)
+    newsApiKeys.nyt      = tryDecrypt(project.nytApiKeyEncrypted)
+    const firecrawlKey   = tryDecrypt(project.firecrawlApiKeyEncrypted)
+
+    const hasNewsApis = Object.values(newsApiKeys).some(k => k && k.trim())
+    if (!hasNewsApis && !firecrawlKey) {
+      return res.status(400).json({ error: 'No news API keys set. Add at least one in Settings → API Keys (NewsAPI, GNews, Guardian, or NYT).' })
     }
 
     const brainData = await brainV2.getBrainV2Data(projectId)
@@ -130,19 +146,40 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       })
     }
 
-    const fetchResult = await fetchStoriesViaFirecrawl({
-      autoSearchQuery: brainData.autoSearchQuery,
-      learnedTags: brainData.queryMeta?.learnedTags || [],
-      regionHints: brainData.queryMeta?.regionHints || [],
-      tier1Topics: brainData.queryMeta?.tier1Topics || [],
-      tier2Topics: brainData.queryMeta?.tier2Topics || [],
-      topCompTopics: brainData.queryMeta?.topCompTopics || [],
-      omitDomains: brainData.queryMeta?.omitDomains || [],
-      projectId,
-      queryVersion: brainData.queryMeta?.version || 'v2-competitor-driven',
-      firecrawlApiKey: firecrawlKey,
-      anthropicApiKey: anthropicKey,
-    })
+    let fetchResult
+
+    if (hasNewsApis) {
+      engine = 'multi-source'
+      fetchResult = await fetchStoriesMultiSource({
+        autoSearchQuery: brainData.autoSearchQuery,
+        learnedTags: brainData.queryMeta?.learnedTags || [],
+        regionHints: brainData.queryMeta?.regionHints || [],
+        tier1Topics: brainData.queryMeta?.tier1Topics || [],
+        tier2Topics: brainData.queryMeta?.tier2Topics || [],
+        topCompTopics: brainData.queryMeta?.topCompTopics || [],
+        omitDomains: brainData.queryMeta?.omitDomains || [],
+        projectId,
+        queryVersion: brainData.queryMeta?.version || 'v3-multi-source',
+        anthropicApiKey: anthropicKey,
+        newsApiKeys,
+      })
+    } else {
+      engine = 'firecrawl'
+      fetchResult = await fetchStoriesViaFirecrawl({
+        autoSearchQuery: brainData.autoSearchQuery,
+        learnedTags: brainData.queryMeta?.learnedTags || [],
+        regionHints: brainData.queryMeta?.regionHints || [],
+        tier1Topics: brainData.queryMeta?.tier1Topics || [],
+        tier2Topics: brainData.queryMeta?.tier2Topics || [],
+        topCompTopics: brainData.queryMeta?.topCompTopics || [],
+        omitDomains: brainData.queryMeta?.omitDomains || [],
+        projectId,
+        queryVersion: brainData.queryMeta?.version || 'v2-competitor-driven',
+        firecrawlApiKey: firecrawlKey,
+        anthropicApiKey: anthropicKey,
+      })
+    }
+
     const storiesToCreate = fetchResult.stories || fetchResult
     const searchMeta = fetchResult.searchMeta || null
 
@@ -285,21 +322,23 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       }
     }
 
-    const estimatedTokens = searchMeta
-      ? (searchMeta.totalArticles || 0) * 200 + (searchMeta.structured || 0) * 100
-      : 2000
-    trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', tokensUsed: estimatedTokens, status: 'ok' })
+    if (engine === 'firecrawl') {
+      const estimatedTokens = searchMeta
+        ? (searchMeta.totalArticles || 0) * 200 + (searchMeta.structured || 0) * 100
+        : 2000
+      trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', tokensUsed: estimatedTokens, status: 'ok' })
+    }
 
     const message =
       created.length > 0
         ? null
-        : 'Firecrawl returned 0 new stories (they may have been filtered or try again).'
-    res.json({ ok: true, created: created.length, stories: created, message, searchMeta })
+        : `${engine === 'multi-source' ? 'News APIs' : 'Firecrawl'} returned 0 new stories (they may have been filtered or try again).`
+    res.json({ ok: true, created: created.length, stories: created, message, searchMeta, engine })
   } catch (e) {
     console.error('[stories/fetch]', e)
     const message = e instanceof Error ? e.message : String(e)
     if (projectId) {
-      trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', status: 'fail', error: message })
+      trackUsage({ projectId, service: engine === 'multi-source' ? 'multi-news' : 'firecrawl', action: 'Fetch Stories', status: 'fail', error: message })
     }
     res.status(500).json({ error: message })
   }

@@ -10,6 +10,10 @@ function stripProjectKeys(p) {
     perplexityApiKeyEncrypted,
     ytTranscriptApiKeyEncrypted,
     firecrawlApiKeyEncrypted,
+    newsapiApiKeyEncrypted,
+    gnewsApiKeyEncrypted,
+    guardianApiKeyEncrypted,
+    nytApiKeyEncrypted,
     ...rest
   } = p
   return {
@@ -19,6 +23,10 @@ function stripProjectKeys(p) {
     hasPerplexityKey:   !!perplexityApiKeyEncrypted,
     hasYtTranscriptKey: !!ytTranscriptApiKeyEncrypted,
     hasFirecrawlKey:    !!firecrawlApiKeyEncrypted,
+    hasNewsapiKey:      !!newsapiApiKeyEncrypted,
+    hasGnewsKey:        !!gnewsApiKeyEncrypted,
+    hasGuardianKey:     !!guardianApiKeyEncrypted,
+    hasNytKey:          !!nytApiKeyEncrypted,
   }
 }
 
@@ -211,6 +219,18 @@ function keyPreview(enc, prefixLen = 16) {
   }
 }
 
+const PROJECT_KEY_SELECT = {
+  youtubeApiKeyEncrypted: true,
+  anthropicApiKeyEncrypted: true,
+  perplexityApiKeyEncrypted: true,
+  ytTranscriptApiKeyEncrypted: true,
+  firecrawlApiKeyEncrypted: true,
+  newsapiApiKeyEncrypted: true,
+  gnewsApiKeyEncrypted: true,
+  guardianApiKeyEncrypted: true,
+  nytApiKeyEncrypted: true,
+}
+
 // Helper: parse the YouTube key field — supports both single key and JSON array
 function parseYoutubeKeys(raw) {
   if (!raw) return []
@@ -234,6 +254,14 @@ function buildKeyStatus(project) {
     ytTranscriptKeyPreview: keyPreview(project.ytTranscriptApiKeyEncrypted, 16),
     hasFirecrawlKey:        !!project.firecrawlApiKeyEncrypted,
     firecrawlKeyPreview:    keyPreview(project.firecrawlApiKeyEncrypted, 12),
+    hasNewsapiKey:          !!project.newsapiApiKeyEncrypted,
+    newsapiKeyPreview:      keyPreview(project.newsapiApiKeyEncrypted, 12),
+    hasGnewsKey:            !!project.gnewsApiKeyEncrypted,
+    gnewsKeyPreview:        keyPreview(project.gnewsApiKeyEncrypted, 12),
+    hasGuardianKey:         !!project.guardianApiKeyEncrypted,
+    guardianKeyPreview:     keyPreview(project.guardianApiKeyEncrypted, 12),
+    hasNytKey:              !!project.nytApiKeyEncrypted,
+    nytKeyPreview:          keyPreview(project.nytApiKeyEncrypted, 12),
   }
 }
 
@@ -242,13 +270,7 @@ projects.get('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const project = await db.project.findUnique({
       where: { id: req.params.id },
-      select: {
-        youtubeApiKeyEncrypted: true,
-        anthropicApiKeyEncrypted: true,
-        perplexityApiKeyEncrypted: true,
-        ytTranscriptApiKeyEncrypted: true,
-        firecrawlApiKeyEncrypted: true,
-      }
+      select: PROJECT_KEY_SELECT,
     })
     if (!project) return res.status(404).json({ error: 'Project not found' })
     res.json(buildKeyStatus(project))
@@ -260,7 +282,7 @@ projects.get('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
 // PATCH /api/projects/:id/keys — save/clear anthropic, perplexity, ytTranscript, firecrawl keys
 projects.patch('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { anthropicKey, perplexityKey, ytTranscriptKey, firecrawlKey } = req.body
+    const { anthropicKey, perplexityKey, ytTranscriptKey, firecrawlKey, newsapiKey, gnewsKey, guardianKey, nytKey } = req.body
     const data = {}
     if (anthropicKey !== undefined)
       data.anthropicApiKeyEncrypted = anthropicKey ? encrypt(anthropicKey) : null
@@ -270,17 +292,19 @@ projects.patch('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
       data.ytTranscriptApiKeyEncrypted = ytTranscriptKey ? encrypt(ytTranscriptKey) : null
     if (firecrawlKey !== undefined)
       data.firecrawlApiKeyEncrypted = firecrawlKey ? encrypt(firecrawlKey) : null
+    if (newsapiKey !== undefined)
+      data.newsapiApiKeyEncrypted = newsapiKey ? encrypt(newsapiKey) : null
+    if (gnewsKey !== undefined)
+      data.gnewsApiKeyEncrypted = gnewsKey ? encrypt(gnewsKey) : null
+    if (guardianKey !== undefined)
+      data.guardianApiKeyEncrypted = guardianKey ? encrypt(guardianKey) : null
+    if (nytKey !== undefined)
+      data.nytApiKeyEncrypted = nytKey ? encrypt(nytKey) : null
 
     const project = await db.project.update({
       where: { id: req.params.id },
       data,
-      select: {
-        youtubeApiKeyEncrypted: true,
-        anthropicApiKeyEncrypted: true,
-        perplexityApiKeyEncrypted: true,
-        ytTranscriptApiKeyEncrypted: true,
-        firecrawlApiKeyEncrypted: true,
-      }
+      select: PROJECT_KEY_SELECT,
     })
     res.json(buildKeyStatus(project))
   } catch (e) {
@@ -306,13 +330,7 @@ projects.post('/:id/keys/youtube', requireRole('owner', 'admin'), async (req, re
     const updated = await db.project.update({
       where: { id: req.params.id },
       data: { youtubeApiKeyEncrypted: JSON.stringify(existing) },
-      select: {
-        youtubeApiKeyEncrypted: true,
-        anthropicApiKeyEncrypted: true,
-        perplexityApiKeyEncrypted: true,
-        ytTranscriptApiKeyEncrypted: true,
-        firecrawlApiKeyEncrypted: true,
-      },
+      select: PROJECT_KEY_SELECT,
     })
     res.json(buildKeyStatus(updated))
   } catch (e) {
@@ -337,13 +355,7 @@ projects.delete('/:id/keys/youtube/:idx', requireRole('owner', 'admin'), async (
     const updated = await db.project.update({
       where: { id: req.params.id },
       data: { youtubeApiKeyEncrypted: keys.length > 0 ? JSON.stringify(keys) : null },
-      select: {
-        youtubeApiKeyEncrypted: true,
-        anthropicApiKeyEncrypted: true,
-        perplexityApiKeyEncrypted: true,
-        ytTranscriptApiKeyEncrypted: true,
-        firecrawlApiKeyEncrypted: true,
-      },
+      select: PROJECT_KEY_SELECT,
     })
     res.json(buildKeyStatus(updated))
   } catch (e) {

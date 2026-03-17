@@ -21,6 +21,10 @@ model Project {
   perplexityApiKeyEncrypted   String?   @db.Text
   ytTranscriptApiKeyEncrypted String?   @db.Text
   firecrawlApiKeyEncrypted    String?   @db.Text
+  newsapiApiKeyEncrypted      String?   @db.Text
+  gnewsApiKeyEncrypted        String?   @db.Text
+  guardianApiKeyEncrypted     String?   @db.Text
+  nytApiKeyEncrypted          String?   @db.Text
   channels                    Channel[]
   stories                     Story[]
   createdAt                   DateTime  @default(now())

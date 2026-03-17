@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
-import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2 } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper } from "lucide-react";
 import { toast } from "sonner";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -12,18 +12,20 @@ interface ApiKeyDef {
   service: string;         // matches backend service string
   name: string;
   description: string;
-  icon: "ai" | "data" | "search" | "transcript";
+  icon: "ai" | "data" | "search" | "transcript" | "news";
   link?: string;
   linkLabel?: string;
   multiKey?: boolean;
   placeholder?: string;
+  projectScoped?: boolean;
+  bodyField?: string;
 }
 
 interface UsageLog {
   id: string;
   time: string;
   apiName: string;
-  apiIcon: "ai" | "data" | "search" | "transcript";
+  apiIcon: "ai" | "data" | "search" | "transcript" | "news";
   action: string;
   tokens: number | null;
   status: "Pass" | "Fail";
@@ -71,24 +73,75 @@ const KEY_DEFS: ApiKeyDef[] = [
     placeholder: "fc-...",
     link: "https://www.firecrawl.dev/app",
     linkLabel: "firecrawl.dev ↗",
+    projectScoped: true,
+    bodyField: "firecrawlKey",
+  },
+  {
+    service: "newsapi",
+    name: "NewsAPI",
+    description: "Story discovery — searches 150,000+ news sources (BBC, Reuters, NYT, etc.). Free: 100 req/day. Combined with other news APIs for maximum coverage.",
+    icon: "news",
+    placeholder: "your-newsapi-key...",
+    link: "https://newsapi.org/register",
+    linkLabel: "newsapi.org ↗",
+    projectScoped: true,
+    bodyField: "newsapiKey",
+  },
+  {
+    service: "gnews",
+    name: "GNews",
+    description: "Story discovery — Google News aggregation, surfaces trending stories. Free: 100 req/day. Great for catching stories with momentum.",
+    icon: "news",
+    placeholder: "your-gnews-key...",
+    link: "https://gnews.io",
+    linkLabel: "gnews.io ↗",
+    projectScoped: true,
+    bodyField: "gnewsKey",
+  },
+  {
+    service: "guardian",
+    name: "The Guardian",
+    description: "Story discovery — full archive of The Guardian. Free: 5,000 req/day. Excellent for investigative journalism and in-depth reporting.",
+    icon: "news",
+    placeholder: "your-guardian-key...",
+    link: "https://bonobo.capi.gutools.co.uk/register/developer",
+    linkLabel: "guardian API ↗",
+    projectScoped: true,
+    bodyField: "guardianKey",
+  },
+  {
+    service: "nyt",
+    name: "New York Times",
+    description: "Story discovery — NYT Top Stories and Article Search. Free: 500 req/day. Strong true crime and court case coverage.",
+    icon: "news",
+    placeholder: "your-nyt-key...",
+    link: "https://developer.nytimes.com/accounts/create",
+    linkLabel: "developer.nytimes.com ↗",
+    projectScoped: true,
+    bodyField: "nytKey",
   },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-const iconMap = { ai: Bot, data: Cog, search: Globe, transcript: FileText };
-const iconColorMap = { ai: "text-purple", data: "text-dim", search: "text-blue", transcript: "text-orange" };
+const iconMap = { ai: Bot, data: Cog, search: Globe, transcript: FileText, news: Newspaper };
+const iconColorMap = { ai: "text-purple", data: "text-dim", search: "text-blue", transcript: "text-orange", news: "text-emerald-400" };
 const apiNameColorMap: Record<string, string> = {
   Anthropic: "text-purple", "YouTube Data": "text-dim",
   "YT Transcript": "text-orange", Perplexity: "text-blue", Firecrawl: "text-dim",
+  NewsAPI: "text-emerald-400", GNews: "text-emerald-400", Guardian: "text-emerald-400", NYT: "text-emerald-400",
 };
 
-function mapService(api: string): { name: string; icon: "ai" | "data" | "search" | "transcript" } {
-  if (api === "anthropic")   return { name: "Anthropic",    icon: "ai" };
-  if (api === "youtube-data") return { name: "YouTube Data", icon: "data" };
+function mapService(api: string): { name: string; icon: "ai" | "data" | "search" | "transcript" | "news" } {
+  if (api === "anthropic")    return { name: "Anthropic",     icon: "ai" };
+  if (api === "youtube-data") return { name: "YouTube Data",  icon: "data" };
   if (api === "yttranscript") return { name: "YT Transcript", icon: "transcript" };
-  if (api === "perplexity")  return { name: "Perplexity",   icon: "search" };
-  if (api === "firecrawl")   return { name: "Firecrawl",   icon: "data" };
+  if (api === "perplexity")   return { name: "Perplexity",    icon: "search" };
+  if (api === "firecrawl")    return { name: "Firecrawl",     icon: "data" };
+  if (api === "newsapi")      return { name: "NewsAPI",       icon: "news" };
+  if (api === "gnews")        return { name: "GNews",         icon: "news" };
+  if (api === "guardian")     return { name: "Guardian",      icon: "news" };
+  if (api === "nyt")          return { name: "NYT",           icon: "news" };
   return { name: api, icon: "data" };
 }
 
@@ -182,37 +235,42 @@ export default function Settings() {
       .catch(() => {});
   }, []);
 
-  // Merge project-scoped key status (e.g. Firecrawl) when projectId is set
+  // Merge project-scoped key status when projectId is set
   useEffect(() => {
     if (!projectId) return;
     fetch(`/api/projects/${projectId}/keys`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { hasFirecrawlKey?: boolean } | null) => {
+      .then((d: Record<string, boolean> | null) => {
         if (!d) return;
         setKeyStatus((prev) => ({
           ...prev,
           ...(d.hasFirecrawlKey !== undefined && { firecrawl: d.hasFirecrawlKey }),
+          ...(d.hasNewsapiKey !== undefined && { newsapi: d.hasNewsapiKey }),
+          ...(d.hasGnewsKey !== undefined && { gnews: d.hasGnewsKey }),
+          ...(d.hasGuardianKey !== undefined && { guardian: d.hasGuardianKey }),
+          ...(d.hasNytKey !== undefined && { nyt: d.hasNytKey }),
         }));
       })
       .catch(() => {});
   }, [projectId]);
 
-  // Save single key (project-scoped for firecrawl, else global /api/settings/keys)
+  // Save single key (project-scoped for services with bodyField, else global /api/settings/keys)
   const handleSave = (service: string, name: string) => {
     const val = editing[service]?.trim();
     if (!val) { toast.error("Please enter a key value"); return; }
     setSaving((p) => ({ ...p, [service]: true }));
 
-    if (service === "firecrawl" && projectId) {
+    const def = KEY_DEFS.find((d) => d.service === service);
+    if (def?.projectScoped && def.bodyField && projectId) {
       fetch(`/api/projects/${projectId}/keys`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firecrawlKey: val }),
+        body: JSON.stringify({ [def.bodyField]: val }),
       })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then(() => {
-          setKeyStatus((p) => ({ ...p, firecrawl: true }));
-          setEditing((p) => { const n = { ...p }; delete n.firecrawl; return n; });
+          setKeyStatus((p) => ({ ...p, [service]: true }));
+          setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
           toast.success(`${name} key saved`);
         })
         .catch(() => toast.error("Failed to save key"))
@@ -235,20 +293,21 @@ export default function Settings() {
       .finally(() => setSaving((p) => ({ ...p, [service]: false })));
   };
 
-  // Clear single key (project-scoped for firecrawl, else global DELETE)
+  // Clear single key (project-scoped for services with bodyField, else global DELETE)
   const handleClear = (service: string, name: string) => {
     setClearing((p) => ({ ...p, [service]: true }));
 
-    if (service === "firecrawl" && projectId) {
+    const def = KEY_DEFS.find((d) => d.service === service);
+    if (def?.projectScoped && def.bodyField && projectId) {
       fetch(`/api/projects/${projectId}/keys`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firecrawlKey: null }),
+        body: JSON.stringify({ [def.bodyField]: null }),
       })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then(() => {
-          setKeyStatus((p) => ({ ...p, firecrawl: false }));
-          setEditing((p) => { const n = { ...p }; delete n.firecrawl; return n; });
+          setKeyStatus((p) => ({ ...p, [service]: false }));
+          setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
           toast(`${name} key cleared`);
         })
         .catch(() => toast.error("Failed to clear key"))

@@ -8,7 +8,7 @@ const db = require('../lib/db')
 /**
  * @param {object} params
  * @param {string}  params.projectId  - Project that owns this API key
- * @param {string}  params.service    - 'anthropic' | 'youtube-data' | 'yttranscript' | 'perplexity'
+ * @param {string}  params.service    - 'anthropic' | 'youtube-data' | 'yttranscript' | 'perplexity' | 'newsapi' | 'gnews' | 'guardian' | 'nyt'
  * @param {string}  [params.action]   - human-readable call label shown in Usage Dashboard
  * @param {number}  [params.tokensUsed] - total tokens (input+output) for LLM calls
  * @param {'ok'|'fail'} [params.status] - defaults to 'ok'
