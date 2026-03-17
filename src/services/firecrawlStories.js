@@ -79,11 +79,10 @@ function buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics
   }
 
   if (queries.length === 0) {
+    const tagFallback = (learnedTags || []).slice(0, 4).join(' ')
     queries.push({
       label: 'fallback',
-      query: region
-        ? `جريمة حقيقية تحقيق جنائي أخبار ${region}`
-        : 'جريمة حقيقية تحقيق جنائي أخبار',
+      query: [tagFallback, region, 'أخبار'].filter(Boolean).join(' ').trim(),
       limit: 10,
     })
   }
@@ -95,7 +94,7 @@ function buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics
 function buildFirecrawlSearchQuery(learnedTags, regionHints) {
   const tags = (learnedTags || []).slice(0, 4).join(' ')
   const region = (regionHints || []).slice(0, 1).join(' ')
-  return [tags, region].filter(Boolean).join(' ').trim() || 'جريمة حقيقية تحقيق جنائي'
+  return [tags, region].filter(Boolean).join(' ').trim() || 'أخبار'
 }
 
 async function searchWithFirecrawl(searchQuery, firecrawlApiKey, limit = 10) {

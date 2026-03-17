@@ -488,7 +488,7 @@ projects.get('/:id/test-news-apis', requireRole('owner', 'admin'), async (req, r
       nyt: tryDec(project.nytApiKeyEncrypted),
     }
 
-    const testQuery = req.query.q || 'technology AI 2024'
+    const testQuery = req.query.q || 'breaking news today'
     const results = {}
 
     const tests = []

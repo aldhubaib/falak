@@ -19,6 +19,7 @@ const {
   searchGuardian,
   searchNYT,
   fetchNYTTopStories,
+  fetchGNewsTopHeadlines,
 } = require('./newsProviders')
 
 // ── Blocklist ──────────────────────────────────────────────────────────────
@@ -61,28 +62,77 @@ function normalizeUrl(u) {
   }
 }
 
-// ── Provider registry ──────────────────────────────────────────────────────
+// ── Provider registry (derived from actual API documentation) ───────────────
 
 const PROVIDERS = {
   newsapi: {
     name: 'NewsAPI',
-    maxQueryLen: 400,
-    style: 'Huge global index. Broad keywords work best. Returns articles from thousands of outlets worldwide.',
+    maxQueryLen: 500,
+    queryFormat: 'structured',
+    apiDoc: `NewsAPI /v2/everything — 150,000+ sources worldwide.
+Query syntax: supports AND, OR, NOT, +/- operators, "exact phrases", parentheses grouping.
+Example: crypto AND (ethereum OR litecoin) NOT bitcoin
+Max query: 500 chars. searchIn param: title, description, content (we use title,description).
+sortBy: relevancy | popularity | publishedAt. language param available but we don't restrict it.
+Returns: up to 100 articles per page with title, description, content (truncated to 200 chars), source name, publishedAt.`,
   },
   gnews: {
     name: 'GNews',
-    maxQueryLen: 90,
-    style: 'Short queries only (max 90 chars). Global coverage but smaller index. 2-3 focused keywords work best.',
+    maxQueryLen: 200,
+    queryFormat: 'structured',
+    apiDoc: `GNews /v4/search — 80,000+ sources, powered by Google News index.
+Query syntax: supports AND, OR, NOT operators, "exact phrases", parentheses grouping.
+Example: (Apple AND iPhone) OR Microsoft
+Max query: 200 chars. in param: title, description, content (we use title,description).
+sortby: relevance | publishedAt. lang/country params available.
+Returns: up to 10 articles (free tier) with title, description, content, source name, publishedAt.
+IMPORTANT: special characters MUST be inside quotes. Keep queries clean.`,
+  },
+  gnews_top: {
+    name: 'GNews Top Headlines',
+    maxQueryLen: 200,
+    queryFormat: 'category',
+    apiDoc: `GNews /v4/top-headlines — trending articles based on Google News ranking.
+Categories: general, world, nation, business, technology, entertainment, sports, science, health.
+Optional q param for keyword filtering within the category.
+Returns: top trending articles ranked by Google News algorithm.
+Best for: discovering what's trending RIGHT NOW in a specific topic area.`,
+    categories: ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health'],
   },
   guardian: {
     name: 'The Guardian',
     maxQueryLen: 400,
-    style: 'UK quality journalism. Strong on investigations, politics, environment, long-form reporting. Topic phrases work well.',
+    queryFormat: 'plain',
+    apiDoc: `Guardian Content API /search — all Guardian content.
+Query: plain keywords in q param, no boolean operators needed (the API handles relevance internally).
+Filters: tag, section, from-date, to-date (YYYY-MM-DD), order-by (newest|oldest|relevance).
+show-fields: headline, trailText, bodyText (we request all three — gives full article text).
+Returns: up to 50 articles per page with full bodyText (up to 3000 chars), trailText, webUrl, section, tags.
+Strength: full article body text available, good for in-depth stories.`,
   },
-  nyt: {
-    name: 'New York Times',
+  nyt_search: {
+    name: 'NYT Article Search',
     maxQueryLen: 400,
-    style: 'US quality journalism. Strong on investigations, crime, politics, science. Specific topic phrases work well.',
+    queryFormat: 'lucene',
+    apiDoc: `NYT Article Search API v2 — full NYT archive.
+Query: q param for keyword search (body, headline, byline).
+Filter query (fq): Lucene syntax — field-name:("value1" "value2"). Fields include:
+  news_desk, section_name, subject, glocations, organizations, persons, type_of_material.
+  Example fq: news_desk:("Foreign" "Investigations") AND glocations:("MIDDLE EAST")
+sort: newest | oldest | relevance. Date range: begin_date, end_date (YYYYMMDD format).
+Returns: 10 articles per page (max 100 pages). Fields: headline, abstract, lead_paragraph, web_url, section_name, news_desk, keywords.
+Strength: powerful Lucene filtering by desk, section, location, organization, person.`,
+  },
+  nyt_top: {
+    name: 'NYT Top Stories',
+    maxQueryLen: 0,
+    queryFormat: 'section',
+    apiDoc: `NYT Top Stories API v2 — current editorial picks by section.
+Sections: arts, automobiles, books/review, business, fashion, food, health, home, insider, magazine, movies, nyregion, obituaries, opinion, politics, realestate, science, sports, sundayreview, technology, theater, t-magazine, travel, upshot, us, world.
+No keyword search — returns whatever editors have placed on that section page.
+Returns: ~30-40 articles with title, abstract, section, subsection, des_facet (topic tags), geo_facet (locations), org_facet (organizations), per_facet (people).
+Strength: editorial curation — these are what NYT editors consider the most important stories right now.`,
+    sections: ['arts', 'automobiles', 'books/review', 'business', 'fashion', 'food', 'health', 'home', 'insider', 'magazine', 'movies', 'nyregion', 'obituaries', 'opinion', 'politics', 'realestate', 'science', 'sports', 'sundayreview', 'technology', 'theater', 't-magazine', 'travel', 'upshot', 'us', 'world'],
   },
 }
 
@@ -144,29 +194,65 @@ function mapToProvider(rawProvider) {
 
 /**
  * Generate tailored search queries per provider using one Claude call.
- * Returns { newsapi: "query...", gnews: "query...", guardian: "query...", nyt: "query..." }
+ * Claude receives:
+ *   - Full API documentation for each source (query syntax, filter capabilities, sections)
+ *   - Brain intelligence (learned tags, competitor topics, demand gaps)
+ *   - Per-source feedback (what stories from THAT source were liked/rejected/published)
+ * Returns a structured object where each key's format matches that API's native syntax.
  */
-async function buildPerSourceQueries(autoSearchQuery, anthropicApiKey, projectId, activeProviders, feedback) {
+async function buildPerSourceQueries({
+  autoSearchQuery,
+  anthropicApiKey,
+  projectId,
+  activeProviders,
+  feedback,
+  learnedTags,
+  tier1Topics,
+  tier2Topics,
+  topCompTopics,
+}) {
+  // Build Brain context from learned signals
+  const brainSignals = []
+  if (learnedTags && learnedTags.length > 0) {
+    brainSignals.push(`Topics with highest audience demand (from competitor analysis): ${learnedTags.slice(0, 8).join(', ')}`)
+  }
+  if (topCompTopics && topCompTopics.length > 0) {
+    brainSignals.push(`Winning story patterns from top competitors: ${topCompTopics.slice(0, 5).join(', ')}`)
+  }
+  if (tier1Topics && tier1Topics.length > 0) {
+    brainSignals.push(`Proven topics (historically successful): ${tier1Topics.slice(0, 5).join(', ')}`)
+  }
+  if (tier2Topics && tier2Topics.length > 0) {
+    brainSignals.push(`Demand gaps (competitors get views, we haven't covered): ${tier2Topics.slice(0, 3).join(', ')}`)
+  }
+  const brainContext = brainSignals.length > 0
+    ? `\nBrain intelligence from competitor analysis:\n${brainSignals.join('\n')}`
+    : ''
+
+  // Build per-provider blocks with full API docs + feedback
   const providerBlocks = activeProviders.map(provKey => {
     const prov = PROVIDERS[provKey]
-    const fb = feedback[provKey]
-    let feedbackText = 'No past data yet — generate a good general query.'
+    if (!prov) return ''
+    const fb = feedback[provKey] || feedback[provKey.replace(/_.*/, '')]
+    const fbParts = []
     if (fb) {
-      const parts = []
-      if (fb.published.length) parts.push(`Stories that became published videos (BEST signal): ${fb.published.join(', ')}`)
-      if (fb.scripted.length) parts.push(`Stories that got scripted (good signal): ${fb.scripted.join(', ')}`)
-      if (fb.liked.length) parts.push(`Stories that were liked: ${fb.liked.join(', ')}`)
-      if (fb.passed.length) parts.push(`Stories that were REJECTED (avoid similar): ${fb.passed.join(', ')}`)
-      feedbackText = parts.length > 0 ? parts.join('\n') : 'No past data yet.'
+      if (fb.published.length) fbParts.push(`Published videos (strongest signal — find MORE like these): ${fb.published.join(', ')}`)
+      if (fb.scripted.length) fbParts.push(`Scripted stories (strong signal): ${fb.scripted.join(', ')}`)
+      if (fb.liked.length) fbParts.push(`Liked stories: ${fb.liked.join(', ')}`)
+      if (fb.passed.length) fbParts.push(`REJECTED stories (AVOID similar topics): ${fb.passed.join(', ')}`)
     }
+    const feedbackText = fbParts.length > 0
+      ? fbParts.join('\n')
+      : 'No history yet — derive query entirely from Brain intelligence and channel brief.'
 
-    return `## ${prov.name} (key: ${provKey})
-Max query length: ${prov.maxQueryLen} characters
-Source strengths: ${prov.style}
-Past performance from this source:
+    return `## ${prov.name} (key: "${provKey}", format: ${prov.queryFormat})
+API Documentation:
+${prov.apiDoc}
+
+User history from this source:
 ${feedbackText}
 `
-  }).join('\n')
+  }).filter(Boolean).join('\n')
 
   try {
     const raw = await callAnthropic(
@@ -174,37 +260,59 @@ ${feedbackText}
       'claude-sonnet-4-20250514',
       [{
         role: 'user',
-        content: `You are building search queries for a YouTube channel's news discovery system.
+        content: `You are an expert at crafting optimal search queries for different news APIs.
 
-The channel's Brain has analyzed competitors and produced this content brief:
+## Channel Brief (from Brain analysis):
 ${(autoSearchQuery || '').slice(0, 2000)}
+${brainContext}
 
-You need to generate a SEPARATE search query for each news API source below.
-Each source has different strengths and different past performance with this channel.
-
-Use the past performance data to make each query smarter:
-- If published/scripted stories exist → find MORE stories like those topics
-- If passed/rejected stories exist → AVOID those topics
-- If no data → use a broad query based on the channel brief
+## Your Task:
+Generate the BEST possible query for each news API below. Each API has DIFFERENT query syntax and capabilities — use them properly.
 
 ${providerBlocks}
 
-Return ONLY a JSON object with the provider key and its search query.
-Example: {"newsapi": "crime investigation fraud", "gnews": "crime fraud", "guardian": "financial crime investigation", "nyt": "criminal investigation forensic"}
+## Output Format:
+Return a JSON object where each key is the provider key (in quotes above) and value is the query object for that API.
 
-Rules:
-- Each query must be plain English keywords separated by spaces
-- No quotes, no boolean operators, no special characters
-- Respect the max query length per source
-- GNews MUST be short (2-3 words max)
-- Make each query DIFFERENT — tailored to what each source is good at
+Each provider's query format depends on its type:
+
+For "structured" format APIs (newsapi, gnews):
+  Return a string using that API's native boolean syntax.
+  NewsAPI supports: AND, OR, NOT, +/-, "exact phrases", parentheses. Max 500 chars.
+  GNews supports: AND, OR, NOT, "exact phrases", parentheses. Max 200 chars. Keep it shorter and cleaner.
+  Example: { "newsapi": "keyword1 AND (keyword2 OR keyword3) NOT avoidword" }
+
+For "plain" format APIs (guardian):
+  Return a string of keywords (Guardian handles relevance internally).
+  Example: { "guardian": "keyword1 keyword2 keyword3" }
+
+For "lucene" format APIs (nyt_search):
+  Return an object with "q" (keyword query) and optional "fq" (Lucene filter query).
+  Available fq fields: news_desk, section_name, subject, glocations, organizations, persons.
+  Example: { "nyt_search": { "q": "keyword1 keyword2", "fq": "section_name:(\\"World\\" \\"Science\\")" } }
+
+For "section" format APIs (nyt_top):
+  Return an array of 1-3 section names most relevant to the channel brief.
+  Example: { "nyt_top": ["world", "science", "technology"] }
+
+For "category" format APIs (gnews_top):
+  Return a category string from: general, world, nation, business, technology, entertainment, sports, science, health.
+  Example: { "gnews_top": "world" }
+
+## Rules:
+- ALL query content must be derived from the channel brief and Brain intelligence above
+- If a source has published/scripted stories → find MORE of those exact topics from that source
+- If a source has rejected stories → AVOID those topics from that source
+- Each source should explore a DIFFERENT angle of the channel's interests
+- Use each API's full query capabilities (boolean operators, filters, sections)
+- English keywords only
 - Return valid JSON only, no other text`,
       }],
       {
-        system: 'You generate per-source news search queries as JSON. Return only the JSON object, nothing else.',
-        maxTokens: 300,
+        system: 'You are a news API query expert. You understand the exact query syntax for NewsAPI, GNews, Guardian, and NYT APIs. Generate optimal queries using each API\'s native capabilities. Return only valid JSON.',
+        maxTokens: 600,
         projectId,
-        action: 'Per-Source Query Builder',
+        action: 'Per-Source Query Builder (API-aware)',
       }
     )
 
@@ -213,26 +321,77 @@ Rules:
       const queries = JSON.parse(clean)
       const result = {}
       for (const provKey of activeProviders) {
-        const q = (queries[provKey] || '').trim()
-        const maxLen = PROVIDERS[provKey]?.maxQueryLen || 200
-        result[provKey] = q ? q.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLen) : null
+        const prov = PROVIDERS[provKey]
+        if (!prov) continue
+        const q = queries[provKey]
+
+        if (prov.queryFormat === 'section' && Array.isArray(q)) {
+          // NYT Top Stories — array of sections, validated
+          result[provKey] = q.filter(s => prov.sections?.includes(s)).slice(0, 3)
+          if (result[provKey].length === 0) result[provKey] = ['world']
+        } else if (prov.queryFormat === 'category' && typeof q === 'string') {
+          // GNews Top Headlines — single category, validated
+          result[provKey] = prov.categories?.includes(q) ? q : 'general'
+        } else if (prov.queryFormat === 'lucene' && typeof q === 'object' && q !== null) {
+          // NYT Article Search — { q, fq }
+          result[provKey] = {
+            q: sanitizeQuery(q.q || '', prov.maxQueryLen),
+            fq: typeof q.fq === 'string' ? q.fq.slice(0, 500) : undefined,
+          }
+        } else if (typeof q === 'string') {
+          // structured or plain — sanitize to max length
+          result[provKey] = sanitizeQuery(q, prov.maxQueryLen)
+        } else {
+          result[provKey] = null
+        }
       }
-      logger.info({ queries: result }, '[multiSourceNews] per-source queries generated')
+      logger.info({ queries: result }, '[multiSourceNews] per-source queries generated (API-aware)')
       return result
     } catch {
-      logger.error({ snippet: clean.slice(0, 200) }, '[multiSourceNews] query JSON parse failed')
+      logger.error({ snippet: clean.slice(0, 300) }, '[multiSourceNews] query JSON parse failed')
     }
   } catch (e) {
     logger.warn({ error: e.message }, '[multiSourceNews] per-source query generation failed')
   }
 
-  const fallback = 'crime investigation mystery scandal'
+  // Dynamic fallback: use Brain's learned tags, or extract keywords from autoSearchQuery
+  const fallbackKeywords = (learnedTags && learnedTags.length > 0)
+    ? learnedTags.slice(0, 4).join(' ')
+    : extractKeywordsFromBrief(autoSearchQuery)
+
   const result = {}
   for (const provKey of activeProviders) {
-    const maxLen = PROVIDERS[provKey]?.maxQueryLen || 200
-    result[provKey] = fallback.slice(0, maxLen)
+    const prov = PROVIDERS[provKey]
+    if (!prov) continue
+    if (prov.queryFormat === 'section') {
+      result[provKey] = ['world']
+    } else if (prov.queryFormat === 'category') {
+      result[provKey] = 'general'
+    } else if (prov.queryFormat === 'lucene') {
+      result[provKey] = { q: fallbackKeywords.slice(0, prov.maxQueryLen) }
+    } else {
+      result[provKey] = fallbackKeywords.slice(0, prov.maxQueryLen)
+    }
   }
+  logger.warn({ fallbackKeywords }, '[multiSourceNews] using dynamic fallback queries')
   return result
+}
+
+function sanitizeQuery(q, maxLen) {
+  if (!q || typeof q !== 'string') return null
+  return q.replace(/\s+/g, ' ').trim().slice(0, maxLen) || null
+}
+
+/**
+ * Extract English-ish keywords from the Arabic brief as a last resort.
+ */
+function extractKeywordsFromBrief(brief) {
+  if (!brief || typeof brief !== 'string') return 'news today'
+  const latinWords = brief.match(/[a-zA-Z]{3,}/g)
+  if (latinWords && latinWords.length >= 2) {
+    return [...new Set(latinWords)].slice(0, 5).join(' ')
+  }
+  return 'news today'
 }
 
 // ── Deduplication ──────────────────────────────────────────────────────────
@@ -251,16 +410,45 @@ function deduplicateArticles(articles, dynamicBlocklist) {
 
 // ── Claude structuring ─────────────────────────────────────────────────────
 
-async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, projectId) {
-  const articlesText = articles
-    .map((a, i) =>
-      `--- ARTICLE ${i + 1} ---\nURL: ${a.url}\nTitle: ${a.title}\nSource: ${a.source}\n\n${(a.content || a.description || '').slice(0, 1500)}`
-    )
-    .join('\n\n')
+async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, projectId, feedback) {
+  // Group articles by provider for source-aware presentation
+  const byProvider = {}
+  for (const a of articles) {
+    const prov = a._provider || 'unknown'
+    if (!byProvider[prov]) byProvider[prov] = []
+    byProvider[prov].push(a)
+  }
+
+  // Build source-aware article blocks
+  let articleIdx = 0
+  const articleSections = Object.entries(byProvider).map(([prov, provArticles]) => {
+    const provName = PROVIDERS[prov.replace(/-.*/, '')]?.name || prov
+    const fb = feedback?.[prov.replace(/-.*/, '')]
+    let trackRecord = ''
+    if (fb) {
+      const signals = []
+      if (fb.published.length) signals.push(`أنتج ${fb.published.length} فيديو منشور (أفضل مصدر — أعطِ أولوية لمقالاته)`)
+      if (fb.scripted.length) signals.push(`${fb.scripted.length} قصة وصلت لمرحلة السكربت`)
+      if (fb.liked.length) signals.push(`${fb.liked.length} قصة أعجبت المستخدم`)
+      if (fb.passed.length) signals.push(`${fb.passed.length} قصة تم تجاهلها`)
+      if (signals.length > 0) trackRecord = `\n⚡ سجل ${provName}: ${signals.join('، ')}`
+    }
+
+    const provArticlesText = provArticles.map(a => {
+      articleIdx++
+      return `--- مقال ${articleIdx} ---\nURL: ${a.url}\nTitle: ${a.title}\nSource: ${a.source}\n\n${(a.content || a.description || '').slice(0, 1500)}`
+    }).join('\n\n')
+
+    return `\n═══ من ${provName} ═══${trackRecord}\n\n${provArticlesText}`
+  }).join('\n\n')
 
   const systemPrompt = `أنت محلل محتوى لقناة يوتيوب عربية. مهمتك اختيار القصص المثيرة للاهتمام التي تصلح لفيديوهات يوتيوب.
 
-سيصلك تعليمات القناة كمرجع عام، ثم مقالات من مصادر إخبارية متعددة.
+سيصلك تعليمات القناة كمرجع عام، ثم مقالات مقسمة حسب مصدر الـ API.
+كل مصدر له سجل أداء — استخدمه لتحديد الأولويات:
+- المصدر الذي أنتج فيديوهات منشورة = مصدر ممتاز، أعطِ مقالاته أولوية أعلى
+- المصدر الذي تم تجاهل قصصه = كن أكثر انتقائية مع مقالاته
+- مصدر جديد بدون سجل = عامله بشكل عادي
 
 الهدف الرئيسي: اختر أي قصة مثيرة أو مفاجئة أو فيروسية تصلح لفيديو يوتيوب جذاب.
 لا تكن صارماً جداً في المطابقة مع تعليمات القناة — القصة المثيرة أهم من التطابق الدقيق.
@@ -279,7 +467,7 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
     "headline": "عنوان القصة بالعربية",
     "summary": "جملتان بالعربية تلخصان القصة",
     "sourceUrl": "الرابط الكامل للمقال الإخباري",
-    "sourceName": "اسم الموقع الإخباري",
+    "sourceName": "اسم الـ API / اسم الموقع",
     "sourceDate": "YYYY-MM-DD أو null"
   }
 ]
@@ -289,8 +477,8 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
 
   const userContent =
     `## تعليمات القناة (مرجع عام):\n${autoSearchQuery}\n\n` +
-    `## المقالات من مصادر إخبارية متعددة:\n${articlesText}\n\n` +
-    `اختر القصص المثيرة والمفاجئة التي تصلح لفيديوهات يوتيوب. كن كريماً — لا تتجاهل قصة جيدة لمجرد أنها لا تتطابق تماماً مع تعليمات القناة.`
+    `## المقالات حسب المصدر:\n${articleSections}\n\n` +
+    `اختر القصص المثيرة والمفاجئة. أعطِ أولوية أعلى للمصادر التي لها سجل أداء جيد (أنتجت فيديوهات منشورة أو سكربتات). كن كريماً — لا تتجاهل قصة جيدة لمجرد أنها لا تتطابق تماماً مع تعليمات القناة.`
 
   const raw = await callAnthropic(
     anthropicApiKey,
@@ -330,8 +518,19 @@ async function fetchStoriesMultiSource({
   const dynamicBlocklist = (omitDomains || []).filter(d => d && typeof d === 'string')
   const _debug = []
 
-  // 1. Determine active providers
-  const activeProviders = Object.keys(newsApiKeys).filter(k => newsApiKeys[k] && PROVIDERS[k])
+  // 1. Determine active providers — expand API keys into all supported providers
+  const expandedProviders = []
+  if (newsApiKeys.newsapi) expandedProviders.push('newsapi')
+  if (newsApiKeys.gnews) {
+    expandedProviders.push('gnews')
+    expandedProviders.push('gnews_top')
+  }
+  if (newsApiKeys.guardian) expandedProviders.push('guardian')
+  if (newsApiKeys.nyt) {
+    expandedProviders.push('nyt_search')
+    expandedProviders.push('nyt_top')
+  }
+  const activeProviders = expandedProviders.filter(k => PROVIDERS[k])
 
   if (activeProviders.length === 0) {
     return { stories: [], searchMeta: { error: 'No news API keys configured' } }
@@ -351,36 +550,54 @@ async function fetchStoriesMultiSource({
     ),
   })
 
-  // 3. Build per-source queries via Claude
-  const queries = await buildPerSourceQueries(
-    autoSearchQuery, anthropicApiKey, projectId, activeProviders, feedback
-  )
+  // 3. Build per-source queries via Claude (using Brain signals + source feedback)
+  const queries = await buildPerSourceQueries({
+    autoSearchQuery,
+    anthropicApiKey,
+    projectId,
+    activeProviders,
+    feedback,
+    learnedTags,
+    tier1Topics,
+    tier2Topics,
+    topCompTopics,
+  })
 
   _debug.push({ step: 'queries', queries })
 
   logger.info({ projectId, queries, providers: activeProviders }, '[multiSourceNews] starting per-source searches')
 
-  // 4. Execute searches with per-source queries
+  // 4. Execute searches — dispatch based on each provider's query format
   const searches = []
   const providerNames = []
 
-  if (newsApiKeys.newsapi && queries.newsapi) {
-    searches.push(searchNewsAPI(queries.newsapi, newsApiKeys.newsapi, { pageSize: 20 }))
-    providerNames.push('newsapi')
-  }
-  if (newsApiKeys.gnews && queries.gnews) {
-    searches.push(searchGNews(queries.gnews, newsApiKeys.gnews, { max: 10 }))
-    providerNames.push('gnews')
-  }
-  if (newsApiKeys.guardian && queries.guardian) {
-    searches.push(searchGuardian(queries.guardian, newsApiKeys.guardian, { pageSize: 15 }))
-    providerNames.push('guardian')
-  }
-  if (newsApiKeys.nyt && queries.nyt) {
-    searches.push(searchNYT(queries.nyt, newsApiKeys.nyt))
-    providerNames.push('nyt-search')
-    searches.push(fetchNYTTopStories(newsApiKeys.nyt, 'world'))
-    providerNames.push('nyt-top')
+  for (const provKey of activeProviders) {
+    const q = queries[provKey]
+    if (!q) continue
+
+    if (provKey === 'newsapi') {
+      searches.push(searchNewsAPI(q, newsApiKeys.newsapi, { pageSize: 20 }))
+      providerNames.push('newsapi')
+    } else if (provKey === 'gnews') {
+      searches.push(searchGNews(q, newsApiKeys.gnews, { max: 10 }))
+      providerNames.push('gnews')
+    } else if (provKey === 'gnews_top') {
+      const category = typeof q === 'string' ? q : 'general'
+      searches.push(fetchGNewsTopHeadlines(newsApiKeys.gnews, category, { max: 10 }))
+      providerNames.push('gnews_top')
+    } else if (provKey === 'guardian') {
+      searches.push(searchGuardian(q, newsApiKeys.guardian, { pageSize: 15 }))
+      providerNames.push('guardian')
+    } else if (provKey === 'nyt_search') {
+      searches.push(searchNYT(q, newsApiKeys.nyt))
+      providerNames.push('nyt_search')
+    } else if (provKey === 'nyt_top') {
+      const sections = Array.isArray(q) ? q : ['world']
+      for (const section of sections) {
+        searches.push(fetchNYTTopStories(newsApiKeys.nyt, section))
+        providerNames.push(`nyt_top/${section}`)
+      }
+    }
   }
 
   const results = await Promise.allSettled(searches)
@@ -391,18 +608,19 @@ async function fetchStoriesMultiSource({
   for (let i = 0; i < results.length; i++) {
     const name = providerNames[i]
     const result = results[i]
-    const baseService = name.startsWith('nyt') ? 'nyt' : name
-    const queryUsed = queries[baseService] || queries[name] || ''
+    const baseService = name.split('/')[0].replace(/_.*/, '') || name
+    const queryUsed = queries[name] || queries[name.split('/')[0]] || ''
+    const queryLabel = typeof queryUsed === 'object' ? JSON.stringify(queryUsed).slice(0, 60) : String(queryUsed).slice(0, 60)
     if (result.status === 'fulfilled') {
-      const articles = result.value?.articles || []
+      const articles = (result.value?.articles || []).map(a => ({ ...a, _provider: name }))
       const count = articles.length
       providerStats[name] = { status: 'ok', count, query: queryUsed }
       rawArticles.push(...articles)
-      trackUsage({ projectId, service: baseService, action: `search: ${queryUsed.slice(0, 60)}`, tokensUsed: count, status: 'ok' })
+      trackUsage({ projectId, service: baseService, action: `search: ${queryLabel}`, tokensUsed: count, status: 'ok' })
     } else {
       const errMsg = result.reason?.message || 'Unknown error'
       providerStats[name] = { status: 'fail', error: errMsg, query: queryUsed }
-      trackUsage({ projectId, service: baseService, action: `search: ${queryUsed.slice(0, 60)}`, status: 'fail', error: errMsg })
+      trackUsage({ projectId, service: baseService, action: `search: ${queryLabel}`, status: 'fail', error: errMsg })
     }
   }
 
@@ -432,12 +650,13 @@ async function fetchStoriesMultiSource({
     return { stories: [], searchMeta: { queries, providerStats, totalArticles: rawArticles.length, blocked, structured: 0, _debug } }
   }
 
-  // 6. Structure with Claude
+  // 6. Structure with Claude (source-aware — uses per-provider feedback)
   const structured = await structureWithClaude(
     filteredArticles,
     autoSearchQuery,
     anthropicApiKey,
     projectId,
+    feedback,
   )
 
   _debug.push({

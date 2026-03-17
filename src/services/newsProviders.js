@@ -22,6 +22,7 @@ async function searchNewsAPI(query, apiKey, { pageSize = 20, sortBy = 'relevancy
   try {
     const params = new URLSearchParams({
       q: query,
+      searchIn: 'title,description',
       sortBy,
       pageSize: String(pageSize),
       apiKey,
@@ -60,10 +61,11 @@ async function searchNewsAPI(query, apiKey, { pageSize = 20, sortBy = 'relevancy
 async function searchGNews(query, apiKey, { max = 10, sortby = 'relevance' } = {}) {
   const { signal, clear } = withTimeout(TIMEOUT_MS)
   try {
-    // GNews free tier: max ~100 char query, no special chars
-    const cleanQ = query.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 95)
+    // GNews: max 200 chars, supports AND/OR/NOT, "quotes", parentheses
+    const cleanQ = query.replace(/[^\w\s"()]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
     const params = new URLSearchParams({
       q: cleanQ,
+      in: 'title,description',
       max: String(max),
       sortby,
       apikey: apiKey,
@@ -136,11 +138,15 @@ async function searchGuardian(query, apiKey, { pageSize = 15 } = {}) {
 async function searchNYT(query, apiKey, { page = 0 } = {}) {
   const { signal, clear } = withTimeout(TIMEOUT_MS)
   try {
+    const q = typeof query === 'object' ? query.q : query
+    const fq = typeof query === 'object' ? query.fq : undefined
     const params = new URLSearchParams({
-      q: query,
+      q: q || '',
+      sort: 'newest',
       page: String(page),
       'api-key': apiKey,
     })
+    if (fq) params.set('fq', fq)
     const res = await fetch(`https://api.nytimes.com/svc/search/v2/articlesearch.json?${params}`, { signal })
     clear()
     const data = await res.json().catch(() => null)
@@ -201,10 +207,46 @@ async function fetchNYTTopStories(apiKey, section = 'world') {
   }
 }
 
+// ── GNews Top Headlines ─────────────────────────────────────────────────
+
+async function fetchGNewsTopHeadlines(apiKey, category = 'general', { max = 10 } = {}) {
+  const { signal, clear } = withTimeout(TIMEOUT_MS)
+  try {
+    const params = new URLSearchParams({
+      category,
+      max: String(max),
+      apikey: apiKey,
+    })
+    const res = await fetch(`https://gnews.io/api/v4/top-headlines?${params}`, { signal })
+    clear()
+    const data = await res.json().catch(() => null)
+    if (!res.ok) {
+      const errMsg = data?.errors?.[0] || data?.message || `HTTP ${res.status}`
+      logger.error({ provider: 'gnews-top', error: errMsg, status: res.status }, '[newsProviders] API error')
+      throw new Error(`GNews Top: ${errMsg}`)
+    }
+    const articles = (data?.articles || []).map(a => ({
+      url: a.url,
+      title: a.title || '',
+      description: a.description || '',
+      content: a.content || a.description || '',
+      source: `GNews/${a.source?.name || 'trending'}`,
+      publishedAt: a.publishedAt || null,
+    }))
+    logger.info({ provider: 'gnews-top', category, results: articles.length }, '[newsProviders] top headlines done')
+    return { articles }
+  } catch (e) {
+    clear()
+    logger.error({ provider: 'gnews-top', error: e.message }, '[newsProviders] top headlines failed')
+    throw e
+  }
+}
+
 module.exports = {
   searchNewsAPI,
   searchGNews,
   searchGuardian,
   searchNYT,
   fetchNYTTopStories,
+  fetchGNewsTopHeadlines,
 }
