@@ -179,10 +179,7 @@ export function StoryDetailScriptSection({
               <div className="flex items-center gap-1 px-2.5 text-[11px] text-dim">
                 <Clock className="w-3 h-3 shrink-0" />
                 {readOnly ? (
-                  <>
-                    <span className="font-mono text-[11px]">{scriptDuration}</span>
-                    <span className="font-mono text-[10px]">m</span>
-                  </>
+                  <span className="font-mono text-[11px]">{scriptDuration}</span>
                 ) : (
                   <>
                     <input
@@ -211,7 +208,6 @@ export function StoryDetailScriptSection({
                       }}
                       className="w-12 bg-transparent font-mono text-[11px] text-foreground focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <span className="font-mono text-[10px]">m</span>
                   </>
                 )}
               </div>

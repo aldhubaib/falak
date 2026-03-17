@@ -266,7 +266,7 @@ export default function StoryDetail() {
     : null;
   const fmt = (n?: number) =>
     !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
-  const selectedChannel = brief.channelId ?? "";
+  const [selectedChannel, setSelectedChannel] = useState("");
 
   const moveToStage = useCallback(
     async (toStage: Stage) => {
@@ -536,6 +536,7 @@ export default function StoryDetail() {
                   channels={ourChannels}
                   selectedChannelId={selectedChannel}
                   onChannelSelect={(channelId) => {
+                    setSelectedChannel(channelId);
                     setBrief((b) => {
                       const next = { ...b, channelId };
                       if (id) saveScript(id, next);

@@ -11,12 +11,12 @@ export type ScriptBlockType =
   | "hashtags";
 
 const BLOCK_META: Record<ScriptBlockType, { label: string; color: string }> = {
-  title:     { label: "العنوان",        color: "var(--script-block-title)" },
-  hook:      { label: "الهوك",          color: "var(--script-block-hook)" },
-  hookStart: { label: "مقدمة القناة",   color: "var(--script-block-hookStart)" },
-  script:    { label: "السكربت",        color: "var(--script-block-script)" },
-  hookEnd:   { label: "خاتمة القناة",   color: "var(--script-block-hookEnd)" },
-  hashtags:  { label: "الهاشتاقات",     color: "var(--script-block-hashtags)" },
+  title:     { label: "Title",             color: "var(--script-block-title)" },
+  hook:      { label: "Hook",              color: "var(--script-block-hook)" },
+  hookStart: { label: "Branded Hook Start", color: "var(--script-block-hookStart)" },
+  script:    { label: "Script",            color: "var(--script-block-script)" },
+  hookEnd:   { label: "Branded Hook End",  color: "var(--script-block-hookEnd)" },
+  hashtags:  { label: "Hashtags",          color: "var(--script-block-hashtags)" },
 };
 
 function ScriptBlockView({ node }: NodeViewProps) {
