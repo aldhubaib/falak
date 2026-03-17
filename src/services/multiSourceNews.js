@@ -176,6 +176,10 @@ async function fetchStoriesMultiSource({
   const dynamicBlocklist = (omitDomains || []).filter(d => d && typeof d === 'string')
   const query = await buildSearchQuery(autoSearchQuery, anthropicApiKey, projectId)
 
+  // #region agent log
+  fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'multiSourceNews.js:177',message:'query generated',data:{query,providers:Object.keys(newsApiKeys).filter(k=>newsApiKeys[k]),autoSearchQueryLen:(autoSearchQuery||'').length},timestamp:Date.now(),hypothesisId:'H1-H3'})}).catch(()=>{});
+  // #endregion
+
   logger.info({
     projectId,
     query: query.slice(0, 120),
@@ -230,6 +234,10 @@ async function fetchStoriesMultiSource({
     }
   }
 
+  // #region agent log
+  fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'multiSourceNews.js:233',message:'all providers done',data:{providerStats,totalRaw:rawArticles.length,sampleTitles:rawArticles.slice(0,3).map(a=>({title:(a.title||'').slice(0,60),source:a.source,url:(a.url||'').slice(0,80)}))},timestamp:Date.now(),hypothesisId:'H1-H2-H4'})}).catch(()=>{});
+  // #endregion
+
   logger.info({ providerStats, totalRaw: rawArticles.length }, '[multiSourceNews] all providers done')
 
   if (rawArticles.length === 0) {
@@ -254,6 +262,10 @@ async function fetchStoriesMultiSource({
     anthropicApiKey,
     projectId,
   )
+
+  // #region agent log
+  fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'multiSourceNews.js:257',message:'claude structured output',data:{filteredCount:filteredArticles.length,structuredCount:structured.length,structuredSample:structured.slice(0,3).map(s=>({headline:(s.headline||'').slice(0,60),sourceUrl:(s.sourceUrl||'').slice(0,80),sourceName:s.sourceName}))},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+  // #endregion
 
   // Build a url→source map from the raw articles to preserve provider info
   const urlToSource = new Map()

@@ -183,7 +183,12 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
     const storiesToCreate = fetchResult.stories || fetchResult
     const searchMeta = fetchResult.searchMeta || null
 
+    // #region agent log
+    fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'stories.js:186',message:'stories to create',data:{count:storiesToCreate.length,searchMeta,sample:storiesToCreate.slice(0,3).map(s=>({headline:(s.headline||'').slice(0,60),sourceName:s.sourceName,sourceUrl:(s.sourceUrl||'').slice(0,80)}))},timestamp:Date.now(),hypothesisId:'H3-H5'})}).catch(()=>{});
+    // #endregion
+
     const created = []
+    let dupeCount = 0
     for (const storyData of storiesToCreate) {
       const exists = await db.story.findFirst({
         where: {
@@ -194,10 +199,14 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
           ],
         },
       })
-      if (exists) continue
+      if (exists) { dupeCount++; continue }
       const story = await db.story.create({ data: storyData })
       created.push(story)
     }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'stories.js:205',message:'creation result',data:{toCreate:storiesToCreate.length,created:created.length,duplicates:dupeCount,engine},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+    // #endregion
 
     // Build scoring data from Brain:
     // 1) Learned tags from competitors (audience demand signal)
