@@ -164,7 +164,7 @@ async function searchNYT(query, apiKey, { page = 0 } = {}) {
       source: `NYT/${a.section_name || 'News'}`,
       publishedAt: a.pub_date || null,
     }))
-    logger.info({ provider: 'nyt', query: query.slice(0, 80), results: articles.length, hits: data?.response?.meta?.hits }, '[newsProviders] search done')
+    logger.info({ provider: 'nyt', query: (q || '').slice(0, 80), fq: fq || null, results: articles.length, hits: data?.response?.meta?.hits }, '[newsProviders] search done')
     return { articles }
   } catch (e) {
     clear()
