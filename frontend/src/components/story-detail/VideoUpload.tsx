@@ -74,6 +74,22 @@ export function VideoUpload({
 
   // Uploading state
   if (isUploading && task) {
+    const elapsed = (Date.now() - task.startedAt) / 1000;
+    const speed = elapsed > 0 ? task.bytesUploaded / elapsed : 0;
+    const remaining = speed > 0 ? (task.file.size - task.bytesUploaded) / speed : 0;
+    const etaText = remaining > 0
+      ? remaining >= 3600
+        ? `~${Math.floor(remaining / 3600)}h ${Math.floor((remaining % 3600) / 60)}m left`
+        : remaining >= 60
+          ? `~${Math.floor(remaining / 60)}m ${Math.floor(remaining % 60)}s left`
+          : `~${Math.floor(remaining)}s left`
+      : "estimating…";
+    const speedText = speed > 0
+      ? speed >= 1024 * 1024
+        ? `${(speed / (1024 * 1024)).toFixed(1)} MB/s`
+        : `${(speed / 1024).toFixed(0)} KB/s`
+      : "";
+
     return (
       <div className="rounded-xl bg-background border border-border p-5 space-y-3">
         <div className="flex items-center justify-between">
@@ -91,7 +107,7 @@ export function VideoUpload({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px] text-dim font-mono">
             <span className="truncate max-w-[200px]">{task.file.name}</span>
-            <span>{formatBytes(task.file.size)}</span>
+            <span>{formatBytes(task.bytesUploaded)} / {formatBytes(task.file.size)}</span>
           </div>
           <div className="relative h-2 bg-elevated rounded-full overflow-hidden">
             <div
@@ -101,9 +117,9 @@ export function VideoUpload({
           </div>
           <div className="flex items-center justify-between text-[10px] text-dim font-mono">
             <span>
-              Part {task.completedParts}/{task.totalParts}
+              Part {task.completedParts}/{task.totalParts}{speedText && ` · ${speedText}`}
             </span>
-            <span>{task.progress}%</span>
+            <span>{etaText}</span>
           </div>
         </div>
         <p className="text-[11px] text-dim">

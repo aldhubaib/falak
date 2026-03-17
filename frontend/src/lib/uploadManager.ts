@@ -16,6 +16,8 @@ export interface UploadTask {
   videoUrl: string | null;
   completedParts: number;
   totalParts: number;
+  startedAt: number;
+  bytesUploaded: number;
 }
 
 type Listener = () => void;
@@ -72,6 +74,8 @@ export async function startUpload(storyId: string, file: File): Promise<string> 
     videoUrl: null,
     completedParts: 0,
     totalParts: 0,
+    startedAt: Date.now(),
+    bytesUploaded: 0,
   };
   tasks.set(taskId, task);
   notify();
@@ -153,7 +157,8 @@ async function doUpload(task: UploadTask, signal: AbortSignal) {
       const etag = res.headers.get("ETag") || `"part-${partInfo.partNumber}"`;
       parts.push({ partNumber: partInfo.partNumber, etag });
       task.completedParts++;
-      task.progress = Math.round((task.completedParts / task.totalParts) * 95); // reserve 5% for completion
+      task.bytesUploaded += size;
+      task.progress = Math.round((task.completedParts / task.totalParts) * 95);
       notify();
     }
 
