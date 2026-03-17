@@ -1,8 +1,7 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { ingestAll, ingestSource, hasApiKey, checkBudget, checkCooldown } = require('../services/articlePipeline')
-const { decrypt } = require('../services/crypto')
+const { VALID_SOURCE_TYPES, ingestAll, ingestSource, hasApiKey, checkBudget, checkCooldown } = require('../services/articlePipeline')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -17,7 +16,7 @@ router.get('/', async (req, res) => {
     if (!project) return res.status(404).json({ error: 'Project not found' })
 
     const sources = await db.articleSource.findMany({
-      where: { projectId },
+      where: { projectId, type: { in: VALID_SOURCE_TYPES } },
       orderBy: { createdAt: 'asc' },
     })
 
@@ -114,6 +113,9 @@ router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res)
       })
       if (!source) return res.status(404).json({ error: 'Source not found' })
       if (source.projectId !== projectId) return res.status(403).json({ error: 'Source does not belong to project' })
+      if (!VALID_SOURCE_TYPES.includes(source.type)) {
+        return res.status(400).json({ error: `Unsupported legacy source type: ${source.type}` })
+      }
 
       const result = await ingestSource(source, source.project, { force: !!force })
       return res.json({ results: [{ ...result, label: source.label, type: source.type }] })

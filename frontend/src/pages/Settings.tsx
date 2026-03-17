@@ -65,7 +65,7 @@ const LEGACY_KEYS: ApiKeyDef[] = [
   {
     service: "firecrawl",
     name: "Firecrawl",
-    description: "Web scraping fallback — used when no news APIs are set, or for article content extraction.",
+    description: "Scraping and article-content extraction.",
     icon: "data",
     placeholder: "fc-...",
     link: "https://www.firecrawl.dev/app",
@@ -439,7 +439,7 @@ export default function Settings() {
           {/* ── Section 3: Legacy / Scraping ───────────────────────────────── */}
           <div className="rounded-xl bg-background p-5">
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">SCRAPING & LEGACY</div>
-            <p className="text-[12px] text-dim mb-5">Optional — Firecrawl is used as fallback when no news APIs are set.</p>
+            <p className="text-[12px] text-dim mb-5">Optional project-scoped keys for scraping or older integrations.</p>
 
             <div className="space-y-5">
               {LEGACY_KEYS.map((def, idx) => {

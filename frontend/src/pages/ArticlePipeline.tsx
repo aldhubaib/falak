@@ -75,12 +75,6 @@ const LANG_OPTIONS = [
 ];
 
 const SOURCE_TYPES = [
-  { value: "newsapi",     label: "NewsAPI" },
-  { value: "gnews",       label: "GNews Search" },
-  { value: "gnews_top",   label: "GNews Top Headlines" },
-  { value: "guardian",     label: "The Guardian" },
-  { value: "nyt_search",  label: "NYT Article Search" },
-  { value: "nyt_top",     label: "NYT Top Stories" },
   { value: "rss",         label: "RSS Feed" },
   { value: "apify_actor", label: "Apify Actor" },
 ];

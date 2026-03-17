@@ -46,12 +46,26 @@ function normalizeApifyItem(item, defaultLanguage = 'en') {
   }
 }
 
+function normalizeActorId(actorId) {
+  const text = normalizeText(actorId)
+  if (!text) return null
+  if (text.includes('~')) return text
+  const firstSlash = text.indexOf('/')
+  if (firstSlash === -1) return text
+  return `${text.slice(0, firstSlash)}~${text.slice(firstSlash + 1)}`
+}
+
 function buildLatestRunUrl(actorId, token) {
-  return `${APIFY_API_BASE}/acts/${encodeURIComponent(actorId)}/runs/last?status=SUCCEEDED&token=${encodeURIComponent(token)}`
+  const normalizedActorId = normalizeActorId(actorId)
+  return `${APIFY_API_BASE}/acts/${encodeURIComponent(normalizedActorId)}/runs/last?status=SUCCEEDED&token=${encodeURIComponent(token)}`
 }
 
 async function fetchLatestSuccessfulRun(actorId, token) {
-  const response = await fetch(buildLatestRunUrl(actorId, token), { headers: { Accept: 'application/json' } })
+  const normalizedActorId = normalizeActorId(actorId)
+  if (!normalizedActorId) {
+    throw new Error('Apify source is missing actorId')
+  }
+  const response = await fetch(buildLatestRunUrl(normalizedActorId, token), { headers: { Accept: 'application/json' } })
   if (!response.ok) {
     const body = await response.text()
     throw new Error(`Apify latest run request failed (${response.status}): ${body.slice(0, 300)}`)

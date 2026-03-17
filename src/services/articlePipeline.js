@@ -7,21 +7,9 @@
  */
 const db = require('../lib/db')
 const logger = require('../lib/logger')
-const { decrypt } = require('./crypto')
 const { getApifyToken, fetchLatestSuccessfulRun, fetchDatasetItemsByDatasetId } = require('./apify')
-const {
-  searchNewsAPI,
-  searchGNews,
-  searchGuardian,
-  searchNYT,
-  fetchNYTTopStories,
-  fetchGNewsTopHeadlines,
-} = require('./newsProviders')
 
-const VALID_SOURCE_TYPES = ['newsapi', 'gnews', 'gnews_top', 'guardian', 'nyt_search', 'nyt_top', 'rss', 'apify_actor']
-
-const GNEWS_CATEGORIES = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health']
-const NYT_SECTIONS = ['arts', 'automobiles', 'books/review', 'business', 'fashion', 'food', 'health', 'home', 'insider', 'magazine', 'movies', 'nyregion', 'obituaries', 'opinion', 'politics', 'realestate', 'science', 'sports', 'sundayreview', 'technology', 'theater', 't-magazine', 'travel', 'upshot', 'us', 'world']
+const VALID_SOURCE_TYPES = ['rss', 'apify_actor']
 
 const MAX_FETCH_LOG_ENTRIES = 30
 
@@ -30,26 +18,6 @@ const MAX_FETCH_LOG_ENTRIES = 30
 function validateSourceConfig(type, config) {
   if (!config || typeof config !== 'object') return 'config must be a JSON object'
   switch (type) {
-    case 'newsapi':
-      if (!config.q || typeof config.q !== 'string') return 'newsapi requires config.q (string, max 500 chars)'
-      if (config.q.length > 500) return 'newsapi config.q max 500 chars'
-      break
-    case 'gnews':
-      if (!config.q || typeof config.q !== 'string') return 'gnews requires config.q (string, max 200 chars)'
-      if (config.q.length > 200) return 'gnews config.q max 200 chars'
-      break
-    case 'gnews_top':
-      if (!config.category || !GNEWS_CATEGORIES.includes(config.category)) return `gnews_top requires config.category: one of ${GNEWS_CATEGORIES.join(', ')}`
-      break
-    case 'guardian':
-      if (!config.q || typeof config.q !== 'string') return 'guardian requires config.q (string)'
-      break
-    case 'nyt_search':
-      if (!config.q || typeof config.q !== 'string') return 'nyt_search requires config.q (string)'
-      break
-    case 'nyt_top':
-      if (!config.section || !NYT_SECTIONS.includes(config.section)) return `nyt_top requires config.section: one of ${NYT_SECTIONS.join(', ')}`
-      break
     case 'rss':
       if (!config.url || typeof config.url !== 'string') return 'rss requires config.url (valid URL)'
       try { new URL(config.url) } catch { return 'rss config.url must be a valid URL' }
@@ -69,26 +37,9 @@ function validateSourceConfig(type, config) {
   return null
 }
 
-// ── Resolve API key for a source type ─────────────────────────────────────
-
-function resolveApiKey(project, sourceType) {
-  const keyMap = {
-    newsapi: 'newsapiApiKeyEncrypted',
-    gnews: 'gnewsApiKeyEncrypted',
-    gnews_top: 'gnewsApiKeyEncrypted',
-    guardian: 'guardianApiKeyEncrypted',
-    nyt_search: 'nytApiKeyEncrypted',
-    nyt_top: 'nytApiKeyEncrypted',
-  }
-  const field = keyMap[sourceType]
-  if (!field || !project[field]) return null
-  try { return decrypt(project[field]) } catch { return null }
-}
-
 function hasApiKey(project, sourceType, source = null) {
   if (sourceType === 'apify_actor') return !!getApifyToken(source)
-  if (sourceType === 'rss') return true
-  return !!resolveApiKey(project, sourceType)
+  return sourceType === 'rss'
 }
 
 function canonicalizeArticleUrl(rawUrl) {
@@ -120,18 +71,6 @@ function canonicalizeArticleUrl(rawUrl) {
 async function fetchFromSource(source, apiKey) {
   const { type, config } = source
   switch (type) {
-    case 'newsapi':
-      return searchNewsAPI(config.q, apiKey, { pageSize: config.pageSize || 20, sortBy: config.sortBy || 'relevancy' })
-    case 'gnews':
-      return searchGNews(config.q, apiKey, { max: config.max || 10, sortby: config.sortby || 'relevance' })
-    case 'gnews_top':
-      return fetchGNewsTopHeadlines(apiKey, config.category, { max: config.max || 10 })
-    case 'guardian':
-      return searchGuardian(config.q, apiKey, { pageSize: config.pageSize || 15 })
-    case 'nyt_search':
-      return searchNYT({ q: config.q, fq: config.fq }, apiKey)
-    case 'nyt_top':
-      return fetchNYTTopStories(apiKey, config.section)
     case 'rss':
       return fetchRSS(config.url)
     default:
@@ -303,11 +242,6 @@ async function ingestSource(source, project, { force = false } = {}) {
     if (!apiKey) {
       return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: 'No Apify API key configured for this source' }
     }
-  } else if (source.type !== 'rss') {
-    apiKey = resolveApiKey(project, source.type)
-    if (!apiKey) {
-      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `No API key for ${source.type}` }
-    }
   }
 
   let rawArticles
@@ -406,18 +340,12 @@ async function appendFetchLog(sourceId, entry) {
 async function ingestAll(projectId) {
   const project = await db.project.findUnique({
     where: { id: projectId },
-    select: {
-      id: true,
-      newsapiApiKeyEncrypted: true,
-      gnewsApiKeyEncrypted: true,
-      guardianApiKeyEncrypted: true,
-      nytApiKeyEncrypted: true,
-    },
+    select: { id: true },
   })
   if (!project) throw new Error('Project not found')
 
   const sources = await db.articleSource.findMany({
-    where: { projectId, isActive: true },
+    where: { projectId, isActive: true, type: { in: VALID_SOURCE_TYPES } },
   })
 
   const results = []
@@ -436,9 +364,6 @@ async function testSourceFetch(sourceType, config, project, source = null) {
   if (sourceType === 'apify_actor') {
     apiKey = getApifyToken(source)
     if (!apiKey) throw new Error('No Apify API key configured for this source')
-  } else if (sourceType !== 'rss') {
-    apiKey = resolveApiKey(project, sourceType)
-    if (!apiKey) throw new Error(`No API key configured for ${sourceType}`)
   }
 
   const fakeSource = { type: sourceType, config, language: 'en' }
@@ -455,10 +380,7 @@ async function testSourceFetch(sourceType, config, project, source = null) {
 
 module.exports = {
   VALID_SOURCE_TYPES,
-  GNEWS_CATEGORIES,
-  NYT_SECTIONS,
   validateConfig: validateSourceConfig,
-  resolveApiKey,
   hasApiKey,
   ingestSource,
   ingestAll,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
-import { ArrowDown, ArrowUpRight, Loader2 } from "lucide-react";
+import { ArrowUpRight, Loader2 } from "lucide-react";
 import { PageError } from "@/components/PageError";
 
 const STORIES_PAGE_SIZE = 50;
@@ -102,7 +102,6 @@ export default function Stories() {
   const projectPath = useProjectPath();
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fetching, setFetching] = useState(false);
   const [activeStage, setActiveStage] = useState<Stage | "all">("suggestion");
 
   const [summary, setSummary] = useState<{
@@ -147,48 +146,9 @@ export default function Stories() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const handleFetch = async () => {
-    if (!projectId) {
-      toast.error("Project not found. Open a project from the sidebar first.");
-      return;
-    }
-    setFetchError(null);
-    setFetching(true);
-    toast.info("Fetching new stories…");
-    try {
-      const r = await fetch("/api/stories/fetch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ projectId }),
-      });
-      const data = await r.json().catch(() => ({}));
-      const errMsg = data?.error ?? data?.message ?? (r.ok ? null : `Server error (${r.status})`);
-      if (!r.ok) {
-        setFetchError(errMsg || "Fetch failed");
-        toast.error(errMsg || "Fetch failed");
-        return;
-      }
-      if (data.created > 0) {
-        const providerInfo = data.searchMeta?.providerStats
-          ? Object.entries(data.searchMeta.providerStats as Record<string, { status: string; count?: number }>)
-              .filter(([, v]) => v.status === 'ok' && (v.count ?? 0) > 0)
-              .map(([k, v]) => `${k}: ${v.count}`)
-              .join(', ')
-          : '';
-        toast.success(`Added ${data.created} stories${providerInfo ? ` (${providerInfo})` : ''}`);
-      } else {
-        const hint = data.message || "No new suggestions this time.";
-        setFetchError(hint);
-        toast.warning(hint);
-      }
-      await loadStories();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Network or server error";
-      setFetchError(msg);
-      toast.error(msg);
-    } finally {
-      setFetching(false);
-    }
+    const msg = "Legacy story fetch has been removed. Use Source or Article Pipeline to ingest articles instead.";
+    setFetchError(msg);
+    toast.error(msg);
   };
 
   if (loadError) {
@@ -245,27 +205,16 @@ export default function Stories() {
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">AI Intelligence</h1>
           <span className="text-[11px] text-dim font-mono">
-            content pipeline — AI-powered story discovery
+            content pipeline — suggestions now come from the article pipeline
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleFetch}
-            disabled={fetching || !projectId}
-            title="Fetch new story suggestions using multi-source news APIs"
+            title="Legacy story fetch has been removed"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
           >
-            {fetching ? (
-              <>
-                <Loader2 className="w-3 h-3 shrink-0 animate-spin" />
-                <span className={fetching ? "text-shimmer inline-block" : ""}>Fetching…</span>
-              </>
-            ) : (
-              <>
-                <ArrowDown className="w-3 h-3 shrink-0" />
-                Fetch
-              </>
-            )}
+            Legacy Fetch Removed
           </button>
         </div>
       </div>

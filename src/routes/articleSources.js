@@ -4,8 +4,6 @@ const { requireAuth, requireRole } = require('../middleware/auth')
 const { encrypt } = require('../services/crypto')
 const {
   VALID_SOURCE_TYPES,
-  GNEWS_CATEGORIES,
-  NYT_SECTIONS,
   validateConfig,
   testSourceFetch,
 } = require('../services/articlePipeline')
@@ -29,7 +27,7 @@ router.get('/', async (req, res) => {
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
     const sources = await db.articleSource.findMany({
-      where: { projectId },
+      where: { projectId, type: { in: VALID_SOURCE_TYPES } },
       include: {
         _count: { select: { articles: true } },
       },
@@ -150,73 +148,6 @@ router.post('/:id/test', requireRole('owner', 'admin', 'editor'), async (req, re
 // ── GET /api/article-sources/field-schema — API-specific SEARCH fields ────
 router.get('/field-schema', async (req, res) => {
   const schema = {
-    newsapi: {
-      label: 'NewsAPI',
-      docs: 'https://newsapi.org/docs/endpoints/everything',
-      fields: [
-        { key: 'q', label: 'Query', type: 'text', required: true, placeholder: 'e.g. bitcoin OR crypto', help: 'Advanced search: surround phrases with "", use AND/OR/NOT, +/- prefix. Max 500 chars.' },
-        { key: 'searchIn', label: 'Search in', type: 'select', options: ['title', 'description', 'content', 'title,description', 'title,content'], help: 'Fields to search. Default: all.' },
-        { key: 'sortBy', label: 'Sort by', type: 'select', options: ['relevancy', 'publishedAt', 'popularity'], help: 'Default: relevancy.' },
-        { key: 'pageSize', label: 'Page size', type: 'number', min: 1, max: 100, help: '1–100. Default: 20.' },
-        { key: 'from', label: 'From date', type: 'date', help: 'Oldest article. Format: YYYY-MM-DD. Free plan: last month only.' },
-        { key: 'to', label: 'To date', type: 'date', help: 'Newest article. Format: YYYY-MM-DD.' },
-        { key: 'domains', label: 'Domains', type: 'text', placeholder: 'bbc.co.uk,techcrunch.com', help: 'Comma-separated. Restrict to specific domains.' },
-        { key: 'excludeDomains', label: 'Exclude domains', type: 'text', placeholder: 'example.com', help: 'Comma-separated domains to exclude.' },
-      ],
-    },
-    gnews: {
-      label: 'GNews Search',
-      docs: 'https://gnews.io/docs/v4#search-endpoint',
-      fields: [
-        { key: 'q', label: 'Query', type: 'text', required: true, placeholder: 'e.g. artificial intelligence', help: 'Use AND, OR, NOT operators. Use "-" to exclude. Wrap phrases in "". Max 200 chars.' },
-        { key: 'sortby', label: 'Sort by', type: 'select', options: ['relevance', 'publishedAt'], help: 'Default: relevance.' },
-        { key: 'max', label: 'Max results', type: 'number', min: 1, max: 100, help: '1–100. Default: 10.' },
-        { key: 'from', label: 'From date', type: 'date', help: 'Oldest article. Format: YYYY-MM-DD.' },
-        { key: 'to', label: 'To date', type: 'date', help: 'Newest article. Format: YYYY-MM-DD.' },
-        { key: 'in', label: 'Search in', type: 'select', options: ['title', 'description', 'content', 'title,description'], help: 'Where to search. Default: title,description.' },
-        { key: 'nullable', label: 'Allow null fields', type: 'text', placeholder: 'description,content', help: 'Comma-separated. Allow null in these fields.' },
-      ],
-    },
-    gnews_top: {
-      label: 'GNews Top Headlines',
-      docs: 'https://gnews.io/docs/v4#top-headlines-endpoint',
-      fields: [
-        { key: 'category', label: 'Category', type: 'select', required: true, options: GNEWS_CATEGORIES, help: 'Required. Topic category for top headlines.' },
-        { key: 'max', label: 'Max results', type: 'number', min: 1, max: 100, help: '1–100. Default: 10.' },
-        { key: 'q', label: 'Query filter', type: 'text', placeholder: 'optional keyword filter', help: 'Optional keyword to narrow within category.' },
-      ],
-    },
-    guardian: {
-      label: 'The Guardian',
-      docs: 'https://open-platform.theguardian.com/documentation/',
-      fields: [
-        { key: 'q', label: 'Query', type: 'text', required: true, placeholder: 'e.g. climate change', help: 'Free-text query. AND/OR/NOT supported.' },
-        { key: 'section', label: 'Section', type: 'text', placeholder: 'e.g. technology, world, business', help: 'Comma-separated section IDs to filter by.' },
-        { key: 'tag', label: 'Tags', type: 'text', placeholder: 'e.g. tone/news', help: 'Comma-separated tag IDs.' },
-        { key: 'pageSize', label: 'Page size', type: 'number', min: 1, max: 200, help: '1–200. Default: 15.' },
-        { key: 'from-date', label: 'From date', type: 'date', help: 'Oldest article. Format: YYYY-MM-DD.' },
-        { key: 'to-date', label: 'To date', type: 'date', help: 'Newest article. Format: YYYY-MM-DD.' },
-        { key: 'order-by', label: 'Order by', type: 'select', options: ['newest', 'oldest', 'relevance'], help: 'Default: relevance.' },
-      ],
-    },
-    nyt_search: {
-      label: 'NYT Article Search',
-      docs: 'https://developer.nytimes.com/docs/articlesearch-product/1/overview',
-      fields: [
-        { key: 'q', label: 'Query', type: 'text', required: true, placeholder: 'e.g. climate policy', help: 'Free-text search query.' },
-        { key: 'fq', label: 'Filter query (fq)', type: 'text', placeholder: 'e.g. section_name:("Business")', help: 'Lucene syntax. Filter by section, type, source, etc. See NYT docs.' },
-        { key: 'begin_date', label: 'Begin date', type: 'date', help: 'Format: YYYYMMDD' },
-        { key: 'end_date', label: 'End date', type: 'date', help: 'Format: YYYYMMDD' },
-        { key: 'sort', label: 'Sort', type: 'select', options: ['newest', 'oldest', 'relevance'], help: 'Default: relevance.' },
-      ],
-    },
-    nyt_top: {
-      label: 'NYT Top Stories',
-      docs: 'https://developer.nytimes.com/docs/top-stories-product/1/overview',
-      fields: [
-        { key: 'section', label: 'Section', type: 'select', required: true, options: NYT_SECTIONS, help: 'Required. The section to fetch top stories from.' },
-      ],
-    },
     rss: {
       label: 'RSS Feed',
       docs: null,
