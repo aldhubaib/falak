@@ -467,6 +467,13 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
     `## المقالات حسب المصدر:\n${articleSections}\n\n` +
     `حوّل كل مقال إخباري إلى قصة. لا تتجاهل أي مقال إخباري حقيقي.`
 
+  logger.info({
+    articleCount: articles.length,
+    inputChars: userContent.length,
+    systemChars: systemPrompt.length,
+    providers: Object.keys(byProvider),
+  }, '[multiSourceNews] sending to Claude for structuring')
+
   const raw = await callAnthropic(
     anthropicApiKey,
     'claude-sonnet-4-20250514',
@@ -474,15 +481,34 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
     { system: systemPrompt, maxTokens: 4000, projectId, action: 'Multi-Source Stories Structure' }
   )
 
+  logger.info({
+    rawType: typeof raw,
+    rawLen: (raw || '').length,
+    rawStart: (raw || '').slice(0, 200),
+    rawEnd: (raw || '').slice(-200),
+  }, '[multiSourceNews] Claude raw response for structuring')
+
   const clean = (raw && typeof raw === 'string' ? raw : '').replace(/```json|```/g, '').trim()
+
+  if (!clean) {
+    logger.error('[multiSourceNews] Claude returned empty response for structuring')
+    return []
+  }
+
   try {
-    return JSON.parse(clean)
+    const parsed = JSON.parse(clean)
+    logger.info({ count: Array.isArray(parsed) ? parsed.length : 'not-array' }, '[multiSourceNews] structured stories parsed')
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     const arrayMatch = clean.match(/\[[\s\S]*\]/)
     if (arrayMatch) {
-      try { return JSON.parse(arrayMatch[0]) } catch (_) {}
+      try {
+        const parsed = JSON.parse(arrayMatch[0])
+        logger.info({ count: parsed.length, extractedFromWrapped: true }, '[multiSourceNews] structured stories parsed (extracted)')
+        return parsed
+      } catch (_) {}
     }
-    logger.error({ snippet: clean.slice(0, 300) }, '[multiSourceNews] Claude JSON parse failed')
+    logger.error({ snippet: clean.slice(0, 500) }, '[multiSourceNews] Claude JSON parse failed')
     return []
   }
 }
