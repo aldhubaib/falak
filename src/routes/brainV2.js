@@ -45,6 +45,7 @@ function buildDynamicQuery({
   openTitles,
   takenTitles,
   competitorHandles,
+  passedHeadlines,
 }) {
   const pipeline = []
 
@@ -236,12 +237,16 @@ function buildDynamicQuery({
     ? `ابحث عن قصص مشابهة في النوع والشعور لـ:\n${gapWinTitles.join('\n')}\n(كنا أول من غطاها وحققت أعلى مشاهدات).\n\n`
     : ''
 
+  const passedList = passedHeadlines || []
   const avoidParts = [
     ...(takenTitles.length
       ? [`تجنب تماماً ما يشبه: ${takenTitles.join('، ')} — هذه تم تصويرها.`]
       : []),
     ...(avoidTopics.length
       ? [`تجنب أيضاً: ${avoidTopics.join('، ')} — لم تنجح مع جمهورنا.`]
+      : []),
+    ...(passedList.length
+      ? [`لا نريد قصصاً مثل: ${passedList.join('، ')} — موضوعات لا تناسب القناة.`]
       : []),
   ]
   const avoidSection = avoidParts.length
@@ -476,21 +481,23 @@ async function getBrainV2Data(projectId) {
     const lateCount = publishedVideos.filter((v) => v.result === 'late').length
     const winRate = publishedVideos.length ? Math.round((gapWins / publishedVideos.length) * 100) : 0
 
-    debugStage = 'learn-from-omits'
-    const omittedStories = await db.story.findMany({
+    debugStage = 'learn-from-feedback'
+    const feedbackStories = await db.story.findMany({
       where: { projectId, stage: { in: ['omit', 'passed'] } },
-      select: { headline: true, sourceUrl: true, sourceName: true, createdAt: true },
+      select: { headline: true, sourceUrl: true, stage: true },
       orderBy: { updatedAt: 'desc' },
       take: 50,
     })
 
-    const omittedHeadlines = omittedStories
+    const passedHeadlines = feedbackStories
+      .filter(s => s.stage === 'passed')
       .slice(0, 8)
       .map(s => `"${(s.headline || '').slice(0, 50)}"`)
       .filter(h => h.length > 3)
 
-    const omittedDomains = [...new Set(
-      omittedStories
+    const omitDomains = [...new Set(
+      feedbackStories
+        .filter(s => s.stage === 'omit')
         .map(s => {
           try { return new URL(s.sourceUrl).hostname.replace(/^www\./, '') } catch { return null }
         })
@@ -534,7 +541,7 @@ async function getBrainV2Data(projectId) {
     }
 
     const { query: autoSearchQuery, meta: dynamicQueryMeta, pipeline: queryPipeline, querySections } = buildDynamicQuery({
-      competitorVideos, ourVideos, topicMemories: augmentedMemories, gapWinTitles, openTitles, takenTitles, competitorHandles,
+      competitorVideos, ourVideos, topicMemories: augmentedMemories, gapWinTitles, openTitles, takenTitles, competitorHandles, passedHeadlines,
     })
 
     debugStage = 'score-and-rank'
@@ -572,6 +579,9 @@ async function getBrainV2Data(projectId) {
   const queryMeta = {
     ...dynamicQueryMeta,
     regionHints,
+    omitDomains,
+    passedCount: passedHeadlines.length,
+    omitCount: omitDomains.length,
     schemaVersion: 2,
     provider: 'internal',
     fallbackReason: null,

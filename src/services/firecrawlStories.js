@@ -30,12 +30,13 @@ const BLOCKED_PATH_PATTERNS = [
   /\/signup/i, /\/register/i, /\/cart/i, /\/checkout/i, /\/shop\//i,
 ]
 
-function isBlockedUrl(url) {
+function isBlockedUrl(url, dynamicBlocklist) {
   if (!url || typeof url !== 'string') return true
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.replace(/^www\./, '')
     if (BLOCKED_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return true
+    if (dynamicBlocklist && dynamicBlocklist.some(d => host === d || host.endsWith('.' + d))) return true
     if (BLOCKED_PATH_PATTERNS.some(p => p.test(parsed.pathname))) return true
     return false
   } catch {
@@ -210,13 +211,13 @@ function findContentForSourceUrl(urlToContent, sourceUrl) {
 }
 
 /** Filter out blocked URLs and deduplicate by normalized URL. */
-function filterAndDeduplicateArticles(articles) {
+function filterAndDeduplicateArticles(articles, dynamicBlocklist) {
   const seen = new Map()
   let blocked = 0
   for (const a of articles) {
     const url = a.url || a.metadata?.sourceURL || a.metadata?.url
     if (!url) continue
-    if (isBlockedUrl(url)) { blocked++; continue }
+    if (isBlockedUrl(url, dynamicBlocklist)) { blocked++; continue }
     const key = normalizeUrl(url)
     if (!seen.has(key)) seen.set(key, a)
   }
@@ -297,11 +298,17 @@ async function fetchStoriesViaFirecrawl({
   tier1Topics,
   tier2Topics,
   topCompTopics,
+  omitDomains,
   projectId,
   queryVersion,
   firecrawlApiKey,
   anthropicApiKey,
 }) {
+  const dynamicBlocklist = (omitDomains || []).filter(d => d && typeof d === 'string')
+  if (dynamicBlocklist.length > 0) {
+    logger.info({ domains: dynamicBlocklist }, '[firecrawlStories] blocking domains learned from omitted stories')
+  }
+
   const queries = buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics, topCompTopics })
 
   logger.info(
@@ -333,7 +340,7 @@ async function fetchStoriesViaFirecrawl({
     return { stories: [], searchMeta: { queryCount: queries.length, totalArticles: 0, structured: 0 } }
   }
 
-  const { articles: filteredArticles, blocked } = filterAndDeduplicateArticles(rawArticles)
+  const { articles: filteredArticles, blocked } = filterAndDeduplicateArticles(rawArticles, dynamicBlocklist)
   logger.info(
     { raw: totalSearched, blocked, filtered: filteredArticles.length },
     '[firecrawlStories] articles after filter+dedup'
@@ -354,7 +361,7 @@ async function fetchStoriesViaFirecrawl({
   const urlToContent = buildUrlToContent(filteredArticles)
 
   const stories = structured
-    .filter((s) => s.headline && s.sourceUrl && !isBlockedUrl(s.sourceUrl))
+    .filter((s) => s.headline && s.sourceUrl && !isBlockedUrl(s.sourceUrl, dynamicBlocklist))
     .map((s) => {
       const content = findContentForSourceUrl(urlToContent, s.sourceUrl)
       const articleContent =

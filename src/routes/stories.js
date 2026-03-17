@@ -136,6 +136,7 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       tier1Topics: brainData.queryMeta?.tier1Topics || [],
       tier2Topics: brainData.queryMeta?.tier2Topics || [],
       topCompTopics: brainData.queryMeta?.topCompTopics || [],
+      omitDomains: brainData.queryMeta?.omitDomains || [],
       projectId,
       queryVersion: brainData.queryMeta?.version || 'v2-competitor-driven',
       firecrawlApiKey: firecrawlKey,
