@@ -14,6 +14,7 @@ function stripProjectKeys(p) {
     gnewsApiKeyEncrypted,
     guardianApiKeyEncrypted,
     nytApiKeyEncrypted,
+    apifyApiKeyEncrypted,
     ...rest
   } = p
   return {
@@ -27,6 +28,7 @@ function stripProjectKeys(p) {
     hasGnewsKey:        !!gnewsApiKeyEncrypted,
     hasGuardianKey:     !!guardianApiKeyEncrypted,
     hasNytKey:          !!nytApiKeyEncrypted,
+    hasApifyKey:        !!apifyApiKeyEncrypted,
   }
 }
 
@@ -229,6 +231,7 @@ const PROJECT_KEY_SELECT = {
   gnewsApiKeyEncrypted: true,
   guardianApiKeyEncrypted: true,
   nytApiKeyEncrypted: true,
+  apifyApiKeyEncrypted: true,
 }
 
 // Helper: parse the YouTube key field — supports both single key and JSON array
@@ -262,6 +265,8 @@ function buildKeyStatus(project) {
     guardianKeyPreview:     keyPreview(project.guardianApiKeyEncrypted, 12),
     hasNytKey:              !!project.nytApiKeyEncrypted,
     nytKeyPreview:          keyPreview(project.nytApiKeyEncrypted, 12),
+    hasApifyKey:            !!project.apifyApiKeyEncrypted,
+    apifyKeyPreview:        keyPreview(project.apifyApiKeyEncrypted, 12),
   }
 }
 
@@ -282,7 +287,7 @@ projects.get('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
 // PATCH /api/projects/:id/keys — save/clear anthropic, perplexity, ytTranscript, firecrawl keys
 projects.patch('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { anthropicKey, perplexityKey, ytTranscriptKey, firecrawlKey, newsapiKey, gnewsKey, guardianKey, nytKey } = req.body
+    const { anthropicKey, perplexityKey, ytTranscriptKey, firecrawlKey, newsapiKey, gnewsKey, guardianKey, nytKey, apifyKey } = req.body
     const data = {}
     if (anthropicKey !== undefined)
       data.anthropicApiKeyEncrypted = anthropicKey ? encrypt(anthropicKey) : null
@@ -300,6 +305,8 @@ projects.patch('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
       data.guardianApiKeyEncrypted = guardianKey ? encrypt(guardianKey) : null
     if (nytKey !== undefined)
       data.nytApiKeyEncrypted = nytKey ? encrypt(nytKey) : null
+    if (apifyKey !== undefined)
+      data.apifyApiKeyEncrypted = apifyKey ? encrypt(apifyKey) : null
 
     const project = await db.project.update({
       where: { id: req.params.id },

@@ -25,6 +25,7 @@ model Project {
   gnewsApiKeyEncrypted        String?   @db.Text
   guardianApiKeyEncrypted     String?   @db.Text
   nytApiKeyEncrypted          String?   @db.Text
+  apifyApiKeyEncrypted        String?   @db.Text
   channels                    Channel[]
   stories                     Story[]
   articleSources              ArticleSource[]

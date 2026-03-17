@@ -77,6 +77,17 @@ const NEWS_KEYS: ApiKeyDef[] = [
     projectScoped: true,
     bodyField: "nytKey",
   },
+  {
+    service: "apify",
+    name: "Apify",
+    description: "Generic actor sync for scraped articles",
+    icon: "news",
+    placeholder: "your-apify-token...",
+    link: "https://docs.apify.com/",
+    linkLabel: "docs.apify.com ↗",
+    projectScoped: true,
+    bodyField: "apifyKey",
+  },
 ];
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -112,6 +123,7 @@ export default function Source() {
           ...(d.hasGnewsKey !== undefined && { gnews: d.hasGnewsKey }),
           ...(d.hasGuardianKey !== undefined && { guardian: d.hasGuardianKey }),
           ...(d.hasNytKey !== undefined && { nyt: d.hasNytKey }),
+            ...(d.hasApifyKey !== undefined && { apify: d.hasApifyKey }),
         }));
       })
       .catch(() => {});
@@ -204,7 +216,7 @@ export default function Source() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Source</h1>
-          <span className="text-[11px] text-dim font-mono">News API sources for story discovery</span>
+          <span className="text-[11px] text-dim font-mono">News APIs and Apify actors for story discovery</span>
         </div>
       </div>
 
@@ -215,7 +227,7 @@ export default function Source() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">STORY DISCOVERY</div>
-                <p className="text-[12px] text-dim">News APIs queried in parallel when you fetch stories. More sources = better coverage.</p>
+                <p className="text-[12px] text-dim">Native news APIs and Apify actors are checked when you fetch stories. More sources = better coverage.</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold ${newsConnected === NEWS_KEYS.length ? "bg-success/10 text-success" : newsConnected > 0 ? "bg-amber-500/10 text-amber-400" : "bg-muted text-dim"}`}>
@@ -328,6 +340,11 @@ const SOURCE_TYPES = [
   { value: "nyt_search",  label: "NYT Article Search",   format: "lucene",   configFields: [{ key: "q", label: "Search query", placeholder: 'crime' }, { key: "fq", label: "Filter query (Lucene)", placeholder: 'section_name:("World")', optional: true }] },
   { value: "nyt_top",     label: "NYT Top Stories",      format: "section",  sections: ["arts","automobiles","books/review","business","fashion","food","health","home","insider","magazine","movies","nyregion","obituaries","opinion","politics","realestate","science","sports","sundayreview","technology","theater","t-magazine","travel","upshot","us","world"] },
   { value: "rss",         label: "RSS Feed",             format: "url",      configFields: [{ key: "url", label: "Feed URL", placeholder: 'https://aljazeera.net/feed/crime' }] },
+  { value: "apify_actor", label: "Apify Actor",          format: "apify",    configFields: [
+    { key: "actorId", label: "Actor ID", placeholder: "username/actor-name" },
+    { key: "datasetId", label: "Dataset ID (optional)", placeholder: "Optional fixed dataset ID", optional: true },
+    { key: "limit", label: "Items to sync", placeholder: "100", optional: true },
+  ] },
 ] as const;
 
 const LANG_OPTIONS = [
@@ -392,7 +409,7 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">ARTICLE SOURCES</div>
-          <p className="text-[12px] text-dim">Configure news API queries for Brain v3 pipeline. Each source has its own pipeline.</p>
+          <p className="text-[12px] text-dim">Configure native APIs, RSS feeds, or Apify actors for the Brain v3 pipeline. Each source has its own pipeline.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] text-dim font-mono">{totalArticles} articles · {activeCount}/{sources.length} active</span>
@@ -529,6 +546,14 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
   const buildConfig = () => {
     if (typeDef.format === "category") return { category: config.category || typeDef.categories?.[0] || "general" };
     if (typeDef.format === "section") return { section: config.section || (typeDef as any).sections?.[0] || "world" };
+    if (typeDef.format === "apify") {
+      const limit = parseInt(config.limit || "", 10);
+      return {
+        actorId: config.actorId || "",
+        ...(config.datasetId ? { datasetId: config.datasetId } : {}),
+        ...(Number.isFinite(limit) && limit > 0 ? { limit } : {}),
+      };
+    }
     const c: Record<string, string> = {};
     for (const f of (typeDef as any).configFields || []) {
       if (config[f.key]) c[f.key] = config[f.key];
@@ -569,7 +594,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
       <DialogContent className="sm:max-w-[520px] bg-background border-border max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[15px]">Add Article Source</DialogTitle>
-          <DialogDescription className="text-[12px] text-dim">Configure a news API with its native query parameters.</DialogDescription>
+          <DialogDescription className="text-[12px] text-dim">Configure a native news API, RSS feed, or Apify actor source.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
@@ -624,7 +649,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
                 {(typeDef as any).sections?.map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
-            {(typeDef.format === "query" || typeDef.format === "lucene" || typeDef.format === "url") && (
+            {(typeDef.format === "query" || typeDef.format === "lucene" || typeDef.format === "url" || typeDef.format === "apify") && (
               <div className="space-y-2">
                 {(typeDef as any).configFields?.map((f: { key: string; label: string; placeholder: string; optional?: boolean; maxLen?: number }) => (
                   <div key={f.key}>
@@ -636,6 +661,9 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
                     <input type="text" value={config[f.key] || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                       placeholder={f.placeholder}
                       className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40" />
+                    {type === "apify_actor" && f.key === "actorId" && (
+                      <p className="mt-1 text-[10px] text-dim">All Apify actors should return the standard Falak dataset fields: `url`, `title`, `description`, `content`, `publishedAt`, `language`.</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -686,6 +714,14 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
   const buildConfig = () => {
     if (typeDef.format === "category") return { category: config.category || "general" };
     if (typeDef.format === "section") return { section: config.section || "world" };
+    if (typeDef.format === "apify") {
+      const limit = parseInt((config.limit as string) || "", 10);
+      return {
+        actorId: (config.actorId as string) || "",
+        ...((config.datasetId as string) ? { datasetId: config.datasetId as string } : {}),
+        ...(Number.isFinite(limit) && limit > 0 ? { limit } : {}),
+      };
+    }
     const c: Record<string, string> = {};
     for (const f of (typeDef as any).configFields || []) {
       if (config[f.key]) c[f.key] = config[f.key];
@@ -751,7 +787,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 {(typeDef as any).sections?.map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
-            {(typeDef.format === "query" || typeDef.format === "lucene" || typeDef.format === "url") && (
+            {(typeDef.format === "query" || typeDef.format === "lucene" || typeDef.format === "url" || typeDef.format === "apify") && (
               <div className="space-y-2">
                 {(typeDef as any).configFields?.map((f: { key: string; label: string; placeholder: string; optional?: boolean }) => (
                   <div key={f.key}>

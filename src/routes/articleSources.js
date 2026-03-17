@@ -202,6 +202,11 @@ router.get('/field-schema', async (req, res) => {
         { key: 'url', label: 'Feed URL', type: 'url', required: true, placeholder: 'https://example.com/feed.xml', help: 'Full URL to the RSS/Atom feed.' },
       ],
     },
+    apify_actor: {
+      label: 'Apify Actor',
+      docs: 'https://docs.apify.com/',
+      fields: [],
+    },
   }
   res.json(schema)
 })

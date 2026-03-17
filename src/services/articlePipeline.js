@@ -8,6 +8,7 @@
 const db = require('../lib/db')
 const logger = require('../lib/logger')
 const { decrypt } = require('./crypto')
+const { getApifyToken, fetchLatestDatasetItems } = require('./apify')
 const {
   searchNewsAPI,
   searchGNews,
@@ -17,7 +18,7 @@ const {
   fetchGNewsTopHeadlines,
 } = require('./newsProviders')
 
-const VALID_SOURCE_TYPES = ['newsapi', 'gnews', 'gnews_top', 'guardian', 'nyt_search', 'nyt_top', 'rss']
+const VALID_SOURCE_TYPES = ['newsapi', 'gnews', 'gnews_top', 'guardian', 'nyt_search', 'nyt_top', 'rss', 'apify_actor']
 
 const GNEWS_CATEGORIES = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health']
 const NYT_SECTIONS = ['arts', 'automobiles', 'books/review', 'business', 'fashion', 'food', 'health', 'home', 'insider', 'magazine', 'movies', 'nyregion', 'obituaries', 'opinion', 'politics', 'realestate', 'science', 'sports', 'sundayreview', 'technology', 'theater', 't-magazine', 'travel', 'upshot', 'us', 'world']
@@ -53,6 +54,15 @@ function validateSourceConfig(type, config) {
       if (!config.url || typeof config.url !== 'string') return 'rss requires config.url (valid URL)'
       try { new URL(config.url) } catch { return 'rss config.url must be a valid URL' }
       break
+    case 'apify_actor':
+      if (!config.actorId || typeof config.actorId !== 'string') return 'apify_actor requires config.actorId (string)'
+      if (config.datasetId !== undefined && config.datasetId !== null && typeof config.datasetId !== 'string') {
+        return 'apify_actor config.datasetId must be a string when provided'
+      }
+      if (config.limit !== undefined && (!Number.isInteger(config.limit) || config.limit < 1 || config.limit > 1000)) {
+        return 'apify_actor config.limit must be an integer between 1 and 1000'
+      }
+      break
     default:
       return `Unknown source type: ${type}`
   }
@@ -69,6 +79,7 @@ function resolveApiKey(project, sourceType) {
     guardian: 'guardianApiKeyEncrypted',
     nyt_search: 'nytApiKeyEncrypted',
     nyt_top: 'nytApiKeyEncrypted',
+    apify_actor: 'apifyApiKeyEncrypted',
   }
   const field = keyMap[sourceType]
   if (!field || !project[field]) return null
@@ -76,8 +87,33 @@ function resolveApiKey(project, sourceType) {
 }
 
 function hasApiKey(project, sourceType) {
+  if (sourceType === 'apify_actor') return !!getApifyToken(project)
   if (sourceType === 'rss') return true
   return !!resolveApiKey(project, sourceType)
+}
+
+function canonicalizeArticleUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null
+  try {
+    const url = new URL(rawUrl)
+    url.hash = ''
+
+    for (const key of [...url.searchParams.keys()]) {
+      const lower = key.toLowerCase()
+      if (lower.startsWith('utm_') || ['fbclid', 'gclid', 'igshid'].includes(lower)) {
+        url.searchParams.delete(key)
+      }
+    }
+
+    url.hostname = url.hostname.toLowerCase()
+    if (url.pathname.length > 1) {
+      url.pathname = url.pathname.replace(/\/+$/, '')
+    }
+    const search = url.searchParams.toString()
+    return `${url.origin}${url.pathname}${search ? `?${search}` : ''}`
+  } catch {
+    return rawUrl.trim() || null
+  }
 }
 
 // ── Fetch articles from a single source ───────────────────────────────────
@@ -99,6 +135,8 @@ async function fetchFromSource(source, apiKey) {
       return fetchNYTTopStories(apiKey, config.section)
     case 'rss':
       return fetchRSS(config.url)
+    case 'apify_actor':
+      return fetchLatestDatasetItems(config, apiKey, source.language || 'en')
     default:
       throw new Error(`Unknown source type: ${type}`)
   }
@@ -243,7 +281,12 @@ async function ingestSource(source, project, { force = false } = {}) {
   }
 
   let apiKey = null
-  if (source.type !== 'rss') {
+  if (source.type === 'apify_actor') {
+    apiKey = getApifyToken(project)
+    if (!apiKey) {
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: 'No Apify API key configured for this project' }
+    }
+  } else if (source.type !== 'rss') {
     apiKey = resolveApiKey(project, source.type)
     if (!apiKey) {
       return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `No API key for ${source.type}` }
@@ -268,17 +311,19 @@ async function ingestSource(source, project, { force = false } = {}) {
   let dupes = 0
 
   for (const raw of passed) {
-    if (!raw.url) { dupes++; continue }
+    const canonicalUrl = canonicalizeArticleUrl(raw.url)
+    if (!canonicalUrl) { dupes++; continue }
     try {
       await db.article.create({
         data: {
           projectId,
           sourceId,
-          url: raw.url,
+          url: canonicalUrl,
           title: raw.title || null,
           description: raw.description || null,
+          content: raw.content || null,
           publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
-          language: source.language || 'en',
+          language: raw.language || source.language || 'en',
           stage: 'clean',
           status: 'queued',
         },
@@ -288,7 +333,7 @@ async function ingestSource(source, project, { force = false } = {}) {
       if (e.code === 'P2002') {
         dupes++
       } else {
-        logger.error({ sourceId, url: raw.url, error: e.message }, '[articlePipeline] insert failed')
+        logger.error({ sourceId, url: canonicalUrl, error: e.message }, '[articlePipeline] insert failed')
         dupes++
       }
     }
@@ -333,6 +378,7 @@ async function ingestAll(projectId) {
       gnewsApiKeyEncrypted: true,
       guardianApiKeyEncrypted: true,
       nytApiKeyEncrypted: true,
+      apifyApiKeyEncrypted: true,
     },
   })
   if (!project) throw new Error('Project not found')
@@ -354,7 +400,10 @@ async function ingestAll(projectId) {
 
 async function testSourceFetch(sourceType, config, project) {
   let apiKey = null
-  if (sourceType !== 'rss') {
+  if (sourceType === 'apify_actor') {
+    apiKey = getApifyToken(project)
+    if (!apiKey) throw new Error('No Apify API key configured for this project')
+  } else if (sourceType !== 'rss') {
     apiKey = resolveApiKey(project, sourceType)
     if (!apiKey) throw new Error(`No API key configured for ${sourceType}`)
   }
@@ -366,7 +415,7 @@ async function testSourceFetch(sourceType, config, project) {
   const searchConfig = config?.search || null
   const { passed, gated } = applyKeywordGate(raw, searchConfig)
 
-  return { passed, gated, total: raw.length }
+  return [...passed, ...gated].slice(0, 10)
 }
 
 module.exports = {

@@ -82,6 +82,7 @@ const SOURCE_TYPES = [
   { value: "nyt_search",  label: "NYT Article Search" },
   { value: "nyt_top",     label: "NYT Top Stories" },
   { value: "rss",         label: "RSS Feed" },
+  { value: "apify_actor", label: "Apify Actor" },
 ];
 
 // ── Main Component ──────────────────────────────────────────────────────────
@@ -522,7 +523,7 @@ function SearchPanel({
   saving: boolean; onSave: () => void; projectId: string;
 }) {
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ passed: unknown[]; gated: unknown[]; total: number } | null>(null);
+  const [testResult, setTestResult] = useState<{ passed: Array<{ title?: string; url?: string }>; gated: Array<{ title?: string; _gateReason?: string }>; total: number } | null>(null);
 
   const searchConfig = (config.search || {}) as Record<string, unknown>;
   const setSearchField = (key: string, val: unknown) => {
@@ -543,7 +544,8 @@ function SearchPanel({
       });
       const d = await res.json();
       if (!res.ok) { toast.error(d.error || "Test failed"); return; }
-      setTestResult(d.articles || d);
+      const articles = Array.isArray(d.articles) ? d.articles : Array.isArray(d) ? d : [];
+      setTestResult({ passed: articles, gated: [], total: articles.length });
     } catch {
       toast.error("Test failed");
     } finally {
@@ -565,16 +567,20 @@ function SearchPanel({
         <div className="text-[11px] font-mono text-dim uppercase tracking-wider flex items-center gap-2">
           <Zap className="w-3 h-3" /> API Query Fields
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          {apiSchema.fields.map(field => (
-            <DynamicField
-              key={field.key}
-              field={field}
-              value={config[field.key] as string | number | undefined}
-              onChange={(val) => setApiField(field.key, val)}
-            />
-          ))}
-        </div>
+        {apiSchema.fields.length === 0 ? (
+          <div className="text-[11px] text-dim">This source type does not expose extra query fields here. Configure the actor details on the Source tab and use keyword gates below if needed.</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {apiSchema.fields.map(field => (
+              <DynamicField
+                key={field.key}
+                field={field}
+                value={config[field.key] as string | number | undefined}
+                onChange={(val) => setApiField(field.key, val)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Keyword Gate */}
