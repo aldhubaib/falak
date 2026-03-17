@@ -169,7 +169,13 @@ export default function Stories() {
         return;
       }
       if (data.created > 0) {
-        toast.success(`Added ${data.created} story suggestions`);
+        const providerInfo = data.searchMeta?.providerStats
+          ? Object.entries(data.searchMeta.providerStats as Record<string, { status: string; count?: number }>)
+              .filter(([, v]) => v.status === 'ok' && (v.count ?? 0) > 0)
+              .map(([k, v]) => `${k}: ${v.count}`)
+              .join(', ')
+          : '';
+        toast.success(`Added ${data.created} stories${providerInfo ? ` (${providerInfo})` : ''}`);
       } else {
         const hint = data.message || "No new suggestions this time.";
         setFetchError(hint);

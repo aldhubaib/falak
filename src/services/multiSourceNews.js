@@ -1,10 +1,15 @@
 /**
- * Multi-source news aggregator for story discovery.
+ * Multi-source news aggregator with per-source query intelligence.
  *
- * Queries all available news APIs in parallel, merges results,
- * deduplicates, filters, and sends to Claude for structuring.
- * Falls back to Firecrawl if no news API keys are configured.
+ * Each news API source gets its own tailored query built from:
+ *   1. The Brain's autoSearchQuery (central intelligence)
+ *   2. Per-source feedback (what stories from THIS source got liked/passed)
+ *   3. Source-specific constraints (query length, content style)
+ *
+ * The Brain tells you WHAT to look for.
+ * Per-source learning tells you HOW to ask each source for it.
  */
+const db = require('../lib/db')
 const logger = require('../lib/logger')
 const { trackUsage } = require('./usageTracker')
 const { callAnthropic } = require('./pipelineProcessor')
@@ -16,7 +21,8 @@ const {
   fetchNYTTopStories,
 } = require('./newsProviders')
 
-// Reuse blocklist and helpers from firecrawlStories
+// ── Blocklist ──────────────────────────────────────────────────────────────
+
 const BLOCKED_DOMAINS = [
   'youtube.com', 'youtu.be', 'facebook.com', 'fb.com', 'instagram.com',
   'twitter.com', 'x.com', 'tiktok.com', 'linkedin.com', 'reddit.com',
@@ -55,32 +61,182 @@ function normalizeUrl(u) {
   }
 }
 
+// ── Provider registry ──────────────────────────────────────────────────────
+
+const PROVIDERS = {
+  newsapi: {
+    name: 'NewsAPI',
+    maxQueryLen: 400,
+    style: 'Huge global index. Broad keywords work best. Returns articles from thousands of outlets worldwide.',
+  },
+  gnews: {
+    name: 'GNews',
+    maxQueryLen: 90,
+    style: 'Short queries only (max 90 chars). Global coverage but smaller index. 2-3 focused keywords work best.',
+  },
+  guardian: {
+    name: 'The Guardian',
+    maxQueryLen: 400,
+    style: 'UK quality journalism. Strong on investigations, politics, environment, long-form reporting. Topic phrases work well.',
+  },
+  nyt: {
+    name: 'New York Times',
+    maxQueryLen: 400,
+    style: 'US quality journalism. Strong on investigations, crime, politics, science. Specific topic phrases work well.',
+  },
+}
+
+// ── Per-source feedback collector ──────────────────────────────────────────
+
 /**
- * Use Claude to generate English search keywords from the Brain's channel brief.
- * All 4 news APIs get the same English query — language doesn't matter, only interesting stories.
+ * Gather feedback from past stories grouped by source provider.
+ * Returns { providerName: { liked: [...], passed: [...], scripted: [...], published: [...] } }
  */
-async function buildSearchQuery(autoSearchQuery, anthropicApiKey, projectId) {
+async function collectSourceFeedback(projectId) {
+  const stories = await db.story.findMany({
+    where: {
+      projectId,
+      sourceName: { not: null },
+      stage: { in: ['liked', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit'] },
+    },
+    select: { headline: true, sourceName: true, stage: true },
+    orderBy: { updatedAt: 'desc' },
+    take: 200,
+  })
+
+  const feedback = {}
+  for (const s of stories) {
+    const provider = (s.sourceName || '').split('/')[0].trim().toLowerCase()
+    if (!provider) continue
+
+    const mapped = mapToProvider(provider)
+    if (!mapped) continue
+
+    if (!feedback[mapped]) feedback[mapped] = { liked: [], passed: [], scripted: [], published: [] }
+    const headline = (s.headline || '').slice(0, 60)
+
+    if (s.stage === 'liked') feedback[mapped].liked.push(headline)
+    else if (s.stage === 'passed' || s.stage === 'omit') feedback[mapped].passed.push(headline)
+    else if (s.stage === 'scripting' || s.stage === 'filmed') feedback[mapped].scripted.push(headline)
+    else if (s.stage === 'publish' || s.stage === 'done') feedback[mapped].published.push(headline)
+  }
+
+  for (const key of Object.keys(feedback)) {
+    feedback[key].liked = feedback[key].liked.slice(0, 8)
+    feedback[key].passed = feedback[key].passed.slice(0, 8)
+    feedback[key].scripted = feedback[key].scripted.slice(0, 5)
+    feedback[key].published = feedback[key].published.slice(0, 5)
+  }
+
+  return feedback
+}
+
+function mapToProvider(rawProvider) {
+  const lower = rawProvider.toLowerCase()
+  if (lower === 'newsapi' || lower === 'news') return 'newsapi'
+  if (lower === 'gnews') return 'gnews'
+  if (lower === 'the guardian' || lower === 'guardian') return 'guardian'
+  if (lower === 'nyt' || lower.includes('nyt') || lower.includes('new york')) return 'nyt'
+  return null
+}
+
+// ── Per-source query builder ───────────────────────────────────────────────
+
+/**
+ * Generate tailored search queries per provider using one Claude call.
+ * Returns { newsapi: "query...", gnews: "query...", guardian: "query...", nyt: "query..." }
+ */
+async function buildPerSourceQueries(autoSearchQuery, anthropicApiKey, projectId, activeProviders, feedback) {
+  const providerBlocks = activeProviders.map(provKey => {
+    const prov = PROVIDERS[provKey]
+    const fb = feedback[provKey]
+    let feedbackText = 'No past data yet — generate a good general query.'
+    if (fb) {
+      const parts = []
+      if (fb.published.length) parts.push(`Stories that became published videos (BEST signal): ${fb.published.join(', ')}`)
+      if (fb.scripted.length) parts.push(`Stories that got scripted (good signal): ${fb.scripted.join(', ')}`)
+      if (fb.liked.length) parts.push(`Stories that were liked: ${fb.liked.join(', ')}`)
+      if (fb.passed.length) parts.push(`Stories that were REJECTED (avoid similar): ${fb.passed.join(', ')}`)
+      feedbackText = parts.length > 0 ? parts.join('\n') : 'No past data yet.'
+    }
+
+    return `## ${prov.name} (key: ${provKey})
+Max query length: ${prov.maxQueryLen} characters
+Source strengths: ${prov.style}
+Past performance from this source:
+${feedbackText}
+`
+  }).join('\n')
+
   try {
     const raw = await callAnthropic(
       anthropicApiKey,
       'claude-sonnet-4-20250514',
       [{
         role: 'user',
-        content: `You are helping a YouTube channel find interesting news stories.\n\nChannel brief:\n${(autoSearchQuery || '').slice(0, 1500)}\n\nGenerate 3-5 BROAD English search keywords that would return many results from news APIs. Use simple, common words — not overly specific phrases.\n\nIMPORTANT: Keep it broad so we get lots of results. For example, if the channel covers true crime, use "crime investigation" not "serial killer cold case solved DNA 2024".\n\nReturn ONLY the keywords separated by spaces. No quotes, no explanation.`,
+        content: `You are building search queries for a YouTube channel's news discovery system.
+
+The channel's Brain has analyzed competitors and produced this content brief:
+${(autoSearchQuery || '').slice(0, 2000)}
+
+You need to generate a SEPARATE search query for each news API source below.
+Each source has different strengths and different past performance with this channel.
+
+Use the past performance data to make each query smarter:
+- If published/scripted stories exist → find MORE stories like those topics
+- If passed/rejected stories exist → AVOID those topics
+- If no data → use a broad query based on the channel brief
+
+${providerBlocks}
+
+Return ONLY a JSON object with the provider key and its search query.
+Example: {"newsapi": "crime investigation fraud", "gnews": "crime fraud", "guardian": "financial crime investigation", "nyt": "criminal investigation forensic"}
+
+Rules:
+- Each query must be plain English keywords separated by spaces
+- No quotes, no boolean operators, no special characters
+- Respect the max query length per source
+- GNews MUST be short (2-3 words max)
+- Make each query DIFFERENT — tailored to what each source is good at
+- Return valid JSON only, no other text`,
       }],
-      { system: 'You generate broad English news search keywords. Return only keywords, nothing else. Keep them simple and common.', maxTokens: 100, projectId, action: 'News Search Query' }
+      {
+        system: 'You generate per-source news search queries as JSON. Return only the JSON object, nothing else.',
+        maxTokens: 300,
+        projectId,
+        action: 'Per-Source Query Builder',
+      }
     )
-    const keywords = (raw || '').trim().replace(/["'\n]/g, ' ').replace(/\s+/g, ' ').slice(0, 100)
-    if (keywords.length > 3) return keywords
+
+    const clean = (raw || '').replace(/```json|```/g, '').trim()
+    try {
+      const queries = JSON.parse(clean)
+      const result = {}
+      for (const provKey of activeProviders) {
+        const q = (queries[provKey] || '').trim()
+        const maxLen = PROVIDERS[provKey]?.maxQueryLen || 200
+        result[provKey] = q ? q.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLen) : null
+      }
+      logger.info({ queries: result }, '[multiSourceNews] per-source queries generated')
+      return result
+    } catch {
+      logger.error({ snippet: clean.slice(0, 200) }, '[multiSourceNews] query JSON parse failed')
+    }
   } catch (e) {
-    logger.warn({ error: e.message }, '[multiSourceNews] query generation failed, using fallback')
+    logger.warn({ error: e.message }, '[multiSourceNews] per-source query generation failed')
   }
-  return 'crime investigation mystery scandal'
+
+  const fallback = 'crime investigation mystery scandal'
+  const result = {}
+  for (const provKey of activeProviders) {
+    const maxLen = PROVIDERS[provKey]?.maxQueryLen || 200
+    result[provKey] = fallback.slice(0, maxLen)
+  }
+  return result
 }
 
-/**
- * Deduplicate articles by normalized URL. Keeps first occurrence (preserves source priority).
- */
+// ── Deduplication ──────────────────────────────────────────────────────────
+
 function deduplicateArticles(articles, dynamicBlocklist) {
   const seen = new Map()
   let blocked = 0
@@ -93,9 +249,8 @@ function deduplicateArticles(articles, dynamicBlocklist) {
   return { articles: [...seen.values()], blocked }
 }
 
-/**
- * Structure articles with Claude — same prompt as firecrawlStories but source-agnostic.
- */
+// ── Claude structuring ─────────────────────────────────────────────────────
+
 async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, projectId) {
   const articlesText = articles
     .map((a, i) =>
@@ -157,9 +312,8 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
   }
 }
 
-/**
- * Main entry point: fetch stories from all available news APIs in parallel.
- */
+// ── Main entry point ───────────────────────────────────────────────────────
+
 async function fetchStoriesMultiSource({
   autoSearchQuery,
   learnedTags,
@@ -174,42 +328,59 @@ async function fetchStoriesMultiSource({
   newsApiKeys,
 }) {
   const dynamicBlocklist = (omitDomains || []).filter(d => d && typeof d === 'string')
-  const query = await buildSearchQuery(autoSearchQuery, anthropicApiKey, projectId)
+  const _debug = []
 
-  // #region agent log
-  fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'multiSourceNews.js:177',message:'query generated',data:{query,providers:Object.keys(newsApiKeys).filter(k=>newsApiKeys[k]),autoSearchQueryLen:(autoSearchQuery||'').length},timestamp:Date.now(),hypothesisId:'H1-H3'})}).catch(()=>{});
-  // #endregion
+  // 1. Determine active providers
+  const activeProviders = Object.keys(newsApiKeys).filter(k => newsApiKeys[k] && PROVIDERS[k])
 
-  logger.info({
-    projectId,
-    query: query.slice(0, 120),
-    providers: Object.keys(newsApiKeys).filter(k => newsApiKeys[k]),
-  }, '[multiSourceNews] starting parallel searches')
+  if (activeProviders.length === 0) {
+    return { stories: [], searchMeta: { error: 'No news API keys configured' } }
+  }
 
+  // 2. Collect per-source feedback from past stories
+  const feedback = await collectSourceFeedback(projectId)
+
+  _debug.push({
+    step: 'feedback',
+    providers: activeProviders,
+    feedbackSummary: Object.fromEntries(
+      activeProviders.map(p => [p, feedback[p]
+        ? { liked: feedback[p].liked.length, passed: feedback[p].passed.length, scripted: feedback[p].scripted.length, published: feedback[p].published.length }
+        : { liked: 0, passed: 0, scripted: 0, published: 0 }
+      ])
+    ),
+  })
+
+  // 3. Build per-source queries via Claude
+  const queries = await buildPerSourceQueries(
+    autoSearchQuery, anthropicApiKey, projectId, activeProviders, feedback
+  )
+
+  _debug.push({ step: 'queries', queries })
+
+  logger.info({ projectId, queries, providers: activeProviders }, '[multiSourceNews] starting per-source searches')
+
+  // 4. Execute searches with per-source queries
   const searches = []
   const providerNames = []
 
-  if (newsApiKeys.newsapi) {
-    searches.push(searchNewsAPI(query, newsApiKeys.newsapi, { pageSize: 20 }))
+  if (newsApiKeys.newsapi && queries.newsapi) {
+    searches.push(searchNewsAPI(queries.newsapi, newsApiKeys.newsapi, { pageSize: 20 }))
     providerNames.push('newsapi')
   }
-  if (newsApiKeys.gnews) {
-    searches.push(searchGNews(query, newsApiKeys.gnews, { max: 10 }))
+  if (newsApiKeys.gnews && queries.gnews) {
+    searches.push(searchGNews(queries.gnews, newsApiKeys.gnews, { max: 10 }))
     providerNames.push('gnews')
   }
-  if (newsApiKeys.guardian) {
-    searches.push(searchGuardian(query, newsApiKeys.guardian, { pageSize: 15 }))
+  if (newsApiKeys.guardian && queries.guardian) {
+    searches.push(searchGuardian(queries.guardian, newsApiKeys.guardian, { pageSize: 15 }))
     providerNames.push('guardian')
   }
-  if (newsApiKeys.nyt) {
-    searches.push(searchNYT(query, newsApiKeys.nyt))
+  if (newsApiKeys.nyt && queries.nyt) {
+    searches.push(searchNYT(queries.nyt, newsApiKeys.nyt))
     providerNames.push('nyt-search')
     searches.push(fetchNYTTopStories(newsApiKeys.nyt, 'world'))
     providerNames.push('nyt-top')
-  }
-
-  if (searches.length === 0) {
-    return { stories: [], searchMeta: { error: 'No news API keys configured' } }
   }
 
   const results = await Promise.allSettled(searches)
@@ -221,30 +392,35 @@ async function fetchStoriesMultiSource({
     const name = providerNames[i]
     const result = results[i]
     const baseService = name.startsWith('nyt') ? 'nyt' : name
+    const queryUsed = queries[baseService] || queries[name] || ''
     if (result.status === 'fulfilled') {
       const articles = result.value?.articles || []
       const count = articles.length
-      providerStats[name] = { status: 'ok', count }
+      providerStats[name] = { status: 'ok', count, query: queryUsed }
       rawArticles.push(...articles)
-      trackUsage({ projectId, service: baseService, action: `search: ${query.slice(0, 60)}`, tokensUsed: count, status: 'ok' })
+      trackUsage({ projectId, service: baseService, action: `search: ${queryUsed.slice(0, 60)}`, tokensUsed: count, status: 'ok' })
     } else {
       const errMsg = result.reason?.message || 'Unknown error'
-      providerStats[name] = { status: 'fail', error: errMsg }
-      trackUsage({ projectId, service: baseService, action: `search: ${query.slice(0, 60)}`, status: 'fail', error: errMsg })
+      providerStats[name] = { status: 'fail', error: errMsg, query: queryUsed }
+      trackUsage({ projectId, service: baseService, action: `search: ${queryUsed.slice(0, 60)}`, status: 'fail', error: errMsg })
     }
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'multiSourceNews.js:233',message:'all providers done',data:{providerStats,totalRaw:rawArticles.length,sampleTitles:rawArticles.slice(0,3).map(a=>({title:(a.title||'').slice(0,60),source:a.source,url:(a.url||'').slice(0,80)}))},timestamp:Date.now(),hypothesisId:'H1-H2-H4'})}).catch(()=>{});
-  // #endregion
+  _debug.push({
+    step: 'providers',
+    providerStats,
+    totalRaw: rawArticles.length,
+    sampleTitles: rawArticles.slice(0, 5).map(a => ({ title: (a.title || '').slice(0, 80), source: a.source })),
+  })
 
   logger.info({ providerStats, totalRaw: rawArticles.length }, '[multiSourceNews] all providers done')
 
   if (rawArticles.length === 0) {
     logger.warn({ projectId }, '[multiSourceNews] all providers returned 0 articles')
-    return { stories: [], searchMeta: { query, providerStats, totalArticles: 0, structured: 0 } }
+    return { stories: [], searchMeta: { queries, providerStats, totalArticles: 0, structured: 0, _debug } }
   }
 
+  // 5. Deduplicate and filter
   const { articles: filteredArticles, blocked } = deduplicateArticles(rawArticles, dynamicBlocklist)
 
   logger.info(
@@ -253,9 +429,10 @@ async function fetchStoriesMultiSource({
   )
 
   if (filteredArticles.length === 0) {
-    return { stories: [], searchMeta: { query, providerStats, totalArticles: rawArticles.length, blocked, structured: 0 } }
+    return { stories: [], searchMeta: { queries, providerStats, totalArticles: rawArticles.length, blocked, structured: 0, _debug } }
   }
 
+  // 6. Structure with Claude
   const structured = await structureWithClaude(
     filteredArticles,
     autoSearchQuery,
@@ -263,11 +440,14 @@ async function fetchStoriesMultiSource({
     projectId,
   )
 
-  // #region agent log
-  fetch('http://127.0.0.1:7764/ingest/005c653b-a8bd-4b04-a556-eb63f4603fc5',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f5a2bf'},body:JSON.stringify({sessionId:'f5a2bf',location:'multiSourceNews.js:257',message:'claude structured output',data:{filteredCount:filteredArticles.length,structuredCount:structured.length,structuredSample:structured.slice(0,3).map(s=>({headline:(s.headline||'').slice(0,60),sourceUrl:(s.sourceUrl||'').slice(0,80),sourceName:s.sourceName}))},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-  // #endregion
+  _debug.push({
+    step: 'claude',
+    filteredIn: filteredArticles.length,
+    structuredOut: structured.length,
+    sample: structured.slice(0, 3).map(s => ({ headline: (s.headline || '').slice(0, 60), sourceName: s.sourceName })),
+  })
 
-  // Build a url→source map from the raw articles to preserve provider info
+  // 7. Build stories with provider source preserved
   const urlToSource = new Map()
   for (const a of filteredArticles) {
     if (a.url) urlToSource.set(normalizeUrl(a.url), a.source || 'News')
@@ -293,13 +473,14 @@ async function fetchStoriesMultiSource({
     })
 
   const searchMeta = {
-    query,
+    queries,
     providerStats,
     totalArticles: rawArticles.length,
     blocked,
     filteredArticles: filteredArticles.length,
     structured: structured.length,
     accepted: stories.length,
+    _debug,
   }
 
   logger.info(searchMeta, '[multiSourceNews] fetch complete')
