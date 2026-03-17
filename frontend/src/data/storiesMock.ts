@@ -30,7 +30,7 @@ export const storiesMock: Story[] = [
   {
     id: "s1",
     title: "طبيب سعودي يعترف بقتل 3 مرضى بجرعات مضاعفة — المحكمة تصدر حكمها",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-12",
     relevance: 96,
     virality: 94,
@@ -55,7 +55,7 @@ export const storiesMock: Story[] = [
   {
     id: "s2",
     title: "حقيقة الطبيب الذي قتل 7 مرضى بجرعات مضاعفة في مستشفى خاص",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-09",
     relevance: 96,
     virality: 93,
@@ -79,7 +79,7 @@ export const storiesMock: Story[] = [
   {
     id: "s3",
     title: "فضيحة تسريب بيانات 50 مليون مستخدم عربي من تطبيق مشهور",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-11",
     relevance: 92,
     virality: 97,
@@ -93,7 +93,7 @@ export const storiesMock: Story[] = [
   {
     id: "s4",
     title: "اكتشاف مدينة أثرية تحت الرمال في الربع الخالي عمرها 5000 سنة",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-12",
     relevance: 88,
     virality: 91,
@@ -107,7 +107,7 @@ export const storiesMock: Story[] = [
   {
     id: "s5",
     title: "شركة سعودية ناشئة تحصل على أكبر تمويل في تاريخ المنطقة — 2 مليار دولار",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-10",
     relevance: 85,
     virality: 88,
@@ -121,7 +121,7 @@ export const storiesMock: Story[] = [
   {
     id: "s6",
     title: "أول رائد فضاء عربي يسير في الفضاء — لحظات تاريخية من المحطة الدولية",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-08",
     relevance: 90,
     virality: 95,
@@ -135,7 +135,7 @@ export const storiesMock: Story[] = [
   {
     id: "s7",
     title: "عملية إنقاذ مذهلة — غواصون سعوديون ينقذون 12 شخصاً من كهف تحت الماء",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-11",
     relevance: 94,
     virality: 96,
@@ -149,7 +149,7 @@ export const storiesMock: Story[] = [
   {
     id: "s8",
     title: "كيف بنى شاب سعودي إمبراطورية تجارة إلكترونية من غرفته — قصة نجاح ملهمة",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-07",
     relevance: 80,
     virality: 85,
@@ -167,7 +167,7 @@ export const storiesMock: Story[] = [
   {
     id: "s9",
     title: "السر وراء اختفاء 3 سياح في صحراء نيوم — التحقيق الكامل",
-    source: "Perplexity Sonar",
+    source: "Firecrawl",
     sourceDate: "2026-03-05",
     relevance: 93,
     virality: 97,

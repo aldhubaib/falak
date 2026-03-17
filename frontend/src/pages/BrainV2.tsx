@@ -528,7 +528,7 @@ export default function BrainV2() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Send className="w-4 h-4 text-success" />
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-dim">Generated Perplexity Query</span>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-dim">Generated Search Query</span>
                     <span className="w-2 h-2 rounded-full bg-success" />
                   </div>
                   <CopyBtn text={autoSearchQuery} />

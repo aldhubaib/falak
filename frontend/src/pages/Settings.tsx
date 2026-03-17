@@ -49,8 +49,8 @@ const KEY_DEFS: ApiKeyDef[] = [
   },
   {
     service: "perplexity",
-    name: "Perplexity Sonar",
-    description: "Used in Stories → Fetch step to search the web for fresh news and untouched story angles.",
+    name: "Perplexity Sonar (Legacy)",
+    description: "Legacy key — story search now uses Firecrawl. Keep if you have existing integrations.",
     icon: "search",
     placeholder: "pplx-...",
   },

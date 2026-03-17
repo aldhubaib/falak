@@ -1,6 +1,6 @@
 # Query Builder — Stage by Stage
 
-The **Auto Search Query** is the Arabic prompt sent to Perplexity Sonar to discover story suggestions. It is built inside Brain v2 (`getBrainV2Data`). Below is the pipeline stage by stage.
+The **Auto Search Query** is the Arabic prompt used by Firecrawl + Claude to discover story suggestions. It is built inside Brain v2 (`getBrainV2Data`). Below is the pipeline stage by stage.
 
 ---
 
@@ -156,8 +156,28 @@ flowchart TB
                           autoSearchQuery (single string)
                                     │
                                     ▼
-                    Used by: GET /api/brain-v2 (UI) and POST /api/stories/fetch (Perplexity)
+                    Used by: GET /api/brain-v2 (UI) and POST /api/stories/fetch (Firecrawl)
 ```
+
+---
+
+## How Firecrawl search uses Brain signals
+
+When `POST /api/stories/fetch` is called, it does NOT send the full `autoSearchQuery` to Firecrawl.
+Instead, `buildSearchQueries()` generates **1-3 targeted keyword searches** from Brain signals:
+
+| Query | Source Signal | Purpose |
+|-------|-------------|---------|
+| **demand** | `learnedTags` (top 5) + `regionHints` | What topics get the most views in your niche? |
+| **proven** | `tier1Topics` (top 3) + `regionHints` | Topics that have proven successful — search for new developments |
+| **patterns** | `topCompTopics` (top 2) + `tier2Topics` (top 2) | Competitor winning patterns + high-demand gaps |
+| **fallback** | Hardcoded Arabic keywords | Used only when no Brain signals exist yet |
+
+All searches run **in parallel** with 30s timeout and 1 retry. Results are **deduped by URL**,
+then sent to Claude with the **full `autoSearchQuery`** as context for filtering and structuring.
+
+Stories are created even without scraped article content — content is lazy-fetched via
+`POST /api/stories/:id/fetch-article` when the user opens the story.
 
 ---
 
@@ -185,4 +205,4 @@ View thresholds use **median** (not mean) to handle power-law distributions.
 3. **Learning**: TopicMemory stores per-topic weight (view-weighted, engagement-boosted), demandScore, performanceScore, format wins. Time-decayed on read (30-day half-life). Velocity computed from recent events.
 4. **Query**: Dynamic base (learned tags, region hints, format preference) + pattern section + memory tiers (tier1 proven winners, tier2 high-demand untouched) + open/gap/taken/avoid sections → one Arabic prompt.
 5. **Scoring**: Multi-signal ranking (time-decayed weight, competitor view potential, exponential freshness, log saturation penalty) → top 5 ranked opportunities.
-6. That prompt is shown in the Brain v2 UI as **Auto Search Query** and is what **Fetch** sends to Perplexity to get story suggestions.
+6. That prompt is shown in the Brain v2 UI as **Auto Search Query** and is what **Fetch** sends to Firecrawl + Claude to get story suggestions.

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { LayoutGrid, Swords, GitBranch, Circle, TrendingUp, Sparkles, Brain, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -39,6 +40,7 @@ interface AppSidebarProps {
 export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pinned = false, onTogglePin }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const currentUser = useCurrentUser();
   const base = `/p/${projectId}`;
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -269,13 +271,21 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
         onClick={() => setLogoutOpen(true)}
         className={`px-3 py-3 flex items-center gap-2.5 bg-[#080808] hover:bg-elevated/60 transition-colors w-full text-left ${collapsed ? "justify-center" : ""}`}
       >
-        <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-semibold text-primary shrink-0">
-          A
-        </div>
+        {currentUser?.avatarUrl ? (
+          <img
+            src={currentUser.avatarUrl}
+            alt={currentUser.name}
+            className="w-7 h-7 rounded-full object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-semibold text-primary shrink-0">
+            {(currentUser?.name ?? "?").slice(0, 1).toUpperCase()}
+          </div>
+        )}
         {!collapsed && (
           <div className="min-w-0">
-            <div className="text-[12px] font-medium text-foreground truncate">Abdulaziz</div>
-            <div className="text-[11px] text-dim truncate">a@falak.io</div>
+            <div className="text-[12px] font-medium text-foreground truncate">{currentUser?.name ?? "User"}</div>
+            <div className="text-[11px] text-dim truncate">{currentUser?.email ?? (currentUser?.id ? "Signed in" : "—")}</div>
           </div>
         )}
       </button>

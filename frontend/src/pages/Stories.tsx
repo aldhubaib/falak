@@ -32,7 +32,7 @@ export interface ApiStory {
 }
 
 const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
-  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-orange",     sub: "awaiting triage · from Brain v2 + Perplexity" },
+  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-orange",     sub: "awaiting triage · from Brain v2 + Firecrawl" },
   { key: "liked",      label: "Liked",          color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "saved for review" },
   { key: "scripting",  label: "Scripting",      color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "editing script" },
   { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-success", sub: "waiting for URL" },
@@ -138,7 +138,7 @@ export default function Stories() {
     }
     setFetchError(null);
     setFetching(true);
-    toast.info("Fetching new stories from Perplexity Sonar…");
+    toast.info("Fetching new stories from Firecrawl…");
     try {
       const r = await fetch("/api/stories/fetch", {
         method: "POST",
@@ -230,7 +230,7 @@ export default function Stories() {
           <button
             onClick={handleFetch}
             disabled={fetching || !projectId}
-            title="Fetch new story suggestions from Perplexity using the Brain v2 query"
+            title="Fetch new story suggestions from Firecrawl using the Brain v2 query"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
           >
             {fetching ? (

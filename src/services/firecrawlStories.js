@@ -1,52 +1,131 @@
 /**
- * Firecrawl + Claude for story discovery. Replaces Perplexity.
- * Firecrawl uses SHORT keyword search to find articles.
- * Claude uses the FULL brain query as context to structure results correctly.
+ * Firecrawl + Claude for story discovery.
+ *
+ * Architecture:
+ *   1. Brain v2 provides rich signals (learnedTags, tier1/2 topics, patterns, region)
+ *   2. buildSearchQueries() turns those into 1-3 focused Firecrawl search queries
+ *   3. Searches run in parallel with timeout + retry
+ *   4. Results are merged, deduped, and sent to Claude for structuring
+ *   5. Stories are returned even without scraped article content (lazy-fetched later)
  */
 const fetch = require('node-fetch')
 const { callAnthropic } = require('./pipelineProcessor')
+const logger = require('../lib/logger')
 
+const SEARCH_TIMEOUT_MS = 30000
+const RETRY_DELAY_MS = 2000
+const MAX_RETRIES = 1
+
+/**
+ * Build 1-3 targeted Firecrawl search queries from Brain v2 signals.
+ * Each query focuses on a different signal to maximize source diversity.
+ */
+function buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics, topCompTopics }) {
+  const queries = []
+  const region = (regionHints || []).slice(0, 1).join(' ')
+
+  const mainTags = (learnedTags || []).slice(0, 5)
+  if (mainTags.length > 0) {
+    const q = [mainTags.join(' '), region].filter(Boolean).join(' ').trim()
+    queries.push({ label: 'demand', query: q, limit: 7 })
+  }
+
+  const proven = (tier1Topics || []).slice(0, 3)
+  if (proven.length > 0) {
+    const q = [proven.join(' '), region].filter(Boolean).join(' ').trim()
+    if (!queries.some(existing => existing.query === q)) {
+      queries.push({ label: 'proven', query: q, limit: 5 })
+    }
+  }
+
+  const patterns = [
+    ...(topCompTopics || []).slice(0, 2),
+    ...(tier2Topics || []).slice(0, 2),
+  ].filter(Boolean)
+  if (patterns.length > 0) {
+    const q = [patterns.join(' '), region].filter(Boolean).join(' ').trim()
+    if (!queries.some(existing => existing.query === q)) {
+      queries.push({ label: 'patterns', query: q, limit: 5 })
+    }
+  }
+
+  if (queries.length === 0) {
+    queries.push({
+      label: 'fallback',
+      query: region ? `جريمة حقيقية تحقيق جنائي ${region}` : 'جريمة حقيقية تحقيق جنائي',
+      limit: 10,
+    })
+  }
+
+  return queries
+}
+
+/** For backward compat — single query builder used when no rich signals available. */
 function buildFirecrawlSearchQuery(learnedTags, regionHints) {
   const tags = (learnedTags || []).slice(0, 4).join(' ')
   const region = (regionHints || []).slice(0, 1).join(' ')
   return [tags, region].filter(Boolean).join(' ').trim() || 'جريمة حقيقية تحقيق جنائي'
 }
 
-async function searchWithFirecrawl(searchQuery, firecrawlApiKey) {
-  const res = await fetch('https://api.firecrawl.dev/v2/search', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${firecrawlApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query: searchQuery,
-      limit: 10,
-      sources: [
-        { type: 'web', tbs: 'qdr:w' },
-        { type: 'news' },
-      ],
-      scrapeOptions: {
-        formats: ['markdown'],
-        onlyMainContent: true,
+async function searchWithFirecrawl(searchQuery, firecrawlApiKey, limit = 10) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS)
+
+  try {
+    const res = await fetch('https://api.firecrawl.dev/v2/search', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${firecrawlApiKey}`,
+        'Content-Type': 'application/json',
       },
-    }),
-  })
+      body: JSON.stringify({
+        query: searchQuery,
+        limit,
+        scrapeOptions: {
+          formats: ['markdown'],
+          onlyMainContent: true,
+        },
+      }),
+      signal: controller.signal,
+    })
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Firecrawl search failed: ${res.status} ${err}`)
-  }
+    clearTimeout(timeout)
 
-  const data = await res.json()
-  const raw = data.data || {}
-  const web = Array.isArray(raw.web) ? raw.web : []
-  const news = Array.isArray(raw.news) ? raw.news : []
-  const articles = [...web, ...news]
-  if (articles.length === 0) {
-    console.warn('[firecrawlStories] Search returned 0 articles. query:', searchQuery.slice(0, 80), 'response keys:', Object.keys(raw))
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Firecrawl search failed: ${res.status} ${err}`)
+    }
+
+    const data = await res.json()
+    const raw = data.data || {}
+    const web = Array.isArray(raw.web) ? raw.web : []
+    const news = Array.isArray(raw.news) ? raw.news : []
+    const results = Array.isArray(data.data) ? data.data : [...web, ...news]
+    return results
+  } catch (e) {
+    clearTimeout(timeout)
+    throw e
   }
-  return articles
+}
+
+/**
+ * Search with retry for transient failures (429, 503, network errors).
+ */
+async function searchWithRetry(searchQuery, firecrawlApiKey, limit = 10) {
+  let lastError
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await searchWithFirecrawl(searchQuery, firecrawlApiKey, limit)
+    } catch (e) {
+      lastError = e
+      const isRetryable = e.name === 'AbortError' ||
+        /429|503|timeout|ECONNRESET|ETIMEDOUT/i.test(e.message)
+      if (!isRetryable || attempt >= MAX_RETRIES) throw e
+      logger.warn({ query: searchQuery.slice(0, 80), attempt, error: e.message }, '[firecrawlStories] retrying search')
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)))
+    }
+  }
+  throw lastError
 }
 
 const MIN_ARTICLE_LENGTH = 100
@@ -63,7 +142,6 @@ function normalizeUrl(u) {
   }
 }
 
-/** Build map: normalized URL -> scraped markdown (only when length >= MIN_ARTICLE_LENGTH). */
 function buildUrlToContent(articles) {
   const map = new Map()
   for (const a of articles) {
@@ -85,6 +163,18 @@ function findContentForSourceUrl(urlToContent, sourceUrl) {
     if (sourceUrl === url || sourceUrl.startsWith(url) || url.startsWith(sourceUrl)) return content
   }
   return null
+}
+
+/** Deduplicate articles by normalized URL. */
+function deduplicateArticles(articles) {
+  const seen = new Map()
+  for (const a of articles) {
+    const url = a.url || a.metadata?.sourceURL || a.metadata?.url
+    if (!url) continue
+    const key = normalizeUrl(url)
+    if (!seen.has(key)) seen.set(key, a)
+  }
+  return [...seen.values()]
 }
 
 async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, projectId) {
@@ -141,7 +231,7 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
         return JSON.parse(arrayMatch[0])
       } catch (_) {}
     }
-    console.error('[firecrawlStories] Claude JSON parse failed:', clean.slice(0, 300))
+    logger.error({ snippet: clean.slice(0, 300) }, '[firecrawlStories] Claude JSON parse failed')
     return []
   }
 }
@@ -149,9 +239,12 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
 /**
  * Fetch story suggestions via Firecrawl (search) + Claude (structure).
  * @param {object} opts
- * @param {string} opts.autoSearchQuery - Full brain query → Claude context only (never sent to Firecrawl)
+ * @param {string} opts.autoSearchQuery - Full brain query → Claude context only
  * @param {string[]} opts.learnedTags - From queryMeta → Firecrawl search keywords
  * @param {string[]} opts.regionHints - From queryMeta → appended to Firecrawl search
+ * @param {string[]} opts.tier1Topics - Proven winner topics from topic memory
+ * @param {string[]} opts.tier2Topics - High-demand untouched topics
+ * @param {string[]} opts.topCompTopics - Competitor winning patterns
  * @param {string} opts.projectId
  * @param {string} opts.queryVersion
  * @param {string} opts.firecrawlApiKey
@@ -161,27 +254,58 @@ async function fetchStoriesViaFirecrawl({
   autoSearchQuery,
   learnedTags,
   regionHints,
+  tier1Topics,
+  tier2Topics,
+  topCompTopics,
   projectId,
   queryVersion,
   firecrawlApiKey,
   anthropicApiKey,
 }) {
-  const firecrawlQuery = buildFirecrawlSearchQuery(learnedTags, regionHints)
+  const queries = buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics, topCompTopics })
 
-  const articles = await searchWithFirecrawl(firecrawlQuery, firecrawlApiKey)
-  if (!articles.length) return []
+  logger.info(
+    { projectId, queryCount: queries.length, queries: queries.map(q => ({ label: q.label, query: q.query.slice(0, 80) })) },
+    '[firecrawlStories] starting parallel searches'
+  )
+
+  const searchResults = await Promise.allSettled(
+    queries.map(q => searchWithRetry(q.query, firecrawlApiKey, q.limit))
+  )
+
+  let allArticles = []
+  let totalSearched = 0
+  for (let i = 0; i < searchResults.length; i++) {
+    const result = searchResults[i]
+    const q = queries[i]
+    if (result.status === 'fulfilled') {
+      const count = result.value.length
+      totalSearched += count
+      logger.info({ label: q.label, resultCount: count }, '[firecrawlStories] search completed')
+      allArticles.push(...result.value)
+    } else {
+      logger.error({ label: q.label, error: result.reason?.message }, '[firecrawlStories] search failed')
+    }
+  }
+
+  if (allArticles.length === 0) {
+    logger.warn({ projectId }, '[firecrawlStories] all searches returned 0 articles')
+    return { stories: [], searchMeta: { queryCount: queries.length, totalArticles: 0, structured: 0 } }
+  }
+
+  allArticles = deduplicateArticles(allArticles)
+  logger.info({ deduped: allArticles.length, raw: totalSearched }, '[firecrawlStories] articles after dedup')
 
   const structured = await structureWithClaude(
-    articles,
+    allArticles,
     autoSearchQuery,
     anthropicApiKey,
     projectId
   )
-  if (!structured.length) return []
 
-  const urlToContent = buildUrlToContent(articles)
+  const urlToContent = buildUrlToContent(allArticles)
 
-  return structured
+  const stories = structured
     .filter((s) => s.headline && s.sourceUrl)
     .map((s) => {
       const content = findContentForSourceUrl(urlToContent, s.sourceUrl)
@@ -191,22 +315,34 @@ async function fetchStoriesViaFirecrawl({
             ? content.slice(0, MAX_ARTICLE_LENGTH) + '…'
             : content
           : null
-      return { ...s, articleContent }
+      return {
+        projectId,
+        headline: s.headline,
+        sourceUrl: s.sourceUrl,
+        sourceName: s.sourceName || 'Firecrawl',
+        sourceDate: s.sourceDate ? new Date(s.sourceDate) : null,
+        stage: 'suggestion',
+        brief: {
+          summary: s.summary || '',
+          articleContent,
+        },
+        queryVersion: queryVersion || 'v2-dynamic',
+      }
     })
-    .filter((s) => s.articleContent != null)
-    .map((s) => ({
-      projectId,
-      headline: s.headline,
-      sourceUrl: s.sourceUrl,
-      sourceName: s.sourceName || 'Firecrawl',
-      sourceDate: s.sourceDate ? new Date(s.sourceDate) : null,
-      stage: 'suggestion',
-      brief: {
-        summary: s.summary || '',
-        articleContent: s.articleContent,
-      },
-      queryVersion: queryVersion || 'v2-dynamic',
-    }))
+
+  const searchMeta = {
+    queryCount: queries.length,
+    queries: queries.map(q => q.label),
+    totalArticles: totalSearched,
+    dedupedArticles: allArticles.length,
+    structured: structured.length,
+    withContent: stories.filter(s => s.brief.articleContent != null).length,
+    withoutContent: stories.filter(s => s.brief.articleContent == null).length,
+  }
+
+  logger.info(searchMeta, '[firecrawlStories] fetch complete')
+
+  return { stories, searchMeta }
 }
 
-module.exports = { fetchStoriesViaFirecrawl, buildFirecrawlSearchQuery }
+module.exports = { fetchStoriesViaFirecrawl, buildFirecrawlSearchQuery, buildSearchQueries }

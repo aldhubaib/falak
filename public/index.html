@@ -6491,7 +6491,7 @@ function brRenderContent() {
           Sent to Perplexity on every Fetch. Asks for stories NOT in the competitor database. Built from your gap wins.
         </div>
         <div class="br-query-box">
-          <div class="br-query-hdr"><span class="br-pulse" style="width:5px;height:5px;"></span> PERPLEXITY SONAR PROMPT</div>
+          <div class="br-query-hdr"><span class="br-pulse" style="width:5px;height:5px;"></span> FIRECRAWL + CLAUDE PROMPT</div>
           <div class="br-query-body" id="br-query-text">${brBuildQuery(b)}</div>
           <button class="br-query-copy" onclick="brCopyQuery()">Copy</button>
         </div>
@@ -6799,7 +6799,7 @@ function brGetQueryForWs(wsId) {
 const API_KEY_META = {
   anthropic:    { label:'Anthropic (Claude)',         icon:'🧠', desc:'Used by Brain to extract stories from transcripts and check competitor coverage. Also used for Stories AI evaluation.' },
   youtube:      { label:'YouTube Data API v3',        icon:'▶',  desc:'Fetches views, likes, and comment counts from YouTube URLs you submit in Stories – Produced stage.' },
-  perplexity:   { label:'Perplexity Sonar',           icon:'⚡', desc:'Fetches fresh news and stories in Stories – Fetch step. Searches the web for untouched cases.' },
+  perplexity:   { label:'Perplexity Sonar (Legacy)',   icon:'⚡', desc:'Legacy key — story search now uses Firecrawl. Keep if you have existing integrations.' },
   yttranscript: { label:'YouTube Transcript API',     icon:'📄', desc:'Fetches full transcripts from any YouTube video URL. Used in Brain to extract competitor stories from videos, <a href="https://www.youtube-transcript.io/" target="_blank" rel="noopener" style="color:var(--accent);">youtube-transcript.io</a>.' },
 };
 // Merge meta into initial state so label/icon/desc always exist
@@ -8279,7 +8279,7 @@ async function stFetch() {
   await new Promise(r => setTimeout(r, 1200));
   const newStory = {
     id: 'st' + Date.now(), stage:'suggestion',
-    source:'Perplexity Sonar',
+    source:'Firecrawl',
     headline:'وفاة مفاجئة لمذيع شهير خلال البث المباشر — التحقيق يكشف مفاجأة',
     project: stFilterProj || 'horror',
     fetchedAt: new Date().toISOString().slice(0,10),

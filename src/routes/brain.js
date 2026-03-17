@@ -12,7 +12,7 @@ router.use(requireAuth)
 //   publishedVideos    – our published videos tagged gap_win | late
 //   competitorChannels – competitor channels in this project
 //   competitorActivity – story count per competitor channel
-//   autoSearchQuery    – dynamic Perplexity prompt
+//   autoSearchQuery    – dynamic search prompt (Firecrawl + Claude)
 router.get('/', async (req, res) => {
   let debugStage = 'init'
   try {
@@ -241,7 +241,7 @@ router.get('/', async (req, res) => {
       .map((ch) => ({ ...ch, count: activityCount[ch.id] || 0 }))
       .sort((a, b) => b.count - a.count)
 
-    // ── 9. Auto-search query (dynamic Perplexity prompt) ─────────────────────
+    // ── 9. Auto-search query (dynamic Firecrawl + Claude prompt) ──────────────
     debugStage = 'build-auto-search-query'
     const gapWinTitles = publishedVideos
       .filter((v) => v.result === 'gap_win')

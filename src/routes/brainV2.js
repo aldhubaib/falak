@@ -267,7 +267,7 @@ function buildDynamicQuery({
   pipeline.push({
     id: 'assembly',
     title: 'Query Assembly',
-    description: 'All signals combined into the final Perplexity Sonar prompt.',
+    description: 'All signals combined into the final Firecrawl + Claude prompt.',
     inputCount: querySections.filter(s => s.active).length,
     inputLabel: 'active sections',
     outputCount: 1,
@@ -291,6 +291,9 @@ function buildDynamicQuery({
       tier2Count:     tier2Topics.length,
       avoidCount:     avoidTopics.length,
       patternCount:   topCompTopics.length,
+      tier1Topics,
+      tier2Topics,
+      topCompTopics,
       generatedAt:    new Date().toISOString(),
     },
     pipeline,
@@ -445,9 +448,13 @@ async function getBrainV2Data(projectId) {
     debugStage = 'query-competitor-channels'
     const competitorChannelsRaw = await db.channel.findMany({
       where: { projectId, type: 'competitor' },
-      select: { id: true, nameAr: true, nameEn: true, handle: true, avatarUrl: true },
+      select: { id: true, nameAr: true, nameEn: true, handle: true, avatarUrl: true, nationality: true },
       orderBy: { subscribers: 'desc' },
     })
+
+    const regionHints = [...new Set(
+      competitorChannelsRaw.map(ch => ch.nationality).filter(Boolean)
+    )].slice(0, 3)
     const COLORS = ['bg-blue', 'bg-purple', 'bg-orange', 'bg-destructive', 'bg-success', 'bg-sensor']
     const competitorChannels = competitorChannelsRaw.map((ch, i) => ({
       id: ch.id, name: ch.nameAr || ch.nameEn || ch.handle, handle: ch.handle, avatarUrl: ch.avatarUrl,
@@ -543,6 +550,7 @@ async function getBrainV2Data(projectId) {
 
   const queryMeta = {
     ...dynamicQueryMeta,
+    regionHints,
     schemaVersion: 2,
     provider: 'internal',
     fallbackReason: null,

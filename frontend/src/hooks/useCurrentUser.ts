@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 export interface CurrentUser {
   id: string;
   name: string;
+  email?: string | null;
   avatarUrl: string | null;
 }
 
@@ -14,11 +15,12 @@ function fetchCurrentUser(): Promise<CurrentUser | null> {
       if (r.ok) return r.json();
       return null;
     })
-    .then((data: { id?: string; name?: string; avatarUrl?: string | null } | null) => {
+    .then((data: { id?: string; name?: string; email?: string | null; avatarUrl?: string | null } | null) => {
       if (!data?.id) return null;
       return {
         id: data.id,
         name: data.name ?? "Anonymous",
+        email: data.email ?? null,
         avatarUrl: data.avatarUrl ?? null,
       };
     })

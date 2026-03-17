@@ -129,14 +129,20 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       })
     }
 
-    const storiesToCreate = await fetchStoriesViaFirecrawl({
+    const fetchResult = await fetchStoriesViaFirecrawl({
       autoSearchQuery: brainData.autoSearchQuery,
       learnedTags: brainData.queryMeta?.learnedTags || [],
+      regionHints: brainData.queryMeta?.regionHints || [],
+      tier1Topics: brainData.queryMeta?.tier1Topics || [],
+      tier2Topics: brainData.queryMeta?.tier2Topics || [],
+      topCompTopics: brainData.queryMeta?.topCompTopics || [],
       projectId,
       queryVersion: brainData.queryMeta?.version || 'v2-competitor-driven',
       firecrawlApiKey: firecrawlKey,
       anthropicApiKey: anthropicKey,
     })
+    const storiesToCreate = fetchResult.stories || fetchResult
+    const searchMeta = fetchResult.searchMeta || null
 
     const created = []
     for (const storyData of storiesToCreate) {
@@ -277,14 +283,16 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       }
     }
 
-    const tokensUsed = 2000
-    trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', tokensUsed, status: 'ok' })
+    const estimatedTokens = searchMeta
+      ? (searchMeta.totalArticles || 0) * 200 + (searchMeta.structured || 0) * 100
+      : 2000
+    trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', tokensUsed: estimatedTokens, status: 'ok' })
 
     const message =
       created.length > 0
         ? null
         : 'Firecrawl returned 0 new stories (they may have been filtered or try again).'
-    res.json({ ok: true, created: created.length, stories: created, message })
+    res.json({ ok: true, created: created.length, stories: created, message, searchMeta })
   } catch (e) {
     console.error('[stories/fetch]', e)
     const message = e instanceof Error ? e.message : String(e)
