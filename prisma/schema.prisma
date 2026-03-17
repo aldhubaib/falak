@@ -27,6 +27,7 @@ model Project {
   nytApiKeyEncrypted          String?   @db.Text
   channels                    Channel[]
   stories                     Story[]
+  articleSources              ArticleSource[]
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 }
@@ -321,4 +322,58 @@ model TopicMemoryEvent {
 
   @@unique([videoId, topicKey, outcome])
   @@index([projectId, occurredAt])
+}
+
+// ─────────────────────────────────────────────
+// BRAIN V3: Article Sources & Article Pipeline
+// ─────────────────────────────────────────────
+model ArticleSource {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type         String    // newsapi | gnews | gnews_top | guardian | nyt_search | nyt_top | rss
+  label        String
+  config       Json      // native API params per type
+  isActive     Boolean   @default(true)
+  language     String    @default("en")
+  lastPolledAt DateTime?
+  articles     Article[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([projectId])
+}
+
+model Article {
+  id             String        @id @default(cuid())
+  projectId      String
+  sourceId       String
+  source         ArticleSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  url            String
+  title          String?
+  description    String?       @db.Text
+  content        String?       @db.Text
+  contentClean   String?       @db.Text
+  publishedAt    DateTime?
+  language       String?
+
+  stage          String        @default("ingest")
+  status         String        @default("queued")
+  retries        Int           @default(0)
+  error          String?
+
+  analysis       Json?
+  relevanceScore Float?
+
+  rankScore      Float?
+  rankReason     String?
+
+  storyId        String?
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([projectId, url])
+  @@index([sourceId, stage])
+  @@index([projectId, stage])
 }

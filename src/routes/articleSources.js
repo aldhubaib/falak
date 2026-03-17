@@ -1,0 +1,146 @@
+const express = require('express')
+const db = require('../lib/db')
+const { requireAuth, requireRole } = require('../middleware/auth')
+const {
+  VALID_SOURCE_TYPES,
+  validateConfig,
+  testSourceFetch,
+} = require('../services/articlePipeline')
+
+const router = express.Router()
+router.use(requireAuth)
+
+// ── GET /api/article-sources?projectId=X ──────────────────────────────────
+router.get('/', async (req, res) => {
+  try {
+    const { projectId } = req.query
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+
+    const sources = await db.articleSource.findMany({
+      where: { projectId },
+      include: {
+        _count: { select: { articles: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    const withStats = await Promise.all(sources.map(async (s) => {
+      const stageCounts = await db.article.groupBy({
+        by: ['stage'],
+        where: { sourceId: s.id },
+        _count: true,
+      })
+      const stats = {}
+      for (const row of stageCounts) {
+        stats[row.stage] = row._count
+      }
+      return { ...s, articleCount: s._count.articles, stats }
+    }))
+
+    res.json(withStats)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-sources ─────────────────────────────────────────────
+router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { projectId, type, label, config, language } = req.body
+    if (!projectId || !type || !label || !config) {
+      return res.status(400).json({ error: 'projectId, type, label, and config are required' })
+    }
+    if (!VALID_SOURCE_TYPES.includes(type)) {
+      return res.status(400).json({ error: `Invalid type. Must be one of: ${VALID_SOURCE_TYPES.join(', ')}` })
+    }
+    const configError = validateConfig(type, config)
+    if (configError) return res.status(400).json({ error: configError })
+
+    const source = await db.articleSource.create({
+      data: {
+        projectId,
+        type,
+        label: label.trim(),
+        config,
+        language: language || 'en',
+      },
+    })
+    res.json(source)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── PATCH /api/article-sources/:id ────────────────────────────────────────
+router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const existing = await db.articleSource.findUnique({ where: { id: req.params.id } })
+    if (!existing) return res.status(404).json({ error: 'Source not found' })
+
+    const data = {}
+    if (req.body.label !== undefined) data.label = req.body.label.trim()
+    if (req.body.isActive !== undefined) data.isActive = !!req.body.isActive
+    if (req.body.language !== undefined) data.language = req.body.language
+    if (req.body.config !== undefined) {
+      const type = req.body.type || existing.type
+      const configError = validateConfig(type, req.body.config)
+      if (configError) return res.status(400).json({ error: configError })
+      data.config = req.body.config
+      if (req.body.type) data.type = req.body.type
+    }
+
+    const updated = await db.articleSource.update({ where: { id: req.params.id }, data })
+    res.json(updated)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── DELETE /api/article-sources/:id ───────────────────────────────────────
+router.delete('/:id', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    await db.articleSource.delete({ where: { id: req.params.id } })
+    res.json({ ok: true })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Source not found' })
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-sources/:id/test — dry-run fetch ────────────────────
+router.post('/:id/test', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const source = await db.articleSource.findUnique({
+      where: { id: req.params.id },
+      include: { project: true },
+    })
+    if (!source) return res.status(404).json({ error: 'Source not found' })
+
+    const articles = await testSourceFetch(source.type, source.config, source.project)
+    res.json({ articles, count: articles.length })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-sources/test-config — dry-run with arbitrary config ─
+router.post('/test-config', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { projectId, type, config } = req.body
+    if (!projectId || !type || !config) {
+      return res.status(400).json({ error: 'projectId, type, and config required' })
+    }
+    const configError = validateConfig(type, config)
+    if (configError) return res.status(400).json({ error: configError })
+
+    const project = await db.project.findUnique({ where: { id: projectId } })
+    if (!project) return res.status(404).json({ error: 'Project not found' })
+
+    const articles = await testSourceFetch(type, config, project)
+    res.json({ articles, count: articles.length })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+module.exports = router
