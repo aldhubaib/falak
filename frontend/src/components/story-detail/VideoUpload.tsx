@@ -8,10 +8,10 @@ import {
   Film,
   Loader2,
   Play,
-  Clock,
   HardDrive,
   RefreshCw,
-  ExternalLink,
+  Clock,
+  Calendar,
 } from "lucide-react";
 
 interface VideoUploadProps {
@@ -125,63 +125,75 @@ export function VideoUpload({
       : "";
 
     return (
-      <div className="rounded-xl bg-background border border-border overflow-hidden">
-        <div className="flex max-sm:flex-col">
-          {/* Thumbnail placeholder */}
-          <div className="w-44 max-sm:w-full max-sm:h-28 bg-elevated shrink-0 flex items-center justify-center relative">
-            <div className="flex flex-col items-center gap-1.5">
-              <Loader2 className="w-6 h-6 animate-spin text-blue" />
-              <span className="text-[9px] font-mono text-dim uppercase tracking-widest">Uploading</span>
+      <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
+        {/* Left — animated upload area */}
+        <div className="relative shrink-0 p-3 w-[200px] max-md:w-full">
+          <div className="w-full aspect-video rounded-xl bg-elevated flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-7 h-7 animate-spin text-blue" />
+              <span className="text-[10px] font-mono text-dim uppercase tracking-wider">
+                {Math.round(task.progress)}%
+              </span>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface">
+          </div>
+          <div className="absolute bottom-3 left-3 right-3 h-1 rounded-full bg-surface overflow-hidden">
+            <div
+              className="h-full bg-blue rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${task.progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Right — info */}
+        <div className="flex-1 flex flex-col gap-3 py-4 pr-5 pl-1 max-md:pt-0 max-md:px-4 max-md:pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[13px] font-semibold tracking-tight truncate" dir="rtl" style={{ textAlign: "right" }}>
+              {task.file.name}
+            </p>
+            <button
+              onClick={abort}
+              className="shrink-0 p-1.5 rounded-lg text-dim hover:text-red-400 hover:bg-red-400/10 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="relative h-1.5 bg-surface rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue transition-all duration-300 ease-out"
+                className="absolute inset-y-0 left-0 bg-blue rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${task.progress}%` }}
               />
             </div>
+            <div className="flex items-center justify-between text-[10px] text-dim font-mono">
+              <span>{formatBytes(task.bytesUploaded)} / {formatBytes(task.file.size)}</span>
+              <span>{etaText}</span>
+            </div>
           </div>
 
-          {/* Meta */}
-          <div className="flex-1 min-w-0 p-4 flex flex-col justify-center gap-2.5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium truncate">{task.file.name}</p>
-                <p className="text-[11px] text-dim font-mono mt-0.5">
-                  {formatBytes(task.bytesUploaded)} / {formatBytes(task.file.size)}
-                </p>
-              </div>
-              <button
-                onClick={abort}
-                className="shrink-0 p-1.5 rounded-lg text-dim hover:text-red-400 hover:bg-red-400/10 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="relative h-1.5 bg-surface rounded-full overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 bg-blue rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${task.progress}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[10px] text-dim font-mono">
-                  <span>Part {task.completedParts}/{task.totalParts}</span>
-                  {speedText && (
-                    <>
-                      <span className="text-border">·</span>
-                      <span>{speedText}</span>
-                    </>
-                  )}
-                </div>
-                <span className="text-[10px] text-dim font-mono">{etaText}</span>
+          {/* Metadata row — matches VideoDetail STATUS / SPEED / ETA */}
+          <div className="flex items-center gap-0 mt-auto">
+            <div className="pr-3 py-1">
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+              <div className="flex items-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 text-blue animate-spin" />
+                <span className="text-[12px] text-sensor font-medium">Uploading</span>
               </div>
             </div>
-
-            <p className="text-[10px] text-dim">
-              Navigate away freely — upload continues in background.
-            </p>
+            <span className="w-px h-8 bg-border" />
+            <div className="px-3 py-1">
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Speed</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] text-sensor font-medium">{speedText || "—"}</span>
+              </div>
+            </div>
+            <span className="w-px h-8 bg-border" />
+            <div className="px-3 py-1">
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Part</div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] text-sensor font-medium">{task.completedParts}/{task.totalParts}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -191,35 +203,52 @@ export function VideoUpload({
   // ── Failed ────────────────────────────────────────────────────
   if (isFailed && task) {
     return (
-      <div className="rounded-xl bg-background border border-red-500/20 overflow-hidden">
-        <div className="flex max-sm:flex-col">
-          <div className="w-44 max-sm:w-full max-sm:h-28 bg-red-500/5 shrink-0 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-1.5">
-              <AlertCircle className="w-6 h-6 text-red-400" />
-              <span className="text-[9px] font-mono text-red-400 uppercase tracking-widest">Failed</span>
+      <div className="rounded-xl overflow-hidden border border-red-500/20 flex max-md:flex-col bg-background">
+        {/* Left */}
+        <div className="relative shrink-0 p-3 w-[200px] max-md:w-full">
+          <div className="w-full aspect-video rounded-xl bg-red-500/5 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <AlertCircle className="w-7 h-7 text-red-400" />
+              <span className="text-[10px] font-mono text-red-400 uppercase tracking-wider">Failed</span>
             </div>
           </div>
-          <div className="flex-1 min-w-0 p-4 flex flex-col justify-center gap-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-red-400">Upload failed</p>
-                <p className="text-[11px] text-dim mt-0.5">{task.error}</p>
+        </div>
+
+        {/* Right */}
+        <div className="flex-1 flex flex-col gap-3 py-4 pr-5 pl-1 max-md:pt-0 max-md:px-4 max-md:pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-red-400">Upload failed</p>
+              <p className="text-[11px] text-dim mt-0.5">{task.error}</p>
+            </div>
+            <button
+              onClick={dismiss}
+              className="shrink-0 p-1.5 rounded-lg text-dim hover:text-foreground hover:bg-elevated transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Metadata row */}
+          <div className="flex items-center gap-0 mt-auto">
+            <div className="pr-3 py-1">
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-destructive" />
+                <span className="text-[12px] text-sensor font-medium">Failed</span>
               </div>
-              <button
-                onClick={dismiss}
-                className="shrink-0 p-1.5 rounded-lg text-dim hover:text-foreground hover:bg-elevated transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
             </div>
             {!readOnly && (
-              <button
-                onClick={() => { dismiss(); handleFile(task.file); }}
-                className="self-start flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
-              >
-                <RefreshCw className="w-3 h-3" />
-                Retry upload
-              </button>
+              <>
+                <span className="w-px h-8 bg-border" />
+                <button
+                  onClick={() => { dismiss(); handleFile(task.file); }}
+                  className="px-3 py-1 flex items-center gap-1.5 text-[12px] text-blue hover:text-blue/80 font-medium transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Retry
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -228,7 +257,7 @@ export function VideoUpload({
     );
   }
 
-  // ── Has video (thumbnail + metadata) ──────────────────────────
+  // ── Has video — matches VideoDetail header ────────────────────
   if (hasVideo) {
     const url = isComplete ? task?.videoUrl : signedUrl;
     const name = isComplete ? task?.file.name : videoFileName;
@@ -236,77 +265,86 @@ export function VideoUpload({
     const ext = getExtension(name);
 
     return (
-      <div className="rounded-xl bg-background border border-border overflow-hidden">
-        <div className="flex max-sm:flex-col">
-          {/* Thumbnail / preview */}
-          <div className="w-44 max-sm:w-full max-sm:h-32 bg-elevated shrink-0 flex items-center justify-center relative group">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-surface/80 flex items-center justify-center">
-                <Play className="w-4 h-4 text-foreground ml-0.5" />
-              </div>
-              <span className="text-[9px] font-mono text-dim uppercase tracking-widest">{ext}</span>
-            </div>
-            {url && (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-              </a>
-            )}
-            <div className="absolute top-2 left-2">
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-success/15 text-success">
-                <CheckCircle2 className="w-2.5 h-2.5" />
-                <span className="text-[8px] font-mono uppercase tracking-wider">Uploaded</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Metadata */}
-          <div className="flex-1 min-w-0 p-4 flex flex-col justify-center gap-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium truncate">{name || "Video file"}</p>
-                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                  {size && (
-                    <div className="flex items-center gap-1 text-[10px] text-dim font-mono">
-                      <HardDrive className="w-3 h-3" />
-                      {formatBytes(size)}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1 text-[10px] text-dim font-mono">
-                    <Film className="w-3 h-3" />
-                    {ext}
+      <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
+        {/* Left — thumbnail / preview */}
+        <div className="relative shrink-0 p-3 w-[200px] max-md:w-full">
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full aspect-video rounded-xl bg-elevated overflow-hidden group focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <div className="w-full h-full flex items-center justify-center relative">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-full bg-surface/80 flex items-center justify-center group-hover:bg-blue/20 transition-colors">
+                    <Play className="w-4 h-4 text-foreground ml-0.5 group-hover:text-blue transition-colors" />
                   </div>
+                  <span className="text-[9px] font-mono text-dim uppercase tracking-widest">{ext}</span>
                 </div>
               </div>
-              {!readOnly && (
-                <button
-                  onClick={() => {
-                    if (isComplete) dismiss();
-                    fileInputRef.current?.click();
-                  }}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-blue font-medium border border-blue/20 hover:bg-blue/10 transition-colors"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Replace
-                </button>
-              )}
+            </a>
+          ) : (
+            <div className="w-full aspect-video rounded-xl bg-elevated flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-surface/80 flex items-center justify-center">
+                  <Play className="w-4 h-4 text-foreground ml-0.5" />
+                </div>
+                <span className="text-[9px] font-mono text-dim uppercase tracking-widest">{ext}</span>
+              </div>
             </div>
+          )}
+        </div>
 
-            {url && (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="self-start flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+        {/* Right — info */}
+        <div className="flex-1 flex flex-col gap-4 py-4 pr-5 pl-1 max-md:pt-0 max-md:px-4 max-md:pb-4">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-base font-semibold tracking-tight truncate" dir="rtl" style={{ textAlign: "right" }}>
+              {name || "Video file"}
+            </p>
+            {!readOnly && (
+              <button
+                onClick={() => {
+                  if (isComplete) dismiss();
+                  fileInputRef.current?.click();
+                }}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-blue font-medium border border-blue/20 hover:bg-blue/10 transition-colors"
               >
-                <ExternalLink className="w-3 h-3" />
-                Open video
-              </a>
+                <RefreshCw className="w-3 h-3" />
+                Replace
+              </button>
             )}
+          </div>
+
+          {/* Metadata row — STATUS / SIZE / FORMAT — matches VideoDetail */}
+          <div className="flex items-center gap-0 mt-auto ml-auto">
+            <div className="px-3 py-2">
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                <span className="text-[12px] text-sensor font-medium">Uploaded</span>
+              </div>
+            </div>
+            <span className="w-px h-8 bg-border" />
+            {size != null && (
+              <>
+                <div className="px-3 py-2">
+                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Size</div>
+                  <div className="flex items-center gap-1.5">
+                    <HardDrive className="w-3.5 h-3.5 text-dim" />
+                    <span className="text-[12px] text-sensor font-medium">{formatBytes(size)}</span>
+                  </div>
+                </div>
+                <span className="w-px h-8 bg-border" />
+              </>
+            )}
+            <div className="px-3 py-2">
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Format</div>
+              <div className="flex items-center gap-1.5">
+                <Film className="w-3.5 h-3.5 text-dim" />
+                <span className="text-[12px] text-sensor font-medium">{ext}</span>
+              </div>
+            </div>
           </div>
         </div>
         {hiddenInput}
@@ -314,7 +352,7 @@ export function VideoUpload({
     );
   }
 
-  // ── Empty state — drop zone ───────────────────────────────────
+  // ── Empty state — drop zone (same card shape) ─────────────────
   if (readOnly) return null;
 
   return (
@@ -324,18 +362,20 @@ export function VideoUpload({
       onDrop={onDrop}
       onClick={() => fileInputRef.current?.click()}
       className={`
-        rounded-xl border border-dashed overflow-hidden cursor-pointer transition-all
+        rounded-xl overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-background
         ${dragOver
-          ? "border-blue bg-blue/5 shadow-[inset_0_0_20px_rgba(56,132,244,0.05)]"
-          : "border-border hover:border-blue/30 hover:bg-elevated/50"
+          ? "border-blue shadow-[inset_0_0_20px_rgba(56,132,244,0.05)]"
+          : "border-dashed border-border hover:border-blue/30"
         }
       `}
     >
-      <div className="flex max-sm:flex-col">
-        {/* Icon area */}
+      {/* Left — upload icon area */}
+      <div className={`
+        relative shrink-0 p-3 w-[200px] max-md:w-full transition-colors
+      `}>
         <div className={`
-          w-44 max-sm:w-full max-sm:h-24 shrink-0 flex items-center justify-center transition-colors
-          ${dragOver ? "bg-blue/10" : "bg-elevated/50"}
+          w-full aspect-video rounded-xl flex items-center justify-center transition-colors
+          ${dragOver ? "bg-blue/10" : "bg-elevated"}
         `}>
           <div className="flex flex-col items-center gap-2">
             <div className={`
@@ -346,21 +386,40 @@ export function VideoUpload({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Text */}
-        <div className="flex-1 min-w-0 p-4 flex flex-col justify-center gap-1">
-          <p className="text-[13px] font-medium">
+      {/* Right — instructions */}
+      <div className="flex-1 flex flex-col gap-3 py-4 pr-5 pl-1 max-md:pt-0 max-md:px-4 max-md:pb-4">
+        <div>
+          <p className="text-base font-semibold tracking-tight">
             {dragOver ? "Drop to upload" : "Upload video"}
             {required && !dragOver && <span className="text-red-400 ml-1">*</span>}
           </p>
-          <p className="text-[11px] text-dim">
+          <p className="text-[11px] text-dim mt-1">
             Drag & drop or click to select — MP4, WebM, MOV, AVI, MKV
           </p>
+        </div>
+
+        {/* Metadata row */}
+        <div className="flex items-center gap-0 mt-auto">
+          <div className="pr-3 py-1">
+            <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-dim" />
+              <span className="text-[12px] text-sensor font-medium">Pending</span>
+            </div>
+          </div>
           {required && (
-            <p className="text-[10px] text-orange/70 mt-0.5 flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5" />
-              Required before moving to next stage
-            </p>
+            <>
+              <span className="w-px h-8 bg-border" />
+              <div className="px-3 py-1">
+                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Required</div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-orange/70" />
+                  <span className="text-[12px] text-orange/70 font-medium">Before next stage</span>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
