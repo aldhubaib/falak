@@ -8,6 +8,7 @@ const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
 const { getDialectForCountry } = require('../lib/dialects')
+const { fetchTranscript } = require('../services/transcript')
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
@@ -624,6 +625,79 @@ Your job:
     res.status(500).json({ error: e.message || 'Cleanup failed' })
   }
 })
+
+// ── POST /api/stories/:id/fetch-subtitles — fetch YouTube transcript and convert to SRT
+router.post('/:id/fetch-subtitles', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { project: { select: { id: true, ytTranscriptApiKeyEncrypted: true } } },
+    })
+    const project = story.project
+    if (!project?.ytTranscriptApiKeyEncrypted) {
+      return res.status(400).json({ error: 'YouTube Transcript API key not configured. Add it in Settings → API Keys.' })
+    }
+    const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+    const youtubeUrl = brief.youtubeUrl || story.sourceUrl || ''
+    if (!youtubeUrl) {
+      return res.status(400).json({ error: 'No YouTube URL found. Add a YouTube URL first.' })
+    }
+
+    let videoId = null
+    try {
+      const u = new URL(youtubeUrl)
+      if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1).split('/')[0]
+      else if (u.pathname.startsWith('/watch')) videoId = u.searchParams.get('v')
+      else if (u.pathname.startsWith('/shorts/')) videoId = u.pathname.split('/')[2]
+      else if (u.pathname.startsWith('/live/')) videoId = u.pathname.split('/')[2]
+    } catch (_) {}
+    if (!videoId) {
+      return res.status(400).json({ error: 'Could not extract a YouTube video ID from the URL.' })
+    }
+
+    const transcript = await fetchTranscript(videoId, project)
+    if (!transcript || (typeof transcript === 'string' && !transcript.trim())) {
+      return res.status(404).json({ error: 'No transcript available for this video.' })
+    }
+
+    let srt = ''
+    if (Array.isArray(transcript)) {
+      const lines = []
+      for (let i = 0; i < transcript.length; i++) {
+        const seg = transcript[i]
+        const startSec = seg.start || 0
+        const endSec = (i + 1 < transcript.length) ? transcript[i + 1].start : startSec + (seg.duration || 3)
+        lines.push(String(i + 1))
+        lines.push(`${fmtSRT(startSec)} --> ${fmtSRT(endSec)}`)
+        lines.push(seg.text)
+        lines.push('')
+      }
+      srt = lines.join('\n')
+    } else {
+      srt = transcript
+    }
+
+    const newBrief = { ...brief, subtitlesSRT: srt }
+    const updated = await db.story.update({
+      where: { id: story.id },
+      data: { brief: newBrief },
+    })
+    await addLog(story.id, req.user.id, 'note', 'YouTube subtitles fetched')
+    res.json({ srt, story: updated })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/fetch-subtitles]', e)
+    res.status(500).json({ error: e.message || 'Failed to fetch subtitles' })
+  }
+})
+
+function fmtSRT(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = Math.floor(totalSeconds % 60)
+  const ms = Math.round((totalSeconds % 1) * 1000)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms).padStart(3, '0')}`
+}
 
 // ── POST /api/stories/:id/generate-description — AI: compose a YouTube description from script, title, hooks, tags.
 router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor'), async (req, res) => {

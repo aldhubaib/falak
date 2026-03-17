@@ -8,6 +8,7 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
+  Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { StoryBrief } from "./types";
@@ -55,34 +56,52 @@ export function StoryDetailStagePublish({
   saving = false,
 }: StoryDetailStagePublishProps) {
   const [generatingDesc, setGeneratingDesc] = useState(false);
+  const [fetchingSubs, setFetchingSubs] = useState(false);
   const [urlInput, setUrlInput] = useState(brief.youtubeUrl || "");
   const [urlEditing, setUrlEditing] = useState(!brief.youtubeUrl);
 
   const description = brief.youtubeDescription || "";
 
   const scriptText = useMemo(() => {
-    // 1) Try extracting from scriptBlock nodes in TipTap JSON
     const blocks = extractScriptBlocks(brief.scriptTiptap);
     if (blocks.script) return blocks.script;
-
-    // 2) Fallback: read all text from TipTap JSON (pre-scriptBlock stories)
     const allText = editorValueToScriptText(brief.scriptTiptap);
     if (allText && /^\d{1,2}:\d{2}/m.test(allText)) return allText;
-
-    // 3) Fallback: brief.script field
     if (brief.script) return brief.script;
-
-    // 4) Fallback: extract SCRIPT section from raw AI output
     if (brief.scriptRaw) {
       const match = brief.scriptRaw.match(/## SCRIPT\s*\n([\s\S]*?)(?=\n## |$)/i);
       if (match) return match[1].trim();
       return brief.scriptRaw;
     }
-
     return "";
   }, [brief.scriptTiptap, brief.script, brief.scriptRaw]);
 
-  const srtContent = useMemo(() => scriptToSRT(scriptText), [scriptText]);
+  const scriptSrt = useMemo(() => scriptToSRT(scriptText), [scriptText]);
+  const srtContent = brief.subtitlesSRT || scriptSrt;
+
+  const fetchSubtitles = async () => {
+    if (fetchingSubs) return;
+    setFetchingSubs(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/fetch-subtitles`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to fetch subtitles" }));
+        toast.error(err.error || "Failed to fetch subtitles");
+        return;
+      }
+      const data = await res.json();
+      onBriefChange((b) => ({ ...b, subtitlesSRT: data.srt }));
+      toast.success("Subtitles fetched from YouTube");
+    } catch {
+      toast.error("Failed to fetch subtitles");
+    } finally {
+      setFetchingSubs(false);
+    }
+  };
 
   const downloadSRT = () => {
     if (!srtContent) {
@@ -175,16 +194,34 @@ export function StoryDetailStagePublish({
           <div className="flex items-center gap-2">
             <Subtitles className="w-3.5 h-3.5 text-dim" />
             <label className="text-[12px] text-dim font-medium">Subtitles</label>
+            {brief.subtitlesSRT && (
+              <span className="text-[10px] font-mono text-success/70 bg-success/10 px-1.5 py-0.5 rounded">YouTube</span>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={downloadSRT}
-            disabled={!srtContent}
-            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <Download className="w-3 h-3" />
-            Download .srt
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={fetchSubtitles}
+              disabled={fetchingSubs}
+              className="flex items-center gap-1.5 text-[11px] text-foreground/70 hover:text-foreground font-medium transition-colors disabled:opacity-50"
+            >
+              {fetchingSubs ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Youtube className="w-3 h-3" />
+              )}
+              {fetchingSubs ? "Fetching…" : brief.subtitlesSRT ? "Refetch" : "Fetch from YouTube"}
+            </button>
+            <button
+              type="button"
+              onClick={downloadSRT}
+              disabled={!srtContent}
+              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Download className="w-3 h-3" />
+              Download .srt
+            </button>
+          </div>
         </div>
         {srtContent ? (
           <pre className="bg-surface border border-border rounded-lg px-3 py-2 text-[11px] text-foreground/80 font-mono leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-wrap">
@@ -192,7 +229,7 @@ export function StoryDetailStagePublish({
           </pre>
         ) : (
           <p className="text-[12px] text-dim py-3 text-center">
-            No timestamped script available. Generate a script first.
+            No subtitles yet. Click &quot;Fetch from YouTube&quot; or generate a timestamped script.
           </p>
         )}
       </div>
