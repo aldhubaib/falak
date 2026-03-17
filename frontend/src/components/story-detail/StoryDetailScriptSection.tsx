@@ -29,6 +29,7 @@ export interface StoryDetailScriptSectionProps {
   collaborationWsUrl?: string;
   /** When true, show "Saving…" (auto-save in progress). */
   saving?: boolean;
+  editorRef?: React.MutableRefObject<{ setContent: (v: TiptapContentValue) => void } | null>;
 }
 
 export function StoryDetailScriptSection({
@@ -50,6 +51,7 @@ export function StoryDetailScriptSection({
   currentUser,
   collaborationWsUrl,
   saving = false,
+  editorRef,
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
   const [collaborators, setCollaborators] = useState<{ id: string; name: string; avatar?: string; color?: string }[]>([]);
@@ -220,7 +222,7 @@ export function StoryDetailScriptSection({
 
                   <button
                     type="button"
-                    onClick={() => { console.log("[Generate] clicked", { canGenerate, generating }); canGenerate && !generating && onGenerate(); }}
+                    onClick={() => canGenerate && !generating && onGenerate()}
                     disabled={!canGenerate}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
                       canGenerate ? "text-foreground hover:bg-elevated" : "text-dim/30 cursor-not-allowed"
@@ -283,6 +285,7 @@ export function StoryDetailScriptSection({
             roomId={roomId}
             currentUser={currentUser ?? undefined}
             onCollaboratorsChange={onCollaboratorsChange}
+            editorRef={editorRef}
           />
         </div>
       </div>

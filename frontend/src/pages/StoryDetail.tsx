@@ -111,6 +111,7 @@ export default function StoryDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSavingState] = useState(false);
   const [ourChannels, setOurChannels] = useState<ApiChannel[]>([]);
+  const scriptEditorRef = useRef<{ setContent: (v: any) => void } | null>(null);
 
   const scriptValue = useMemo(
     () => brief.scriptTiptap ?? scriptTextToEditorValue(brief.script ?? ""),
@@ -293,7 +294,6 @@ export default function StoryDetail() {
   );
 
   const generateScript = useCallback(async () => {
-    console.log("[generateScript] called", { id, selectedChannel, generatingScript });
     if (!id) { toast.error("No story ID"); return; }
     if (!selectedChannel) { toast.error("Select a channel first"); return; }
     if (generatingScript) return;
@@ -343,6 +343,9 @@ export default function StoryDetail() {
         hookEnd: sections.hookEnd || brief.hookEnd || "",
         hashtags: sections.hashtags,
       });
+      if (scriptEditorRef.current) {
+        scriptEditorRef.current.setContent(tiptapValue);
+      }
       setBrief((b) => {
         const next: StoryBrief = {
           ...b,
@@ -562,6 +565,7 @@ export default function StoryDetail() {
                   showGenerateControls={activeStage === "scripting"}
                   scriptValue={scriptValue}
                   saving={saving}
+                  editorRef={scriptEditorRef}
                   onScriptChange={(value) => {
                     const blocks = extractScriptBlocks(value);
                     const scriptText = blocks.script || editorValueToScriptText(value);

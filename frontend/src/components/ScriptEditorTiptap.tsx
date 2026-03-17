@@ -71,6 +71,7 @@ export interface ScriptEditorTiptapProps {
   roomId?: string;
   currentUser?: CollabUser | null;
   onCollaboratorsChange?: (users: CollabUser[]) => void;
+  editorRef?: React.MutableRefObject<{ setContent: (v: TiptapContentValue) => void } | null>;
 }
 
 function buildBaseExtensions(getMentionUsers: () => MentionUser[]) {
@@ -361,6 +362,7 @@ export function ScriptEditorTiptap({
   roomId,
   currentUser,
   onCollaboratorsChange,
+  editorRef,
 }: ScriptEditorTiptapProps) {
   const suppressNextUpdate = useRef(false);
   const isCollab = Boolean(roomId);
@@ -487,6 +489,18 @@ export function ScriptEditorTiptap({
     suppressNextUpdate.current = true;
     editor.commands.setContent(value, false);
   }, [editor, value, isCollab]);
+
+  useEffect(() => {
+    if (!editorRef || !editor || editor.isDestroyed) return;
+    editorRef.current = {
+      setContent: (v: TiptapContentValue) => {
+        suppressNextUpdate.current = true;
+        editor.commands.setContent(v, false);
+        onChange?.(editor.getJSON());
+      },
+    };
+    return () => { editorRef.current = null; };
+  }, [editor, editorRef, onChange]);
 
   if (!editor) return null;
 
