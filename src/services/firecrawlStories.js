@@ -5,8 +5,9 @@
  *   1. Brain v2 provides rich signals (learnedTags, tier1/2 topics, patterns, region)
  *   2. buildSearchQueries() turns those into 1-3 focused Firecrawl search queries
  *   3. Searches run in parallel with timeout + retry
- *   4. Results are merged, deduped, and sent to Claude for structuring
- *   5. Stories are returned even without scraped article content (lazy-fetched later)
+ *   4. Bad URLs filtered out (YouTube, social media, non-article sites)
+ *   5. Results are merged, deduped, and sent to Claude for structuring
+ *   6. Stories are returned even without scraped article content (lazy-fetched later)
  */
 const fetch = require('node-fetch')
 const { callAnthropic } = require('./pipelineProcessor')
@@ -16,23 +17,50 @@ const SEARCH_TIMEOUT_MS = 30000
 const RETRY_DELAY_MS = 2000
 const MAX_RETRIES = 1
 
+const BLOCKED_DOMAINS = [
+  'youtube.com', 'youtu.be', 'facebook.com', 'fb.com', 'instagram.com',
+  'twitter.com', 'x.com', 'tiktok.com', 'linkedin.com', 'reddit.com',
+  'pinterest.com', 'snapchat.com', 'whatsapp.com', 'telegram.org', 't.me',
+  'play.google.com', 'apps.apple.com', 'amazon.com',
+  'wikipedia.org',
+]
+
+const BLOCKED_PATH_PATTERNS = [
+  /\/contact/i, /\/about/i, /\/privacy/i, /\/terms/i, /\/login/i,
+  /\/signup/i, /\/register/i, /\/cart/i, /\/checkout/i, /\/shop\//i,
+]
+
+function isBlockedUrl(url) {
+  if (!url || typeof url !== 'string') return true
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.replace(/^www\./, '')
+    if (BLOCKED_DOMAINS.some(d => host === d || host.endsWith('.' + d))) return true
+    if (BLOCKED_PATH_PATTERNS.some(p => p.test(parsed.pathname))) return true
+    return false
+  } catch {
+    return true
+  }
+}
+
 /**
  * Build 1-3 targeted Firecrawl search queries from Brain v2 signals.
- * Each query focuses on a different signal to maximize source diversity.
+ * Appends Arabic news qualifiers to improve article relevance.
  */
 function buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics, topCompTopics }) {
   const queries = []
   const region = (regionHints || []).slice(0, 1).join(' ')
+  const newsQualifier = 'أخبار قضايا تحقيق'
 
   const mainTags = (learnedTags || []).slice(0, 5)
   if (mainTags.length > 0) {
-    const q = [mainTags.join(' '), region].filter(Boolean).join(' ').trim()
+    const q = [mainTags.join(' '), newsQualifier, region].filter(Boolean).join(' ').trim()
     queries.push({ label: 'demand', query: q, limit: 7 })
   }
 
   const proven = (tier1Topics || []).slice(0, 3)
   if (proven.length > 0) {
-    const q = [proven.join(' '), region].filter(Boolean).join(' ').trim()
+    const q = [proven.join(' '), newsQualifier, region].filter(Boolean).join(' ').trim()
     if (!queries.some(existing => existing.query === q)) {
       queries.push({ label: 'proven', query: q, limit: 5 })
     }
@@ -43,7 +71,7 @@ function buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics
     ...(tier2Topics || []).slice(0, 2),
   ].filter(Boolean)
   if (patterns.length > 0) {
-    const q = [patterns.join(' '), region].filter(Boolean).join(' ').trim()
+    const q = [patterns.join(' '), newsQualifier, region].filter(Boolean).join(' ').trim()
     if (!queries.some(existing => existing.query === q)) {
       queries.push({ label: 'patterns', query: q, limit: 5 })
     }
@@ -52,7 +80,9 @@ function buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics
   if (queries.length === 0) {
     queries.push({
       label: 'fallback',
-      query: region ? `جريمة حقيقية تحقيق جنائي ${region}` : 'جريمة حقيقية تحقيق جنائي',
+      query: region
+        ? `جريمة حقيقية تحقيق جنائي أخبار ${region}`
+        : 'جريمة حقيقية تحقيق جنائي أخبار',
       limit: 10,
     })
   }
@@ -60,7 +90,7 @@ function buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics
   return queries
 }
 
-/** For backward compat — single query builder used when no rich signals available. */
+/** For backward compat — single query builder. */
 function buildFirecrawlSearchQuery(learnedTags, regionHints) {
   const tags = (learnedTags || []).slice(0, 4).join(' ')
   const region = (regionHints || []).slice(0, 1).join(' ')
@@ -108,9 +138,6 @@ async function searchWithFirecrawl(searchQuery, firecrawlApiKey, limit = 10) {
   }
 }
 
-/**
- * Search with retry for transient failures (429, 503, network errors).
- */
 async function searchWithRetry(searchQuery, firecrawlApiKey, limit = 10) {
   let lastError
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -142,12 +169,29 @@ function normalizeUrl(u) {
   }
 }
 
+/**
+ * Check if scraped content looks like real article text vs navigation garbage.
+ * Returns false if content is mostly links, phone numbers, or UI chrome.
+ */
+function isQualityContent(text) {
+  if (!text || text.length < MIN_ARTICLE_LENGTH) return false
+  const lines = text.split('\n').filter(l => l.trim().length > 0)
+  if (lines.length < 3) return false
+  const linkLines = lines.filter(l => /^\s*[\[(]?https?:\/\//i.test(l.trim()) || /\]\([^)]+\)\s*$/.test(l.trim()))
+  if (linkLines.length / lines.length > 0.5) return false
+  const phoneMatches = (text.match(/\d{3}[-.\s]\d{3}[-.\s]\d{4}/g) || []).length
+  if (phoneMatches > 3) return false
+  const wordCount = text.split(/\s+/).length
+  if (wordCount < 30) return false
+  return true
+}
+
 function buildUrlToContent(articles) {
   const map = new Map()
   for (const a of articles) {
     const url = a.url || a.metadata?.sourceURL || a.metadata?.url
     const content = (a.markdown || a.content || a.description || a.snippet || '').trim()
-    if (!url || content.length < MIN_ARTICLE_LENGTH) continue
+    if (!url || !isQualityContent(content)) continue
     const key = normalizeUrl(url)
     if (!map.has(key)) map.set(key, content)
   }
@@ -165,16 +209,18 @@ function findContentForSourceUrl(urlToContent, sourceUrl) {
   return null
 }
 
-/** Deduplicate articles by normalized URL. */
-function deduplicateArticles(articles) {
+/** Filter out blocked URLs and deduplicate by normalized URL. */
+function filterAndDeduplicateArticles(articles) {
   const seen = new Map()
+  let blocked = 0
   for (const a of articles) {
     const url = a.url || a.metadata?.sourceURL || a.metadata?.url
     if (!url) continue
+    if (isBlockedUrl(url)) { blocked++; continue }
     const key = normalizeUrl(url)
     if (!seen.has(key)) seen.set(key, a)
   }
-  return [...seen.values()]
+  return { articles: [...seen.values()], blocked }
 }
 
 async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, projectId) {
@@ -194,8 +240,11 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
 
 قواعد صارمة:
 - أعد JSON فقط، بدون أي نص قبله أو بعده، بدون backticks
-- sourceUrl يجب أن يكون مأخوذاً حرفياً من URL المقال — لا تخترع روابط أبداً
+- sourceUrl يجب أن يكون مأخوذاً حرفياً من حقل URL في المقال — لا تخترع أو تعدّل أي رابط
+- لا تستخدم أبداً روابط YouTube أو وسائل التواصل الاجتماعي أو ويكيبيديا كمصدر
+- يجب أن يكون المصدر مقالاً إخبارياً أو تحقيقاً صحفياً فقط
 - إذا لم يناسب المقال تعليمات القناة، تجاهله تماماً
+- إذا كان المقال من موقع غير إخباري (مكتب محاماة، متجر، إلخ)، تجاهله
 - summary جملتان بالعربية فقط
 
 أعد مصفوفة JSON بهذا الشكل بالضبط:
@@ -203,16 +252,18 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
   {
     "headline": "عنوان القصة بالعربية",
     "summary": "جملتان بالعربية تلخصان القصة",
-    "sourceUrl": "الرابط الكامل للمقال",
-    "sourceName": "اسم الموقع",
+    "sourceUrl": "الرابط الكامل للمقال الإخباري",
+    "sourceName": "اسم الموقع الإخباري",
     "sourceDate": "YYYY-MM-DD أو null"
   }
-]`
+]
+
+إذا لم تجد أي مقال مناسب، أعد مصفوفة فارغة: []`
 
   const userContent =
     `## تعليمات القناة:\n${autoSearchQuery}\n\n` +
     `## المقالات التي وجدها Firecrawl:\n${articlesText}\n\n` +
-    `طابق المقالات مع تعليمات القناة واستخرج القصص المناسبة.`
+    `طابق المقالات مع تعليمات القناة واستخرج القصص الإخبارية المناسبة فقط. تجاهل أي مصدر ليس مقالاً إخبارياً.`
 
   const raw = await callAnthropic(
     anthropicApiKey,
@@ -238,17 +289,6 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
 
 /**
  * Fetch story suggestions via Firecrawl (search) + Claude (structure).
- * @param {object} opts
- * @param {string} opts.autoSearchQuery - Full brain query → Claude context only
- * @param {string[]} opts.learnedTags - From queryMeta → Firecrawl search keywords
- * @param {string[]} opts.regionHints - From queryMeta → appended to Firecrawl search
- * @param {string[]} opts.tier1Topics - Proven winner topics from topic memory
- * @param {string[]} opts.tier2Topics - High-demand untouched topics
- * @param {string[]} opts.topCompTopics - Competitor winning patterns
- * @param {string} opts.projectId
- * @param {string} opts.queryVersion
- * @param {string} opts.firecrawlApiKey
- * @param {string} opts.anthropicApiKey
  */
 async function fetchStoriesViaFirecrawl({
   autoSearchQuery,
@@ -265,7 +305,7 @@ async function fetchStoriesViaFirecrawl({
   const queries = buildSearchQueries({ learnedTags, regionHints, tier1Topics, tier2Topics, topCompTopics })
 
   logger.info(
-    { projectId, queryCount: queries.length, queries: queries.map(q => ({ label: q.label, query: q.query.slice(0, 80) })) },
+    { projectId, queryCount: queries.length, queries: queries.map(q => ({ label: q.label, query: q.query.slice(0, 100) })) },
     '[firecrawlStories] starting parallel searches'
   )
 
@@ -273,7 +313,7 @@ async function fetchStoriesViaFirecrawl({
     queries.map(q => searchWithRetry(q.query, firecrawlApiKey, q.limit))
   )
 
-  let allArticles = []
+  let rawArticles = []
   let totalSearched = 0
   for (let i = 0; i < searchResults.length; i++) {
     const result = searchResults[i]
@@ -282,31 +322,39 @@ async function fetchStoriesViaFirecrawl({
       const count = result.value.length
       totalSearched += count
       logger.info({ label: q.label, resultCount: count }, '[firecrawlStories] search completed')
-      allArticles.push(...result.value)
+      rawArticles.push(...result.value)
     } else {
       logger.error({ label: q.label, error: result.reason?.message }, '[firecrawlStories] search failed')
     }
   }
 
-  if (allArticles.length === 0) {
+  if (rawArticles.length === 0) {
     logger.warn({ projectId }, '[firecrawlStories] all searches returned 0 articles')
     return { stories: [], searchMeta: { queryCount: queries.length, totalArticles: 0, structured: 0 } }
   }
 
-  allArticles = deduplicateArticles(allArticles)
-  logger.info({ deduped: allArticles.length, raw: totalSearched }, '[firecrawlStories] articles after dedup')
+  const { articles: filteredArticles, blocked } = filterAndDeduplicateArticles(rawArticles)
+  logger.info(
+    { raw: totalSearched, blocked, filtered: filteredArticles.length },
+    '[firecrawlStories] articles after filter+dedup'
+  )
+
+  if (filteredArticles.length === 0) {
+    logger.warn({ projectId, blocked }, '[firecrawlStories] all articles filtered out')
+    return { stories: [], searchMeta: { queryCount: queries.length, totalArticles: totalSearched, blocked, structured: 0 } }
+  }
 
   const structured = await structureWithClaude(
-    allArticles,
+    filteredArticles,
     autoSearchQuery,
     anthropicApiKey,
     projectId
   )
 
-  const urlToContent = buildUrlToContent(allArticles)
+  const urlToContent = buildUrlToContent(filteredArticles)
 
   const stories = structured
-    .filter((s) => s.headline && s.sourceUrl)
+    .filter((s) => s.headline && s.sourceUrl && !isBlockedUrl(s.sourceUrl))
     .map((s) => {
       const content = findContentForSourceUrl(urlToContent, s.sourceUrl)
       const articleContent =
@@ -334,8 +382,10 @@ async function fetchStoriesViaFirecrawl({
     queryCount: queries.length,
     queries: queries.map(q => q.label),
     totalArticles: totalSearched,
-    dedupedArticles: allArticles.length,
+    blocked,
+    filteredArticles: filteredArticles.length,
     structured: structured.length,
+    accepted: stories.length,
     withContent: stories.filter(s => s.brief.articleContent != null).length,
     withoutContent: stories.filter(s => s.brief.articleContent == null).length,
   }

@@ -210,13 +210,82 @@ export default function StoryDetail() {
     []
   );
 
-  // ── Constants (no logic; design only) ────────────────────────────────────
+  // ── Article loading state ────────────────────────────────────────────────
   const activeStage: Stage = story?.stage ?? "scripting";
-  const articleDisplayValue = "";
-  const cleanupProgress = 0;
-  const articleLoading = false;
-  const articleError: string | null = null;
+  const [articleLoading, setArticleLoading] = useState(false);
+  const [articleError, setArticleError] = useState<string | null>(null);
+  const [cleanupProgress, setCleanupProgress] = useState(0);
   const isWriterBoxRunning = false;
+
+  const articleDisplayValue = (() => {
+    const c = brief.articleContent;
+    if (!c || c === "__SCRAPE_FAILED__" || c === "__YOUTUBE__") return "";
+    return typeof c === "string" ? c : "";
+  })();
+
+  const fetchArticle = useCallback(async (force = false) => {
+    if (!id) return;
+    setArticleLoading(true);
+    setArticleError(null);
+    try {
+      const res = await fetch(`/api/stories/${id}/fetch-article`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch article");
+      const content = data.articleContent;
+      if (content && content !== "__SCRAPE_FAILED__" && content !== "__YOUTUBE__") {
+        setBrief((b) => ({ ...b, articleContent: content }));
+      } else if (content === "__YOUTUBE__") {
+        setBrief((b) => ({ ...b, articleContent: "__YOUTUBE__" }));
+      } else {
+        setArticleError("Source could not be scraped.");
+      }
+    } catch (e) {
+      setArticleError(e instanceof Error ? e.message : "Fetch failed");
+    } finally {
+      setArticleLoading(false);
+    }
+  }, [id]);
+
+  const cleanupArticle = useCallback(async () => {
+    if (!id || !articleDisplayValue.trim()) return;
+    setCleanupProgress(10);
+    try {
+      const interval = setInterval(() => {
+        setCleanupProgress((p) => Math.min(p + 15, 90));
+      }, 400);
+      const res = await fetch(`/api/stories/${id}/cleanup`, {
+        method: "POST",
+        credentials: "include",
+      });
+      clearInterval(interval);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Cleanup failed");
+      }
+      const updated = await res.json();
+      const b = updated.brief && typeof updated.brief === "object" ? updated.brief as StoryBrief : brief;
+      setBrief(b);
+      setCleanupProgress(100);
+      toast.success("Article cleaned up");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cleanup failed");
+    } finally {
+      setTimeout(() => setCleanupProgress(0), 600);
+    }
+  }, [id, articleDisplayValue, brief]);
+
+  useEffect(() => {
+    if (!id || !story) return;
+    const content = brief.articleContent;
+    if (!content || content === "__SCRAPE_FAILED__") {
+      if (story.sourceUrl) fetchArticle();
+    }
+  }, [id, story?.id]);
   const [scriptDurationMinutes, setScriptDurationMinutes] = useState(
     () => brief.scriptDuration || 3
   );
@@ -510,12 +579,19 @@ export default function StoryDetail() {
               relativeDate={relativeDate}
               articleOpen={articleOpen}
               onArticleOpenChange={setArticleOpen}
-              onCleanup={async () => {}}
-              onRefetch={async () => {}}
-              onRetryFetch={async () => {}}
-              onArticleChange={() => {}}
-              onArticleTitleChange={() => {}}
-              onArticleTitleBlur={() => {}}
+              onCleanup={cleanupArticle}
+              onRefetch={async () => fetchArticle(true)}
+              onRetryFetch={async () => fetchArticle(true)}
+              onArticleChange={(val) => {
+                const newBrief = { ...brief, articleContent: val };
+                setBrief(newBrief);
+                if (id) saveScript(id, newBrief);
+              }}
+              onArticleTitleChange={(val) => setBrief((b) => ({ ...b, articleTitle: val }))}
+              onArticleTitleBlur={(title) => {
+                const newBrief = { ...brief, articleTitle: title };
+                if (id) saveScript(id, newBrief);
+              }}
             />
 
           {/* Stage-specific content */}
