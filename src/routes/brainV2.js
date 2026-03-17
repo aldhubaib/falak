@@ -476,6 +476,27 @@ async function getBrainV2Data(projectId) {
     const lateCount = publishedVideos.filter((v) => v.result === 'late').length
     const winRate = publishedVideos.length ? Math.round((gapWins / publishedVideos.length) * 100) : 0
 
+    debugStage = 'learn-from-omits'
+    const omittedStories = await db.story.findMany({
+      where: { projectId, stage: { in: ['omit', 'passed'] } },
+      select: { headline: true, sourceUrl: true, sourceName: true, createdAt: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    })
+
+    const omittedHeadlines = omittedStories
+      .slice(0, 8)
+      .map(s => `"${(s.headline || '').slice(0, 50)}"`)
+      .filter(h => h.length > 3)
+
+    const omittedDomains = [...new Set(
+      omittedStories
+        .map(s => {
+          try { return new URL(s.sourceUrl).hostname.replace(/^www\./, '') } catch { return null }
+        })
+        .filter(Boolean)
+    )]
+
     debugStage = 'load-topic-memory'
     const topicMemories = await db.topicMemory.findMany({
       where: { projectId },

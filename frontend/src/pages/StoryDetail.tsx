@@ -699,6 +699,7 @@ export default function StoryDetail() {
                   brief={brief}
                   storyId={id}
                   saving={saving}
+                  channelHandle={ourChannels.find((c) => c.id === selectedChannel)?.handle}
                   onBriefChange={(updater) => {
                     setBrief((b) => {
                       const next = updater(b);
