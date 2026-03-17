@@ -26,11 +26,14 @@ const queryClient = new QueryClient();
 
 class AppErrorBoundary extends Component<
   { children: ReactNode },
-  { hasError: boolean; error: Error | null }
+  { hasError: boolean; error: Error | null; componentStack: string | null }
 > {
-  state = { hasError: false, error: null as Error | null };
+  state = { hasError: false, error: null as Error | null, componentStack: null as string | null };
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: { componentStack?: string }) {
+    this.setState({ componentStack: info.componentStack ?? null });
   }
   render() {
     if (this.state.hasError) {
@@ -41,7 +44,8 @@ class AppErrorBoundary extends Component<
             title="Something went wrong"
             message={err?.message ?? "An unexpected error occurred. Try refreshing the page."}
             detail={err?.stack}
-            onRetry={() => this.setState({ hasError: false, error: null })}
+            componentStack={this.state.componentStack ?? undefined}
+            onRetry={() => this.setState({ hasError: false, error: null, componentStack: null })}
             showHome
           />
         </div>
