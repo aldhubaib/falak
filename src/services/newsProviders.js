@@ -1,6 +1,8 @@
 /**
  * Individual news API provider functions.
- * Each returns a normalized array of { url, title, description, content, source, publishedAt }.
+ * Each returns { articles: [...], error?: string }.
+ * articles: normalized array of { url, title, description, content, source, publishedAt }.
+ * On API failure, articles is [] and error is set — the caller decides how to track it.
  */
 const fetch = require('node-fetch')
 const logger = require('../lib/logger')
@@ -26,12 +28,17 @@ async function searchNewsAPI(query, apiKey, { pageSize = 20, sortBy = 'relevancy
     })
     const res = await fetch(`https://newsapi.org/v2/everything?${params}`, { signal })
     clear()
+    const data = await res.json().catch(() => null)
     if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`NewsAPI ${res.status}: ${body.slice(0, 200)}`)
+      const errMsg = data?.message || `HTTP ${res.status}`
+      logger.error({ provider: 'newsapi', error: errMsg, status: res.status }, '[newsProviders] API error')
+      throw new Error(`NewsAPI: ${errMsg}`)
     }
-    const data = await res.json()
-    const articles = (data.articles || []).map(a => ({
+    if (data?.status === 'error') {
+      logger.error({ provider: 'newsapi', code: data.code, message: data.message }, '[newsProviders] API returned error status')
+      throw new Error(`NewsAPI: ${data.message || data.code}`)
+    }
+    const articles = (data?.articles || []).map(a => ({
       url: a.url,
       title: a.title || '',
       description: a.description || '',
@@ -39,12 +46,12 @@ async function searchNewsAPI(query, apiKey, { pageSize = 20, sortBy = 'relevancy
       source: `NewsAPI/${a.source?.name || 'unknown'}`,
       publishedAt: a.publishedAt || null,
     }))
-    logger.info({ provider: 'newsapi', query: query.slice(0, 80), results: articles.length }, '[newsProviders] search done')
-    return articles
+    logger.info({ provider: 'newsapi', query: query.slice(0, 80), results: articles.length, totalResults: data?.totalResults }, '[newsProviders] search done')
+    return { articles }
   } catch (e) {
     clear()
     logger.error({ provider: 'newsapi', error: e.message }, '[newsProviders] search failed')
-    return []
+    throw e
   }
 }
 
@@ -61,12 +68,13 @@ async function searchGNews(query, apiKey, { max = 10, sortby = 'relevance' } = {
     })
     const res = await fetch(`https://gnews.io/api/v4/search?${params}`, { signal })
     clear()
+    const data = await res.json().catch(() => null)
     if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`GNews ${res.status}: ${body.slice(0, 200)}`)
+      const errMsg = data?.errors?.[0] || data?.message || `HTTP ${res.status}`
+      logger.error({ provider: 'gnews', error: errMsg, status: res.status }, '[newsProviders] API error')
+      throw new Error(`GNews: ${errMsg}`)
     }
-    const data = await res.json()
-    const articles = (data.articles || []).map(a => ({
+    const articles = (data?.articles || []).map(a => ({
       url: a.url,
       title: a.title || '',
       description: a.description || '',
@@ -74,18 +82,18 @@ async function searchGNews(query, apiKey, { max = 10, sortby = 'relevance' } = {
       source: `GNews/${a.source?.name || 'unknown'}`,
       publishedAt: a.publishedAt || null,
     }))
-    logger.info({ provider: 'gnews', query: query.slice(0, 80), results: articles.length }, '[newsProviders] search done')
-    return articles
+    logger.info({ provider: 'gnews', query: query.slice(0, 80), results: articles.length, totalArticles: data?.totalArticles }, '[newsProviders] search done')
+    return { articles }
   } catch (e) {
     clear()
     logger.error({ provider: 'gnews', error: e.message }, '[newsProviders] search failed')
-    return []
+    throw e
   }
 }
 
 // ── The Guardian (content.guardianapis.com) ────────────────────────────────
 
-async function searchGuardian(query, apiKey, { pageSize = 10 } = {}) {
+async function searchGuardian(query, apiKey, { pageSize = 15 } = {}) {
   const { signal, clear } = withTimeout(TIMEOUT_MS)
   try {
     const params = new URLSearchParams({
@@ -97,12 +105,13 @@ async function searchGuardian(query, apiKey, { pageSize = 10 } = {}) {
     })
     const res = await fetch(`https://content.guardianapis.com/search?${params}`, { signal })
     clear()
+    const data = await res.json().catch(() => null)
     if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`Guardian ${res.status}: ${body.slice(0, 200)}`)
+      const errMsg = data?.response?.message || data?.message || `HTTP ${res.status}`
+      logger.error({ provider: 'guardian', error: errMsg, status: res.status }, '[newsProviders] API error')
+      throw new Error(`Guardian: ${errMsg}`)
     }
-    const data = await res.json()
-    const results = data.response?.results || []
+    const results = data?.response?.results || []
     const articles = results.map(a => ({
       url: a.webUrl,
       title: a.fields?.headline || a.webTitle || '',
@@ -111,12 +120,12 @@ async function searchGuardian(query, apiKey, { pageSize = 10 } = {}) {
       source: 'The Guardian',
       publishedAt: a.webPublicationDate || null,
     }))
-    logger.info({ provider: 'guardian', query: query.slice(0, 80), results: articles.length }, '[newsProviders] search done')
-    return articles
+    logger.info({ provider: 'guardian', query: query.slice(0, 80), results: articles.length, total: data?.response?.total }, '[newsProviders] search done')
+    return { articles }
   } catch (e) {
     clear()
     logger.error({ provider: 'guardian', error: e.message }, '[newsProviders] search failed')
-    return []
+    throw e
   }
 }
 
@@ -127,18 +136,18 @@ async function searchNYT(query, apiKey, { page = 0 } = {}) {
   try {
     const params = new URLSearchParams({
       q: query,
-      fq: 'typeOfMaterials:News',
       page: String(page),
       'api-key': apiKey,
     })
     const res = await fetch(`https://api.nytimes.com/svc/search/v2/articlesearch.json?${params}`, { signal })
     clear()
+    const data = await res.json().catch(() => null)
     if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`NYT ${res.status}: ${body.slice(0, 200)}`)
+      const errMsg = data?.fault?.faultstring || data?.message || `HTTP ${res.status}`
+      logger.error({ provider: 'nyt', error: errMsg, status: res.status }, '[newsProviders] API error')
+      throw new Error(`NYT: ${errMsg}`)
     }
-    const data = await res.json()
-    const docs = data.response?.docs || []
+    const docs = data?.response?.docs || []
     const articles = docs.map(a => ({
       url: a.web_url,
       title: a.headline?.main || '',
@@ -147,12 +156,12 @@ async function searchNYT(query, apiKey, { page = 0 } = {}) {
       source: `NYT/${a.section_name || 'News'}`,
       publishedAt: a.pub_date || null,
     }))
-    logger.info({ provider: 'nyt', query: query.slice(0, 80), results: articles.length }, '[newsProviders] search done')
-    return articles
+    logger.info({ provider: 'nyt', query: query.slice(0, 80), results: articles.length, hits: data?.response?.meta?.hits }, '[newsProviders] search done')
+    return { articles }
   } catch (e) {
     clear()
     logger.error({ provider: 'nyt', error: e.message }, '[newsProviders] search failed')
-    return []
+    throw e
   }
 }
 
@@ -166,12 +175,13 @@ async function fetchNYTTopStories(apiKey, section = 'world') {
       { signal }
     )
     clear()
+    const data = await res.json().catch(() => null)
     if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`NYT TopStories ${res.status}: ${body.slice(0, 200)}`)
+      const errMsg = data?.fault?.faultstring || data?.message || `HTTP ${res.status}`
+      logger.error({ provider: 'nyt-top', error: errMsg, status: res.status }, '[newsProviders] API error')
+      throw new Error(`NYT TopStories: ${errMsg}`)
     }
-    const data = await res.json()
-    const results = (data.results || []).slice(0, 10)
+    const results = (data?.results || []).slice(0, 15)
     const articles = results.map(a => ({
       url: a.url,
       title: a.title || '',
@@ -181,11 +191,11 @@ async function fetchNYTTopStories(apiKey, section = 'world') {
       publishedAt: a.published_date || null,
     }))
     logger.info({ provider: 'nyt-top', section, results: articles.length }, '[newsProviders] top stories done')
-    return articles
+    return { articles }
   } catch (e) {
     clear()
     logger.error({ provider: 'nyt-top', error: e.message }, '[newsProviders] top stories failed')
-    return []
+    throw e
   }
 }
 

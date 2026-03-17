@@ -329,11 +329,25 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       trackUsage({ projectId, service: 'firecrawl', action: 'Fetch Stories', tokensUsed: estimatedTokens, status: 'ok' })
     }
 
-    const message =
-      created.length > 0
-        ? null
-        : `${engine === 'multi-source' ? 'News APIs' : 'Firecrawl'} returned 0 new stories (they may have been filtered or try again).`
-    res.json({ ok: true, created: created.length, stories: created, message, searchMeta, engine })
+    const dupes = storiesToCreate.length - created.length
+    let message = null
+    if (created.length === 0) {
+      const diagParts = []
+      const sm = searchMeta || {}
+      if (sm.totalArticles === 0) diagParts.push('all news APIs returned 0 articles')
+      else if (sm.structured === 0) diagParts.push(`${sm.filteredArticles || 0} articles found but Claude filtered them all out`)
+      else if (dupes > 0) diagParts.push(`${dupes} stories already exist in DB`)
+      if (sm.providerStats) {
+        const failedProviders = Object.entries(sm.providerStats).filter(([, v]) => v.status === 'fail')
+        if (failedProviders.length > 0) {
+          diagParts.push('failed: ' + failedProviders.map(([k, v]) => `${k} (${(v.error || '').slice(0, 60)})`).join(', '))
+        }
+      }
+      message = diagParts.length > 0
+        ? `0 new stories. ${diagParts.join('; ')}`
+        : `${engine === 'multi-source' ? 'News APIs' : 'Firecrawl'} returned 0 new stories.`
+    }
+    res.json({ ok: true, created: created.length, duplicates: dupes, stories: created, message, searchMeta, engine })
   } catch (e) {
     console.error('[stories/fetch]', e)
     const message = e instanceof Error ? e.message : String(e)

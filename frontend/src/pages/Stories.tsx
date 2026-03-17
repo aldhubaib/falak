@@ -15,7 +15,7 @@ export interface ApiStory {
   id: string;
   headline: string;
   stage: Stage;
-  coverageStatus: string | null;  // "first" | "late" | null
+  coverageStatus: string | null;
   sourceUrl: string | null;
   sourceName: string | null;
   sourceDate: string | null;
@@ -25,14 +25,30 @@ export interface ApiStory {
   compositeScore: number | null;
   scriptLong: string | null;
   scriptShort: string | null;
-  /** Script content lives in brief.script; scriptShort/scriptLong are legacy and often null */
   brief: Record<string, unknown> | null;
+  queryVersion: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
+const SOURCE_COLORS: Record<string, string> = {
+  NewsAPI: "text-emerald-400",
+  GNews: "text-emerald-400",
+  "The Guardian": "text-emerald-400",
+  Guardian: "text-emerald-400",
+  NYT: "text-emerald-400",
+  Firecrawl: "text-dim",
+  News: "text-emerald-400",
+};
+
+function getSourceBadge(sourceName: string | null): { label: string; color: string } | null {
+  if (!sourceName) return null;
+  const provider = sourceName.split("/")[0].trim();
+  return { label: provider, color: SOURCE_COLORS[provider] || "text-dim" };
+}
+
 const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
-  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-orange",     sub: "awaiting triage · from Brain v2 + Firecrawl" },
+  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-orange",     sub: "awaiting triage · multi-source news" },
   { key: "liked",      label: "Liked",          color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "saved for review" },
   { key: "scripting",  label: "Scripting",      color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "editing script" },
   { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-success", sub: "waiting for URL" },
@@ -137,7 +153,7 @@ export default function Stories() {
     }
     setFetchError(null);
     setFetching(true);
-    toast.info("Fetching new stories from Firecrawl…");
+    toast.info("Fetching new stories…");
     try {
       const r = await fetch("/api/stories/fetch", {
         method: "POST",
@@ -156,7 +172,8 @@ export default function Stories() {
         toast.success(`Added ${data.created} story suggestions`);
       } else {
         const hint = data.message || "No new suggestions this time.";
-        toast.success(hint);
+        setFetchError(hint);
+        toast.warning(hint);
       }
       await loadStories();
     } catch (e) {
@@ -229,7 +246,7 @@ export default function Stories() {
           <button
             onClick={handleFetch}
             disabled={fetching || !projectId}
-            title="Fetch new story suggestions from Firecrawl using the Brain v2 query"
+            title="Fetch new story suggestions using multi-source news APIs"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
           >
             {fetching ? (
@@ -405,9 +422,17 @@ export default function Stories() {
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
                         </span>
                       </div>
-                      {sourceLabel && (
-                        <div className="text-[10px] text-dim font-mono mb-2">{sourceLabel}</div>
-                      )}
+                      <div className="flex items-center justify-end gap-2 text-[10px] font-mono mb-2">
+                        {(() => {
+                          const badge = getSourceBadge(story.sourceName);
+                          if (badge) return <span className={`${badge.color}`}>{badge.label}</span>;
+                          return null;
+                        })()}
+                        {story.sourceName && story.sourceName.includes("/") && (
+                          <span className="text-dim">{story.sourceName.split("/").slice(1).join("/").trim()}</span>
+                        )}
+                        {sourceLabel && <span className="text-dim">{sourceLabel}</span>}
+                      </div>
                       <div className="flex items-center justify-between gap-3">
                         <MiniScores story={story} />
                         <span className={`text-[12px] font-mono font-bold shrink-0 ml-auto ${story.compositeScore == null ? "text-dim" : ""}`}>

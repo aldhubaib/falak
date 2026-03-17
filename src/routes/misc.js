@@ -458,4 +458,100 @@ projects.get('/:id/news-stats', requireRole('owner', 'admin'), async (req, res) 
   }
 })
 
+// GET /api/projects/:id/test-news-apis — test each news API individually with a simple query
+const {
+  searchNewsAPI,
+  searchGNews,
+  searchGuardian,
+  searchNYT,
+  fetchNYTTopStories,
+} = require('../services/newsProviders')
+
+projects.get('/:id/test-news-apis', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const project = await db.project.findUnique({
+      where: { id: req.params.id },
+      select: {
+        newsapiApiKeyEncrypted: true,
+        gnewsApiKeyEncrypted: true,
+        guardianApiKeyEncrypted: true,
+        nytApiKeyEncrypted: true,
+      },
+    })
+    if (!project) return res.status(404).json({ error: 'Project not found' })
+
+    const tryDec = (enc) => { try { return enc ? decrypt(enc) : null } catch { return null } }
+    const keys = {
+      newsapi: tryDec(project.newsapiApiKeyEncrypted),
+      gnews: tryDec(project.gnewsApiKeyEncrypted),
+      guardian: tryDec(project.guardianApiKeyEncrypted),
+      nyt: tryDec(project.nytApiKeyEncrypted),
+    }
+
+    const testQuery = req.query.q || 'technology AI 2024'
+    const results = {}
+
+    const tests = []
+
+    if (keys.newsapi) {
+      tests.push(
+        searchNewsAPI(testQuery, keys.newsapi, { pageSize: 3 })
+          .then(r => { results.newsapi = { ok: true, count: r.articles.length, sample: r.articles.slice(0, 2).map(a => ({ title: a.title, url: a.url, source: a.source })) } })
+          .catch(e => { results.newsapi = { ok: false, error: e.message } })
+      )
+    } else {
+      results.newsapi = { ok: false, error: 'No API key configured' }
+    }
+
+    if (keys.gnews) {
+      tests.push(
+        searchGNews(testQuery, keys.gnews, { max: 3 })
+          .then(r => { results.gnews = { ok: true, count: r.articles.length, sample: r.articles.slice(0, 2).map(a => ({ title: a.title, url: a.url, source: a.source })) } })
+          .catch(e => { results.gnews = { ok: false, error: e.message } })
+      )
+    } else {
+      results.gnews = { ok: false, error: 'No API key configured' }
+    }
+
+    if (keys.guardian) {
+      tests.push(
+        searchGuardian(testQuery, keys.guardian, { pageSize: 3 })
+          .then(r => { results.guardian = { ok: true, count: r.articles.length, sample: r.articles.slice(0, 2).map(a => ({ title: a.title, url: a.url, source: a.source })) } })
+          .catch(e => { results.guardian = { ok: false, error: e.message } })
+      )
+    } else {
+      results.guardian = { ok: false, error: 'No API key configured' }
+    }
+
+    if (keys.nyt) {
+      tests.push(
+        searchNYT(testQuery, keys.nyt)
+          .then(r => { results.nytSearch = { ok: true, count: r.articles.length, sample: r.articles.slice(0, 2).map(a => ({ title: a.title, url: a.url, source: a.source })) } })
+          .catch(e => { results.nytSearch = { ok: false, error: e.message } })
+      )
+      tests.push(
+        fetchNYTTopStories(keys.nyt, 'world')
+          .then(r => { results.nytTopStories = { ok: true, count: r.articles.length, sample: r.articles.slice(0, 2).map(a => ({ title: a.title, url: a.url, source: a.source })) } })
+          .catch(e => { results.nytTopStories = { ok: false, error: e.message } })
+      )
+    } else {
+      results.nytSearch = { ok: false, error: 'No API key configured' }
+      results.nytTopStories = { ok: false, error: 'No API key configured' }
+    }
+
+    await Promise.all(tests)
+
+    const summary = {
+      query: testQuery,
+      totalWorking: Object.values(results).filter(r => r.ok && r.count > 0).length,
+      totalFailed: Object.values(results).filter(r => !r.ok).length,
+      totalEmpty: Object.values(results).filter(r => r.ok && r.count === 0).length,
+    }
+
+    res.json({ summary, results })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 module.exports = { monitor, admin, projects }

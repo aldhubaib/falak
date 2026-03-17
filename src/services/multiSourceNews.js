@@ -214,17 +214,17 @@ async function fetchStoriesMultiSource({
   for (let i = 0; i < results.length; i++) {
     const name = providerNames[i]
     const result = results[i]
+    const baseService = name.startsWith('nyt') ? 'nyt' : name
     if (result.status === 'fulfilled') {
-      const count = result.value.length
+      const articles = result.value?.articles || []
+      const count = articles.length
       providerStats[name] = { status: 'ok', count }
-      rawArticles.push(...result.value)
-
-      const baseService = name.startsWith('nyt') ? 'nyt' : name
+      rawArticles.push(...articles)
       trackUsage({ projectId, service: baseService, action: `search: ${query.slice(0, 60)}`, tokensUsed: count, status: 'ok' })
     } else {
-      providerStats[name] = { status: 'fail', error: result.reason?.message }
-      const baseService = name.startsWith('nyt') ? 'nyt' : name
-      trackUsage({ projectId, service: baseService, action: `search: ${query.slice(0, 60)}`, status: 'fail', error: result.reason?.message })
+      const errMsg = result.reason?.message || 'Unknown error'
+      providerStats[name] = { status: 'fail', error: errMsg }
+      trackUsage({ projectId, service: baseService, action: `search: ${query.slice(0, 60)}`, status: 'fail', error: errMsg })
     }
   }
 
@@ -253,21 +253,30 @@ async function fetchStoriesMultiSource({
     projectId,
   )
 
+  // Build a url→source map from the raw articles to preserve provider info
+  const urlToSource = new Map()
+  for (const a of filteredArticles) {
+    if (a.url) urlToSource.set(normalizeUrl(a.url), a.source || 'News')
+  }
+
   const stories = structured
     .filter(s => s.headline && s.sourceUrl && !isBlockedUrl(s.sourceUrl, dynamicBlocklist))
-    .map(s => ({
-      projectId,
-      headline: s.headline,
-      sourceUrl: s.sourceUrl,
-      sourceName: s.sourceName || 'News',
-      sourceDate: s.sourceDate ? new Date(s.sourceDate) : null,
-      stage: 'suggestion',
-      brief: {
-        summary: s.summary || '',
-        articleContent: null,
-      },
-      queryVersion: queryVersion || 'v3-multi-source',
-    }))
+    .map(s => {
+      const providerSource = urlToSource.get(normalizeUrl(s.sourceUrl))
+      return {
+        projectId,
+        headline: s.headline,
+        sourceUrl: s.sourceUrl,
+        sourceName: providerSource || s.sourceName || 'News',
+        sourceDate: s.sourceDate ? new Date(s.sourceDate) : null,
+        stage: 'suggestion',
+        brief: {
+          summary: s.summary || '',
+          articleContent: null,
+        },
+        queryVersion: queryVersion || 'v3-multi-source',
+      }
+    })
 
   const searchMeta = {
     query,

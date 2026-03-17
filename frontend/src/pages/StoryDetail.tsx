@@ -605,6 +605,7 @@ export default function StoryDetail() {
             <StoryDetailArticle
               storyId={id}
               sourceUrl={story.sourceUrl}
+              sourceName={story.sourceName}
               articleContent={brief.articleContent}
               articleDisplayValue={articleDisplayValue}
               articleTitle={brief.articleTitle ?? story.headline ?? ""}

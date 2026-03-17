@@ -6,19 +6,16 @@ import { Progress } from "@/components/ui/progress";
 export interface StoryDetailArticleProps {
   storyId: string | undefined;
   sourceUrl: string | null;
+  sourceName: string | null;
   articleContent: string | undefined;
   articleDisplayValue: string;
   articleTitle?: string;
-  /** 0-100 during cleanup for progress bar */
   cleanupProgress?: number;
   articleLoading: boolean;
   articleError: string | null;
   actionsDisabled: boolean;
-  /** Inline scores: R, V, F, T (F hidden on mobile) */
   scores?: { relevance: number; viral: number; firstMover: number; total: number };
-  /** e.g. "2 days ago" — hidden on mobile */
   relativeDate?: string | null;
-  /** Controlled open state for collapsible */
   articleOpen?: boolean;
   onArticleOpenChange?: (open: boolean) => void;
   onCleanup: () => Promise<void>;
@@ -26,13 +23,30 @@ export interface StoryDetailArticleProps {
   onRetryFetch: () => Promise<void>;
   onArticleChange?: (value: string) => void;
   onArticleTitleChange?: (value: string) => void;
-  /** Called when title input blurs with current title value — use to persist brief */
   onArticleTitleBlur?: (title: string) => void;
+}
+
+const SOURCE_BADGE_COLORS: Record<string, string> = {
+  NewsAPI: "bg-emerald-500/15 text-emerald-400",
+  GNews: "bg-teal-500/15 text-teal-400",
+  Guardian: "bg-blue-500/15 text-blue-400",
+  "The Guardian": "bg-blue-500/15 text-blue-400",
+  NYT: "bg-orange-500/15 text-orange-400",
+  Firecrawl: "bg-zinc-500/15 text-zinc-400",
+};
+
+function parseSourceBadge(sourceName: string | null): { provider: string; outlet: string | null; colorClass: string } | null {
+  if (!sourceName) return null;
+  const parts = sourceName.split("/");
+  const provider = parts[0].trim();
+  const outlet = parts.length > 1 ? parts.slice(1).join("/").trim() : null;
+  return { provider, outlet, colorClass: SOURCE_BADGE_COLORS[provider] || "bg-zinc-500/15 text-zinc-400" };
 }
 
 export function StoryDetailArticle({
   storyId,
   sourceUrl,
+  sourceName,
   articleContent,
   articleDisplayValue,
   articleTitle = "",
@@ -98,6 +112,20 @@ export function StoryDetailArticle({
           <span className="text-[12px] text-dim font-medium">Original Story</span>
         </div>
         <div className="flex items-center gap-2.5 max-sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
+          {(() => {
+            const badge = parseSourceBadge(sourceName);
+            if (!badge) return null;
+            return (
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full ${badge.colorClass}`}>
+                  {badge.provider}
+                </span>
+                {badge.outlet && (
+                  <span className="text-[10px] text-dim font-mono max-sm:hidden">{badge.outlet}</span>
+                )}
+              </div>
+            );
+          })()}
           {scores && (
             <>
             <div className="flex items-center gap-1.5 max-sm:gap-1">
@@ -181,9 +209,14 @@ export function StoryDetailArticle({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-blue hover:text-blue/80 transition-colors no-underline"
+                  dir="ltr"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  Read source
+                  {(() => {
+                    const badge = parseSourceBadge(sourceName);
+                    if (badge?.outlet) return `${badge.outlet}`;
+                    try { return new URL(sourceUrl).hostname.replace("www.", ""); } catch { return "Read source"; }
+                  })()}
                 </a>
               )}
             </label>
