@@ -44,6 +44,7 @@ router.get('/', async (req, res) => {
           id: true,
           viewCount: true, likeCount: true, commentCount: true,
           publishedAt: true, titleAr: true, titleEn: true,
+          duration: true, videoType: true,
         },
       },
     },
@@ -78,6 +79,8 @@ router.get('/', async (req, res) => {
         publishedAt:  v.publishedAt,
         titleAr:      v.titleAr,
         titleEn:      v.titleEn,
+        duration:     v.duration,
+        videoType:    v.videoType || 'video',
       })),
     }
   })
@@ -120,7 +123,121 @@ router.get('/', async (req, res) => {
   // ── Monthly upload trend (last 12 months, always 12 buckets) ──────────────
   const trend = buildMonthlyTrend(stats)
 
-  const payload = { universe, channels: stats, topVideos, trend }
+  // ── Growth snapshots (last 12 months per channel) ──────────────────────
+  const twelveMonthsAgo = new Date()
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
+  const snapshots = await db.channelSnapshot.findMany({
+    where: {
+      channelId: { in: channels.map(c => c.id) },
+      snapshotAt: { gte: twelveMonthsAgo },
+    },
+    orderBy: { snapshotAt: 'asc' },
+    select: {
+      channelId: true,
+      subscribers: true,
+      totalViews: true,
+      videoCount: true,
+      engagement: true,
+      snapshotAt: true,
+    },
+  })
+  const growthByChannel = {}
+  for (const snap of snapshots) {
+    if (!growthByChannel[snap.channelId]) growthByChannel[snap.channelId] = []
+    growthByChannel[snap.channelId].push({
+      subscribers: Number(snap.subscribers),
+      totalViews: Number(snap.totalViews),
+      videoCount: snap.videoCount,
+      engagement: snap.engagement,
+      date: snap.snapshotAt,
+    })
+  }
+
+  // ── Content mix (videos vs shorts) ─────────────────────────────────────
+  const contentMix = stats.map(ch => {
+    const vids = ch.videos.filter(v => !v.videoType || v.videoType === 'video')
+    const shorts = ch.videos.filter(v => v.videoType === 'short')
+    const vidViews = vids.reduce((s, v) => s + v.viewCount, 0)
+    const shortViews = shorts.reduce((s, v) => s + v.viewCount, 0)
+    const vidEngagement = vids.length && vidViews
+      ? ((vids.reduce((s, v) => s + v.likeCount + v.commentCount, 0)) / vidViews * 100)
+      : 0
+    const shortEngagement = shorts.length && shortViews
+      ? ((shorts.reduce((s, v) => s + v.likeCount + v.commentCount, 0)) / shortViews * 100)
+      : 0
+    return {
+      channelId: ch.id,
+      videos: { count: vids.length, views: vidViews, avgViews: vids.length ? Math.round(vidViews / vids.length) : 0, engagement: parseFloat(vidEngagement.toFixed(2)) },
+      shorts: { count: shorts.length, views: shortViews, avgViews: shorts.length ? Math.round(shortViews / shorts.length) : 0, engagement: parseFloat(shortEngagement.toFixed(2)) },
+    }
+  })
+
+  // ── Engagement breakdown (likes vs comments separate) ──────────────────
+  const engagementBreakdown = stats.map(ch => {
+    const totalLikes = ch.videos.reduce((s, v) => s + v.likeCount, 0)
+    const totalComments = ch.videos.reduce((s, v) => s + v.commentCount, 0)
+    const totalViews = ch.videos.reduce((s, v) => s + v.viewCount, 0)
+    return {
+      channelId: ch.id,
+      name: ch.nameAr || ch.nameEn || ch.handle,
+      type: ch.type,
+      likes: totalLikes,
+      comments: totalComments,
+      views: totalViews,
+      likeRate: totalViews ? parseFloat((totalLikes / totalViews * 100).toFixed(3)) : 0,
+      commentRate: totalViews ? parseFloat((totalComments / totalViews * 100).toFixed(3)) : 0,
+    }
+  })
+
+  // ── Publishing patterns (day-of-week + hour distribution) ──────────────
+  const TZ = 'Asia/Riyadh'
+  const publishingPatterns = stats.map(ch => {
+    const dayDist = [0, 0, 0, 0, 0, 0, 0] // Sun-Sat
+    const hourDist = new Array(24).fill(0)
+    for (const v of ch.videos) {
+      if (!v.publishedAt) continue
+      const d = new Date(v.publishedAt)
+      const localStr = d.toLocaleString('en-US', { timeZone: TZ, weekday: 'short', hour: 'numeric', hour12: false })
+      const parts = localStr.split(', ')
+      const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+      const dayIdx = dayMap[parts[0]] ?? 0
+      dayDist[dayIdx]++
+      const hr = parseInt(d.toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+      if (!isNaN(hr)) hourDist[hr]++
+    }
+    return {
+      channelId: ch.id,
+      name: ch.nameAr || ch.nameEn || ch.handle,
+      type: ch.type,
+      dayOfWeek: dayDist,
+      hourOfDay: hourDist,
+    }
+  })
+
+  // ── Video performance distribution (percentiles, spread) ───────────────
+  const allVideoViews = allVideos.map(v => v.viewCount).sort((a, b) => a - b)
+  const p = (arr, pct) => arr.length ? arr[Math.min(Math.floor(arr.length * pct), arr.length - 1)] : 0
+  const performanceDistribution = {
+    total: allVideoViews.length,
+    min: allVideoViews[0] || 0,
+    p10: p(allVideoViews, 0.1),
+    p25: p(allVideoViews, 0.25),
+    median: p(allVideoViews, 0.5),
+    p75: p(allVideoViews, 0.75),
+    p90: p(allVideoViews, 0.9),
+    max: allVideoViews[allVideoViews.length - 1] || 0,
+    mean: allVideoViews.length ? Math.round(allVideoViews.reduce((s, v) => s + v, 0) / allVideoViews.length) : 0,
+    buckets: buildViewBuckets(allVideoViews),
+  }
+
+  const payload = {
+    universe, channels: stats, topVideos, trend,
+    growth: growthByChannel,
+    contentMix,
+    engagementBreakdown,
+    publishingPatterns,
+    performanceDistribution,
+  }
   analyticsCache.set(cacheKey, payload)
   res.set('Cache-Control', 'private, max-age=300')
   res.json(payload)
@@ -202,6 +319,18 @@ function buildMonthlyTrend(stats) {
     months:   buckets.map(b => b.label),
     channels: channelTrends,
   }
+}
+
+function buildViewBuckets(sortedViews) {
+  const labels = ['<1K', '1K–10K', '10K–100K', '100K–1M', '1M–10M', '10M+']
+  const thresholds = [1000, 10000, 100000, 1000000, 10000000, Infinity]
+  const counts = new Array(labels.length).fill(0)
+  for (const v of sortedViews) {
+    for (let i = 0; i < thresholds.length; i++) {
+      if (v < thresholds[i]) { counts[i]++; break }
+    }
+  }
+  return labels.map((label, i) => ({ label, count: counts[i] }))
 }
 
 module.exports = router

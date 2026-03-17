@@ -293,10 +293,12 @@ export default function StoryDetail() {
   );
 
   const generateScript = useCallback(async () => {
+    console.log("[generateScript] called", { id, selectedChannel, generatingScript });
     if (!id) { toast.error("No story ID"); return; }
     if (!selectedChannel) { toast.error("Select a channel first"); return; }
     if (generatingScript) return;
     setGeneratingScript(true);
+    toast.info("Generating script…");
     try {
       const res = await fetch(`/api/stories/${id}/generate-script`, {
         method: "POST",
