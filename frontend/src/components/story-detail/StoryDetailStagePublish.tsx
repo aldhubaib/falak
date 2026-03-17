@@ -23,21 +23,27 @@ export interface StoryDetailStagePublishProps {
   channelHandle?: string;
 }
 
-function validateYoutubeUrl(url: string, channelHandle?: string): { valid: boolean; error?: string } {
+function validateYoutubeUrl(url: string): { valid: boolean; videoId?: string; error?: string } {
   if (!url) return { valid: false };
   try {
     const u = new URL(url);
     if (!["www.youtube.com", "youtube.com", "youtu.be", "m.youtube.com"].includes(u.hostname)) {
       return { valid: false, error: "Not a YouTube URL" };
     }
-    if (channelHandle) {
-      const handle = channelHandle.replace(/^@/, "").toLowerCase();
-      const urlLower = url.toLowerCase();
-      if (!urlLower.includes(`/@${handle}/`) && !urlLower.includes(`/@${handle}?`) && !urlLower.includes(`/@${handle}\n`) && !urlLower.includes(`/channel/`)) {
-        return { valid: false, error: `URL must be from @${channelHandle.replace(/^@/, "")}` };
-      }
+    let videoId: string | null = null;
+    if (u.hostname === "youtu.be") {
+      videoId = u.pathname.slice(1).split("/")[0] || null;
+    } else if (u.pathname.startsWith("/watch")) {
+      videoId = u.searchParams.get("v");
+    } else if (u.pathname.startsWith("/shorts/")) {
+      videoId = u.pathname.split("/")[2] || null;
+    } else if (u.pathname.startsWith("/live/")) {
+      videoId = u.pathname.split("/")[2] || null;
     }
-    return { valid: true };
+    if (!videoId) {
+      return { valid: false, error: "Not a YouTube video URL (use /watch, /shorts, or youtu.be)" };
+    }
+    return { valid: true, videoId };
   } catch {
     return { valid: false, error: "Invalid URL" };
   }
@@ -212,7 +218,7 @@ export function StoryDetailStagePublish({
                   onBriefChange((b) => ({ ...b, youtubeUrl: "" }));
                   return;
                 }
-                const result = validateYoutubeUrl(trimmed, channelHandle);
+                const result = validateYoutubeUrl(trimmed);
                 if (result.valid) {
                   onBriefChange((b) => ({ ...b, youtubeUrl: trimmed }));
                   toast.success("YouTube URL saved");
@@ -227,7 +233,7 @@ export function StoryDetailStagePublish({
               className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors"
             />
             {urlInput && (() => {
-              const result = validateYoutubeUrl(urlInput.trim(), channelHandle);
+              const result = validateYoutubeUrl(urlInput.trim());
               if (result.valid) {
                 return <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-success" />;
               }
@@ -238,9 +244,9 @@ export function StoryDetailStagePublish({
             })()}
           </div>
         </div>
-        {urlInput && !validateYoutubeUrl(urlInput.trim(), channelHandle).valid && validateYoutubeUrl(urlInput.trim(), channelHandle).error && (
+        {urlInput && !validateYoutubeUrl(urlInput.trim()).valid && validateYoutubeUrl(urlInput.trim()).error && (
           <p className="text-[11px] text-orange mt-1.5">
-            {validateYoutubeUrl(urlInput.trim(), channelHandle).error}
+            {validateYoutubeUrl(urlInput.trim()).error}
           </p>
         )}
       </div>
