@@ -557,6 +557,15 @@ export default function StoryDetail() {
 
         <div className="flex-1 overflow-auto">
           <div className="px-6 max-lg:px-4 max-sm:px-3 py-5 pb-16 space-y-5">
+            {(activeStage === "filmed" || activeStage === "publish" || activeStage === "done") && (
+              <VideoUpload
+                storyId={id}
+                videoR2Key={brief.videoR2Key}
+                videoFileName={brief.videoFileName}
+                videoFileSize={brief.videoFileSize}
+                readOnly={activeStage === "done"}
+              />
+            )}
             <StoryDetailArticle
               storyId={id}
               sourceUrl={story.sourceUrl}
@@ -605,14 +614,6 @@ export default function StoryDetail() {
             {/* ── SCRIPTING / FILMED / DONE (Yoopta script editor) ───────── */}
             {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "done") && (
               <>
-                {activeStage === "filmed" && (
-                  <VideoUpload
-                    storyId={id}
-                    videoR2Key={brief.videoR2Key}
-                    videoFileName={brief.videoFileName}
-                    videoFileSize={brief.videoFileSize}
-                  />
-                )}
                 <StoryDetailScriptSection
                   key={id}
                   channels={ourChannels}
@@ -680,12 +681,6 @@ export default function StoryDetail() {
             {/* ── PUBLISH (title, description, tags, thumbnail, visibility) ───────── */}
             {activeStage === "publish" && id && (
               <>
-                <VideoUpload
-                  storyId={id}
-                  videoR2Key={brief.videoR2Key}
-                  videoFileName={brief.videoFileName}
-                  videoFileSize={brief.videoFileSize}
-                />
                 <StoryDetailStagePublish
                   brief={brief}
                   storyId={id}
@@ -724,13 +719,6 @@ export default function StoryDetail() {
             {/* ── DONE ──────────────────────────────────────────────────── */}
             {activeStage === "done" && (
               <>
-                <VideoUpload
-                  storyId={id}
-                  videoR2Key={brief.videoR2Key}
-                  videoFileName={brief.videoFileName}
-                  videoFileSize={brief.videoFileSize}
-                  readOnly
-                />
                 {brief.gapWin && (
                   <div className="rounded-xl bg-success/10 border border-success/20 px-5 py-4 flex items-center gap-3">
                     <Trophy className="w-5 h-5 text-success shrink-0" />
