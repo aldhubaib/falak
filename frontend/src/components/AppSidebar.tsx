@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutGrid, GitBranch, Circle, TrendingUp, Sparkles, Brain, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X } from "lucide-react";
+import { LayoutGrid, Swords, GitBranch, Circle, TrendingUp, Sparkles, Brain, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
-  { icon: LayoutGrid, label: "Channels", path: "" },
+  { icon: LayoutGrid, label: "Our Channels", path: "" },
+  { icon: Swords, label: "Competitions", path: "/competitions" },
   { icon: GitBranch, label: "Pipeline", path: "/pipeline" },
   { icon: Activity, label: "Monitor", path: "/monitor" },
   { icon: TrendingUp, label: "Analytics", path: "/analytics" },
@@ -79,7 +80,7 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
   }, [projectId]);
 
   const isActive = (path: string) => {
-    if (path === "" || path === "/") return location.pathname === base || location.pathname.startsWith(`${base}/channel`);
+    if (path === "" || path === "/") return location.pathname === base;
     return location.pathname === `${base}${path}` || location.pathname.startsWith(`${base}${path}/`);
   };
 

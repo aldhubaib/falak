@@ -7,7 +7,8 @@ import { PageError } from "@/components/PageError";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectLayout, ProjectRootRedirect } from "@/components/ProjectLayout";
 import Login from "./pages/Login";
-import Channels from "./pages/Channels";
+import OurChannels from "./pages/OurChannels";
+import Competitions from "./pages/Competitions";
 import ChannelDetail from "./pages/ChannelDetail";
 import VideoDetail from "./pages/VideoDetail";
 import Pipeline from "./pages/Pipeline";
@@ -60,7 +61,8 @@ const App = () => (
           <Route path="/" element={<ProjectRootRedirect />} />
           <Route path="/p/:projectId" element={<ProjectLayout />}>
             <Route element={<AppLayout />}>
-              <Route index element={<Channels />} />
+              <Route index element={<OurChannels />} />
+              <Route path="competitions" element={<Competitions />} />
               <Route path="channel/:id" element={<ChannelDetail />} />
               <Route path="video/:id" element={<VideoDetail />} />
               <Route path="pipeline" element={<Pipeline />} />
