@@ -66,16 +66,16 @@ async function buildSearchQuery(autoSearchQuery, anthropicApiKey, projectId) {
       'claude-sonnet-4-20250514',
       [{
         role: 'user',
-        content: `You are helping a YouTube channel find interesting news stories to cover.\n\nHere is the channel's content brief:\n${(autoSearchQuery || '').slice(0, 1500)}\n\nGenerate 5-8 English search keywords/phrases that would find the most interesting, viral, and compelling stories for this channel across global news sources. Focus on topics that make great YouTube videos.\n\nReturn ONLY the search query string — no quotes, no explanation, just keywords separated by spaces.`,
+        content: `You are helping a YouTube channel find interesting news stories.\n\nChannel brief:\n${(autoSearchQuery || '').slice(0, 1500)}\n\nGenerate 3-5 BROAD English search keywords that would return many results from news APIs. Use simple, common words — not overly specific phrases.\n\nIMPORTANT: Keep it broad so we get lots of results. For example, if the channel covers true crime, use "crime investigation" not "serial killer cold case solved DNA 2024".\n\nReturn ONLY the keywords separated by spaces. No quotes, no explanation.`,
       }],
-      { system: 'You generate English news search queries. Return only the query string, nothing else.', maxTokens: 150, projectId, action: 'News Search Query' }
+      { system: 'You generate broad English news search keywords. Return only keywords, nothing else. Keep them simple and common.', maxTokens: 100, projectId, action: 'News Search Query' }
     )
-    const keywords = (raw || '').trim().replace(/["'\n]/g, ' ').replace(/\s+/g, ' ').slice(0, 250)
-    if (keywords.length > 5) return keywords
+    const keywords = (raw || '').trim().replace(/["'\n]/g, ' ').replace(/\s+/g, ' ').slice(0, 100)
+    if (keywords.length > 3) return keywords
   } catch (e) {
     logger.warn({ error: e.message }, '[multiSourceNews] query generation failed, using fallback')
   }
-  return 'true crime investigation murder cold case fraud scandal mystery'
+  return 'crime investigation mystery scandal'
 }
 
 /**
@@ -103,21 +103,22 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
     )
     .join('\n\n')
 
-  const systemPrompt = `أنت محلل محتوى لقناة يوتيوب عربية.
+  const systemPrompt = `أنت محلل محتوى لقناة يوتيوب عربية. مهمتك اختيار القصص المثيرة للاهتمام التي تصلح لفيديوهات يوتيوب.
 
-سيصلك أولاً تعليمات القناة التفصيلية (ما تريده وما تتجنبه)، ثم مقالات من مصادر إخبارية متعددة.
-مهمتك: طابق المقالات مع تعليمات القناة واستخرج القصص المناسبة فقط.
+سيصلك تعليمات القناة كمرجع عام، ثم مقالات من مصادر إخبارية متعددة.
 
-قواعد صارمة:
+الهدف الرئيسي: اختر أي قصة مثيرة أو مفاجئة أو فيروسية تصلح لفيديو يوتيوب جذاب.
+لا تكن صارماً جداً في المطابقة مع تعليمات القناة — القصة المثيرة أهم من التطابق الدقيق.
+
+قواعد:
 - أعد JSON فقط، بدون أي نص قبله أو بعده، بدون backticks
 - sourceUrl يجب أن يكون مأخوذاً حرفياً من حقل URL في المقال — لا تخترع أو تعدّل أي رابط
-- لا تستخدم أبداً روابط YouTube أو وسائل التواصل الاجتماعي أو ويكيبيديا كمصدر
-- يجب أن يكون المصدر مقالاً إخبارياً أو تحقيقاً صحفياً فقط
-- إذا لم يناسب المقال تعليمات القناة، تجاهله تماماً
+- لا تستخدم روابط YouTube أو وسائل التواصل الاجتماعي أو ويكيبيديا
 - إذا كان المقال من موقع غير إخباري (مكتب محاماة، متجر، إلخ)، تجاهله
-- summary جملتان بالعربية فقط
+- summary جملتان بالعربية
+- اقبل القصة بأي لغة كانت — المهم أن تكون مثيرة للاهتمام
 
-أعد مصفوفة JSON بهذا الشكل بالضبط:
+أعد مصفوفة JSON بهذا الشكل:
 [
   {
     "headline": "عنوان القصة بالعربية",
@@ -128,12 +129,13 @@ async function structureWithClaude(articles, autoSearchQuery, anthropicApiKey, p
   }
 ]
 
-إذا لم تجد أي مقال مناسب، أعد مصفوفة فارغة: []`
+إذا لم تجد أي مقال إخباري حقيقي على الإطلاق، أعد مصفوفة فارغة: []
+لكن كن كريماً في الاختيار — القصة لا تحتاج تطابق 100% مع تعليمات القناة.`
 
   const userContent =
-    `## تعليمات القناة:\n${autoSearchQuery}\n\n` +
+    `## تعليمات القناة (مرجع عام):\n${autoSearchQuery}\n\n` +
     `## المقالات من مصادر إخبارية متعددة:\n${articlesText}\n\n` +
-    `طابق المقالات مع تعليمات القناة واستخرج القصص الإخبارية المناسبة فقط. تجاهل أي مصدر ليس مقالاً إخبارياً.`
+    `اختر القصص المثيرة والمفاجئة التي تصلح لفيديوهات يوتيوب. كن كريماً — لا تتجاهل قصة جيدة لمجرد أنها لا تتطابق تماماً مع تعليمات القناة.`
 
   const raw = await callAnthropic(
     anthropicApiKey,

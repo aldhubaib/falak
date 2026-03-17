@@ -60,8 +60,10 @@ async function searchNewsAPI(query, apiKey, { pageSize = 20, sortBy = 'relevancy
 async function searchGNews(query, apiKey, { max = 10, sortby = 'relevance' } = {}) {
   const { signal, clear } = withTimeout(TIMEOUT_MS)
   try {
+    // GNews free tier: max ~100 char query, no special chars
+    const cleanQ = query.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 95)
     const params = new URLSearchParams({
-      q: query,
+      q: cleanQ,
       max: String(max),
       sortby,
       apikey: apiKey,
