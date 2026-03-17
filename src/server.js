@@ -47,8 +47,8 @@ app.use(cors({
   credentials: true,
 }))
 
-// Rate limiting: global API 200/min; auth mutations 30/15min (GET /me exempt)
-app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 200, message: { error: { code: 'rate_limit', message: 'Too many requests' } } }))
+// Rate limiting: global API 500/min; auth mutations 30/15min (GET /me exempt)
+app.use('/api', rateLimit({ windowMs: 60 * 1000, max: 500, message: { error: { code: 'rate_limit', message: 'Too many requests' } } }))
 app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
@@ -247,6 +247,8 @@ async function main() {
   migrateVideoTypes().catch(e => logger.warn('[migrate] videoTypes non-fatal:', e.message)) // run async, non-blocking
 
   const server = http.createServer(app)
+  server.keepAliveTimeout = 65_000
+  server.headersTimeout = 66_000
 
   server.on('upgrade', (req, socket, head) => {
     if (req.url?.startsWith('/collab')) {

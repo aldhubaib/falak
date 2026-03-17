@@ -754,7 +754,9 @@ router.get('/:id', async (req, res) => {
     })
     res.json(story)
   } catch (e) {
-    res.status(404).json({ error: 'Story not found' })
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/get]', req.params.id, e?.message || e)
+    res.status(500).json({ error: 'Failed to load story' })
   }
 })
 

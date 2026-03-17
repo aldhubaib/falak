@@ -151,27 +151,42 @@ export default function StoryDetail() {
     }
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/stories/${id}`, { credentials: "include" })
-      .then((res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? "Story not found" : "Failed to load story");
-        return res.json();
-      })
-      .then((data) => {
+
+    const MAX_RETRIES = 3;
+    const fetchStory = async (attempt = 0): Promise<void> => {
+      try {
+        const res = await fetch(`/api/stories/${id}`, { credentials: "include" });
+        if (!res.ok) {
+          if (res.status === 404) throw new Error("Story not found");
+          throw new Error(`Server error (${res.status})`);
+        }
+        const data = await res.json();
         if (cancelled) return;
         setStory(data as StoryWithLog);
         const b = data.brief && typeof data.brief === "object" ? data.brief as StoryBrief : {};
         setBrief(b);
-      })
-      .catch((err) => {
-        if (!cancelled) {
+      } catch (err: any) {
+        if (cancelled) return;
+        if (err.message === "Story not found") {
           setStory(null);
           setBrief({});
-          if (err.message === "Story not found") navigateRef.current(projectPathRef.current("/stories"), { replace: true });
+          navigateRef.current(projectPathRef.current("/stories"), { replace: true });
+          return;
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          if (!cancelled) return fetchStory(attempt + 1);
+          return;
+        }
+        setStory(null);
+        setBrief({});
+        toast.error("Failed to load story. Please refresh the page.");
+      }
+    };
+
+    fetchStory().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [id]);
 
