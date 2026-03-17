@@ -406,4 +406,56 @@ projects.get('/:id/usage', requireRole('owner', 'admin'), async (req, res) => {
   }
 })
 
+// GET /api/projects/:id/news-stats — aggregated stats for news API providers
+const NEWS_DAILY_LIMITS = { newsapi: 100, gnews: 100, guardian: 5000, nyt: 500 }
+const NEWS_SERVICES = Object.keys(NEWS_DAILY_LIMITS)
+
+projects.get('/:id/news-stats', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const projectId = req.params.id
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const [todayRows, allTimeRows] = await Promise.all([
+      db.apiUsage.groupBy({
+        by: ['service', 'status'],
+        where: { projectId, service: { in: NEWS_SERVICES }, createdAt: { gte: todayStart } },
+        _count: { id: true },
+      }),
+      db.apiUsage.groupBy({
+        by: ['service', 'status'],
+        where: { projectId, service: { in: NEWS_SERVICES } },
+        _count: { id: true },
+      }),
+    ])
+
+    const stats = {}
+    for (const svc of NEWS_SERVICES) {
+      const todayOk   = todayRows.find(r => r.service === svc && r.status === 'ok')?._count?.id || 0
+      const todayFail = todayRows.find(r => r.service === svc && r.status === 'fail')?._count?.id || 0
+      const allOk     = allTimeRows.find(r => r.service === svc && r.status === 'ok')?._count?.id || 0
+      const allFail   = allTimeRows.find(r => r.service === svc && r.status === 'fail')?._count?.id || 0
+      const todayTotal = todayOk + todayFail
+      const allTotal   = allOk + allFail
+      const limit = NEWS_DAILY_LIMITS[svc]
+
+      stats[svc] = {
+        today: todayTotal,
+        todayOk,
+        todayFail,
+        allTime: allTotal,
+        allTimeOk: allOk,
+        allTimeFail: allFail,
+        successRate: allTotal > 0 ? Math.round((allOk / allTotal) * 100) : null,
+        dailyLimit: limit,
+        remaining: Math.max(0, limit - todayTotal),
+      }
+    }
+
+    res.json(stats)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 module.exports = { monitor, admin, projects }

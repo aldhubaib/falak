@@ -31,6 +31,18 @@ interface UsageLog {
   status: "Pass" | "Fail";
 }
 
+interface NewsProviderStats {
+  today: number;
+  todayOk: number;
+  todayFail: number;
+  allTime: number;
+  allTimeOk: number;
+  allTimeFail: number;
+  successRate: number | null;
+  dailyLimit: number;
+  remaining: number;
+}
+
 // ── Static key definitions (metadata only, no values) ─────────────────────
 
 const CORE_KEYS: ApiKeyDef[] = [
@@ -185,6 +197,18 @@ export default function Settings() {
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageInitialLoaded, setUsageInitialLoaded] = useState(false);
   const usageScrollRef = useRef<HTMLDivElement>(null);
+  const [newsStats, setNewsStats] = useState<Record<string, NewsProviderStats>>({});
+
+  // Fetch news provider stats
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/projects/${projectId}/news-stats`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: Record<string, NewsProviderStats> | null) => {
+        if (d) setNewsStats(d);
+      })
+      .catch(() => {});
+  }, [projectId]);
 
   const fetchUsagePage = useCallback(async (cursor: string | null, replace: boolean) => {
     if (!projectId || usageLoading) return;
@@ -449,7 +473,8 @@ export default function Settings() {
               {NEWS_KEYS.map((def) => {
                 const isSet = !!keyStatus[def.service];
                 const Icon = iconMap[def.icon];
-                const limit = NEWS_LIMITS[def.service];
+                const st = newsStats[def.service];
+                const usedPct = st ? Math.min(100, Math.round((st.today / st.dailyLimit) * 100)) : 0;
                 return (
                   <div key={def.service} className={`rounded-xl border p-4 transition-colors ${isSet ? "border-emerald-500/30 bg-emerald-500/[0.03]" : "border-border"}`}>
                     <div className="flex items-center justify-between mb-2">
@@ -457,12 +482,49 @@ export default function Settings() {
                         <Icon className={`w-4 h-4 ${isSet ? "text-emerald-400" : "text-dim"}`} />
                         <span className="text-[13px] font-semibold">{def.name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {limit && <span className="text-[10px] text-dim font-mono">{limit}</span>}
-                        <span className={`w-2 h-2 rounded-full ${isSet ? "bg-emerald-400" : "bg-zinc-600"}`} />
-                      </div>
+                      <span className={`w-2 h-2 rounded-full ${isSet ? "bg-emerald-400" : "bg-zinc-600"}`} />
                     </div>
-                    <p className="text-[11px] text-dim mb-3">{def.description}</p>
+                    <p className="text-[11px] text-dim mb-2">{def.description}</p>
+
+                    {isSet && st ? (
+                      <div className="mb-3 space-y-2">
+                        {/* Quota bar */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-dim font-mono">Today</span>
+                            <span className="text-[10px] font-mono text-foreground">{st.today} / {st.dailyLimit.toLocaleString()}</span>
+                          </div>
+                          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${usedPct > 80 ? "bg-amber-400" : usedPct > 95 ? "bg-red-400" : "bg-emerald-400"}`}
+                              style={{ width: `${usedPct}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[9px] text-dim font-mono">{st.remaining.toLocaleString()} remaining</span>
+                            {st.successRate !== null && (
+                              <span className={`text-[9px] font-mono ${st.successRate >= 90 ? "text-emerald-400" : st.successRate >= 50 ? "text-amber-400" : "text-red-400"}`}>
+                                {st.successRate}% success
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* All-time stats */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-[9px] text-dim font-mono">{st.allTime.toLocaleString()} total calls</span>
+                          {st.allTimeFail > 0 && (
+                            <span className="text-[9px] text-red-400 font-mono">{st.allTimeFail} failed</span>
+                          )}
+                        </div>
+                      </div>
+                    ) : isSet ? (
+                      <div className="mb-3">
+                        <span className="text-[10px] text-dim font-mono">No calls yet</span>
+                      </div>
+                    ) : (
+                      <div className="mb-3" />
+                    )}
+
                     {renderSingleKey(def)}
                     {def.link && (
                       <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
