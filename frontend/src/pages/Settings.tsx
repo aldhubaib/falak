@@ -33,53 +33,38 @@ interface UsageLog {
 
 // ── Static key definitions (metadata only, no values) ─────────────────────
 
-const KEY_DEFS: ApiKeyDef[] = [
+const CORE_KEYS: ApiKeyDef[] = [
   {
     service: "anthropic",
     name: "Anthropic (Claude)",
-    description: "Used by Brain to analyze video transcripts and generate insights (Pipeline → Analyzing stage). Also used for Stories AI evaluation.",
+    description: "Brain analysis, pipeline insights, story evaluation.",
     icon: "ai",
     placeholder: "sk-ant-api03-...",
   },
   {
     service: "youtube",
     name: "YouTube Data API v3",
-    description: "Used for syncing Channels — fetches video metadata, view counts, likes, comment counts, and channel info. Add multiple keys to increase quota.",
+    description: "Channel sync — video metadata, view counts, engagement. Add multiple keys for quota rotation.",
     icon: "data",
     multiKey: true,
     placeholder: "AIza...",
   },
   {
-    service: "perplexity",
-    name: "Perplexity Sonar (Legacy)",
-    description: "Legacy key — story search now uses Firecrawl. Keep if you have existing integrations.",
-    icon: "search",
-    placeholder: "pplx-...",
-  },
-  {
     service: "transcript",
     name: "YouTube Transcript API",
-    description: "Fetches full transcripts of YouTube videos. Used in Brain → Transcribe stage (Pipeline) to extract competitor video content.",
+    description: "Fetches video transcripts for Brain → Transcribe stage.",
     icon: "transcript",
     placeholder: "your-api-key",
     link: "https://youtube-transcript.io",
     linkLabel: "youtube-transcript.io ↗",
   },
-  {
-    service: "firecrawl",
-    name: "Firecrawl",
-    description: "Web scraping and LLM-ready markdown. Used to scrape article content from URLs (Stories). Get your key at firecrawl.dev — stored per project.",
-    icon: "data",
-    placeholder: "fc-...",
-    link: "https://www.firecrawl.dev/app",
-    linkLabel: "firecrawl.dev ↗",
-    projectScoped: true,
-    bodyField: "firecrawlKey",
-  },
+];
+
+const NEWS_KEYS: ApiKeyDef[] = [
   {
     service: "newsapi",
     name: "NewsAPI",
-    description: "Story discovery — searches 150,000+ news sources (BBC, Reuters, NYT, etc.). Free: 100 req/day. Combined with other news APIs for maximum coverage.",
+    description: "150,000+ sources",
     icon: "news",
     placeholder: "your-newsapi-key...",
     link: "https://newsapi.org/register",
@@ -90,7 +75,7 @@ const KEY_DEFS: ApiKeyDef[] = [
   {
     service: "gnews",
     name: "GNews",
-    description: "Story discovery — Google News aggregation, surfaces trending stories. Free: 100 req/day. Great for catching stories with momentum.",
+    description: "Google News aggregation",
     icon: "news",
     placeholder: "your-gnews-key...",
     link: "https://gnews.io",
@@ -101,7 +86,7 @@ const KEY_DEFS: ApiKeyDef[] = [
   {
     service: "guardian",
     name: "The Guardian",
-    description: "Story discovery — full archive of The Guardian. Free: 5,000 req/day. Excellent for investigative journalism and in-depth reporting.",
+    description: "Investigative journalism",
     icon: "news",
     placeholder: "your-guardian-key...",
     link: "https://bonobo.capi.gutools.co.uk/register/developer",
@@ -112,7 +97,7 @@ const KEY_DEFS: ApiKeyDef[] = [
   {
     service: "nyt",
     name: "New York Times",
-    description: "Story discovery — NYT Top Stories and Article Search. Free: 500 req/day. Strong true crime and court case coverage.",
+    description: "Article Search + Top Stories",
     icon: "news",
     placeholder: "your-nyt-key...",
     link: "https://developer.nytimes.com/accounts/create",
@@ -121,6 +106,36 @@ const KEY_DEFS: ApiKeyDef[] = [
     bodyField: "nytKey",
   },
 ];
+
+const NEWS_LIMITS: Record<string, string> = {
+  newsapi: "100 req/day",
+  gnews: "100 req/day",
+  guardian: "5,000 req/day",
+  nyt: "500 req/day",
+};
+
+const LEGACY_KEYS: ApiKeyDef[] = [
+  {
+    service: "firecrawl",
+    name: "Firecrawl",
+    description: "Web scraping fallback — used when no news APIs are set, or for article content extraction.",
+    icon: "data",
+    placeholder: "fc-...",
+    link: "https://www.firecrawl.dev/app",
+    linkLabel: "firecrawl.dev ↗",
+    projectScoped: true,
+    bodyField: "firecrawlKey",
+  },
+  {
+    service: "perplexity",
+    name: "Perplexity Sonar",
+    description: "Legacy — story search now uses news APIs. Keep if you have existing integrations.",
+    icon: "search",
+    placeholder: "pplx-...",
+  },
+];
+
+const KEY_DEFS: ApiKeyDef[] = [...CORE_KEYS, ...NEWS_KEYS, ...LEGACY_KEYS];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -365,153 +380,206 @@ export default function Settings() {
       .finally(() => setRemovingYt((p) => ({ ...p, [id]: false })));
   };
 
+  const newsConnected = NEWS_KEYS.filter(d => !!keyStatus[d.service]).length;
+
+  const renderSingleKey = (def: ApiKeyDef) => {
+    const isSet = !!keyStatus[def.service];
+    const isEd = editing[def.service] !== undefined;
+    const isSav = saving[def.service];
+    const isClr = clearing[def.service];
+    return (
+      <div className="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+        {isSet && !isEd ? (
+          <div
+            onClick={() => setEditing((p) => ({ ...p, [def.service]: "" }))}
+            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-blue/40 transition-colors"
+          >
+            ••••••••••••••••  (click to replace)
+          </div>
+        ) : (
+          <input
+            type="password"
+            value={editing[def.service] || ""}
+            onChange={(e) => setEditing((p) => ({ ...p, [def.service]: e.target.value }))}
+            placeholder={def.placeholder || "Paste your API key..."}
+            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+            autoFocus={isEd}
+          />
+        )}
+        <button onClick={() => handleSave(def.service, def.name)} disabled={isSav}
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-blue text-blue-foreground hover:opacity-90 transition-opacity shrink-0 disabled:opacity-50">
+          {isSav ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+        </button>
+        <button onClick={() => handleClear(def.service, def.name)} disabled={isClr}
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0 disabled:opacity-50">
+          {isClr ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Settings</h1>
-          <span className="text-[11px] text-dim font-mono">API keys and usage monitoring — admin only</span>
+          <span className="text-[11px] text-dim font-mono">API keys and usage monitoring</span>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
         <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
 
-          {/* API Keys */}
+          {/* ── Section 1: Story Discovery — News APIs ─────────────────────── */}
           <div className="rounded-xl bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">API KEYS — THIS PROJECT</div>
-            <p className="text-[13px] text-dim leading-relaxed mb-6">
-              🔑 These keys are saved for <strong className="text-foreground">this project only</strong> and are not shared with other projects. Each project has its own isolated set of API credentials tied to your own accounts and cloud projects.
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">STORY DISCOVERY</div>
+                <p className="text-[12px] text-dim">News APIs queried in parallel when you fetch stories. More sources = better coverage.</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold ${newsConnected === NEWS_KEYS.length ? "bg-success/10 text-success" : newsConnected > 0 ? "bg-amber-500/10 text-amber-400" : "bg-muted text-dim"}`}>
+                  <Newspaper className="w-3.5 h-3.5" />
+                  {newsConnected}/{NEWS_KEYS.length} connected
+                </div>
+              </div>
+            </div>
 
-            <div className="space-y-6">
-              {KEY_DEFS.map((def, idx) => {
+            <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-3">
+              {NEWS_KEYS.map((def) => {
+                const isSet = !!keyStatus[def.service];
+                const Icon = iconMap[def.icon];
+                const limit = NEWS_LIMITS[def.service];
+                return (
+                  <div key={def.service} className={`rounded-xl border p-4 transition-colors ${isSet ? "border-emerald-500/30 bg-emerald-500/[0.03]" : "border-border"}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Icon className={`w-4 h-4 ${isSet ? "text-emerald-400" : "text-dim"}`} />
+                        <span className="text-[13px] font-semibold">{def.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {limit && <span className="text-[10px] text-dim font-mono">{limit}</span>}
+                        <span className={`w-2 h-2 rounded-full ${isSet ? "bg-emerald-400" : "bg-zinc-600"}`} />
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-dim mb-3">{def.description}</p>
+                    {renderSingleKey(def)}
+                    {def.link && (
+                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
+                        {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Section 2: Core Services ───────────────────────────────────── */}
+          <div className="rounded-xl bg-background p-5">
+            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">CORE SERVICES</div>
+            <p className="text-[12px] text-dim mb-5">Required for pipeline, analysis, and channel sync.</p>
+
+            <div className="space-y-5">
+              {CORE_KEYS.map((def, idx) => {
                 const isSet = def.multiKey ? ytKeys.length > 0 : !!keyStatus[def.service];
-                const isEditing = editing[def.service] !== undefined;
-                const isSaving = saving[def.service];
-                const isClearing = clearing[def.service];
-
+                const Icon = iconMap[def.icon];
                 return (
                   <div key={def.service}>
-                    <div className="flex items-center gap-2.5 mb-1.5">
-                      <span className="text-[14px] font-semibold">{def.name}</span>
-                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
+                    <div className="flex items-center gap-2.5 mb-1">
+                      <Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} />
+                      <span className="text-[13px] font-semibold">{def.name}</span>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
                         ● {isSet ? "SET" : "EMPTY"}
                       </span>
                       {def.multiKey && ytKeys.length > 0 && (
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-success/10 text-success">
-                          ● {ytKeys.length} KEY{ytKeys.length !== 1 ? "S" : ""}
-                        </span>
+                        <span className="text-[10px] font-mono text-success">{ytKeys.length} key{ytKeys.length !== 1 ? "s" : ""}</span>
                       )}
                     </div>
-                    <p className="text-[12px] text-dim leading-relaxed mb-3">{def.description}</p>
+                    <p className="text-[11px] text-dim mb-2.5">{def.description}</p>
 
-                    {/* YouTube multi-key */}
-                    {def.multiKey && (
-                      <div className="space-y-2 mb-3">
+                    {def.multiKey ? (
+                      <div className="space-y-2 mb-1">
                         {ytKeys.map((k) => (
-                          <div key={k.id} className="flex items-center justify-between px-4 py-2.5 bg-surface rounded-xl">
+                          <div key={k.id} className="flex items-center justify-between px-4 py-2 bg-surface rounded-xl">
                             <div className="flex items-center gap-2.5">
-                              <span className="text-[13px] font-medium">{k.label}</span>
-                              {k.usageCount > 0 && (
-                                <span className="text-[11px] text-dim font-mono">{k.usageCount.toLocaleString()} calls</span>
-                              )}
+                              <span className="text-[12px] font-medium">{k.label}</span>
+                              {k.usageCount > 0 && <span className="text-[10px] text-dim font-mono">{k.usageCount.toLocaleString()} calls</span>}
                             </div>
-                            <button
-                              onClick={() => handleRemoveYt(k.id)}
-                              disabled={removingYt[k.id]}
-                              className="w-7 h-7 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50"
-                            >
-                              {removingYt[k.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                            <button onClick={() => handleRemoveYt(k.id)} disabled={removingYt[k.id]}
+                              className="w-6 h-6 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50">
+                              {removingYt[k.id] ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-3 h-3" />}
                             </button>
                           </div>
                         ))}
-                        <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
-                          <input
-                            type="text"
-                            placeholder="Label (e.g. Key 2)"
-                            value={newYtLabel}
-                            onChange={(e) => setNewYtLabel(e.target.value)}
-                            className="w-[180px] max-sm:w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
-                          />
-                          <input
-                            type="text"
-                            placeholder={def.placeholder || "AIza..."}
-                            value={newYtValue}
-                            onChange={(e) => setNewYtValue(e.target.value)}
-                            className="flex-1 max-sm:w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
-                          />
-                          <button
-                            onClick={handleAddYt}
-                            disabled={addingYt}
-                            className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
-                          >
-                            {addingYt && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                            Add Key
+                        <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
+                          <input type="text" placeholder="Label (e.g. Key 2)" value={newYtLabel} onChange={(e) => setNewYtLabel(e.target.value)}
+                            className="w-[160px] max-sm:w-full px-3.5 py-2 text-[12px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+                          <input type="text" placeholder={def.placeholder || "AIza..."} value={newYtValue} onChange={(e) => setNewYtValue(e.target.value)}
+                            className="flex-1 max-sm:w-full px-3.5 py-2 text-[12px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+                          <button onClick={handleAddYt} disabled={addingYt}
+                            className="px-4 py-2 text-[12px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50 flex items-center gap-1.5">
+                            {addingYt && <Loader2 className="w-3 h-3 animate-spin" />} Add Key
                           </button>
                         </div>
                       </div>
-                    )}
-
-                    {/* Single key */}
-                    {!def.multiKey && (
-                      <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
-                        {isSet && !isEditing ? (
-                          <div
-                            onClick={() => setEditing((p) => ({ ...p, [def.service]: "" }))}
-                            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-blue/40 transition-colors"
-                          >
-                            ••••••••••••••••••••  (set — click to replace)
-                          </div>
-                        ) : (
-                          <input
-                            type="password"
-                            value={editing[def.service] || ""}
-                            onChange={(e) => setEditing((p) => ({ ...p, [def.service]: e.target.value }))}
-                            placeholder={def.placeholder || "Paste your API key..."}
-                            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
-                            autoFocus={isEditing}
-                          />
-                        )}
-                        <button
-                          onClick={() => handleSave(def.service, def.name)}
-                          disabled={isSaving}
-                          className="w-10 h-10 rounded-full flex items-center justify-center bg-blue text-blue-foreground hover:opacity-90 transition-opacity shrink-0 disabled:opacity-50"
-                        >
-                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => handleClear(def.service, def.name)}
-                          disabled={isClearing}
-                          className="w-10 h-10 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0 disabled:opacity-50"
-                        >
-                          {isClearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                        </button>
-                      </div>
+                    ) : (
+                      renderSingleKey(def)
                     )}
 
                     {def.link && (
-                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[12px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
-                        {def.linkLabel}
-                        <ExternalLink className="w-3 h-3" />
+                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
+                        {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
 
-                    {idx < KEY_DEFS.length - 1 && <div className="border-b border-border mt-6" />}
+                    {idx < CORE_KEYS.length - 1 && <div className="border-b border-border mt-5" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Section 3: Legacy / Scraping ───────────────────────────────── */}
+          <div className="rounded-xl bg-background p-5">
+            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">SCRAPING & LEGACY</div>
+            <p className="text-[12px] text-dim mb-5">Optional — Firecrawl is used as fallback when no news APIs are set.</p>
+
+            <div className="space-y-5">
+              {LEGACY_KEYS.map((def, idx) => {
+                const isSet = !!keyStatus[def.service];
+                const Icon = iconMap[def.icon];
+                return (
+                  <div key={def.service}>
+                    <div className="flex items-center gap-2.5 mb-1">
+                      <Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} />
+                      <span className="text-[13px] font-semibold">{def.name}</span>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
+                        ● {isSet ? "SET" : "EMPTY"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-dim mb-2.5">{def.description}</p>
+                    {renderSingleKey(def)}
+                    {def.link && (
+                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
+                        {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
+                    {idx < LEGACY_KEYS.length - 1 && <div className="border-b border-border mt-5" />}
                   </div>
                 );
               })}
             </div>
 
-            <div className="flex items-start gap-2 mt-6 pt-5 border-t border-border">
+            <div className="flex items-start gap-2 mt-5 pt-4 border-t border-border">
               <Lock className="w-3.5 h-3.5 text-dim mt-0.5 shrink-0" />
               <p className="text-[11px] text-dim leading-relaxed">
-                Keys are encrypted at rest using AES-256-GCM. They are never returned to the browser and are only decrypted server-side when making API calls.
+                All keys are encrypted at rest using AES-256-GCM. Never returned to the browser — only decrypted server-side when making API calls.
               </p>
             </div>
           </div>
 
-          {/* Usage Dashboard */}
+          {/* ── Section 4: Usage Dashboard ─────────────────────────────────── */}
           <div className="rounded-xl bg-background p-5">
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
 
@@ -519,24 +587,17 @@ export default function Settings() {
               <p className="text-[13px] text-dim">No API calls recorded yet for this project.</p>
             ) : (
               <>
-                {/* Desktop table — fixed 500px, scrollable */}
                 <div className="rounded-xl border border-border overflow-hidden max-sm:hidden">
                   <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-surface/20 border-b border-border sticky top-0 z-10">
                     {["TIME", "API NAME", "ACTION", "TOKENS / UNITS", "STATUS"].map((h) => (
                       <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
                     ))}
                   </div>
-                  <div
-                    ref={usageScrollRef}
-                    className="overflow-y-auto"
-                    style={{ maxHeight: 500 }}
+                  <div ref={usageScrollRef} className="overflow-y-auto" style={{ maxHeight: 500 }}
                     onScroll={() => {
                       const el = usageScrollRef.current;
-                      if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) {
-                        fetchUsagePage(usageCursor, false);
-                      }
-                    }}
-                  >
+                      if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) fetchUsagePage(usageCursor, false);
+                    }}>
                     {usageLogs.map((log, i) => {
                       const LogIcon = iconMap[log.apiIcon];
                       const nameColor = apiNameColorMap[log.apiName] || "text-dim";
@@ -570,17 +631,11 @@ export default function Settings() {
                   </div>
                 </div>
 
-                {/* Mobile cards — fixed 500px, scrollable */}
-                <div
-                  className="sm:hidden space-y-2 overflow-y-auto"
-                  style={{ maxHeight: 500 }}
+                <div className="sm:hidden space-y-2 overflow-y-auto" style={{ maxHeight: 500 }}
                   onScroll={(e) => {
                     const el = e.currentTarget;
-                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) {
-                      fetchUsagePage(usageCursor, false);
-                    }
-                  }}
-                >
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) fetchUsagePage(usageCursor, false);
+                  }}>
                   {usageLogs.map((log) => {
                     const LogIcon = iconMap[log.apiIcon];
                     const nameColor = apiNameColorMap[log.apiName] || "text-dim";
