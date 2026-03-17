@@ -785,6 +785,17 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     const data = {}
     for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k]
 
+    if (data.relevanceScore !== undefined || data.viralScore !== undefined || data.firstMoverScore !== undefined) {
+      const existing = await db.story.findUnique({ where: { id: req.params.id }, select: { relevanceScore: true, viralScore: true, firstMoverScore: true } })
+      if (existing) {
+        const r = (data.relevanceScore ?? existing.relevanceScore) || 0
+        const v = (data.viralScore ?? existing.viralScore) || 0
+        const f = (data.firstMoverScore ?? existing.firstMoverScore) || 0
+        const raw = r * 0.35 + v * 0.40 + f * 0.25
+        data.compositeScore = Math.round(raw / 10 * 10) / 10
+      }
+    }
+
     const story = await db.story.update({ where: { id: req.params.id }, data })
 
     if (req.body.stage) {
@@ -797,6 +808,30 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
       include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' } } }
     })
     res.json(withLog || story)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/stories/recalculate-scores — admin-only batch recalculation
+router.post('/recalculate-scores', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const stories = await db.story.findMany({
+      select: { id: true, relevanceScore: true, viralScore: true, firstMoverScore: true, compositeScore: true }
+    })
+    let fixed = 0
+    for (const s of stories) {
+      const r = s.relevanceScore || 0
+      const v = s.viralScore || 0
+      const f = s.firstMoverScore || 0
+      const raw = r * 0.35 + v * 0.40 + f * 0.25
+      const correct = Math.round(raw / 10 * 10) / 10
+      if (Math.abs(correct - (s.compositeScore || 0)) > 0.01) {
+        await db.story.update({ where: { id: s.id }, data: { compositeScore: correct } })
+        fixed++
+      }
+    }
+    res.json({ fixed, total: stories.length })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
