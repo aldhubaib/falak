@@ -59,14 +59,14 @@ function relativeTime(iso: string | null | undefined): string {
 
 function MiniScores({ story }: { story: ApiStory }) {
   const items = [
-    { val: story.relevanceScore ?? 0,   bar: "bg-purple" },
-    { val: story.viralScore ?? 0,       bar: "bg-blue"   },
-    { val: story.firstMoverScore ?? 0,  bar: "bg-success" },
+    { val: story.relevanceScore ?? 0, bar: "bg-purple",  label: "Relevance" },
+    { val: story.viralScore ?? 0,     bar: "bg-blue",    label: "Demand" },
+    { val: story.firstMoverScore ?? 0, bar: "bg-success", label: "First Mover" },
   ];
   return (
     <div className="flex items-center gap-2">
       {items.map((s, i) => (
-        <div key={i} className="flex items-center gap-1">
+        <div key={i} className="flex items-center gap-1" title={`${s.label}: ${s.val}/100`}>
           <div className="w-5 h-1 bg-elevated rounded-full overflow-hidden">
             <div className={`h-full rounded-full ${s.bar}`} style={{ width: `${s.val}%` }} />
           </div>

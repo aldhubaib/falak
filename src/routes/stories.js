@@ -130,9 +130,8 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
     const storiesToCreate = await fetchStoriesViaFirecrawl({
       autoSearchQuery: brainData.autoSearchQuery,
       learnedTags: brainData.queryMeta?.learnedTags || [],
-      regionHints: brainData.queryMeta?.regionHints || [],
       projectId,
-      queryVersion: brainData.queryMeta?.version || 'v2-dynamic',
+      queryVersion: brainData.queryMeta?.version || 'v2-competitor-driven',
       firecrawlApiKey: firecrawlKey,
       anthropicApiKey: anthropicKey,
     })
@@ -153,64 +152,110 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
       created.push(story)
     }
 
-    // Load TopicMemory to score new stories
+    // Build scoring data from Brain:
+    // 1) Learned tags from competitors (audience demand signal)
+    const learnedTags = (brainData.queryMeta?.learnedTags || []).map(t => t.toLowerCase().trim()).filter(Boolean)
+    // 2) TopicMemory for proven/weight matching
     const topicMemories = await db.topicMemory.findMany({
       where: { projectId },
       select: { topicKey: true, topicLabel: true, weight: true, demandScore: true },
     })
+    // 3) Untouched stories from Brain (known open windows)
+    const untouchedTitles = new Set(
+      (brainData.untouchedStories || []).map(s => (s.title || '').trim().toLowerCase())
+    )
+    // 4) Taken stories from Brain (already covered)
+    const takenTitles = new Set(
+      (brainData.competitorStories || []).map(s => (s.title || '').trim().toLowerCase())
+    )
 
     for (const story of created) {
       try {
-        const headlineLower = (story.headline || '').toLowerCase()
+        const headline = (story.headline || '').trim()
+        const headlineLower = headline.toLowerCase()
+        const headlineWords = headlineLower.split(/\s+/)
 
-        // Signal 1: relevanceScore
-        // How well does the headline match our proven winning topics?
-        // Source: TopicMemory.weight — built from gap wins, story likes,
-        // video engagement. Empty on day 1, grows with every action.
+        // ── Signal 1: relevanceScore (0-100) ──
+        // How well does this story match what audiences actually watch?
+        // Checks against: learned competitor tags + topic memory
         let relevanceScore = 0
-        let demandScore = 30  // neutral default when no memory data yet
+
+        // Check learned tags from competitor videos (primary signal)
+        let tagMatchCount = 0
+        for (const tag of learnedTags) {
+          if (tag.length < 2) continue
+          const tagWords = tag.split(/\s+/)
+          const matched = tagWords.some(tw => headlineWords.some(hw => hw.includes(tw) || tw.includes(hw)))
+          if (matched) tagMatchCount++
+        }
+        if (learnedTags.length > 0) {
+          relevanceScore = Math.round((tagMatchCount / Math.min(learnedTags.length, 6)) * 80)
+        }
+
+        // Boost from topic memory match
         for (const m of topicMemories) {
-          const key = (m.topicKey || '').toLowerCase()
-          if (key.length < 2) continue
-          if (headlineLower.includes(key)) {
-            const w = (m.weight || 0) * 100
-            if (w > relevanceScore) relevanceScore = w
-            const d = (m.demandScore || 0) * 100
-            if (d > demandScore) demandScore = d
+          const label = (m.topicLabel || m.topicKey || '').toLowerCase()
+          if (label.length < 2) continue
+          const labelWords = label.split(/\s+/)
+          const matched = labelWords.some(lw => lw.length >= 2 && headlineWords.some(hw => hw.includes(lw) || lw.includes(hw)))
+          if (matched) {
+            const boost = Math.round((m.weight || 0) * 50)
+            relevanceScore = Math.max(relevanceScore, relevanceScore + boost)
           }
         }
-        relevanceScore = Math.min(100, Math.round(relevanceScore))
-        demandScore = Math.min(100, Math.round(demandScore))
+        relevanceScore = Math.min(100, Math.max(0, relevanceScore))
 
-        // Signal 2: viralScore (repurposed = audience demand)
-        // Already set above as demandScore
+        // ── Signal 2: viralScore / demand (0-100) ──
+        // Is this story in a high-demand niche? Based on competitor view data
+        let demandScore = 0
 
-        // Signal 3: firstMoverScore
-        // Are we first to this story and how fresh is it?
-        // Source: story.brief.coverageStatus and story.brief.daysSince
-        // These come from brainV2 untouchedStories analysis
+        // If the story is in Brain's untouched list → high demand proven by competitor views
+        if (untouchedTitles.has(headlineLower)) {
+          demandScore = 85
+        } else {
+          // Check topic memory demand scores
+          let bestDemand = 0
+          for (const m of topicMemories) {
+            const label = (m.topicLabel || m.topicKey || '').toLowerCase()
+            if (label.length < 2) continue
+            const labelWords = label.split(/\s+/)
+            const matched = labelWords.some(lw => lw.length >= 2 && headlineWords.some(hw => hw.includes(lw) || lw.includes(hw)))
+            if (matched) {
+              const d = (m.demandScore || 0) * 100
+              if (d > bestDemand) bestDemand = d
+            }
+          }
+          // Also factor in tag overlap as a demand proxy
+          if (tagMatchCount > 0 && bestDemand === 0) {
+            bestDemand = Math.min(60, tagMatchCount * 20)
+          }
+          demandScore = Math.round(bestDemand)
+        }
+        demandScore = Math.min(100, Math.max(0, demandScore))
+
+        // ── Signal 3: firstMoverScore (0-100) ──
+        // Are we first? Is this untouched? How fresh is the window?
         const coverageStatus = story.brief?.coverageStatus || null
         const daysSince = story.brief?.daysSince ?? null
-        let firstMoverScore = 50  // neutral default
-        if (coverageStatus === 'first' || coverageStatus === 'open') {
+        let firstMoverScore = 50
+
+        if (untouchedTitles.has(headlineLower)) {
+          firstMoverScore = 90
+        } else if (coverageStatus === 'first' || coverageStatus === 'open') {
           firstMoverScore = daysSince !== null
             ? Math.max(0, 100 - Math.round(daysSince * 7))
             : 80
-        } else if (coverageStatus === 'taken') {
-          firstMoverScore = 0
+        } else if (coverageStatus === 'taken' || takenTitles.has(headlineLower)) {
+          firstMoverScore = 10
         }
         firstMoverScore = Math.min(100, Math.max(0, firstMoverScore))
 
-        // Final score: weighted combination → scaled to X/10
-        // Weights: 40% relevance (our track record) +
-        //          35% demand (audience proof) +
-        //          25% first mover (timing advantage)
+        // ── Composite (0.0 - 10.0) ──
         const raw = (
-          relevanceScore * 0.40 +
-          demandScore * 0.35 +
+          relevanceScore * 0.35 +
+          demandScore * 0.40 +
           firstMoverScore * 0.25
         )
-        // Scale 0–100 to 0.0–10.0, round to 1 decimal
         const compositeScore = Math.round(raw / 10 * 10) / 10
 
         await db.story.update({
@@ -220,6 +265,9 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
             viralScore: demandScore,
             firstMoverScore,
             compositeScore,
+            coverageStatus: untouchedTitles.has(headlineLower) ? 'first'
+              : takenTitles.has(headlineLower) ? 'late'
+              : coverageStatus,
           },
         })
       } catch (err) {
