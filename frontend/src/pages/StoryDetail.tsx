@@ -680,6 +680,12 @@ export default function StoryDetail() {
             {/* ── PUBLISH (title, description, tags, thumbnail, visibility) ───────── */}
             {activeStage === "publish" && id && (
               <>
+                <VideoUpload
+                  storyId={id}
+                  videoR2Key={brief.videoR2Key}
+                  videoFileName={brief.videoFileName}
+                  videoFileSize={brief.videoFileSize}
+                />
                 <StoryDetailStagePublish
                   brief={brief}
                   storyId={id}
@@ -718,6 +724,13 @@ export default function StoryDetail() {
             {/* ── DONE ──────────────────────────────────────────────────── */}
             {activeStage === "done" && (
               <>
+                <VideoUpload
+                  storyId={id}
+                  videoR2Key={brief.videoR2Key}
+                  videoFileName={brief.videoFileName}
+                  videoFileSize={brief.videoFileSize}
+                  readOnly
+                />
                 {brief.gapWin && (
                   <div className="rounded-xl bg-success/10 border border-success/20 px-5 py-4 flex items-center gap-3">
                     <Trophy className="w-5 h-5 text-success shrink-0" />
