@@ -338,6 +338,10 @@ export default function StoryDetail() {
   const moveToStage = useCallback(
     async (toStage: Stage) => {
       if (!id) return;
+      if (activeStage === "filmed" && toStage === "publish" && !brief.videoR2Key) {
+        toast.error("Upload a video before moving to Publish");
+        return;
+      }
       setSavingState(true);
       try {
         const res = await fetch(`/api/stories/${id}`, {
@@ -357,7 +361,7 @@ export default function StoryDetail() {
         setSavingState(false);
       }
     },
-    [id]
+    [id, activeStage, brief.videoR2Key]
   );
 
   const generateScript = useCallback(async () => {
@@ -564,6 +568,7 @@ export default function StoryDetail() {
                 videoFileName={brief.videoFileName}
                 videoFileSize={brief.videoFileSize}
                 readOnly={activeStage === "done"}
+                required={activeStage === "filmed"}
               />
             )}
             <StoryDetailArticle

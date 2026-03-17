@@ -8,6 +8,7 @@ interface VideoUploadProps {
   videoFileName?: string;
   videoFileSize?: number;
   readOnly?: boolean;
+  required?: boolean;
 }
 
 function formatBytes(bytes: number): string {
@@ -31,6 +32,7 @@ export function VideoUpload({
   videoFileName,
   videoFileSize,
   readOnly,
+  required,
 }: VideoUploadProps) {
   const { task, upload, abort, dismiss } = useStoryUpload(storyId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -239,10 +241,15 @@ export function VideoUpload({
         <Upload className="w-5 h-5 text-dim" />
       </div>
       <div className="text-center">
-        <p className="text-[13px] font-medium">Upload video</p>
+        <p className="text-[13px] font-medium">
+          Upload video{required && <span className="text-red-400 ml-1">*</span>}
+        </p>
         <p className="text-[11px] text-dim mt-1">
           Drag & drop or click to select — MP4, WebM, MOV
         </p>
+        {required && (
+          <p className="text-[10px] text-red-400/70 mt-1">Required to move to next stage</p>
+        )}
       </div>
       <input
         ref={fileInputRef}
