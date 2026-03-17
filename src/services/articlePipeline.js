@@ -1,8 +1,9 @@
 /**
- * Brain v3 — Article Pipeline: INGEST stage.
+ * Brain v3 — Article Pipeline: SOURCE → SEARCH → FETCH
  *
- * Each ArticleSource stores its own native API params.
- * Ingest reads those params and calls the appropriate provider directly — no AI.
+ * SOURCE: API selection, key status, language, budget
+ * SEARCH: Per-API native params + keyword gate + dedup rules
+ * FETCH:  Execute fetch, apply gates, dedup, save, audit log
  */
 const db = require('../lib/db')
 const logger = require('../lib/logger')
@@ -21,9 +22,11 @@ const VALID_SOURCE_TYPES = ['newsapi', 'gnews', 'gnews_top', 'guardian', 'nyt_se
 const GNEWS_CATEGORIES = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health']
 const NYT_SECTIONS = ['arts', 'automobiles', 'books/review', 'business', 'fashion', 'food', 'health', 'home', 'insider', 'magazine', 'movies', 'nyregion', 'obituaries', 'opinion', 'politics', 'realestate', 'science', 'sports', 'sundayreview', 'technology', 'theater', 't-magazine', 'travel', 'upshot', 'us', 'world']
 
+const MAX_FETCH_LOG_ENTRIES = 30
+
 // ── Config validation per source type ─────────────────────────────────────
 
-function validateConfig(type, config) {
+function validateSourceConfig(type, config) {
   if (!config || typeof config !== 'object') return 'config must be a JSON object'
   switch (type) {
     case 'newsapi':
@@ -72,6 +75,11 @@ function resolveApiKey(project, sourceType) {
   try { return decrypt(project[field]) } catch { return null }
 }
 
+function hasApiKey(project, sourceType) {
+  if (sourceType === 'rss') return true
+  return !!resolveApiKey(project, sourceType)
+}
+
 // ── Fetch articles from a single source ───────────────────────────────────
 
 async function fetchFromSource(source, apiKey) {
@@ -83,10 +91,8 @@ async function fetchFromSource(source, apiKey) {
       return searchGNews(config.q, apiKey, { max: config.max || 10, sortby: config.sortby || 'relevance' })
     case 'gnews_top':
       return fetchGNewsTopHeadlines(apiKey, config.category, { max: config.max || 10 })
-    case 'guardian': {
-      const params = { pageSize: config.pageSize || 15 }
-      return searchGuardian(config.q, apiKey, params)
-    }
+    case 'guardian':
+      return searchGuardian(config.q, apiKey, { pageSize: config.pageSize || 15 })
     case 'nyt_search':
       return searchNYT({ q: config.q, fq: config.fq }, apiKey)
     case 'nyt_top':
@@ -98,7 +104,7 @@ async function fetchFromSource(source, apiKey) {
   }
 }
 
-// ── RSS fetch (lightweight, no external dep) ──────────────────────────────
+// ── RSS fetch ─────────────────────────────────────────────────────────────
 
 async function fetchRSS(url) {
   const nodeFetch = require('node-fetch')
@@ -142,18 +148,105 @@ function parseRSSXml(xml) {
   return items
 }
 
-// ── INGEST: run for a single source ───────────────────────────────────────
+// ── Keyword gate ──────────────────────────────────────────────────────────
 
-async function ingestSource(source, project) {
+function applyKeywordGate(articles, search) {
+  if (!search) return { passed: articles, gated: [] }
+
+  const include = (search.includeKeywords || []).map(k => k.toLowerCase()).filter(Boolean)
+  const exclude = (search.excludeKeywords || []).map(k => k.toLowerCase()).filter(Boolean)
+  const blockDomains = (search.blockDomains || []).map(d => d.toLowerCase()).filter(Boolean)
+  const minTitleLen = search.minTitleLength || 0
+
+  const passed = []
+  const gated = []
+
+  for (const a of articles) {
+    const text = `${a.title || ''} ${a.description || ''}`.toLowerCase()
+    const urlLower = (a.url || '').toLowerCase()
+
+    if (minTitleLen > 0 && (a.title || '').length < minTitleLen) {
+      gated.push({ ...a, _gateReason: 'title_too_short' })
+      continue
+    }
+
+    if (blockDomains.length > 0) {
+      const blocked = blockDomains.some(d => urlLower.includes(d))
+      if (blocked) {
+        gated.push({ ...a, _gateReason: 'blocked_domain' })
+        continue
+      }
+    }
+
+    if (exclude.length > 0) {
+      const hit = exclude.find(kw => text.includes(kw))
+      if (hit) {
+        gated.push({ ...a, _gateReason: `exclude:${hit}` })
+        continue
+      }
+    }
+
+    if (include.length > 0) {
+      const hasMatch = include.some(kw => text.includes(kw))
+      if (!hasMatch) {
+        gated.push({ ...a, _gateReason: 'no_include_match' })
+        continue
+      }
+    }
+
+    passed.push(a)
+  }
+
+  return { passed, gated }
+}
+
+// ── Budget check ──────────────────────────────────────────────────────────
+
+function checkBudget(source) {
+  const budget = source.config?.source || {}
+  const maxPerDay = budget.maxPerDay || 0
+  if (!maxPerDay) return { allowed: true, usedToday: 0, maxPerDay: 0 }
+
+  const log = Array.isArray(source.fetchLog) ? source.fetchLog : []
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
+  const usedToday = log.filter(entry => new Date(entry.time) >= todayStart).length
+  return { allowed: usedToday < maxPerDay, usedToday, maxPerDay }
+}
+
+function checkCooldown(source) {
+  const cooldownMinutes = source.config?.source?.cooldownMinutes || 0
+  if (!cooldownMinutes || !source.lastPolledAt) return { allowed: true, minutesSince: null }
+
+  const msSince = Date.now() - new Date(source.lastPolledAt).getTime()
+  const minutesSince = Math.floor(msSince / 60000)
+  return { allowed: minutesSince >= cooldownMinutes, minutesSince }
+}
+
+// ── FETCH: run for a single source ────────────────────────────────────────
+
+async function ingestSource(source, project, { force = false } = {}) {
   const sourceId = source.id
   const projectId = source.projectId
+  const startTime = Date.now()
 
-  if (source.type === 'rss') {
-    // RSS needs no API key
-  } else {
-    var apiKey = resolveApiKey(project, source.type)
+  if (!force) {
+    const budget = checkBudget(source)
+    if (!budget.allowed) {
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `Daily limit reached (${budget.usedToday}/${budget.maxPerDay})` }
+    }
+    const cooldown = checkCooldown(source)
+    if (!cooldown.allowed) {
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `Cooldown active (${cooldown.minutesSince}min since last, need ${source.config?.source?.cooldownMinutes}min)` }
+    }
+  }
+
+  let apiKey = null
+  if (source.type !== 'rss') {
+    apiKey = resolveApiKey(project, source.type)
     if (!apiKey) {
-      return { sourceId, fetched: 0, inserted: 0, skipped: 0, error: `No API key for ${source.type}` }
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `No API key for ${source.type}` }
     }
   }
 
@@ -162,15 +255,20 @@ async function ingestSource(source, project) {
     const result = await fetchFromSource(source, apiKey)
     rawArticles = result.articles || []
   } catch (e) {
-    logger.error({ sourceId, type: source.type, error: e.message }, '[articlePipeline] ingest fetch failed')
-    return { sourceId, fetched: 0, inserted: 0, skipped: 0, error: e.message }
+    const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
+    await appendFetchLog(sourceId, logEntry)
+    logger.error({ sourceId, type: source.type, error: e.message }, '[articlePipeline] fetch failed')
+    return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: e.message }
   }
 
-  let inserted = 0
-  let skipped = 0
+  const searchConfig = source.config?.search || null
+  const { passed, gated } = applyKeywordGate(rawArticles, searchConfig)
 
-  for (const raw of rawArticles) {
-    if (!raw.url) { skipped++; continue }
+  let inserted = 0
+  let dupes = 0
+
+  for (const raw of passed) {
+    if (!raw.url) { dupes++; continue }
     try {
       await db.article.create({
         data: {
@@ -188,21 +286,40 @@ async function ingestSource(source, project) {
       inserted++
     } catch (e) {
       if (e.code === 'P2002') {
-        skipped++
+        dupes++
       } else {
         logger.error({ sourceId, url: raw.url, error: e.message }, '[articlePipeline] insert failed')
-        skipped++
+        dupes++
       }
     }
   }
+
+  const logEntry = {
+    time: new Date().toISOString(),
+    raw: rawArticles.length,
+    gated: gated.length,
+    dupes,
+    inserted,
+    error: null,
+    ms: Date.now() - startTime,
+  }
+  await appendFetchLog(sourceId, logEntry)
 
   await db.articleSource.update({
     where: { id: sourceId },
     data: { lastPolledAt: new Date() },
   })
 
-  logger.info({ sourceId, type: source.type, label: source.label, fetched: rawArticles.length, inserted, skipped }, '[articlePipeline] ingest complete')
-  return { sourceId, fetched: rawArticles.length, inserted, skipped, error: null }
+  logger.info({ sourceId, type: source.type, label: source.label, ...logEntry }, '[articlePipeline] fetch complete')
+  return { sourceId, fetched: rawArticles.length, gated: gated.length, dupes, inserted, error: null }
+}
+
+async function appendFetchLog(sourceId, entry) {
+  const source = await db.articleSource.findUnique({ where: { id: sourceId }, select: { fetchLog: true } })
+  const log = Array.isArray(source?.fetchLog) ? [...source.fetchLog] : []
+  log.unshift(entry)
+  if (log.length > MAX_FETCH_LOG_ENTRIES) log.length = MAX_FETCH_LOG_ENTRIES
+  await db.articleSource.update({ where: { id: sourceId }, data: { fetchLog: log } })
 }
 
 // ── INGEST ALL: run for all active sources in a project ───────────────────
@@ -236,24 +353,33 @@ async function ingestAll(projectId) {
 // ── Test fetch: dry-run for a source config (no DB save) ──────────────────
 
 async function testSourceFetch(sourceType, config, project) {
-  if (sourceType === 'rss') {
-    var apiKey = null
-  } else {
-    var apiKey = resolveApiKey(project, sourceType)
+  let apiKey = null
+  if (sourceType !== 'rss') {
+    apiKey = resolveApiKey(project, sourceType)
     if (!apiKey) throw new Error(`No API key configured for ${sourceType}`)
   }
 
   const fakeSource = { type: sourceType, config, language: 'en' }
   const result = await fetchFromSource(fakeSource, apiKey)
-  return (result.articles || []).slice(0, 5)
+  const raw = (result.articles || []).slice(0, 10)
+
+  const searchConfig = config?.search || null
+  const { passed, gated } = applyKeywordGate(raw, searchConfig)
+
+  return { passed, gated, total: raw.length }
 }
 
 module.exports = {
   VALID_SOURCE_TYPES,
   GNEWS_CATEGORIES,
   NYT_SECTIONS,
-  validateConfig,
+  validateConfig: validateSourceConfig,
+  resolveApiKey,
+  hasApiKey,
   ingestSource,
   ingestAll,
   testSourceFetch,
+  applyKeywordGate,
+  checkBudget,
+  checkCooldown,
 }

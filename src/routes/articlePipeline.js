@@ -1,68 +1,64 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { ingestAll, ingestSource } = require('../services/articlePipeline')
+const { ingestAll, ingestSource, hasApiKey, checkBudget, checkCooldown } = require('../services/articlePipeline')
+const { decrypt } = require('../services/crypto')
 
 const router = express.Router()
 router.use(requireAuth)
 
 // ── GET /api/article-pipeline?projectId=X ─────────────────────────────────
-// Returns per-source pipeline state: sources with stage counts + articles
 router.get('/', async (req, res) => {
   try {
     const { projectId } = req.query
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
+
+    const project = await db.project.findUnique({ where: { id: projectId } })
+    if (!project) return res.status(404).json({ error: 'Project not found' })
 
     const sources = await db.articleSource.findMany({
       where: { projectId },
       orderBy: { createdAt: 'asc' },
     })
 
-    const pipelineData = await Promise.all(sources.map(async (source) => {
+    const workflows = await Promise.all(sources.map(async (source) => {
       const stageCounts = await db.article.groupBy({
         by: ['stage'],
         where: { sourceId: source.id },
         _count: true,
       })
       const stats = {}
-      for (const row of stageCounts) {
-        stats[row.stage] = row._count
-      }
+      for (const row of stageCounts) stats[row.stage] = row._count
+      const totalArticles = Object.values(stats).reduce((s, c) => s + c, 0)
 
-      const articles = await db.article.findMany({
-        where: { sourceId: source.id, stage: { not: 'done' } },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-        select: {
-          id: true,
-          url: true,
-          title: true,
-          stage: true,
-          status: true,
-          error: true,
-          retries: true,
-          publishedAt: true,
-          language: true,
-          relevanceScore: true,
-          rankScore: true,
-          rankReason: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })
+      const keyConnected = hasApiKey(project, source.type)
+      const budget = checkBudget(source)
+      const cooldown = checkCooldown(source)
+
+      const log = Array.isArray(source.fetchLog) ? source.fetchLog : []
+      const successCount = log.filter(e => !e.error).length
+      const successRate = log.length > 0 ? Math.round((successCount / log.length) * 100) : null
 
       return {
-        source: {
-          id: source.id,
-          type: source.type,
-          label: source.label,
-          language: source.language,
-          isActive: source.isActive,
-          lastPolledAt: source.lastPolledAt,
-          config: source.config,
-        },
+        id: source.id,
+        type: source.type,
+        label: source.label,
+        language: source.language,
+        isActive: source.isActive,
+        lastPolledAt: source.lastPolledAt,
+        config: source.config,
+        fetchLog: log.slice(0, 10),
         stats,
-        articles,
+        totalArticles,
+        health: {
+          keyConnected,
+          budgetUsed: budget.usedToday,
+          budgetMax: budget.maxPerDay,
+          cooldownOk: cooldown.allowed,
+          minutesSinceLast: cooldown.minutesSince,
+          successRate,
+          totalFetches: log.length,
+        },
       }
     }))
 
@@ -72,21 +68,43 @@ router.get('/', async (req, res) => {
       _count: true,
     })
     const totals = {}
-    for (const row of globalStats) {
-      totals[row.stage] = row._count
-    }
+    for (const row of globalStats) totals[row.stage] = row._count
 
-    res.json({ sources: pipelineData, totals })
+    res.json({ workflows, totals })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── GET /api/article-pipeline/:sourceId/articles ──────────────────────────
+router.get('/:sourceId/articles', async (req, res) => {
+  try {
+    const { stage } = req.query
+    const where = { sourceId: req.params.sourceId }
+    if (stage) where.stage = stage
+
+    const articles = await db.article.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      select: {
+        id: true, url: true, title: true, description: true,
+        stage: true, status: true, error: true, retries: true,
+        publishedAt: true, language: true,
+        relevanceScore: true, rankScore: true, rankReason: true,
+        createdAt: true, updatedAt: true,
+      },
+    })
+    res.json(articles)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
 // ── POST /api/article-pipeline/ingest ─────────────────────────────────────
-// Ingest all active sources, or a single sourceId
 router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, sourceId } = req.body
+    const { projectId, sourceId, force } = req.body
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
     if (sourceId) {
@@ -97,7 +115,7 @@ router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res)
       if (!source) return res.status(404).json({ error: 'Source not found' })
       if (source.projectId !== projectId) return res.status(403).json({ error: 'Source does not belong to project' })
 
-      const result = await ingestSource(source, source.project)
+      const result = await ingestSource(source, source.project, { force: !!force })
       return res.json({ results: [{ ...result, label: source.label, type: source.type }] })
     }
 
