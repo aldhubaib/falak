@@ -31,18 +31,6 @@ interface UsageLog {
   status: "Pass" | "Fail";
 }
 
-interface NewsProviderStats {
-  today: number;
-  todayOk: number;
-  todayFail: number;
-  allTime: number;
-  allTimeOk: number;
-  allTimeFail: number;
-  successRate: number | null;
-  dailyLimit: number;
-  remaining: number;
-}
-
 // ── Static key definitions (metadata only, no values) ─────────────────────
 
 const CORE_KEYS: ApiKeyDef[] = [
@@ -72,59 +60,6 @@ const CORE_KEYS: ApiKeyDef[] = [
   },
 ];
 
-const NEWS_KEYS: ApiKeyDef[] = [
-  {
-    service: "newsapi",
-    name: "NewsAPI",
-    description: "150,000+ sources",
-    icon: "news",
-    placeholder: "your-newsapi-key...",
-    link: "https://newsapi.org/register",
-    linkLabel: "newsapi.org ↗",
-    projectScoped: true,
-    bodyField: "newsapiKey",
-  },
-  {
-    service: "gnews",
-    name: "GNews",
-    description: "Google News aggregation",
-    icon: "news",
-    placeholder: "your-gnews-key...",
-    link: "https://gnews.io",
-    linkLabel: "gnews.io ↗",
-    projectScoped: true,
-    bodyField: "gnewsKey",
-  },
-  {
-    service: "guardian",
-    name: "The Guardian",
-    description: "Investigative journalism",
-    icon: "news",
-    placeholder: "your-guardian-key...",
-    link: "https://bonobo.capi.gutools.co.uk/register/developer",
-    linkLabel: "guardian API ↗",
-    projectScoped: true,
-    bodyField: "guardianKey",
-  },
-  {
-    service: "nyt",
-    name: "New York Times",
-    description: "Article Search + Top Stories",
-    icon: "news",
-    placeholder: "your-nyt-key...",
-    link: "https://developer.nytimes.com/accounts/create",
-    linkLabel: "developer.nytimes.com ↗",
-    projectScoped: true,
-    bodyField: "nytKey",
-  },
-];
-
-const NEWS_LIMITS: Record<string, string> = {
-  newsapi: "100 req/day",
-  gnews: "100 req/day",
-  guardian: "5,000 req/day",
-  nyt: "500 req/day",
-};
 
 const LEGACY_KEYS: ApiKeyDef[] = [
   {
@@ -147,7 +82,7 @@ const LEGACY_KEYS: ApiKeyDef[] = [
   },
 ];
 
-const KEY_DEFS: ApiKeyDef[] = [...CORE_KEYS, ...NEWS_KEYS, ...LEGACY_KEYS];
+const KEY_DEFS: ApiKeyDef[] = [...CORE_KEYS, ...LEGACY_KEYS];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -197,18 +132,6 @@ export default function Settings() {
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageInitialLoaded, setUsageInitialLoaded] = useState(false);
   const usageScrollRef = useRef<HTMLDivElement>(null);
-  const [newsStats, setNewsStats] = useState<Record<string, NewsProviderStats>>({});
-
-  // Fetch news provider stats
-  useEffect(() => {
-    if (!projectId) return;
-    fetch(`/api/projects/${projectId}/news-stats`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: Record<string, NewsProviderStats> | null) => {
-        if (d) setNewsStats(d);
-      })
-      .catch(() => {});
-  }, [projectId]);
 
   const fetchUsagePage = useCallback(async (cursor: string | null, replace: boolean) => {
     if (!projectId || usageLoading) return;
@@ -284,10 +207,6 @@ export default function Settings() {
         setKeyStatus((prev) => ({
           ...prev,
           ...(d.hasFirecrawlKey !== undefined && { firecrawl: d.hasFirecrawlKey }),
-          ...(d.hasNewsapiKey !== undefined && { newsapi: d.hasNewsapiKey }),
-          ...(d.hasGnewsKey !== undefined && { gnews: d.hasGnewsKey }),
-          ...(d.hasGuardianKey !== undefined && { guardian: d.hasGuardianKey }),
-          ...(d.hasNytKey !== undefined && { nyt: d.hasNytKey }),
         }));
       })
       .catch(() => {});
@@ -404,8 +323,6 @@ export default function Settings() {
       .finally(() => setRemovingYt((p) => ({ ...p, [id]: false })));
   };
 
-  const newsConnected = NEWS_KEYS.filter(d => !!keyStatus[d.service]).length;
-
   const renderSingleKey = (def: ApiKeyDef) => {
     const isSet = !!keyStatus[def.service];
     const isEd = editing[def.service] !== undefined;
@@ -454,90 +371,7 @@ export default function Settings() {
       <div className="flex-1 overflow-auto">
         <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
 
-          {/* ── Section 1: Story Discovery — News APIs ─────────────────────── */}
-          <div className="rounded-xl bg-background p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">STORY DISCOVERY</div>
-                <p className="text-[12px] text-dim">News APIs queried in parallel when you fetch stories. More sources = better coverage.</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold ${newsConnected === NEWS_KEYS.length ? "bg-success/10 text-success" : newsConnected > 0 ? "bg-amber-500/10 text-amber-400" : "bg-muted text-dim"}`}>
-                  <Newspaper className="w-3.5 h-3.5" />
-                  {newsConnected}/{NEWS_KEYS.length} connected
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-3">
-              {NEWS_KEYS.map((def) => {
-                const isSet = !!keyStatus[def.service];
-                const Icon = iconMap[def.icon];
-                const st = newsStats[def.service];
-                const usedPct = st ? Math.min(100, Math.round((st.today / st.dailyLimit) * 100)) : 0;
-                return (
-                  <div key={def.service} className={`rounded-xl border p-4 transition-colors ${isSet ? "border-emerald-500/30 bg-emerald-500/[0.03]" : "border-border"}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Icon className={`w-4 h-4 ${isSet ? "text-emerald-400" : "text-dim"}`} />
-                        <span className="text-[13px] font-semibold">{def.name}</span>
-                      </div>
-                      <span className={`w-2 h-2 rounded-full ${isSet ? "bg-emerald-400" : "bg-zinc-600"}`} />
-                    </div>
-                    <p className="text-[11px] text-dim mb-2">{def.description}</p>
-
-                    {isSet && st ? (
-                      <div className="mb-3 space-y-2">
-                        {/* Quota bar */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-dim font-mono">Today</span>
-                            <span className="text-[10px] font-mono text-foreground">{st.today} / {st.dailyLimit.toLocaleString()}</span>
-                          </div>
-                          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all ${usedPct > 80 ? "bg-amber-400" : usedPct > 95 ? "bg-red-400" : "bg-emerald-400"}`}
-                              style={{ width: `${usedPct}%` }}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-[9px] text-dim font-mono">{st.remaining.toLocaleString()} remaining</span>
-                            {st.successRate !== null && (
-                              <span className={`text-[9px] font-mono ${st.successRate >= 90 ? "text-emerald-400" : st.successRate >= 50 ? "text-amber-400" : "text-red-400"}`}>
-                                {st.successRate}% success
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {/* All-time stats */}
-                        <div className="flex items-center gap-3">
-                          <span className="text-[9px] text-dim font-mono">{st.allTime.toLocaleString()} total calls</span>
-                          {st.allTimeFail > 0 && (
-                            <span className="text-[9px] text-red-400 font-mono">{st.allTimeFail} failed</span>
-                          )}
-                        </div>
-                      </div>
-                    ) : isSet ? (
-                      <div className="mb-3">
-                        <span className="text-[10px] text-dim font-mono">No calls yet</span>
-                      </div>
-                    ) : (
-                      <div className="mb-3" />
-                    )}
-
-                    {renderSingleKey(def)}
-                    {def.link && (
-                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
-                        {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ── Section 2: Core Services ───────────────────────────────────── */}
+          {/* ── Section 1: Core Services ───────────────────────────────────── */}
           <div className="rounded-xl bg-background p-5">
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">CORE SERVICES</div>
             <p className="text-[12px] text-dim mb-5">Required for pipeline, analysis, and channel sync.</p>

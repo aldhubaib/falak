@@ -17,6 +17,7 @@ import Monitor from "./pages/Monitor";
 import Analytics from "./pages/Analytics";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
+import Source from "./pages/Source";
 import Stories from "./pages/Stories";
 import BrainV2 from "./pages/BrainV2";
 import StoryDetail from "./pages/StoryDetail";
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="stories" element={<Stories />} />
               <Route path="brain-v2" element={<BrainV2 />} />
               <Route path="story/:id" element={<StoryDetail />} />
+              <Route path="source" element={<Source />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Route>
