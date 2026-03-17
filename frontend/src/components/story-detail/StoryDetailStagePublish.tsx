@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 import type { StoryBrief } from "./types";
 import { CopyBtn } from "./CopyBtn";
-import { extractScriptBlocks } from "@/data/editorInitialValue";
+import { extractScriptBlocks, editorValueToScriptText } from "@/data/editorInitialValue";
 import { scriptToSRT } from "@/data/subtitles";
 
 export interface StoryDetailStagePublishProps {
@@ -20,7 +20,6 @@ export interface StoryDetailStagePublishProps {
   storyId: string;
   onBriefChange: (updater: (prev: StoryBrief) => StoryBrief) => void;
   saving?: boolean;
-  channelHandle?: string;
 }
 
 function validateYoutubeUrl(url: string): { valid: boolean; videoId?: string; error?: string } {
@@ -54,17 +53,34 @@ export function StoryDetailStagePublish({
   storyId,
   onBriefChange,
   saving = false,
-  channelHandle,
 }: StoryDetailStagePublishProps) {
   const [generatingDesc, setGeneratingDesc] = useState(false);
   const [urlInput, setUrlInput] = useState(brief.youtubeUrl || "");
+  const [urlEditing, setUrlEditing] = useState(!brief.youtubeUrl);
 
   const description = brief.youtubeDescription || "";
 
   const scriptText = useMemo(() => {
+    // 1) Try extracting from scriptBlock nodes in TipTap JSON
     const blocks = extractScriptBlocks(brief.scriptTiptap);
-    return blocks.script || brief.script || "";
-  }, [brief.scriptTiptap, brief.script]);
+    if (blocks.script) return blocks.script;
+
+    // 2) Fallback: read all text from TipTap JSON (pre-scriptBlock stories)
+    const allText = editorValueToScriptText(brief.scriptTiptap);
+    if (allText && /^\d{1,2}:\d{2}/m.test(allText)) return allText;
+
+    // 3) Fallback: brief.script field
+    if (brief.script) return brief.script;
+
+    // 4) Fallback: extract SCRIPT section from raw AI output
+    if (brief.scriptRaw) {
+      const match = brief.scriptRaw.match(/## SCRIPT\s*\n([\s\S]*?)(?=\n## |$)/i);
+      if (match) return match[1].trim();
+      return brief.scriptRaw;
+    }
+
+    return "";
+  }, [brief.scriptTiptap, brief.script, brief.scriptRaw]);
 
   const srtContent = useMemo(() => scriptToSRT(scriptText), [scriptText]);
 
@@ -187,23 +203,20 @@ export function StoryDetailStagePublish({
           <div className="flex items-center gap-2">
             <LinkIcon className="w-3.5 h-3.5 text-dim" />
             <label className="text-[12px] text-dim font-medium">YouTube Video URL</label>
-            {channelHandle && (
-              <span className="text-[10px] text-dim font-mono">
-                @{channelHandle.replace(/^@/, "")} only
-              </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {brief.youtubeUrl && (
+              <a
+                href={brief.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Open
+              </a>
             )}
           </div>
-          {brief.youtubeUrl && (
-            <a
-              href={brief.youtubeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" />
-              Open
-            </a>
-          )}
         </div>
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -212,25 +225,28 @@ export function StoryDetailStagePublish({
               dir="ltr"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              onBlur={() => {
-                const trimmed = urlInput.trim();
-                if (!trimmed) {
-                  onBriefChange((b) => ({ ...b, youtubeUrl: "" }));
-                  return;
-                }
-                const result = validateYoutubeUrl(trimmed);
-                if (result.valid) {
-                  onBriefChange((b) => ({ ...b, youtubeUrl: trimmed }));
-                  toast.success("YouTube URL saved");
-                } else {
-                  toast.error(result.error || "Invalid URL");
-                }
-              }}
+              disabled={!urlEditing}
               onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const trimmed = urlInput.trim();
+                  if (!trimmed) {
+                    onBriefChange((b) => ({ ...b, youtubeUrl: "" }));
+                    setUrlEditing(false);
+                    return;
+                  }
+                  const result = validateYoutubeUrl(trimmed);
+                  if (result.valid) {
+                    onBriefChange((b) => ({ ...b, youtubeUrl: trimmed }));
+                    toast.success("YouTube URL saved");
+                    setUrlEditing(false);
+                  } else {
+                    toast.error(result.error || "Invalid URL");
+                  }
+                }
               }}
-              placeholder={channelHandle ? `Paste YouTube URL from @${channelHandle.replace(/^@/, "")}…` : "Paste YouTube video URL…"}
-              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors"
+              placeholder="Paste YouTube video URL…"
+              className={`w-full bg-surface border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors ${!urlEditing ? "opacity-70 cursor-default" : ""}`}
             />
             {urlInput && (() => {
               const result = validateYoutubeUrl(urlInput.trim());
@@ -243,8 +259,40 @@ export function StoryDetailStagePublish({
               return null;
             })()}
           </div>
+          {urlEditing ? (
+            <button
+              type="button"
+              onClick={() => {
+                const trimmed = urlInput.trim();
+                if (!trimmed) {
+                  onBriefChange((b) => ({ ...b, youtubeUrl: "" }));
+                  setUrlEditing(false);
+                  return;
+                }
+                const result = validateYoutubeUrl(trimmed);
+                if (result.valid) {
+                  onBriefChange((b) => ({ ...b, youtubeUrl: trimmed }));
+                  toast.success("YouTube URL saved");
+                  setUrlEditing(false);
+                } else {
+                  toast.error(result.error || "Invalid URL");
+                }
+              }}
+              className="shrink-0 px-4 py-2 rounded-lg bg-blue text-white text-[12px] font-medium hover:bg-blue/90 transition-colors"
+            >
+              Save
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setUrlEditing(true)}
+              className="shrink-0 px-4 py-2 rounded-lg bg-surface border border-border text-[12px] font-medium text-foreground hover:bg-elevated transition-colors"
+            >
+              Edit
+            </button>
+          )}
         </div>
-        {urlInput && !validateYoutubeUrl(urlInput.trim()).valid && validateYoutubeUrl(urlInput.trim()).error && (
+        {urlEditing && urlInput && !validateYoutubeUrl(urlInput.trim()).valid && validateYoutubeUrl(urlInput.trim()).error && (
           <p className="text-[11px] text-orange mt-1.5">
             {validateYoutubeUrl(urlInput.trim()).error}
           </p>
