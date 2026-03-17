@@ -490,6 +490,35 @@ export function ScriptEditorTiptap({
     editor.commands.setContent(value, false);
   }, [editor, value, isCollab]);
 
+  // Seed Yjs doc from saved value when collab doc is empty after initial sync
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!isCollab || !provider || !editor || editor.isDestroyed) return;
+    if (!value || Object.keys(value).length === 0) return;
+    if (seededRef.current) return;
+
+    const seedIfEmpty = () => {
+      if (seededRef.current || editor.isDestroyed) return;
+      setTimeout(() => {
+        if (seededRef.current || editor.isDestroyed) return;
+        if (editor.isEmpty) {
+          seededRef.current = true;
+          editor.commands.setContent(value, false);
+          onChange?.(editor.getJSON());
+        } else {
+          seededRef.current = true;
+        }
+      }, 500);
+    };
+
+    if (provider.synced) {
+      seedIfEmpty();
+    } else {
+      provider.once("sync", seedIfEmpty);
+      return () => { provider.off("sync", seedIfEmpty); };
+    }
+  }, [isCollab, provider, editor, value, onChange]);
+
   useEffect(() => {
     if (!editorRef || !editor || editor.isDestroyed) return;
     editorRef.current = {
