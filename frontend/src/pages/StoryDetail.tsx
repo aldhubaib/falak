@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   scriptTextToEditorValue,
   editorValueToScriptText,
@@ -297,7 +297,7 @@ export default function StoryDetail() {
   const editingYoutubeUrl = false;
   const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [articleOpen, setArticleOpen] = useState(false);
+  const [articleOpen, setArticleOpen] = useState(true);
   const [stageStories, setStageStories] = useState<{ id: string }[]>([]);
 
   // Load stories in current stage for prev/next navigation
@@ -317,12 +317,9 @@ export default function StoryDetail() {
     return () => { cancelled = true; };
   }, [projectId, story?.id, story?.stage]);
 
-  // Original Story: expanded for Suggestion/Liked, collapsed for Scripting/Filmed/Publish/Done (on page load)
+  // Original Story: always expanded by default on page load
   useEffect(() => {
-    if (story) {
-      const shouldExpand = activeStage === "suggestion" || activeStage === "liked";
-      setArticleOpen(shouldExpand);
-    }
+    if (story) setArticleOpen(true);
   }, [story?.id]);
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
@@ -453,10 +450,10 @@ export default function StoryDetail() {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
-          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
+          <Link to={projectPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>
-          </button>
+          </Link>
         </div>
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-5 h-5 animate-spin text-dim" />
@@ -468,10 +465,10 @@ export default function StoryDetail() {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
-          <button onClick={() => navigate(projectPath("/stories"))} className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors">
+          <Link to={projectPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>
-          </button>
+          </Link>
         </div>
         <div className="flex-1 flex items-center justify-center">
           <span className="text-[13px] text-dim font-mono">Story not found</span>

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import type { Video } from "@/data/mock";
@@ -61,7 +61,7 @@ function formatOffset(seconds: number): string {
 
 export default function VideoDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  
   const projectPath = useProjectPath();
   const [video, setVideo] = useState<Video | null>(null);
   const [channel, setChannel] = useState<{ id: string; name: string; handle: string; avatarUrl: string | null } | null>(null);
@@ -214,9 +214,9 @@ export default function VideoDetail() {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
-        <button onClick={() => navigate(projectPath(""))} className="text-sensor hover:text-foreground underline text-[13px]">
+        <Link to={projectPath("")} className="text-sensor hover:text-foreground underline text-[13px]">
           Return to home
-        </button>
+        </Link>
       </div>
     );
   }
@@ -233,14 +233,14 @@ export default function VideoDetail() {
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
-        <button
-          onClick={() => navigate(projectPath(`/channel/${channel.id}`))}
-          className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
+        <Link
+          to={projectPath(`/channel/${channel.id}`)}
+          className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span className="hidden sm:inline" dir="rtl">{channel.name}</span>
           <span className="sm:hidden">Back</span>
-        </button>
+        </Link>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPanelVisible(!panelVisible)}

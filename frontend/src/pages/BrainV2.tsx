@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -755,9 +755,9 @@ export default function BrainV2() {
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button onClick={() => navigate(projectPath(`/channel/${video.channelId}`))} className="shrink-0 hover:opacity-80 transition-opacity">
+                            <Link to={projectPath(`/channel/${video.channelId}`)} className="shrink-0 hover:opacity-80 transition-opacity">
                               <ChannelAvatar url={video.channelAvatarUrl} name={video.channelName} size="w-7 h-7" />
-                            </button>
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent side="top"><p>{video.channelName}</p></TooltipContent>
                         </Tooltip>
@@ -770,11 +770,11 @@ export default function BrainV2() {
                         <div className="flex items-center gap-1.5 text-[11px] text-dim font-mono"><ThumbsUp className="w-3 h-3" /> {video.likes}</div>
                         <div className="flex items-center gap-1.5 text-[11px] text-dim font-mono"><MessageSquare className="w-3 h-3" /> {video.comments}</div>
                       </div>
-                      <button onClick={() => navigate(projectPath(`/video/${video.id}`))}
-                        className="link flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate min-w-0">
+                      <Link to={projectPath(`/video/${video.id}`)}
+                        className="link flex-1 flex items-center justify-end gap-1.5 text-[13px] text-right truncate min-w-0 no-underline">
                         <span className="truncate">{video.title}</span>
                         <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                      </button>
+                      </Link>
                       <span className="text-[11px] text-dim font-mono shrink-0">{video.date}</span>
                       {video.result === "gap_win" ? (
                         <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-success/15 text-success shrink-0"><Trophy className="w-3 h-3" /> Gap Win</span>

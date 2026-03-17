@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
@@ -91,7 +91,6 @@ function mapVideo(v: ApiVideo): Video {
 
 export default function ChannelDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const projectPath = useProjectPath();
   const [channel, setChannel] = useState<ApiChannel | null>(null);
   const [channelVideos, setChannelVideos] = useState<Video[]>([]);
@@ -237,12 +236,12 @@ export default function ChannelDetail() {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
-        <button
-          onClick={() => navigate(projectPath(""))}
+        <Link
+          to={projectPath("")}
           className="text-sensor hover:text-foreground underline text-[13px]"
         >
           Return to home
-        </button>
+        </Link>
       </div>
     );
   }
@@ -250,13 +249,13 @@ export default function ChannelDetail() {
   return (
     <div className="flex flex-col min-h-screen">
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
-        <button
-          onClick={() => navigate(projectPath(channelType === "competition" ? "/competitions" : ""))}
-          className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
+        <Link
+          to={projectPath(channelType === "competition" ? "/competitions" : "")}
+          className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           {channelType === "competition" ? "Competitions" : "Our Channels"}
-        </button>
+        </Link>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPanelVisible(!panelVisible)}
@@ -350,7 +349,7 @@ export default function ChannelDetail() {
               );
             })()}
 
-            <VideoTable videos={filteredVideos} onVideoClick={(vid) => navigate(projectPath(`/video/${vid}`))} />
+            <VideoTable videos={filteredVideos} getVideoHref={(vid) => projectPath(`/video/${vid}`)} />
           </div>
         </div>
 

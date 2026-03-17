@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { LayoutGrid, Swords, GitBranch, Circle, TrendingUp, Sparkles, Brain, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X } from "lucide-react";
@@ -39,7 +39,6 @@ interface AppSidebarProps {
 
 export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pinned = false, onTogglePin }: AppSidebarProps) {
   const location = useLocation();
-  const navigate = useNavigate();
   const currentUser = useCurrentUser();
   const base = `/p/${projectId}`;
   const [projects, setProjects] = useState<ApiProject[]>([]);
@@ -151,19 +150,17 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
               projects.map((project) => {
                 const isCurrent = project.id === projectId;
                 return (
-                  <button
+                  <Link
                     key={project.id}
-                    onClick={() => {
-                      setSwitcherOpen(false);
-                      navigate(`/p/${project.id}`);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] hover:bg-elevated/60 transition-colors"
+                    to={`/p/${project.id}`}
+                    onClick={() => setSwitcherOpen(false)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] hover:bg-elevated/60 transition-colors no-underline"
                   >
                     <span className={`flex-1 text-left truncate ${isCurrent ? "text-foreground font-medium" : "text-dim"}`}>
                       {project.name}
                     </span>
                     {isCurrent && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-                  </button>
+                  </Link>
                 );
               })
             )}
@@ -203,14 +200,12 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
           const Icon = item.icon;
           const active = isActive(item.path);
           const target = `${base}${item.path}`;
-          const btn = (
-            <button
+          const link = (
+            <Link
               key={item.path}
-              onClick={() => {
-                navigate(target);
-                onClose?.();
-              }}
-              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 ${
+              to={target}
+              onClick={() => onClose?.()}
+              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
                 active
                   ? "bg-elevated text-foreground"
                   : "text-dim hover:bg-elevated/60 hover:text-sensor"
@@ -218,32 +213,30 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
             >
               <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
               {!collapsed && item.label}
-            </button>
+            </Link>
           );
 
           if (collapsed) {
             return (
               <Tooltip key={item.path}>
-                <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
               </Tooltip>
             );
           }
-          return btn;
+          return link;
         })}
 
         {adminItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
           const target = `${base}${item.path}`;
-          const btn = (
-            <button
+          const link = (
+            <Link
               key={item.path}
-              onClick={() => {
-                navigate(target);
-                onClose?.();
-              }}
-              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 ${
+              to={target}
+              onClick={() => onClose?.()}
+              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
                 active
                   ? "bg-elevated text-foreground"
                   : "text-dim hover:bg-elevated/60 hover:text-sensor"
@@ -251,18 +244,18 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
             >
               <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
               {!collapsed && item.label}
-            </button>
+            </Link>
           );
 
           if (collapsed) {
             return (
               <Tooltip key={item.path}>
-                <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
               </Tooltip>
             );
           }
-          return btn;
+          return link;
         })}
       </nav>
 

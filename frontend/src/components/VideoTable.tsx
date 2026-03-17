@@ -1,10 +1,12 @@
 import type { Video } from "@/data/mock";
+import { Link } from "react-router-dom";
 import { Eye, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight } from "lucide-react";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 
 interface VideoTableProps {
   videos: Video[];
-  onVideoClick: (videoId: string) => void;
+  onVideoClick?: (videoId: string) => void;
+  getVideoHref?: (videoId: string) => string;
 }
 
 const statusIcon: Record<string, { icon: React.ElementType; className: string; title: string }> = {
@@ -14,7 +16,7 @@ const statusIcon: Record<string, { icon: React.ElementType; className: string; t
   analyzing: { icon: Loader2, className: "text-blue animate-spin", title: "Analyzing" },
 };
 
-export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
+export function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTableProps) {
   return (
     <>
       {/* Desktop table */}
@@ -31,12 +33,11 @@ export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
             </tr>
           </thead>
           <tbody>
-            {videos.map((v) => (
-              <tr
-                key={v.id}
-                onClick={() => onVideoClick(v.id)}
-                className="bg-background hover:bg-[#0d0d10] cursor-pointer transition-colors group"
-              >
+            {videos.map((v) => {
+              const href = getVideoHref?.(v.id);
+              const Row = href ? "tr" : "tr";
+              const rowContent = (
+                <>
                 <td className="py-2.5 px-4 border-b border-border">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-8 rounded-lg bg-elevated shrink-0 overflow-hidden">
@@ -48,9 +49,15 @@ export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
                         </div>
                       )}
                     </div>
-                    <span className="text-[13px] font-medium max-w-[320px] whitespace-nowrap overflow-hidden text-ellipsis block text-foreground hover:opacity-80 transition-opacity" dir="rtl">
-                      {v.title}
-                    </span>
+                    {href ? (
+                      <Link to={href} className="text-[13px] font-medium max-w-[320px] whitespace-nowrap overflow-hidden text-ellipsis block text-foreground hover:opacity-80 transition-opacity no-underline" dir="rtl">
+                        {v.title}
+                      </Link>
+                    ) : (
+                      <span className="text-[13px] font-medium max-w-[320px] whitespace-nowrap overflow-hidden text-ellipsis block text-foreground hover:opacity-80 transition-opacity" dir="rtl">
+                        {v.title}
+                      </span>
+                    )}
                     <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   </div>
                 </td>
@@ -63,41 +70,83 @@ export function VideoTable({ videos, onVideoClick }: VideoTableProps) {
                 <td className="py-2.5 px-3 border-b border-border">
                   {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-4 h-4 ${s.className}`} title={s.title} />; })()}
                 </td>
-              </tr>
-            ))}
+                </>
+              );
+              return (
+                <tr
+                  key={v.id}
+                  onClick={() => onVideoClick?.(v.id)}
+                  className={`bg-background hover:bg-[#0d0d10] transition-colors group ${onVideoClick || href ? "cursor-pointer" : ""}`}
+                >
+                  {rowContent}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className="flex flex-col lg:hidden rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
-        {videos.map((v) => (
-          <div
-            key={v.id}
-            onClick={() => onVideoClick(v.id)}
-            className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors border-b border-border last:border-b-0 cursor-pointer"
-          >
-            <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
-              {v.thumbnail ? (
-                <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
+        {videos.map((v) => {
+          const href = getVideoHref?.(v.id);
+          if (href) {
+            return (
+              <Link
+                key={v.id}
+                to={href}
+                className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors border-b border-border last:border-b-0 cursor-pointer no-underline"
+              >
+                <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
+                  {v.thumbnail ? (
+                    <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0 text-right">
-              <div className="text-[13px] font-medium truncate text-foreground mb-0.5" dir="rtl">{v.title}</div>
-              <div className="flex items-center justify-end gap-2">
-                <span className="text-[11px] font-mono text-dim flex items-center gap-1">
-                  <Eye className="w-2.5 h-2.5" />{v.views}
-                </span>
-                <span className="text-[10px] text-dim">{v.date}</span>
-                {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
+                <div className="flex-1 min-w-0 text-right">
+                  <div className="text-[13px] font-medium truncate text-foreground mb-0.5" dir="rtl">{v.title}</div>
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-[11px] font-mono text-dim flex items-center gap-1">
+                      <Eye className="w-2.5 h-2.5" />{v.views}
+                    </span>
+                    <span className="text-[10px] text-dim">{v.date}</span>
+                    {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
+                  </div>
+                </div>
+              </Link>
+            );
+          }
+          return (
+            <div
+              key={v.id}
+              onClick={() => onVideoClick?.(v.id)}
+              className={`bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors border-b border-border last:border-b-0 ${onVideoClick ? "cursor-pointer" : ""}`}
+            >
+              <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
+                {v.thumbnail ? (
+                  <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0 text-right">
+                <div className="text-[13px] font-medium truncate text-foreground mb-0.5" dir="rtl">{v.title}</div>
+                <div className="flex items-center justify-end gap-2">
+                  <span className="text-[11px] font-mono text-dim flex items-center gap-1">
+                    <Eye className="w-2.5 h-2.5" />{v.views}
+                  </span>
+                  <span className="text-[10px] text-dim">{v.date}</span>
+                  {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Pagination */}

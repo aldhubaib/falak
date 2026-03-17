@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { ArrowDown, ArrowUpRight, Loader2 } from "lucide-react";
 import { PageError } from "@/components/PageError";
@@ -83,7 +83,6 @@ function MiniScores({ story }: { story: ApiStory }) {
 
 export default function Stories() {
   const { projectId } = useParams();
-  const navigate = useNavigate();
   const projectPath = useProjectPath();
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -378,10 +377,10 @@ export default function Stories() {
                   const sourceLabel = relative ?? "";
 
                   return (
-                    <button
+                    <Link
                       key={story.id}
-                      onClick={() => navigate(projectPath(`/story/${story.id}`))}
-                      className="w-full px-4 py-3.5 border-t border-border text-right hover:bg-[#0d0d10] transition-colors group"
+                      to={projectPath(`/story/${story.id}`)}
+                      className="block w-full px-4 py-3.5 border-t border-border text-right hover:bg-[#0d0d10] transition-colors group no-underline"
                     >
                       <div className="flex items-start justify-between mb-1.5 gap-2">
                         <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
@@ -417,7 +416,7 @@ export default function Stories() {
                             : "—/10"}
                         </span>
                       </div>
-                    </button>
+                    </Link>
                   );
                 })
               )}

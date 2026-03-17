@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   Star, Circle, CheckCircle, XCircle, ChevronDown, ArrowUpRight,
@@ -172,23 +172,22 @@ function ChannelAvatar({
   channelId?: string;
   size?: "sm" | "md";
 }) {
-  const navigate = useNavigate();
   const projectPath = useProjectPath();
   const px = size === "sm" ? "w-5 h-5" : "w-7 h-7";
   const textPx = size === "sm" ? "text-[8px]" : "text-[10px]";
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (channelId) navigate(projectPath(`/channel/${channelId}`));
-  };
+  const Wrapper = channelId ? Link : "div";
+  const wrapperProps = channelId
+    ? { to: projectPath(`/channel/${channelId}`), onClick: (e: React.MouseEvent) => e.stopPropagation() }
+    : {};
 
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div
-            className={`shrink-0 ${channelId ? "cursor-pointer" : ""}`}
-            onClick={channelId ? handleClick : undefined}
+          <Wrapper
+            className={`shrink-0 no-underline ${channelId ? "cursor-pointer" : ""}`}
+            {...(wrapperProps as any)}
           >
             {avatarUrl ? (
               <img
@@ -203,7 +202,7 @@ function ChannelAvatar({
                 {name.slice(0, 2)}
               </div>
             )}
-          </div>
+          </Wrapper>
         </TooltipTrigger>
         <TooltipContent side="top">
           <span>{name}</span>
@@ -1452,7 +1451,6 @@ function buildInsights(
 
 export default function Analytics() {
   const { projectId } = useParams();
-  const navigate = useNavigate();
   const projectPath = useProjectPath();
 
   const [period, setPeriod] = useState("12m");
@@ -1971,10 +1969,10 @@ export default function Analytics() {
               </p>
             ) : (
               topVideos.map((v) => (
-                <div
+                <Link
                   key={v.id}
-                  className="group flex items-center gap-5 px-5 py-3.5 border-t border-border hover:bg-surface/30 transition-colors cursor-pointer"
-                  onClick={() => navigate(projectPath(`/video/${v.id}`))}
+                  to={projectPath(`/video/${v.id}`)}
+                  className="group flex items-center gap-5 px-5 py-3.5 border-t border-border hover:bg-surface/30 transition-colors cursor-pointer no-underline"
                 >
                   <span className="text-[12px] text-dim font-mono w-6 text-right shrink-0">
                     {v.rank}
@@ -1994,7 +1992,7 @@ export default function Analytics() {
                   <span className="text-[13px] font-mono text-dim shrink-0 w-16 text-right">
                     {v.views}
                   </span>
-                </div>
+                </Link>
               ))
             )}
           </div>

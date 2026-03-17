@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { RotateCw, Pause, Play, Circle, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -298,7 +298,6 @@ function PipelineItemRow({
   isFailed: boolean;
   onRetry: () => void;
 }) {
-  const navigate = useNavigate();
   const projectPath = useProjectPath();
   const [retrying, setRetrying] = useState(false);
   const video = item.video;
@@ -318,10 +317,13 @@ function PipelineItemRow({
       .finally(() => setRetrying(false));
   };
 
+  const Wrapper = video?.id ? Link : "div";
+  const wrapperProps = video?.id ? { to: projectPath(`/video/${video.id}`) } : {};
+
   return (
-    <div
-      onClick={() => video?.id && navigate(projectPath(`/video/${video.id}`))}
-      className={`px-4 py-3 border-t border-border hover:bg-surface/50 transition-colors group ${video?.id ? "cursor-pointer" : ""}`}
+    <Wrapper
+      className={`block px-4 py-3 border-t border-border hover:bg-surface/50 transition-colors group no-underline ${video?.id ? "cursor-pointer" : ""}`}
+      {...(wrapperProps as any)}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         {/* Left: avatar + status */}
@@ -391,7 +393,7 @@ function PipelineItemRow({
           )}
         </div>
       </div>
-    </div>
+    </Wrapper>
   );
 }
 

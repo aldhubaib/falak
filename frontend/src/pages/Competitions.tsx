@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { DeleteChannelModal } from "@/components/DeleteChannelModal";
 import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle, ChevronDown } from "lucide-react";
@@ -60,7 +60,6 @@ function mapApiChannel(api: ApiChannel): Channel {
 }
 
 export default function Competitions() {
-  const navigate = useNavigate();
   const projectPath = useProjectPath();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -231,18 +230,15 @@ export default function Competitions() {
                     <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-success ring-[1.5px] ring-[#FFFF00]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div
-                      className="flex items-center gap-1.5 mb-0.5 link group"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
-                      onKeyDown={(e) => e.key === "Enter" && navigate(projectPath(`/channel/${ch.id}`))}
+                    <Link
+                      to={projectPath(`/channel/${ch.id}`)}
+                      className="flex items-center gap-1.5 mb-0.5 link group no-underline"
                     >
                       <span className="text-[13px] font-medium truncate" dir="rtl">
                         {ch.name}
                       </span>
                       <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
-                    </div>
+                    </Link>
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-dim font-mono">{ch.handle}</span>
                       <span className="text-[10px] text-dim">

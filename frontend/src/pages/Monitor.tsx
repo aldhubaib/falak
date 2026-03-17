@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import { Circle, Pause, Play, RotateCw, Search, ChevronDown, ArrowUpRight } from "lucide-react";
 import { fmtDateTime } from "@/lib/utils";
@@ -140,7 +140,6 @@ const filterTabs = ["All", "Active", "Regular", "Slow", "Inactive"];
 
 export default function Monitor() {
   const { projectId } = useParams();
-  const navigate = useNavigate();
   const projectPath = useProjectPath();
 
   const [rows, setRows] = useState<MonitorRow[]>([]);
@@ -413,10 +412,10 @@ export default function Monitor() {
                       ))}
                     </div>
                     {filtered.map((ch) => (
-                      <div
+                      <Link
                         key={ch.id}
-                        onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
-                        className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center"
+                        to={projectPath(`/channel/${ch.id}`)}
+                        className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center no-underline"
                       >
                         <div className="flex items-center gap-2.5">
                           {ch.avatarUrl ? (
@@ -438,17 +437,17 @@ export default function Monitor() {
                         <span className="text-[12px] text-dim font-mono">{ch.lastCheck}</span>
                         <span className={`text-[12px] font-mono ${ch.isStale ? "text-orange" : "text-dim"}`}>{ch.lastVideo}</span>
                         <span className="text-[12px] text-dim font-mono">{ch.nextCheck}</span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
 
                   {/* Mobile Card Layout */}
                   <div className="sm:hidden space-y-2">
                     {filtered.map((ch) => (
-                      <div
+                      <Link
                         key={ch.id}
-                        onClick={() => navigate(projectPath(`/channel/${ch.id}`))}
-                        className="rounded-xl bg-background p-4 cursor-pointer active:bg-[#0d0d10] transition-colors"
+                        to={projectPath(`/channel/${ch.id}`)}
+                        className="block rounded-xl bg-background p-4 cursor-pointer active:bg-[#0d0d10] transition-colors no-underline"
                       >
                         <div className="flex items-center gap-3 mb-3">
                           {ch.avatarUrl ? (
@@ -493,7 +492,7 @@ export default function Monitor() {
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </>
