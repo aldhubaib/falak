@@ -253,7 +253,10 @@ export default function StoryDetail() {
   }, [id]);
 
   const cleanupArticle = useCallback(async () => {
-    if (!id || !articleDisplayValue.trim()) return;
+    const content = brief.articleContent;
+    const hasContent = typeof content === "string" && content.trim() && content !== "__SCRAPE_FAILED__" && content !== "__YOUTUBE__";
+    if (!id) { toast.error("No story selected"); return; }
+    if (!hasContent) { toast.error("No article content to clean up. Fetch the article first."); return; }
     setCleanupProgress(10);
     try {
       const interval = setInterval(() => {
@@ -272,13 +275,13 @@ export default function StoryDetail() {
       const b = updated.brief && typeof updated.brief === "object" ? updated.brief as StoryBrief : brief;
       setBrief(b);
       setCleanupProgress(100);
-      toast.success("Article cleaned up");
+      toast.success("Article cleaned & translated");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Cleanup failed");
     } finally {
       setTimeout(() => setCleanupProgress(0), 600);
     }
-  }, [id, articleDisplayValue, brief]);
+  }, [id, brief]);
 
   useEffect(() => {
     if (!id || !story) return;

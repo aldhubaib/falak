@@ -55,7 +55,7 @@ export function StoryDetailArticle({
   const articleOpen = controlledOpen ?? internalOpen;
   const setArticleOpen = onArticleOpenChange ?? setInternalOpen;
 
-  const isCleaning = actionsDisabled && cleanupProgress > 0;
+  const isCleaning = cleanupProgress > 0;
   const isYouTube = articleContent === "__YOUTUBE__";
   const isScrapeFailed =
     !articleLoading && (!articleContent || articleContent === "__SCRAPE_FAILED__");
@@ -154,11 +154,11 @@ export function StoryDetailArticle({
             <button
               type="button"
               onClick={() => onCleanup()}
-              disabled={actionsDisabled || !displayValue.trim()}
+              disabled={actionsDisabled || isCleaning || !displayValue.trim()}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 text-[12px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-30 whitespace-nowrap"
             >
-              <Wand2 className={`w-3 h-3 shrink-0 ${actionsDisabled ? "animate-spin" : ""}`} />
-              Clean up with AI
+              <Wand2 className={`w-3 h-3 shrink-0 ${isCleaning ? "animate-spin" : ""}`} />
+              {isCleaning ? "Cleaning…" : "Clean up with AI"}
             </button>
             <button
               type="button"

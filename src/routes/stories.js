@@ -592,18 +592,20 @@ router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req,
     }
     const apiKey = decrypt(project.anthropicApiKeyEncrypted)
 
-    const system = `You are a text editor. The user will give you a raw scraped article.
+    const system = `You are a text editor and translator. The user will give you a raw scraped article.
 Your job:
 - Extract and preserve ONLY the actual article/news content
 - Remove all URLs, markdown links, image tags, navigation text, language selectors, cookie banners, and any other UI chrome
 - Fix grammar and formatting
+- Translate the ENTIRE article into Arabic (if it is already in Arabic, just clean it up)
 - Do NOT summarize — output the full article length
-- Output plain prose only, no markdown, no bullet points`
+- Output plain prose only, no markdown, no bullet points
+- Keep proper nouns, names, places, and technical terms transliterated naturally into Arabic`
 
     const trimmedInput = preClean(articleContent)
     const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: trimmedInput }], {
       system,
-      maxTokens: 4000,
+      maxTokens: 8000,
       projectId: project.id,
       action: 'Story Cleanup',
     })
