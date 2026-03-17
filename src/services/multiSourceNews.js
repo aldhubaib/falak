@@ -56,50 +56,26 @@ function normalizeUrl(u) {
 }
 
 /**
- * Build Arabic search query from Brain v2 signals (for NewsAPI/GNews which support Arabic sources).
+ * Use Claude to generate English search keywords from the Brain's channel brief.
+ * All 4 news APIs get the same English query — language doesn't matter, only interesting stories.
  */
-function buildArabicQuery({ learnedTags, tier1Topics, tier2Topics, topCompTopics }) {
-  const parts = []
-  const mainTags = (learnedTags || []).slice(0, 4)
-  if (mainTags.length > 0) parts.push(...mainTags)
-  const proven = (tier1Topics || []).slice(0, 2)
-  if (proven.length > 0) parts.push(...proven)
-  if (parts.length === 0) {
-    const patterns = [
-      ...(topCompTopics || []).slice(0, 2),
-      ...(tier2Topics || []).slice(0, 2),
-    ].filter(Boolean)
-    parts.push(...patterns)
-  }
-  if (parts.length === 0) return 'جريمة حقيقية تحقيق جنائي أخبار'
-  return [...new Set(parts)].join(' ')
-}
-
-/**
- * Use Claude to generate English search keywords from Arabic Brain signals.
- * Lightweight call — small prompt, fast response.
- */
-async function buildEnglishQuery(autoSearchQuery, anthropicApiKey, projectId) {
+async function buildSearchQuery(autoSearchQuery, anthropicApiKey, projectId) {
   try {
     const raw = await callAnthropic(
       anthropicApiKey,
       'claude-sonnet-4-20250514',
       [{
         role: 'user',
-        content: `Based on this Arabic YouTube channel brief, generate 3-5 English news search keywords that would find relevant stories on English news sites like NYT and The Guardian. Return ONLY the keywords separated by spaces, nothing else.\n\n${(autoSearchQuery || '').slice(0, 1000)}`,
+        content: `You are helping a YouTube channel find interesting news stories to cover.\n\nHere is the channel's content brief:\n${(autoSearchQuery || '').slice(0, 1500)}\n\nGenerate 5-8 English search keywords/phrases that would find the most interesting, viral, and compelling stories for this channel across global news sources. Focus on topics that make great YouTube videos.\n\nReturn ONLY the search query string — no quotes, no explanation, just keywords separated by spaces.`,
       }],
-      { system: 'You extract English search keywords from Arabic content briefs. Return only keywords, no explanation.', maxTokens: 100, projectId, action: 'News Query Translation' }
+      { system: 'You generate English news search queries. Return only the query string, nothing else.', maxTokens: 150, projectId, action: 'News Search Query' }
     )
-    const keywords = (raw || '').trim().replace(/["\n]/g, ' ').slice(0, 200)
+    const keywords = (raw || '').trim().replace(/["'\n]/g, ' ').replace(/\s+/g, ' ').slice(0, 250)
     if (keywords.length > 5) return keywords
   } catch (e) {
-    logger.warn({ error: e.message }, '[multiSourceNews] English query generation failed, using fallback')
+    logger.warn({ error: e.message }, '[multiSourceNews] query generation failed, using fallback')
   }
-  return 'true crime investigation murder cold case fraud scandal'
-}
-
-function buildNewsSearchQuery({ learnedTags, tier1Topics, tier2Topics, topCompTopics }) {
-  return buildArabicQuery({ learnedTags, tier1Topics, tier2Topics, topCompTopics })
+  return 'true crime investigation murder cold case fraud scandal mystery'
 }
 
 /**
@@ -196,17 +172,11 @@ async function fetchStoriesMultiSource({
   newsApiKeys,
 }) {
   const dynamicBlocklist = (omitDomains || []).filter(d => d && typeof d === 'string')
-  const arabicQuery = buildArabicQuery({ learnedTags, tier1Topics, tier2Topics, topCompTopics })
-
-  const hasEnglishProviders = newsApiKeys.guardian || newsApiKeys.nyt
-  const englishQuery = hasEnglishProviders
-    ? await buildEnglishQuery(autoSearchQuery, anthropicApiKey, projectId)
-    : null
+  const query = await buildSearchQuery(autoSearchQuery, anthropicApiKey, projectId)
 
   logger.info({
     projectId,
-    arabicQuery: arabicQuery.slice(0, 80),
-    englishQuery: englishQuery?.slice(0, 80) || null,
+    query: query.slice(0, 120),
     providers: Object.keys(newsApiKeys).filter(k => newsApiKeys[k]),
   }, '[multiSourceNews] starting parallel searches')
 
@@ -214,19 +184,19 @@ async function fetchStoriesMultiSource({
   const providerNames = []
 
   if (newsApiKeys.newsapi) {
-    searches.push(searchNewsAPI(arabicQuery, newsApiKeys.newsapi, { pageSize: 20 }))
+    searches.push(searchNewsAPI(query, newsApiKeys.newsapi, { pageSize: 20 }))
     providerNames.push('newsapi')
   }
   if (newsApiKeys.gnews) {
-    searches.push(searchGNews(arabicQuery, newsApiKeys.gnews, { max: 10 }))
+    searches.push(searchGNews(query, newsApiKeys.gnews, { max: 10 }))
     providerNames.push('gnews')
   }
-  if (newsApiKeys.guardian && englishQuery) {
-    searches.push(searchGuardian(englishQuery, newsApiKeys.guardian, { pageSize: 15 }))
+  if (newsApiKeys.guardian) {
+    searches.push(searchGuardian(query, newsApiKeys.guardian, { pageSize: 15 }))
     providerNames.push('guardian')
   }
-  if (newsApiKeys.nyt && englishQuery) {
-    searches.push(searchNYT(englishQuery, newsApiKeys.nyt))
+  if (newsApiKeys.nyt) {
+    searches.push(searchNYT(query, newsApiKeys.nyt))
     providerNames.push('nyt-search')
     searches.push(fetchNYTTopStories(newsApiKeys.nyt, 'world'))
     providerNames.push('nyt-top')
@@ -262,7 +232,7 @@ async function fetchStoriesMultiSource({
 
   if (rawArticles.length === 0) {
     logger.warn({ projectId }, '[multiSourceNews] all providers returned 0 articles')
-    return { stories: [], searchMeta: { arabicQuery, englishQuery, providerStats, totalArticles: 0, structured: 0 } }
+    return { stories: [], searchMeta: { query, providerStats, totalArticles: 0, structured: 0 } }
   }
 
   const { articles: filteredArticles, blocked } = deduplicateArticles(rawArticles, dynamicBlocklist)
@@ -273,7 +243,7 @@ async function fetchStoriesMultiSource({
   )
 
   if (filteredArticles.length === 0) {
-    return { stories: [], searchMeta: { arabicQuery, englishQuery, providerStats, totalArticles: rawArticles.length, blocked, structured: 0 } }
+    return { stories: [], searchMeta: { query, providerStats, totalArticles: rawArticles.length, blocked, structured: 0 } }
   }
 
   const structured = await structureWithClaude(
@@ -300,8 +270,7 @@ async function fetchStoriesMultiSource({
     }))
 
   const searchMeta = {
-    arabicQuery,
-    englishQuery,
+    query,
     providerStats,
     totalArticles: rawArticles.length,
     blocked,
@@ -315,4 +284,4 @@ async function fetchStoriesMultiSource({
   return { stories, searchMeta }
 }
 
-module.exports = { fetchStoriesMultiSource, buildNewsSearchQuery }
+module.exports = { fetchStoriesMultiSource }
