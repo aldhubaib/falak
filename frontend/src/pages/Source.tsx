@@ -254,57 +254,106 @@ function RunStatusBadge({ status }: { status: string }) {
 
 function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string; datasetId: string | null; itemCount: number | null; startedAt: string | null; status: string; importedAt: string | null }; sourceId: string; onRefresh: () => void }) {
   const [fetching, setFetching] = useState(false);
+  const [phase, setPhase] = useState("");
+  const [result, setResult] = useState<{ fetched: number; inserted: number; dupes: number; runDupes?: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const canFetch = !!run.datasetId;
 
   const handleFetch = () => {
     setFetching(true);
+    setResult(null);
+    setError(null);
+    setPhase("Fetching items from Apify…");
+
+    const start = Date.now();
     fetch(`/api/article-sources/${sourceId}/reimport-run`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ runId: run.runId }),
     })
-      .then((r) => (r.ok ? r.json() : r.json().then(d => Promise.reject(d))))
+      .then((r) => {
+        setPhase("Checking DB for duplicates…");
+        return r.ok ? r.json() : r.json().then(d => Promise.reject(d));
+      })
       .then((d: { fetched: number; inserted: number; dupes: number; runDupes?: number }) => {
-        const parts = [`${d.inserted} new`];
-        if (d.dupes > 0) parts.push(`${d.dupes} already in DB`);
-        if (d.runDupes && d.runDupes > 0) parts.push(`${d.runDupes} duplicate rows in run`);
-        toast.success(`Fetched ${d.fetched} — ${parts.join(", ")}`);
+        const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+        setPhase(`Done in ${elapsed}s`);
+        setResult(d);
         onRefresh();
       })
-      .catch((e) => toast.error(e?.error || "Re-import failed"))
+      .catch((e) => {
+        setPhase("");
+        setError(e?.error || "Re-import failed");
+        toast.error(e?.error || "Re-import failed");
+      })
       .finally(() => setFetching(false));
   };
 
+  const clearResult = () => { setResult(null); setPhase(""); setError(null); };
+
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center px-3 py-2 text-[11px] border-b border-border/20 last:border-0 hover:bg-elevated/20 transition-colors">
-      <div className="flex items-center gap-1.5 min-w-0">
-        <a
-          href={`https://console.apify.com/storage/datasets/${run.datasetId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-mono text-foreground hover:text-blue transition-colors truncate inline-flex items-center gap-1"
-        >
-          {run.runId.slice(0, 16)}
-          <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-40" />
-        </a>
+    <div className="border-b border-border/20 last:border-0">
+      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center px-3 py-2 text-[11px] hover:bg-elevated/20 transition-colors">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <a
+            href={`https://console.apify.com/storage/datasets/${run.datasetId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-foreground hover:text-blue transition-colors truncate inline-flex items-center gap-1"
+          >
+            {run.runId.slice(0, 16)}
+            <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-40" />
+          </a>
+        </div>
+        <span className="text-right font-mono text-foreground tabular-nums">
+          {run.itemCount != null ? run.itemCount.toLocaleString() : "—"}
+        </span>
+        <span className="text-right text-dim font-mono tabular-nums">
+          {run.startedAt ? timeAgo(run.startedAt) : "—"}
+        </span>
+        <div className="text-right">
+          <RunStatusBadge status={run.status} />
+        </div>
+        <div className="w-7 flex items-center justify-center">
+          {canFetch ? (
+            <button onClick={handleFetch} disabled={fetching} title="Re-import this run"
+              className="w-6 h-6 rounded flex items-center justify-center text-dim hover:text-blue hover:bg-blue/10 transition-colors disabled:opacity-50">
+              {fetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <span className="text-right font-mono text-foreground tabular-nums">
-        {run.itemCount != null ? run.itemCount.toLocaleString() : "—"}
-      </span>
-      <span className="text-right text-dim font-mono tabular-nums">
-        {run.startedAt ? timeAgo(run.startedAt) : "—"}
-      </span>
-      <div className="text-right">
-        <RunStatusBadge status={run.status} />
-      </div>
-      <div className="w-7 flex items-center justify-center">
-        {canFetch ? (
-          <button onClick={handleFetch} disabled={fetching} title="Re-import this run"
-            className="w-6 h-6 rounded flex items-center justify-center text-dim hover:text-blue hover:bg-blue/10 transition-colors disabled:opacity-50">
-            {fetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-          </button>
-        ) : null}
-      </div>
+
+      {(fetching || result || error) && (
+        <div className="px-3 pb-2 -mt-0.5">
+          <div className={`rounded-lg px-3 py-2 text-[11px] font-mono ${error ? "bg-red-500/5 border border-red-500/20" : result ? "bg-emerald-500/5 border border-emerald-500/20" : "bg-blue/5 border border-blue/20"}`}>
+            {fetching && (
+              <div className="flex items-center gap-2 text-blue">
+                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                <span>{phase}</span>
+              </div>
+            )}
+            {error && !fetching && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-red-400">{error}</span>
+                <button onClick={clearResult} className="text-dim hover:text-foreground"><X className="w-3 h-3" /></button>
+              </div>
+            )}
+            {result && !fetching && (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 text-dim">
+                  <span className="text-foreground">{phase}</span>
+                  <span className="text-emerald-400">{result.inserted} new</span>
+                  {result.dupes > 0 && <span>{result.dupes} already in DB</span>}
+                  {(result.runDupes ?? 0) > 0 && <span>{result.runDupes} dupes in run</span>}
+                  <span>of {result.fetched} fetched</span>
+                </div>
+                <button onClick={clearResult} className="text-dim hover:text-foreground shrink-0"><X className="w-3 h-3" /></button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
