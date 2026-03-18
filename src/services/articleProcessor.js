@@ -405,6 +405,31 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
     data: { storyId: story.id },
   })
 
+  // Generate vector embedding for the new story (non-blocking, fail-open)
+  try {
+    const project = await db.project.findUnique({
+      where: { id: article.projectId },
+      select: { id: true, embeddingApiKeyEncrypted: true },
+    })
+    if (project?.embeddingApiKeyEncrypted) {
+      const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
+      const text = buildEmbeddingText({
+        topic: analysis.topic,
+        tags: analysis.tags,
+        summary: analysis.summary,
+        contentType: analysis.contentType,
+        region: analysis.region,
+        uniqueAngle: analysis.uniqueAngle,
+      })
+      if (text.length > 10) {
+        const emb = await generateEmbedding(text, project)
+        await storeStoryEmbedding(story.id, emb)
+      }
+    }
+  } catch (e) {
+    logger.warn({ storyId: story.id, error: e.message }, '[articleProcessor] story embedding failed (non-fatal)')
+  }
+
   return story.id
 }
 

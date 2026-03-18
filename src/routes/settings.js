@@ -102,4 +102,54 @@ router.patch('/youtube-keys/:id', requireRole('owner', 'admin'), async (req, res
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ── Embedding API key (stored on Project for vector intelligence) ──────
+router.post('/embedding-key', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { projectId, key } = req.body
+    if (!projectId || !key) return res.status(400).json({ error: 'projectId and key required' })
+    await db.project.update({
+      where: { id: projectId },
+      data: { embeddingApiKeyEncrypted: encrypt(key) },
+    })
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.delete('/embedding-key', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { projectId } = req.body
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    await db.project.update({
+      where: { id: projectId },
+      data: { embeddingApiKeyEncrypted: null },
+    })
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Check if embedding key is configured for a project ────────
+router.get('/embedding-status', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { projectId } = req.query
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { embeddingApiKeyEncrypted: true, lastStatsRefreshAt: true, rescoreIntervalHours: true },
+    })
+    const profile = await db.scoreProfile.findUnique({
+      where: { projectId },
+      select: {
+        totalOutcomes: true, totalDecisions: true,
+        aiViralAccuracy: true, channelAvgViews: true, lastLearnedAt: true,
+      },
+    }).catch(() => null)
+    res.json({
+      hasEmbeddingKey: !!project?.embeddingApiKeyEncrypted,
+      lastStatsRefreshAt: project?.lastStatsRefreshAt,
+      rescoreIntervalHours: project?.rescoreIntervalHours ?? 24,
+      scoreProfile: profile,
+    })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 module.exports = router

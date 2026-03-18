@@ -190,6 +190,26 @@ Comments (sample):\n${commentsSample}`,
     console.warn('[pipeline] topicMemory update failed:', e.message)
   }
 
+  // Generate vector embedding for similarity search (non-blocking, fail-open)
+  if (project.embeddingApiKeyEncrypted) {
+    try {
+      const { generateEmbedding, buildEmbeddingText, storeVideoEmbedding } = require('./embeddings')
+      const text = buildEmbeddingText({
+        topic: partAJson.topic,
+        tags: partAJson.tags,
+        summary: partBJson.summary,
+        contentType: partAJson.contentType,
+        region: partAJson.location,
+      })
+      if (text.length > 10) {
+        const emb = await generateEmbedding(text, project)
+        await storeVideoEmbedding(video.id, emb)
+      }
+    } catch (e) {
+      console.warn('[pipeline] embedding failed (non-fatal):', e.message)
+    }
+  }
+
   return { nextStage: 'done', result: analysisResult }
 }
 

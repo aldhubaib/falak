@@ -669,6 +669,11 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
           const { refreshPreferenceProfile } = require('../services/articleFeedback')
           refreshPreferenceProfile(story.projectId).catch(() => {})
         } catch (_) {}
+        // Also update the self-learning score profile
+        try {
+          const { learnFromDecisions } = require('../services/scoreLearner')
+          learnFromDecisions(story.projectId).catch(() => {})
+        } catch (_) {}
       }
     }
     // Return story with log so Edit History shows who changed status
@@ -678,6 +683,22 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     })
     res.json(withLog || story)
   } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/stories/re-evaluate — full re-evaluation: refresh stats → learn → re-score
+router.post('/re-evaluate', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { projectId } = req.query
+    if (!projectId) return res.status(400).json({ error: 'projectId query param required' })
+    const { runCycleForProject } = require('../worker-rescore')
+    const result = await runCycleForProject(projectId)
+    await addLog(null, req.user.id, 'manual_rescore', `Re-evaluated: ${result.evaluated || 0} stories, ${result.changed || 0} changed`)
+      .catch(() => {})
+    res.json(result)
+  } catch (e) {
+    console.error('[stories/re-evaluate]', e)
     res.status(500).json({ error: e.message })
   }
 })

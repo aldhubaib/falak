@@ -144,11 +144,31 @@ export default function Stories() {
   }, [activeStage]);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [reEvaluating, setReEvaluating] = useState(false);
 
   const handleFetch = async () => {
     const msg = "Legacy story fetch has been removed. Use Source or Article Pipeline to ingest articles instead.";
     setFetchError(msg);
     toast.error(msg);
+  };
+
+  const handleReEvaluate = async () => {
+    if (!projectId || reEvaluating) return;
+    setReEvaluating(true);
+    try {
+      const res = await fetch(`/api/stories/re-evaluate?projectId=${encodeURIComponent(projectId)}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Re-evaluation failed");
+      toast.success(`Re-evaluated ${data.evaluated ?? 0} stories — ${data.changed ?? 0} scores updated`);
+      loadStories();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Re-evaluation failed");
+    } finally {
+      setReEvaluating(false);
+    }
   };
 
   if (loadError) {
@@ -210,11 +230,19 @@ export default function Stories() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleFetch}
-            title="Legacy story fetch has been removed"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
+            onClick={handleReEvaluate}
+            disabled={reEvaluating}
+            title="Refresh competition stats, learn from decisions, and re-score all active stories"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-purple/30 text-[11px] font-medium text-purple hover:bg-purple/10 transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
-            Legacy Fetch Removed
+            {reEvaluating ? (
+              <>
+                <span className="w-3 h-3 border-2 border-purple/30 border-t-purple rounded-full animate-spin" />
+                Re-evaluating…
+              </>
+            ) : (
+              "Re-evaluate Scores"
+            )}
           </button>
         </div>
       </div>

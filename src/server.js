@@ -72,6 +72,7 @@ app.use('/api/brain-v2',  require('./routes/brainV2'))
 app.use('/api/upload',    require('./routes/upload'))
 app.use('/api/article-sources',  require('./routes/articleSources'))
 app.use('/api/article-pipeline', require('./routes/articlePipeline'))
+app.use('/api/alerts',           require('./routes/alerts'))
 
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {
@@ -295,6 +296,14 @@ async function main() {
       runArticleWorker()
     } catch (e) {
       logger.error(e, '[article-worker] failed to start — articles will not be processed')
+    }
+
+    // Start the rescore worker in-process (refreshes stats + re-evaluates scores every 24h).
+    try {
+      const { runPollingWorker: runRescoreWorker } = require('./worker-rescore')
+      runRescoreWorker()
+    } catch (e) {
+      logger.error(e, '[rescore-worker] failed to start — story scores will not auto-update')
     }
   })
 }

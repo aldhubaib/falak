@@ -22,9 +22,14 @@ model Project {
   ytTranscriptApiKeyEncrypted String?   @db.Text
   firecrawlApiKeyEncrypted    String?   @db.Text
   apifyApiKeyEncrypted        String?   @db.Text
+  embeddingApiKeyEncrypted    String?   @db.Text
+  lastStatsRefreshAt          DateTime?
+  rescoreIntervalHours        Int?      @default(24)
   channels                    Channel[]
   stories                     Story[]
   articleSources              ArticleSource[]
+  scoreProfile                ScoreProfile?
+  alerts                      Alert[]
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
 }
@@ -110,6 +115,7 @@ model Video {
   transcription String?       @db.Text
   analysisResult Json?       // AI analysis: Part A (classify) + Part B (insights)
   omitFromAnalytics Boolean   @default(false)  // when true, excluded from Analytics page stats
+  embedding     Unsupported("vector(1536)")?
   pipelineItem  PipelineItem?
   comments      Comment[]
   createdAt     DateTime      @default(now())
@@ -178,6 +184,9 @@ model Story {
   scriptLong      String?    @db.Text
   scriptShort     String?    @db.Text
   brief           Json?
+  embedding       Unsupported("vector(1536)")?
+  lastRescoredAt  DateTime?
+  rescoreLog      Json?
   log             StoryLog[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -400,4 +409,45 @@ model Article {
   @@index([sourceId, stage])
   @@index([projectId, stage])
   @@index([stage, status])
+}
+
+// ─────────────────────────────────────────────
+// SCORE INTELLIGENCE: Self-Learning Profile
+// ─────────────────────────────────────────────
+model ScoreProfile {
+  id                    String    @id @default(cuid())
+  projectId             String    @unique
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  weightAdjustments     Json?     // learned weight deltas from base
+  tagSignals            Json?     // { "tag": signalStrength } learned from outcomes
+  contentTypeSignals    Json?     // { "investigation": +0.12, "opinion": -0.08 }
+  regionSignals         Json?     // { "مصر": +0.05 }
+  aiViralAccuracy       Float     @default(1.0)
+  aiRelevanceAccuracy   Float     @default(1.0)
+  channelAvgViews       BigInt    @default(0)
+  channelMedianViews    BigInt    @default(0)
+  totalOutcomes         Int       @default(0)
+  totalDecisions        Int       @default(0)
+  lastLearnedAt         DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// ALERTS
+// ─────────────────────────────────────────────
+model Alert {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  storyId   String?
+  videoId   String?
+  type      String   // 'competitor_published' | 'score_change' | 'trending_topic'
+  title     String
+  detail    Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([projectId, isRead])
+  @@index([projectId, createdAt(sort: Desc)])
 }

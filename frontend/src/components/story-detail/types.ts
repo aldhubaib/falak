@@ -20,6 +20,27 @@ export interface StoryWithLog extends ApiStory {
     createdAt: string;
     user: { name: string | null; avatarUrl: string | null } | null;
   }[];
+  rescoreLog?: Array<{
+    at: string;
+    trigger: string;
+    confidence: number;
+    before: { relevanceScore: number; viralScore: number; firstMoverScore: number; compositeScore: number };
+    after: { relevanceScore: number; viralScore: number; firstMoverScore: number; compositeScore: number };
+    factors: {
+      freshness: number;
+      provenViralBoost: number;
+      competitionMatches: number;
+      newCompetitorVideos: number;
+      topCompetitor?: { channelName: string; title: string; viewCount: number; similarity: number } | null;
+      ownChannelBoost: number;
+      tagBoost: number;
+      contentTypeBoost: number;
+      regionBoost: number;
+      aiViralMultiplier: number;
+      adjustedFirstMover: number;
+    };
+  }>;
+  lastRescoredAt?: string | null;
 }
 
 /** Brief JSON shape stored in DB */

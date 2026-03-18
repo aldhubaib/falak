@@ -11,6 +11,7 @@ import {
   CircleSlash,
   RotateCcw,
   X,
+  LineChart,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -42,6 +43,7 @@ export interface StoryDetailTopBarProps {
   onRestart?: () => void;
   onOmit: () => void;
   onHistoryClick: () => void;
+  onScoreHistoryClick?: () => void;
   /** Compact prev/next */
   prevNext?: {
     currentIndex: number;
@@ -81,6 +83,7 @@ export function StoryDetailTopBar({
   onRestart,
   onOmit,
   onHistoryClick,
+  onScoreHistoryClick,
   prevNext,
 }: StoryDetailTopBarProps) {
   const [actionDropOpen, setActionDropOpen] = useState(false);
@@ -123,6 +126,19 @@ export function StoryDetailTopBar({
         </button>
 
         <div className="flex items-center gap-1.5 max-sm:gap-1 flex-wrap justify-end">
+          {/* Chart — Score History */}
+          {onScoreHistoryClick && (
+            <button
+              type="button"
+              onClick={onScoreHistoryClick}
+              className="w-8 h-8 max-sm:w-7 max-sm:h-7 rounded-full flex items-center justify-center text-dim hover:text-purple hover:bg-purple/10 transition-colors"
+              aria-label="Score re-evaluation history"
+              title="Score History"
+            >
+              <LineChart className="w-4 h-4 max-sm:w-3.5 max-sm:h-3.5" />
+            </button>
+          )}
+
           {/* Clock — Edit History */}
           <button
             type="button"
