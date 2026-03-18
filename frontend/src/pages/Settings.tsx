@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
-import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper, Brain } from "lucide-react";
 import { toast } from "sonner";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -125,6 +125,18 @@ export default function Settings() {
   const [newYtValue, setNewYtValue] = useState("");
   const [addingYt, setAddingYt] = useState(false);
   const [removingYt, setRemovingYt] = useState<Record<string, boolean>>({});
+  // Embedding key (project-scoped, for vector intelligence)
+  const [embeddingKeySet, setEmbeddingKeySet] = useState(false);
+  const [embeddingKeyInput, setEmbeddingKeyInput] = useState("");
+  const [embeddingKeySaving, setEmbeddingKeySaving] = useState(false);
+  const [embeddingKeyClearing, setEmbeddingKeyClearing] = useState(false);
+  const [embeddingKeyEditing, setEmbeddingKeyEditing] = useState(false);
+  const [embeddingStatus, setEmbeddingStatus] = useState<{
+    lastStatsRefreshAt?: string | null;
+    rescoreIntervalHours?: number;
+    scoreProfile?: { totalOutcomes: number; totalDecisions: number; aiViralAccuracy: number; lastLearnedAt?: string | null } | null;
+  }>({});
+
   // Usage logs — paginated (50 per page, infinite scroll)
   const [usageLogs, setUsageLogs] = useState<UsageLog[]>([]);
   const [usageCursor, setUsageCursor] = useState<string | null>(null);
@@ -210,6 +222,19 @@ export default function Settings() {
         }));
       })
       .catch(() => {});
+    // Fetch embedding intelligence status
+    fetch(`/api/settings/embedding-status?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setEmbeddingKeySet(!!d.hasEmbeddingKey);
+        setEmbeddingStatus({
+          lastStatsRefreshAt: d.lastStatsRefreshAt,
+          rescoreIntervalHours: d.rescoreIntervalHours,
+          scoreProfile: d.scoreProfile,
+        });
+      })
+      .catch(() => {});
   }, [projectId]);
 
   // Save single key (project-scoped for services with bodyField, else global /api/settings/keys)
@@ -282,6 +307,45 @@ export default function Settings() {
       })
       .catch(() => toast.error("Failed to clear key"))
       .finally(() => setClearing((p) => ({ ...p, [service]: false })));
+  };
+
+  // Save embedding key (project-scoped)
+  const handleSaveEmbeddingKey = () => {
+    const val = embeddingKeyInput.trim();
+    if (!val || !projectId) { toast.error("Please enter your OpenAI API key"); return; }
+    setEmbeddingKeySaving(true);
+    fetch("/api/settings/embedding-key", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, key: val }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => {
+        setEmbeddingKeySet(true);
+        setEmbeddingKeyInput("");
+        setEmbeddingKeyEditing(false);
+        toast.success("OpenAI embedding key saved — vector intelligence active");
+      })
+      .catch(() => toast.error("Failed to save embedding key"))
+      .finally(() => setEmbeddingKeySaving(false));
+  };
+
+  const handleClearEmbeddingKey = () => {
+    if (!projectId) return;
+    setEmbeddingKeyClearing(true);
+    fetch("/api/settings/embedding-key", {
+      method: "DELETE", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => {
+        setEmbeddingKeySet(false);
+        setEmbeddingKeyEditing(false);
+        toast("Embedding key cleared");
+      })
+      .catch(() => toast.error("Failed to clear key"))
+      .finally(() => setEmbeddingKeyClearing(false));
   };
 
   // Add YouTube key
@@ -434,6 +498,95 @@ export default function Settings() {
                 );
               })}
             </div>
+          </div>
+
+          {/* ── Section 2: Vector Intelligence ───────────────────────────── */}
+          <div className="rounded-xl bg-background p-5">
+            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">VECTOR INTELLIGENCE</div>
+            <p className="text-[12px] text-dim mb-5">Powers semantic search, competition matching, and self-learning score adjustments.</p>
+
+            <div className="flex items-center gap-2.5 mb-1">
+              <Brain className="w-4 h-4 text-purple" />
+              <span className="text-[13px] font-semibold">OpenAI Embeddings</span>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${embeddingKeySet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
+                ● {embeddingKeySet ? "ACTIVE" : "NOT SET"}
+              </span>
+            </div>
+            <p className="text-[11px] text-dim mb-2.5">
+              text-embedding-3-small (1536d) — generates vector representations for stories and competition videos. Enables semantic similarity search via pgvector.
+            </p>
+
+            <div className="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
+              {embeddingKeySet && !embeddingKeyEditing ? (
+                <div
+                  onClick={() => setEmbeddingKeyEditing(true)}
+                  className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-purple/40 transition-colors"
+                >
+                  ••••••••••••••••  (click to replace)
+                </div>
+              ) : (
+                <input
+                  type="password"
+                  value={embeddingKeyInput}
+                  onChange={(e) => setEmbeddingKeyInput(e.target.value)}
+                  placeholder="sk-..."
+                  className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-purple/40"
+                  autoFocus={embeddingKeyEditing}
+                />
+              )}
+              <button onClick={handleSaveEmbeddingKey} disabled={embeddingKeySaving}
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-purple text-white hover:opacity-90 transition-opacity shrink-0 disabled:opacity-50">
+                {embeddingKeySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              </button>
+              <button onClick={handleClearEmbeddingKey} disabled={embeddingKeyClearing}
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0 disabled:opacity-50">
+                {embeddingKeyClearing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-purple font-mono mt-2 hover:opacity-80 transition-opacity">
+              platform.openai.com/api-keys ↗ <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+
+            {embeddingKeySet && (
+              <div className="mt-4 pt-4 border-t border-border space-y-2">
+                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">INTELLIGENCE STATUS</div>
+                <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+                  <div className="px-3 py-2.5 bg-surface rounded-lg">
+                    <div className="text-[10px] text-dim font-mono mb-0.5">Last Stats Refresh</div>
+                    <div className="text-[12px] font-mono text-foreground">
+                      {embeddingStatus.lastStatsRefreshAt ? fmtDateTime(embeddingStatus.lastStatsRefreshAt) : "Never"}
+                    </div>
+                  </div>
+                  <div className="px-3 py-2.5 bg-surface rounded-lg">
+                    <div className="text-[10px] text-dim font-mono mb-0.5">Auto Re-score Interval</div>
+                    <div className="text-[12px] font-mono text-foreground">{embeddingStatus.rescoreIntervalHours ?? 24}h</div>
+                  </div>
+                  {embeddingStatus.scoreProfile && (
+                    <>
+                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                        <div className="text-[10px] text-dim font-mono mb-0.5">Decisions Learned</div>
+                        <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalDecisions}</div>
+                      </div>
+                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                        <div className="text-[10px] text-dim font-mono mb-0.5">Outcomes Tracked</div>
+                        <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalOutcomes}</div>
+                      </div>
+                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                        <div className="text-[10px] text-dim font-mono mb-0.5">AI Viral Accuracy</div>
+                        <div className="text-[12px] font-mono text-foreground">{(embeddingStatus.scoreProfile.aiViralAccuracy * 100).toFixed(0)}%</div>
+                      </div>
+                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                        <div className="text-[10px] text-dim font-mono mb-0.5">Last Learning</div>
+                        <div className="text-[12px] font-mono text-foreground">
+                          {embeddingStatus.scoreProfile.lastLearnedAt ? fmtDateTime(embeddingStatus.scoreProfile.lastLearnedAt) : "Never"}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Section 3: Legacy / Scraping ───────────────────────────────── */}

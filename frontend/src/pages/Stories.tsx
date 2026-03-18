@@ -145,6 +145,25 @@ export default function Stories() {
 
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [reEvaluating, setReEvaluating] = useState(false);
+  const [nextRescore, setNextRescore] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/vector-intelligence/status?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d?.lastStatsRefreshAt) return;
+        const last = new Date(d.lastStatsRefreshAt).getTime();
+        const interval = (d.rescoreIntervalHours ?? 24) * 3600000;
+        const next = last + interval;
+        const diff = next - Date.now();
+        if (diff <= 0) { setNextRescore("soon"); return; }
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        setNextRescore(h > 0 ? `${h}h ${m}m` : `${m}m`);
+      })
+      .catch(() => {});
+  }, [projectId]);
 
   const handleFetch = async () => {
     const msg = "Legacy story fetch has been removed. Use Source or Article Pipeline to ingest articles instead.";
@@ -224,11 +243,13 @@ export default function Stories() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">AI Intelligence</h1>
-          <span className="text-[11px] text-dim font-mono">
-            content pipeline — suggestions now come from the article pipeline
-          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {nextRescore && (
+            <span className="text-[10px] text-dim font-mono">
+              next auto re-score in {nextRescore}
+            </span>
+          )}
           <button
             onClick={handleReEvaluate}
             disabled={reEvaluating}
