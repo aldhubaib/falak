@@ -89,6 +89,27 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
       return res.status(400).json({ error: 'Image too large (max 2 MB)' })
     }
 
+    // Prevent duplicate actorId/datasetId — same config would import same articles and cause wrong source attribution
+    if (type === 'apify_actor' && config?.actorId) {
+      const existing = await db.articleSource.findMany({
+        where: { projectId, type: 'apify_actor' },
+        select: { label: true, config: true },
+      })
+      const newActorId = String(config.actorId).trim()
+      const newDatasetId = config.datasetId ? String(config.datasetId).trim() : null
+      const dup = existing.find((s) => {
+        const c = s.config || {}
+        const a = (c.actorId || '').toString().trim()
+        const d = c.datasetId ? String(c.datasetId).trim() : null
+        return a === newActorId && d === newDatasetId
+      })
+      if (dup) {
+        return res.status(400).json({
+          error: `Another source "${dup.label}" already uses this actor${newDatasetId ? ' and dataset' : ''}. Each source must have a unique actor/dataset to avoid wrong article attribution.`,
+        })
+      }
+    }
+
     const source = await db.articleSource.create({
       data: {
         projectId,
@@ -133,6 +154,26 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     if (req.body.config !== undefined) {
       const configError = validateConfig(nextType, req.body.config)
       if (configError) return res.status(400).json({ error: configError })
+      // Prevent duplicate actorId/datasetId when updating config
+      if (nextType === 'apify_actor' && req.body.config?.actorId) {
+        const existing = await db.articleSource.findMany({
+          where: { projectId: existing.projectId, type: 'apify_actor', id: { not: req.params.id } },
+          select: { label: true, config: true },
+        })
+        const newActorId = String(req.body.config.actorId).trim()
+        const newDatasetId = req.body.config.datasetId ? String(req.body.config.datasetId).trim() : null
+        const dup = existing.find((s) => {
+          const c = s.config || {}
+          const a = (c.actorId || '').toString().trim()
+          const d = c.datasetId ? String(c.datasetId).trim() : null
+          return a === newActorId && d === newDatasetId
+        })
+        if (dup) {
+          return res.status(400).json({
+            error: `Another source "${dup.label}" already uses this actor${newDatasetId ? ' and dataset' : ''}. Each source must have a unique actor/dataset.`,
+          })
+        }
+      }
       data.config = req.body.config
       if (req.body.type) data.type = req.body.type
     }

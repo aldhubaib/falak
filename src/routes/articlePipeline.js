@@ -20,36 +20,52 @@ router.get('/', async (req, res) => {
 
     const { isPaused } = require('../worker-articles')
 
-    const allArticles = await db.article.findMany({
-      where: { projectId },
-      select: {
-        id: true, url: true, title: true, description: true,
-        stage: true, status: true, error: true, retries: true,
-        publishedAt: true, language: true, startedAt: true, finishedAt: true,
-        relevanceScore: true, rankScore: true, rankReason: true,
-        storyId: true, createdAt: true, updatedAt: true,
-        processingLog: true, analysis: true,
-        source: { select: { id: true, label: true, type: true, language: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 2000,
-    })
+    // Stats from full DB (not limited) so "total" and "done" are accurate
+    const [totalCount, reviewCount, failedCount, doneCount, importedCount, contentCount, translatedCount, aiAnalysisCount, allArticles] = await Promise.all([
+      db.article.count({ where: { projectId } }),
+      db.article.count({ where: { projectId, status: 'review' } }),
+      db.article.count({ where: { projectId, stage: 'failed' } }),
+      db.article.count({ where: { projectId, stage: 'done' } }),
+      db.article.count({ where: { projectId, stage: 'imported', status: { not: 'review' } } }),
+      db.article.count({ where: { projectId, stage: 'content', status: { not: 'review' } } }),
+      db.article.count({ where: { projectId, stage: 'translated', status: { not: 'review' } } }),
+      db.article.count({ where: { projectId, stage: 'ai_analysis', status: { not: 'review' } } }),
+      db.article.findMany({
+        where: { projectId },
+        select: {
+          id: true, url: true, title: true, description: true,
+          stage: true, status: true, error: true, retries: true,
+          publishedAt: true, language: true, startedAt: true, finishedAt: true,
+          relevanceScore: true, rankScore: true, rankReason: true,
+          storyId: true, createdAt: true, updatedAt: true,
+          processingLog: true, analysis: true,
+          source: { select: { id: true, label: true, type: true, language: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 2000,
+      }),
+    ])
 
-    const stats = { total: allArticles.length, imported: 0, content: 0, translated: 0, ai_analysis: 0, review: 0, done: 0, failed: 0 }
+    const stats = {
+      total: totalCount,
+      imported: importedCount,
+      content: contentCount,
+      translated: translatedCount,
+      ai_analysis: aiAnalysisCount,
+      review: reviewCount,
+      done: doneCount,
+      failed: failedCount,
+    }
+
     const byStage = { imported: [], content: [], translated: [], ai_analysis: [], review: [], done: [], failed: [] }
-
     for (const a of allArticles) {
       if (a.status === 'review') {
-        stats.review++
         byStage.review.push(a)
       } else if (a.stage === 'failed') {
-        stats.failed++
         byStage.failed.push(a)
       } else if (a.stage === 'done') {
-        stats.done++
         byStage.done.push(a)
       } else if (byStage[a.stage]) {
-        stats[a.stage] = (stats[a.stage] || 0) + 1
         byStage[a.stage].push(a)
       }
     }
