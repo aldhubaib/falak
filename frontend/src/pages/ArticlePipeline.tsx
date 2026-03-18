@@ -563,7 +563,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
       {subStep.id === "promote" && promoteLog && (
         <div className="flex items-center gap-2 text-[10px] font-mono">
           {promoteLog.status === "created" && article.storyId ? (
-            <Link to={pp(`/stories/${article.storyId}`)} className="text-success hover:underline flex items-center gap-1">
+            <Link to={pp(`/story/${article.storyId}`)} className="text-success hover:underline flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" /> Story created
             </Link>
           ) : promoteLog.status === "linked" ? (
