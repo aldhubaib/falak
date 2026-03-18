@@ -274,7 +274,7 @@ async function main() {
 
   server.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Falak running (HTTP + WebSocket collab)')
-    // Start the pipeline worker in-process.
+    // Start the video pipeline worker in-process.
     // Railway runs a single service via `npm start` — there is no separate worker dyno.
     // Requiring here (not at top) avoids any circular-dep issues at module load time.
     try {
@@ -283,10 +283,18 @@ async function main() {
       if (getQueue()) {
         runQueueWorker().catch(e => logger.error(e, '[worker] queue worker fatal'))
       } else {
-        runPollingWorker()   // fire-and-forget: runs its own infinite async loop
+        runPollingWorker()
       }
     } catch (e) {
       logger.error(e, '[worker] failed to start — pipeline items will not be processed')
+    }
+
+    // Start the article pipeline worker in-process.
+    try {
+      const { runPollingWorker: runArticleWorker } = require('./worker-articles')
+      runArticleWorker()
+    } catch (e) {
+      logger.error(e, '[article-worker] failed to start — articles will not be processed')
     }
   })
 }

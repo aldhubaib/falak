@@ -475,7 +475,7 @@ async function insertArticles(projectId, sourceId, source, passed) {
           content: raw.content || null,
           publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
           language: raw.language || source.language || 'en',
-          stage: 'clean',
+          stage: 'imported',
           status: 'queued',
         },
       })

@@ -6,74 +6,103 @@ const { VALID_SOURCE_TYPES, ingestAll, ingestSource, hasApiKey, checkBudget, che
 const router = express.Router()
 router.use(requireAuth)
 
-// ── GET /api/article-pipeline?projectId=X ─────────────────────────────────
+const PIPELINE_STAGES = ['imported', 'content', 'translated', 'ai_analysis']
+
+// ── GET /api/article-pipeline?projectId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
   try {
-    const { projectId } = req.query
+    const { projectId, view } = req.query
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
-    const project = await db.project.findUnique({ where: { id: projectId } })
-    if (!project) return res.status(404).json({ error: 'Project not found' })
+    if (view === 'sources') {
+      return getSourcesView(req, res, projectId)
+    }
 
-    const sources = await db.articleSource.findMany({
-      where: { projectId, type: { in: VALID_SOURCE_TYPES } },
-      orderBy: { createdAt: 'asc' },
-    })
+    const { isPaused } = require('../worker-articles')
 
-    const workflows = await Promise.all(sources.map(async (source) => {
-      const stageCounts = await db.article.groupBy({
-        by: ['stage'],
-        where: { sourceId: source.id },
-        _count: true,
-      })
-      const stats = {}
-      for (const row of stageCounts) stats[row.stage] = row._count
-      const totalArticles = Object.values(stats).reduce((s, c) => s + c, 0)
-
-      const keyConnected = hasApiKey(project, source.type, source)
-      const budget = checkBudget(source)
-      const cooldown = checkCooldown(source)
-
-      const log = Array.isArray(source.fetchLog) ? source.fetchLog : []
-      const successCount = log.filter(e => !e.error).length
-      const successRate = log.length > 0 ? Math.round((successCount / log.length) * 100) : null
-
-      return {
-        id: source.id,
-        type: source.type,
-        label: source.label,
-        language: source.language,
-        isActive: source.isActive,
-        lastPolledAt: source.lastPolledAt,
-        config: source.config,
-        fetchLog: log.slice(0, 10),
-        stats,
-        totalArticles,
-        health: {
-          keyConnected,
-          budgetUsed: budget.usedToday,
-          budgetMax: budget.maxPerDay,
-          cooldownOk: cooldown.allowed,
-          minutesSinceLast: cooldown.minutesSince,
-          successRate,
-          totalFetches: log.length,
-        },
-      }
-    }))
-
-    const globalStats = await db.article.groupBy({
-      by: ['stage'],
+    const allArticles = await db.article.findMany({
       where: { projectId },
-      _count: true,
+      select: {
+        id: true, url: true, title: true, description: true,
+        stage: true, status: true, error: true, retries: true,
+        publishedAt: true, language: true, startedAt: true, finishedAt: true,
+        relevanceScore: true, rankScore: true, rankReason: true,
+        storyId: true, createdAt: true, updatedAt: true,
+        source: { select: { id: true, label: true, type: true, language: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 2000,
     })
-    const totals = {}
-    for (const row of globalStats) totals[row.stage] = row._count
 
-    res.json({ workflows, totals })
+    const stats = { total: allArticles.length, imported: 0, content: 0, translated: 0, ai_analysis: 0, review: 0, done: 0, failed: 0 }
+    const byStage = { imported: [], content: [], translated: [], ai_analysis: [], review: [], failed: [] }
+
+    for (const a of allArticles) {
+      if (a.status === 'review') {
+        stats.review++
+        byStage.review.push(a)
+      } else if (a.stage === 'failed') {
+        stats.failed++
+        byStage.failed.push(a)
+      } else if (a.stage === 'done') {
+        stats.done++
+      } else if (byStage[a.stage]) {
+        stats[a.stage] = (stats[a.stage] || 0) + 1
+        byStage[a.stage].push(a)
+      }
+    }
+
+    res.json({ stats, byStage, paused: isPaused() })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
+
+async function getSourcesView(req, res, projectId) {
+  const project = await db.project.findUnique({ where: { id: projectId } })
+  if (!project) return res.status(404).json({ error: 'Project not found' })
+
+  const sources = await db.articleSource.findMany({
+    where: { projectId, type: { in: VALID_SOURCE_TYPES } },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  const workflows = await Promise.all(sources.map(async (source) => {
+    const stageCounts = await db.article.groupBy({
+      by: ['stage'],
+      where: { sourceId: source.id },
+      _count: true,
+    })
+    const stats = {}
+    for (const row of stageCounts) stats[row.stage] = row._count
+    const totalArticles = Object.values(stats).reduce((s, c) => s + c, 0)
+
+    const keyConnected = hasApiKey(project, source.type, source)
+    const budget = checkBudget(source)
+    const cooldown = checkCooldown(source)
+
+    const log = Array.isArray(source.fetchLog) ? source.fetchLog : []
+    const successCount = log.filter(e => !e.error).length
+    const successRate = log.length > 0 ? Math.round((successCount / log.length) * 100) : null
+
+    return {
+      id: source.id, type: source.type, label: source.label, language: source.language,
+      isActive: source.isActive, lastPolledAt: source.lastPolledAt, config: source.config,
+      fetchLog: log.slice(0, 10), stats, totalArticles,
+      health: {
+        keyConnected, budgetUsed: budget.usedToday, budgetMax: budget.maxPerDay,
+        cooldownOk: cooldown.allowed, minutesSinceLast: cooldown.minutesSince,
+        successRate, totalFetches: log.length,
+      },
+    }
+  }))
+
+  const globalStats = await db.article.groupBy({ by: ['stage'], where: { projectId }, _count: true })
+  const totals = {}
+  for (const row of globalStats) totals[row.stage] = row._count
+
+  res.json({ workflows, totals })
+}
 
 // ── GET /api/article-pipeline/:sourceId/articles ──────────────────────────
 router.get('/:sourceId/articles', async (req, res) => {
@@ -89,7 +118,7 @@ router.get('/:sourceId/articles', async (req, res) => {
       select: {
         id: true, url: true, title: true, description: true,
         stage: true, status: true, error: true, retries: true,
-        publishedAt: true, language: true,
+        publishedAt: true, language: true, startedAt: true,
         relevanceScore: true, rankScore: true, rankReason: true,
         createdAt: true, updatedAt: true,
       },
@@ -128,16 +157,95 @@ router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res)
   }
 })
 
+// ── POST /api/article-pipeline/pause ──────────────────────────────────────
+router.post('/pause', requireRole('owner', 'admin'), async (req, res) => {
+  const { setPaused } = require('../worker-articles')
+  setPaused(true)
+  res.json({ paused: true })
+})
+
+// ── POST /api/article-pipeline/resume ─────────────────────────────────────
+router.post('/resume', requireRole('owner', 'admin'), async (req, res) => {
+  const { setPaused } = require('../worker-articles')
+  setPaused(false)
+  res.json({ paused: false })
+})
+
 // ── POST /api/article-pipeline/:id/retry ──────────────────────────────────
 router.post('/:id/retry', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const article = await db.article.findUnique({ where: { id: req.params.id } })
     if (!article) return res.status(404).json({ error: 'Article not found' })
-    if (article.stage !== 'failed') return res.status(400).json({ error: 'Article is not failed' })
+    if (article.stage !== 'failed' && article.status !== 'review') {
+      return res.status(400).json({ error: 'Article is not failed or in review' })
+    }
+
+    const retryStage = article.status === 'review' ? article.stage : 'imported'
+    await db.article.update({
+      where: { id: article.id },
+      data: { stage: retryStage, status: 'queued', error: null, retries: 0 },
+    })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-pipeline/:id/skip — advance review item to next stage
+router.post('/:id/skip', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const article = await db.article.findUnique({ where: { id: req.params.id } })
+    if (!article) return res.status(404).json({ error: 'Article not found' })
+    if (article.status !== 'review') return res.status(400).json({ error: 'Article is not in review' })
+
+    const stageOrder = ['imported', 'content', 'translated', 'ai_analysis', 'done']
+    const idx = stageOrder.indexOf(article.stage)
+    const nextStage = idx >= 0 && idx < stageOrder.length - 1 ? stageOrder[idx + 1] : 'done'
 
     await db.article.update({
       where: { id: article.id },
-      data: { stage: 'clean', status: 'queued', error: null },
+      data: { stage: nextStage, status: nextStage === 'done' ? 'done' : 'queued', error: null },
+    })
+    res.json({ ok: true, nextStage })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-pipeline/:id/drop — mark review item as failed
+router.post('/:id/drop', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const article = await db.article.findUnique({ where: { id: req.params.id } })
+    if (!article) return res.status(404).json({ error: 'Article not found' })
+
+    await db.article.update({
+      where: { id: article.id },
+      data: { stage: 'failed', status: 'failed', error: 'Dropped by user' },
+    })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── PATCH /api/article-pipeline/:id/content — user pastes content manually
+router.patch('/:id/content', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { content } = req.body
+    if (!content || typeof content !== 'string' || content.trim().length < 50) {
+      return res.status(400).json({ error: 'Content must be at least 50 characters' })
+    }
+    const article = await db.article.findUnique({ where: { id: req.params.id } })
+    if (!article) return res.status(404).json({ error: 'Article not found' })
+
+    await db.article.update({
+      where: { id: article.id },
+      data: {
+        contentClean: content.trim(),
+        stage: 'translated',
+        status: 'queued',
+        error: null,
+      },
     })
     res.json({ ok: true })
   } catch (e) {
@@ -153,7 +261,7 @@ router.post('/retry-all-failed', requireRole('owner', 'admin', 'editor'), async 
 
     const result = await db.article.updateMany({
       where: { projectId, stage: 'failed' },
-      data: { stage: 'clean', status: 'queued', error: null },
+      data: { stage: 'imported', status: 'queued', error: null, retries: 0 },
     })
     res.json({ retried: result.count })
   } catch (e) {

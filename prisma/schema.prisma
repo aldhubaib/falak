@@ -372,13 +372,16 @@ model Article {
   description    String?       @db.Text
   content        String?       @db.Text
   contentClean   String?       @db.Text
+  contentAr      String?       @db.Text
   publishedAt    DateTime?
   language       String?
 
-  stage          String        @default("ingest")
+  stage          String        @default("imported")
   status         String        @default("queued")
   retries        Int           @default(0)
   error          String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
 
   analysis       Json?
   relevanceScore Float?
@@ -394,4 +397,5 @@ model Article {
   @@unique([projectId, url])
   @@index([sourceId, stage])
   @@index([projectId, stage])
+  @@index([stage, status])
 }
