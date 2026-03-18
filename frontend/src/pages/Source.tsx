@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, CheckCircle2, XCircle, SkipForward, Clock, Package, Rss, ImagePlus, Download } from "lucide-react";
+import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, CheckCircle2, XCircle, SkipForward, Clock, Package, Rss, ImagePlus, Download, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -105,6 +105,25 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
       .catch(() => toast.error("Failed to delete"));
   };
 
+  const [fetchingId, setFetchingId] = useState<string | null>(null);
+
+  const handleFetchNew = (id: string) => {
+    setFetchingId(id);
+    fetch("/api/article-pipeline/ingest", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, sourceId: id }),
+    })
+      .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
+      .then((d) => {
+        const r = d.results?.[0];
+        toast.success(`Fetched ${r?.fetched ?? 0} articles, ${r?.inserted ?? 0} new`);
+        fetchSources();
+      })
+      .catch((e) => toast.error(e?.error || "Fetch failed"))
+      .finally(() => setFetchingId(null));
+  };
+
   const handleTest = (id: string) => {
     setTestingId(id);
     setTestResults(null);
@@ -156,7 +175,9 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
               key={s.id}
               source={s}
               testingId={testingId}
+              fetchingId={fetchingId}
               onTest={handleTest}
+              onFetchNew={handleFetchNew}
               onEdit={() => setEditSource(s)}
               onToggle={() => handleToggle(s.id, s.isActive)}
               onDelete={() => handleDelete(s.id, s.label)}
@@ -374,7 +395,9 @@ function timeAgo(dateStr: string) {
 function SourceCard({
   source: s,
   testingId,
+  fetchingId,
   onTest,
+  onFetchNew,
   onEdit,
   onToggle,
   onDelete,
@@ -382,7 +405,9 @@ function SourceCard({
 }: {
   source: ArticleSourceData;
   testingId: string | null;
+  fetchingId: string | null;
   onTest: (id: string) => void;
+  onFetchNew: (id: string) => void;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -432,9 +457,13 @@ function SourceCard({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => onFetchNew(s.id)} disabled={fetchingId === s.id}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-success hover:bg-success/10 transition-colors disabled:opacity-50" title="Check for new articles">
+              {fetchingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            </button>
             <button onClick={() => onTest(s.id)} disabled={testingId === s.id}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors disabled:opacity-50" title="Test">
-              {testingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube2 className="w-3.5 h-3.5" />}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors disabled:opacity-50" title="Test connection">
+              {testingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
             </button>
             <button onClick={onEdit}
               className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors" title="Edit">
