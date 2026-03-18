@@ -60,6 +60,25 @@ interface Analysis {
   uniqueAngle?: string;
   parseError?: boolean;
   raw?: string;
+  research?: {
+    relatedArticles?: { title?: string; url?: string; snippet?: string }[];
+    backgroundContext?: string;
+    citations?: string[];
+    similarVideos?: { title?: string; views?: number; channel?: string; similarity?: number; type?: string }[];
+    brief?: {
+      whatHappened?: string;
+      howItHappened?: string;
+      whatWasTheResult?: string;
+      keyFacts?: string[];
+      timeline?: { date?: string; event?: string }[];
+      mainCharacters?: { name?: string; role?: string }[];
+      sources?: { title?: string; url?: string }[];
+      competitionInsight?: string;
+      suggestedHook?: string;
+      narrativeStrength?: number;
+    };
+    researchedAt?: string;
+  };
 }
 
 interface ArticleDetail {
@@ -870,166 +889,220 @@ function PromoteDetail({ article, log, pp }: { article: ArticleDetail; log: LogE
 
 function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: LogEntry[]; pp: (p: string) => string }) {
   const decisionLog = log.find(e => e.step === "research_decision");
-  const searchLog = log.find(e => e.step === "firecrawl_search");
-  const contextLog = log.find(e => e.step === "perplexity_context");
-  const similarityLog = log.find(e => e.step === "db_similarity");
-  const synthesisLog = log.find(e => e.step === "synthesis");
   const researchLog = log.find(e => e.step === "research");
-  const saveLog = log.find(e => e.step === "save_research");
+  const research = (article.analysis as Analysis | null)?.research;
+  const brief = research?.brief;
 
   if (!decisionLog) {
     return <div className="p-4 text-[12px] text-dim font-mono">No research data yet.</div>;
   }
 
-  return (
-    <div className="p-4 space-y-4">
-      {/* Decision */}
-      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+  if (!decisionLog.needed) {
+    return (
+      <div className="p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <Target className="w-3.5 h-3.5 text-purple" />
-          <span className="text-[12px] font-medium">Research Decision</span>
-        </div>
-        <div className="flex items-center gap-2 text-[11px] font-mono">
-          <StatusBadge status={decisionLog.needed ? "ok" : "skipped"} label={decisionLog.needed ? "Research Needed" : "Skipped"} />
+          <StatusBadge status="skipped" label="Skipped" />
+          <span className="text-[12px] text-dim">{decisionLog.reason}</span>
         </div>
       </div>
-      {!decisionLog.needed && (
-        <div className="px-3 py-2 rounded-lg bg-surface/50 border border-border text-[12px] text-dim font-mono">
-          {decisionLog.reason}
-        </div>
-      )}
+    );
+  }
 
-      {decisionLog.needed && (
-        <>
-          {/* Firecrawl Search */}
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Research Sources</div>
-          <div className="space-y-2">
-            {searchLog && (
-              <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-3.5 h-3.5 text-blue" />
-                    <span className="text-[12px] font-medium">Web Search (Firecrawl)</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] font-mono">
-                    {searchLog.query && <span className="text-dim truncate max-w-[200px]">"{searchLog.query}"</span>}
-                    <StatusBadge status={searchLog.status} />
-                  </div>
-                </div>
-                {searchLog.status === "ok" && searchLog.titles && searchLog.titles.length > 0 && (
-                  <div className="space-y-1 mt-2 pl-6">
-                    {searchLog.titles.map((title, i) => (
-                      <div key={i} className="text-[11px] text-foreground/70 truncate">
-                        <span className="text-blue mr-1">{i + 1}.</span> {title}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {searchLog.error && (
-                  <div className="text-[10px] text-destructive/70 font-mono mt-1 pl-6">{searchLog.error}</div>
-                )}
-              </div>
-            )}
-
-            {/* Perplexity Context */}
-            {contextLog && (
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-orange" />
-                  <span className="text-[12px] font-medium">Background Context (Perplexity)</span>
-                </div>
-                <div className="flex items-center gap-2 text-[11px] font-mono">
-                  {contextLog.chars != null && <span className="text-dim">{contextLog.chars.toLocaleString()} chars</span>}
-                  {contextLog.citations != null && <span className="text-dim">{contextLog.citations} citations</span>}
-                  <StatusBadge status={contextLog.status} />
-                </div>
-              </div>
-            )}
-
-            {/* DB Similarity */}
-            {similarityLog && (
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-                <div className="flex items-center gap-2">
-                  <Target className="w-3.5 h-3.5 text-purple" />
-                  <span className="text-[12px] font-medium">Similar Competition Videos</span>
-                </div>
-                <div className="flex items-center gap-2 text-[11px] font-mono">
-                  {similarityLog.matchCount != null && <span className="text-dim">{similarityLog.matchCount} matches</span>}
-                  {similarityLog.topMatch && <span className="text-dim truncate max-w-[150px]" dir="auto">Top: {similarityLog.topMatch}</span>}
-                  <StatusBadge status={similarityLog.status} />
-                </div>
+  return (
+    <div className="p-4 space-y-5">
+      {/* ── Narrative Strength banner ── */}
+      {researchLog && (
+        <div className={`px-4 py-3 rounded-lg border-2 ${
+          researchLog.status === "ok" ? "border-success/30 bg-success/5" :
+          researchLog.status === "partial" ? "border-orange/30 bg-orange/5" :
+          "border-destructive/30 bg-destructive/5"
+        }`}>
+          <div className="flex items-center justify-between">
+            <StatusBadge status={researchLog.status} label={
+              researchLog.status === "ok" ? "Research Complete" :
+              researchLog.status === "partial" ? "Partially Researched" : "Failed"
+            } />
+            {(researchLog.narrativeStrength != null || brief?.narrativeStrength != null) && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-dim font-mono">Narrative Strength</span>
+                <span className="text-[18px] font-mono font-bold text-success">
+                  {brief?.narrativeStrength ?? researchLog.narrativeStrength}/10
+                </span>
               </div>
             )}
           </div>
+        </div>
+      )}
 
-          {/* Synthesis */}
-          {synthesisLog && (
-            <>
-              <div className="text-[10px] font-mono text-dim uppercase tracking-wider">AI Synthesis</div>
-              <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-3.5 h-3.5 text-success" />
-                    <span className="text-[12px] font-medium">Research Brief</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] font-mono">
-                    {synthesisLog.model && <span className="text-blue">{synthesisLog.model}</span>}
-                    <StatusBadge status={synthesisLog.status} label={synthesisLog.status === "ok" ? "Generated" : synthesisLog.status} />
-                  </div>
+      {/* ── Suggested Hook ── */}
+      {brief?.suggestedHook && (
+        <div className="px-4 py-3 rounded-lg bg-purple/5 border border-purple/20">
+          <div className="text-[10px] font-mono text-purple uppercase tracking-wider mb-1.5">Suggested Video Hook</div>
+          <div className="text-[14px] text-foreground font-medium leading-relaxed" dir="rtl">
+            "{brief.suggestedHook}"
+          </div>
+        </div>
+      )}
+
+      {/* ── Core Story: What / How / Result ── */}
+      {(brief?.whatHappened || brief?.howItHappened || brief?.whatWasTheResult) && (
+        <div className="space-y-3">
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Core Narrative</div>
+          {brief?.whatHappened && (
+            <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
+              <div className="text-[10px] font-mono text-blue uppercase tracking-wider mb-1.5">What happened?</div>
+              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="rtl">{brief.whatHappened}</div>
+            </div>
+          )}
+          {brief?.howItHappened && (
+            <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
+              <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">How did it happen?</div>
+              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="rtl">{brief.howItHappened}</div>
+            </div>
+          )}
+          {brief?.whatWasTheResult && (
+            <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
+              <div className="text-[10px] font-mono text-success uppercase tracking-wider mb-1.5">What was the result?</div>
+              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="rtl">{brief.whatWasTheResult}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Key Facts ── */}
+      {brief?.keyFacts && brief.keyFacts.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Key Facts</div>
+          <div className="space-y-1.5">
+            {brief.keyFacts.map((fact, i) => (
+              <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+                <span className="text-[10px] font-mono text-purple font-bold mt-0.5 shrink-0">{i + 1}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="rtl">{fact}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Timeline ── */}
+      {brief?.timeline && brief.timeline.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Timeline</div>
+          <div className="space-y-1">
+            {brief.timeline.map((entry, i) => (
+              <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+                <span className="text-[11px] font-mono text-blue shrink-0 w-24">{entry.date}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="rtl">{entry.event}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Main Characters ── */}
+      {brief?.mainCharacters && brief.mainCharacters.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Key People</div>
+          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
+            {brief.mainCharacters.map((person, i) => (
+              <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+                <div className="text-[12px] font-semibold text-foreground" dir="auto">{person.name}</div>
+                <div className="text-[11px] text-dim mt-0.5" dir="rtl">{person.role}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Competition Insight ── */}
+      {brief?.competitionInsight && (
+        <div className="px-4 py-3 rounded-lg bg-orange/5 border border-orange/20">
+          <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">Competition Insight</div>
+          <div className="text-[12px] text-foreground/85 leading-relaxed" dir="rtl">{brief.competitionInsight}</div>
+        </div>
+      )}
+
+      {/* ── Related Articles Found ── */}
+      {research?.relatedArticles && research.relatedArticles.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">
+            Related Articles Found ({research.relatedArticles.length})
+          </div>
+          <div className="space-y-1.5">
+            {research.relatedArticles.map((ra, i) => (
+              <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-mono text-blue shrink-0">{i + 1}.</span>
+                  {ra.url ? (
+                    <a href={ra.url} target="_blank" rel="noopener noreferrer"
+                      className="text-[12px] font-medium text-foreground hover:text-blue transition-colors truncate">
+                      {ra.title || ra.url}
+                    </a>
+                  ) : (
+                    <span className="text-[12px] font-medium text-foreground truncate">{ra.title}</span>
+                  )}
                 </div>
-                {synthesisLog.briefKeys && synthesisLog.briefKeys.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2 pl-6">
-                    {synthesisLog.briefKeys.map((key, i) => (
-                      <span key={i} className="px-1.5 py-0.5 rounded bg-success/10 text-success text-[9px] font-mono">
-                        {key}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {synthesisLog.error && (
-                  <div className="text-[10px] text-destructive/70 font-mono mt-1 pl-6">{synthesisLog.error}</div>
+                {ra.snippet && (
+                  <div className="text-[11px] text-dim line-clamp-2 pl-5">{ra.snippet}</div>
                 )}
               </div>
-            </>
-          )}
+            ))}
+          </div>
+        </div>
+      )}
 
-          {/* Overall research status */}
-          {researchLog && (
-            <div className={`px-3 py-2.5 rounded-lg border-2 ${
-              researchLog.status === "ok" ? "border-success/30 bg-success/5" :
-              researchLog.status === "partial" ? "border-orange/30 bg-orange/5" :
-              "border-destructive/30 bg-destructive/5"
-            }`}>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={researchLog.status} label={
-                  researchLog.status === "ok" ? "Research Complete" :
-                  researchLog.status === "partial" ? "Partially Researched" :
-                  researchLog.status === "skipped" ? "Skipped" : "Failed"
-                } />
-                {researchLog.narrativeStrength != null && (
-                  <span className="text-[11px] font-mono text-dim">
-                    Narrative Strength: <span className="font-semibold text-foreground">{researchLog.narrativeStrength}/10</span>
-                  </span>
-                )}
+      {/* ── Background Context ── */}
+      {research?.backgroundContext && (
+        <ContentBlock
+          label={`Background Context from Perplexity (${research.backgroundContext.length.toLocaleString()} chars)`}
+          content={research.backgroundContext}
+          dir="rtl"
+        />
+      )}
+
+      {/* ── Similar Competition Videos ── */}
+      {research?.similarVideos && research.similarVideos.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">
+            Similar Competition Videos ({research.similarVideos.length})
+          </div>
+          <div className="space-y-1.5">
+            {research.similarVideos.map((v, i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+                <span className="text-[10px] font-mono text-purple shrink-0">{i + 1}.</span>
+                <span className="text-[12px] text-foreground truncate flex-1" dir="auto">{v.title}</span>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-dim shrink-0">
+                  {v.views != null && <span>{v.views.toLocaleString()} views</span>}
+                  {v.channel && <span>{v.channel}</span>}
+                  {v.similarity != null && (
+                    <span className="text-purple">{Math.round(v.similarity * 100)}% match</span>
+                  )}
+                </div>
               </div>
-              {researchLog.status === "failed" && researchLog.error && (
-                <div className="text-[10px] text-destructive/70 font-mono mt-1">{researchLog.error}</div>
-              )}
-            </div>
-          )}
+            ))}
+          </div>
+        </div>
+      )}
 
-          {/* Save status */}
-          {saveLog && (
-            <div className="flex items-center gap-2 text-[11px] font-mono">
-              <StatusBadge status={saveLog.status} label={saveLog.status === "ok" ? "Saved to Story" : "Save Failed"} />
-              {saveLog.storyId && article.storyId && (
-                <Link to={pp(`/story/${article.storyId}`)} className="text-blue hover:underline">
-                  View enriched story
-                </Link>
-              )}
-            </div>
-          )}
-        </>
+      {/* ── Sources ── */}
+      {brief?.sources && brief.sources.length > 0 && (
+        <div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Sources</div>
+          <div className="flex flex-wrap gap-1.5">
+            {brief.sources.map((s, i) => (
+              s.url ? (
+                <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
+                  className="px-2 py-1 rounded bg-blue/10 text-blue text-[10px] font-mono hover:bg-blue/20 transition-colors">
+                  {s.title || s.url}
+                </a>
+              ) : (
+                <span key={i} className="px-2 py-1 rounded bg-dim/10 text-dim text-[10px] font-mono">
+                  {s.title}
+                </span>
+              )
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
