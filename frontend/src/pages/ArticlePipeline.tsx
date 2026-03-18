@@ -4,7 +4,7 @@ import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
   SkipForward, Trash2, ClipboardPaste, X, Loader2, CheckCircle2,
-  ArrowRight, Globe, Languages, Brain, Sparkles, FileText,
+  ArrowRight, Globe, Languages, Brain, Sparkles, FileText, Download,
 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -210,6 +210,7 @@ export default function ArticlePipeline() {
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
   const [retryingAll, setRetryingAll] = useState(false);
+  const [fetchingAll, setFetchingAll] = useState(false);
   const [countdown, setCountdown] = useState(30);
 
   const fetchPipeline = useCallback(() => {
@@ -251,6 +252,25 @@ export default function ArticlePipeline() {
       .finally(() => setRetryingAll(false));
   };
 
+  const handleFetchAll = () => {
+    if (!projectId) return;
+    setFetchingAll(true);
+    fetch("/api/article-pipeline/ingest", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { results: { label: string; inserted: number; fetched: number }[] }) => {
+        const total = d.results.reduce((s, r) => s + (r.inserted || 0), 0);
+        const fetched = d.results.reduce((s, r) => s + (r.fetched || 0), 0);
+        toast.success(`Fetched ${fetched} articles, ${total} new`);
+        fetchPipeline();
+      })
+      .catch(() => toast.error("Fetch failed"))
+      .finally(() => setFetchingAll(false));
+  };
+
   const allArticles = data
     ? [...Object.values(data.byStage)].flat()
     : [];
@@ -275,6 +295,11 @@ export default function ArticlePipeline() {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
             {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
             {paused ? "Resume" : "Pause"}
+          </button>
+          <button onClick={handleFetchAll} disabled={fetchingAll}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
+            {fetchingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+            Fetch All Sources
           </button>
           {failedCount > 0 && (
             <button onClick={handleRetryAll} disabled={retryingAll}

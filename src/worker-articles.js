@@ -15,6 +15,7 @@ const {
 } = require('./services/articleProcessor')
 
 const POLL_MS = 10_000
+const SOURCE_POLL_MS = 5 * 60 * 1000 // check sources for new Apify runs every 5 min
 const BATCH_FAST = 5
 const BATCH_AI = 1
 const AI_INTER_ITEM_MS = 3_000
@@ -149,11 +150,40 @@ async function tick() {
   }
 }
 
+let lastSourcePoll = 0
+
+async function pollSources() {
+  if (Date.now() - lastSourcePoll < SOURCE_POLL_MS) return
+  lastSourcePoll = Date.now()
+
+  try {
+    const { ingestAll } = require('./services/articlePipeline')
+    const projects = await db.project.findMany({
+      where: { status: 'active' },
+      select: { id: true },
+    })
+    for (const project of projects) {
+      try {
+        const results = await ingestAll(project.id)
+        const totalInserted = results.reduce((s, r) => s + (r.inserted || 0), 0)
+        if (totalInserted > 0) {
+          logger.info({ projectId: project.id, inserted: totalInserted }, '[article-worker] auto-ingested new articles')
+        }
+      } catch (e) {
+        logger.warn({ projectId: project.id, error: e.message }, '[article-worker] auto-ingest failed for project')
+      }
+    }
+  } catch (e) {
+    logger.error({ error: e.message }, '[article-worker] source poll error')
+  }
+}
+
 async function runPollingWorker() {
-  logger.info({ pollMs: POLL_MS }, '[article-worker] started (polling)')
+  logger.info({ pollMs: POLL_MS, sourcePollMs: SOURCE_POLL_MS }, '[article-worker] started (polling)')
   for (;;) {
     try {
       await tick()
+      await pollSources()
     } catch (e) {
       logger.error({ error: e.message }, '[article-worker] tick error')
     }
