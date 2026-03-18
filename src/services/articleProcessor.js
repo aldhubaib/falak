@@ -2,7 +2,7 @@
  * Article pipeline stage processors.
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
- * Stages: imported → content → translated → ai_analysis → done
+ * Stages: imported → content → translated → ai_analysis → research → done
  *
  * Every stage appends entries to article.processingLog (JSON array) so the
  * Kanban UI can show exactly what happened at each sub-step.
@@ -12,6 +12,7 @@ const { decrypt } = require('./crypto')
 const { scrapeUrl, preClean } = require('./firecrawl')
 const { fetchArticleText } = require('./articleFetcher')
 const { callAnthropic } = require('./pipelineProcessor')
+const { needsResearch, researchStory } = require('./storyResearcher')
 const logger = require('../lib/logger')
 
 const MIN_CONTENT_LENGTH = 300
@@ -339,7 +340,55 @@ async function doStageAiAnalysis(article, project) {
     await saveLog(article.id, log)
   }
 
-  return { nextStage: 'done' }
+  return { nextStage: 'research' }
+}
+
+// ── Stage 5: research ─────────────────────────────────────────────────────────
+
+async function doStageResearch(article, project) {
+  const log = getLog(article)
+  const decision = needsResearch(article, project)
+
+  log.push({
+    step: 'research_decision',
+    needed: decision.needed,
+    reason: decision.reason,
+    at: new Date().toISOString(),
+  })
+
+  if (!decision.needed) {
+    log.push({ step: 'research', status: 'skipped', reason: decision.reason, at: new Date().toISOString() })
+    await saveLog(article.id, log)
+    return { nextStage: 'done' }
+  }
+
+  try {
+    const fullArticle = await db.article.findUnique({
+      where: { id: article.id },
+      include: { source: { include: { project: true } } },
+    })
+    const result = await researchStory(fullArticle || article, project)
+
+    for (const entry of result.log) {
+      log.push(entry)
+    }
+
+    log.push({
+      step: 'research',
+      status: result.researchBrief ? 'ok' : 'partial',
+      hasBrief: !!result.researchBrief,
+      narrativeStrength: result.researchBrief?.narrativeStrength || null,
+      at: new Date().toISOString(),
+    })
+
+    await saveLog(article.id, log)
+    return { nextStage: 'done' }
+  } catch (e) {
+    log.push({ step: 'research', status: 'failed', error: e.message, at: new Date().toISOString() })
+    await saveLog(article.id, log)
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, moving to done)')
+    return { nextStage: 'done' }
+  }
 }
 
 function calculatePreferenceBias(analysis, profile) {
@@ -460,4 +509,5 @@ module.exports = {
   doStageContent,
   doStageTranslated,
   doStageAiAnalysis,
+  doStageResearch,
 }

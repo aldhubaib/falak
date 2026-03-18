@@ -4,7 +4,7 @@ import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, Clock, ChevronDown, ChevronRight,
-  Copy, Check,
+  Copy, Check, Search, Target,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,6 +35,16 @@ interface LogEntry {
   rankScore?: number;
   storyId?: string | null;
   at?: string;
+  needed?: boolean;
+  resultsCount?: number;
+  titles?: string[];
+  citations?: number;
+  briefKeys?: string[];
+  narrativeStrength?: number;
+  hasBrief?: boolean;
+  query?: string;
+  matchCount?: number;
+  topMatch?: string | null;
 }
 
 interface Analysis {
@@ -100,9 +110,10 @@ const TIMELINE_STAGES: TimelineStage[] = [
   { id: "ai_analysis", label: "AI Analysis", icon: Brain, color: "text-success", bgColor: "bg-success" },
   { id: "scoring", label: "Scoring", icon: Sparkles, color: "text-orange", bgColor: "bg-orange" },
   { id: "promote", label: "Story Promotion", icon: CheckCircle2, color: "text-success", bgColor: "bg-success" },
+  { id: "research", label: "Story Research", icon: Search, color: "text-blue", bgColor: "bg-blue" },
 ];
 
-const STAGE_ORDER = ["imported", "content", "translated", "ai_analysis", "done"];
+const STAGE_ORDER = ["imported", "content", "translated", "ai_analysis", "research", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -261,12 +272,10 @@ export default function ArticleDetailPage() {
           {/* Timeline */}
           <div className="relative">
             {TIMELINE_STAGES.map((stage, i) => {
-              const reached = isDone || currentStageIdx >= stageIndex(
-                stage.id === "scoring" || stage.id === "promote" ? "ai_analysis" : stage.id
-              );
-              const isActive = !isDone && !isFailed && article.stage === (
-                stage.id === "scoring" || stage.id === "promote" ? "ai_analysis" : stage.id
-              );
+              const mappedStage =
+                stage.id === "scoring" || stage.id === "promote" ? "ai_analysis" : stage.id;
+              const reached = isDone || currentStageIdx >= stageIndex(mappedStage);
+              const isActive = !isDone && !isFailed && article.stage === mappedStage;
 
               return (
                 <TimelineStep
@@ -348,6 +357,7 @@ function TimelineStep({
             {stage.id === "ai_analysis" && <AiAnalysisDetail article={article} log={log} />}
             {stage.id === "scoring" && <ScoringDetail article={article} log={log} />}
             {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
+            {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
           </div>
         )}
       </div>
@@ -364,6 +374,7 @@ const STEP_MAP: Record<string, string[]> = {
   ai_analysis: ["classify"],
   scoring: ["score"],
   promote: ["promote"],
+  research: ["research_decision", "firecrawl_search", "perplexity_context", "db_similarity", "synthesis", "save_research", "research"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
@@ -850,6 +861,175 @@ function PromoteDetail({ article, log, pp }: { article: ArticleDetail; log: LogE
         <div className="px-3 py-2 rounded-lg bg-destructive/5 border border-destructive/20 text-[12px] text-destructive font-mono">
           {promoteLog.error}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Research Detail ─── */
+
+function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: LogEntry[]; pp: (p: string) => string }) {
+  const decisionLog = log.find(e => e.step === "research_decision");
+  const searchLog = log.find(e => e.step === "firecrawl_search");
+  const contextLog = log.find(e => e.step === "perplexity_context");
+  const similarityLog = log.find(e => e.step === "db_similarity");
+  const synthesisLog = log.find(e => e.step === "synthesis");
+  const researchLog = log.find(e => e.step === "research");
+  const saveLog = log.find(e => e.step === "save_research");
+
+  if (!decisionLog) {
+    return <div className="p-4 text-[12px] text-dim font-mono">No research data yet.</div>;
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Decision */}
+      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+        <div className="flex items-center gap-2">
+          <Target className="w-3.5 h-3.5 text-purple" />
+          <span className="text-[12px] font-medium">Research Decision</span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px] font-mono">
+          <StatusBadge status={decisionLog.needed ? "ok" : "skipped"} label={decisionLog.needed ? "Research Needed" : "Skipped"} />
+        </div>
+      </div>
+      {!decisionLog.needed && (
+        <div className="px-3 py-2 rounded-lg bg-surface/50 border border-border text-[12px] text-dim font-mono">
+          {decisionLog.reason}
+        </div>
+      )}
+
+      {decisionLog.needed && (
+        <>
+          {/* Firecrawl Search */}
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Research Sources</div>
+          <div className="space-y-2">
+            {searchLog && (
+              <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Search className="w-3.5 h-3.5 text-blue" />
+                    <span className="text-[12px] font-medium">Web Search (Firecrawl)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    {searchLog.query && <span className="text-dim truncate max-w-[200px]">"{searchLog.query}"</span>}
+                    <StatusBadge status={searchLog.status} />
+                  </div>
+                </div>
+                {searchLog.status === "ok" && searchLog.titles && searchLog.titles.length > 0 && (
+                  <div className="space-y-1 mt-2 pl-6">
+                    {searchLog.titles.map((title, i) => (
+                      <div key={i} className="text-[11px] text-foreground/70 truncate">
+                        <span className="text-blue mr-1">{i + 1}.</span> {title}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {searchLog.error && (
+                  <div className="text-[10px] text-destructive/70 font-mono mt-1 pl-6">{searchLog.error}</div>
+                )}
+              </div>
+            )}
+
+            {/* Perplexity Context */}
+            {contextLog && (
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-orange" />
+                  <span className="text-[12px] font-medium">Background Context (Perplexity)</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-mono">
+                  {contextLog.chars != null && <span className="text-dim">{contextLog.chars.toLocaleString()} chars</span>}
+                  {contextLog.citations != null && <span className="text-dim">{contextLog.citations} citations</span>}
+                  <StatusBadge status={contextLog.status} />
+                </div>
+              </div>
+            )}
+
+            {/* DB Similarity */}
+            {similarityLog && (
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+                <div className="flex items-center gap-2">
+                  <Target className="w-3.5 h-3.5 text-purple" />
+                  <span className="text-[12px] font-medium">Similar Competition Videos</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-mono">
+                  {similarityLog.matchCount != null && <span className="text-dim">{similarityLog.matchCount} matches</span>}
+                  {similarityLog.topMatch && <span className="text-dim truncate max-w-[150px]" dir="auto">Top: {similarityLog.topMatch}</span>}
+                  <StatusBadge status={similarityLog.status} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Synthesis */}
+          {synthesisLog && (
+            <>
+              <div className="text-[10px] font-mono text-dim uppercase tracking-wider">AI Synthesis</div>
+              <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-3.5 h-3.5 text-success" />
+                    <span className="text-[12px] font-medium">Research Brief</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] font-mono">
+                    {synthesisLog.model && <span className="text-blue">{synthesisLog.model}</span>}
+                    <StatusBadge status={synthesisLog.status} label={synthesisLog.status === "ok" ? "Generated" : synthesisLog.status} />
+                  </div>
+                </div>
+                {synthesisLog.briefKeys && synthesisLog.briefKeys.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2 pl-6">
+                    {synthesisLog.briefKeys.map((key, i) => (
+                      <span key={i} className="px-1.5 py-0.5 rounded bg-success/10 text-success text-[9px] font-mono">
+                        {key}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {synthesisLog.error && (
+                  <div className="text-[10px] text-destructive/70 font-mono mt-1 pl-6">{synthesisLog.error}</div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Overall research status */}
+          {researchLog && (
+            <div className={`px-3 py-2.5 rounded-lg border-2 ${
+              researchLog.status === "ok" ? "border-success/30 bg-success/5" :
+              researchLog.status === "partial" ? "border-orange/30 bg-orange/5" :
+              "border-destructive/30 bg-destructive/5"
+            }`}>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={researchLog.status} label={
+                  researchLog.status === "ok" ? "Research Complete" :
+                  researchLog.status === "partial" ? "Partially Researched" :
+                  researchLog.status === "skipped" ? "Skipped" : "Failed"
+                } />
+                {researchLog.narrativeStrength != null && (
+                  <span className="text-[11px] font-mono text-dim">
+                    Narrative Strength: <span className="font-semibold text-foreground">{researchLog.narrativeStrength}/10</span>
+                  </span>
+                )}
+              </div>
+              {researchLog.status === "failed" && researchLog.error && (
+                <div className="text-[10px] text-destructive/70 font-mono mt-1">{researchLog.error}</div>
+              )}
+            </div>
+          )}
+
+          {/* Save status */}
+          {saveLog && (
+            <div className="flex items-center gap-2 text-[11px] font-mono">
+              <StatusBadge status={saveLog.status} label={saveLog.status === "ok" ? "Saved to Story" : "Save Failed"} />
+              {saveLog.storyId && article.storyId && (
+                <Link to={pp(`/story/${article.storyId}`)} className="text-blue hover:underline">
+                  View enriched story
+                </Link>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

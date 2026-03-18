@@ -6,7 +6,7 @@ const { VALID_SOURCE_TYPES, ingestAll, ingestSource, hasApiKey, checkBudget, che
 const router = express.Router()
 router.use(requireAuth)
 
-const PIPELINE_STAGES = ['imported', 'content', 'translated', 'ai_analysis']
+const PIPELINE_STAGES = ['imported', 'content', 'translated', 'ai_analysis', 'research']
 
 // ── GET /api/article-pipeline?projectId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
@@ -34,8 +34,8 @@ router.get('/', async (req, res) => {
 
     const [
       totalCount, reviewCount, failedCount, doneCount,
-      importedCount, contentCount, translatedCount, aiAnalysisCount,
-      imported, content, translated, aiAnalysis,
+      importedCount, contentCount, translatedCount, aiAnalysisCount, researchCount,
+      imported, content, translated, aiAnalysis, research,
       reviewArticles, failedArticles, doneArticles,
     ] = await Promise.all([
       db.article.count({ where: { projectId } }),
@@ -46,6 +46,7 @@ router.get('/', async (req, res) => {
       db.article.count({ where: { projectId, stage: 'content', status: { not: 'review' } } }),
       db.article.count({ where: { projectId, stage: 'translated', status: { not: 'review' } } }),
       db.article.count({ where: { projectId, stage: 'ai_analysis', status: { not: 'review' } } }),
+      db.article.count({ where: { projectId, stage: 'research', status: { not: 'review' } } }),
       db.article.findMany({
         where: { projectId, stage: 'imported', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
@@ -60,6 +61,10 @@ router.get('/', async (req, res) => {
       }),
       db.article.findMany({
         where: { projectId, stage: 'ai_analysis', status: { not: 'review' } },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'research', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
@@ -82,13 +87,14 @@ router.get('/', async (req, res) => {
       content: contentCount,
       translated: translatedCount,
       ai_analysis: aiAnalysisCount,
+      research: researchCount,
       review: reviewCount,
       done: doneCount,
       failed: failedCount,
     }
 
     const byStage = {
-      imported, content, translated, ai_analysis: aiAnalysis,
+      imported, content, translated, ai_analysis: aiAnalysis, research,
       review: reviewArticles, failed: failedArticles, done: doneArticles,
     }
 
@@ -325,7 +331,7 @@ router.post('/:id/skip', requireRole('owner', 'admin', 'editor'), async (req, re
     if (!article) return res.status(404).json({ error: 'Article not found' })
     if (article.status !== 'review') return res.status(400).json({ error: 'Article is not in review' })
 
-    const stageOrder = ['imported', 'content', 'translated', 'ai_analysis', 'done']
+    const stageOrder = ['imported', 'content', 'translated', 'ai_analysis', 'research', 'done']
     const idx = stageOrder.indexOf(article.stage)
     const nextStage = idx >= 0 && idx < stageOrder.length - 1 ? stageOrder[idx + 1] : 'done'
 

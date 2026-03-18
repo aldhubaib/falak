@@ -101,4 +101,63 @@ async function _scrapeOnce(apiKey, url) {
   }
 }
 
-module.exports = { scrapeUrl, preClean }
+/**
+ * Search the web for related articles using Firecrawl's /v2/search endpoint.
+ * Returns an array of { title, url, snippet, markdown } objects.
+ * @param {string} apiKey
+ * @param {string} query - search query
+ * @param {{ limit?: number, lang?: string }} [opts]
+ * @returns {Promise<{ results: Array<{ title: string, url: string, snippet: string, markdown: string }> } | { error: string }>}
+ */
+async function searchNews(apiKey, query, opts = {}) {
+  if (!apiKey || !apiKey.trim()) return { error: 'Firecrawl API key not set' }
+  if (!query || typeof query !== 'string') return { error: 'Invalid query' }
+
+  const limit = opts.limit ?? 5
+  const controller = new AbortController()
+  const to = setTimeout(() => controller.abort(), 60000)
+
+  try {
+    const res = await fetch('https://api.firecrawl.dev/v1/search', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey.trim()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        limit,
+        lang: opts.lang || 'en',
+        scrapeOptions: {
+          formats: ['markdown'],
+          onlyMainContent: true,
+        },
+      }),
+      signal: controller.signal,
+    })
+    clearTimeout(to)
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      return { error: data.error || data.message || `HTTP ${res.status}` }
+    }
+
+    if (!data.success || !Array.isArray(data.data)) {
+      return { error: 'Invalid Firecrawl search response' }
+    }
+
+    const results = data.data.map(item => ({
+      title: item.title || item.metadata?.title || '',
+      url: item.url || '',
+      snippet: item.description || item.metadata?.description || '',
+      markdown: typeof item.markdown === 'string' ? item.markdown.slice(0, 15000) : '',
+    })).filter(r => r.url)
+
+    return { results }
+  } catch (e) {
+    clearTimeout(to)
+    return { error: e.message || 'Firecrawl search failed' }
+  }
+}
+
+module.exports = { scrapeUrl, preClean, searchNews }

@@ -38,6 +38,15 @@ interface LogEntry {
   rankScore?: number;
   storyId?: string | null;
   at?: string;
+  needed?: boolean;
+  resultsCount?: number;
+  titles?: string[];
+  citations?: number;
+  briefKeys?: string[];
+  narrativeStrength?: number;
+  hasBrief?: boolean;
+  query?: string;
+  matchCount?: number;
 }
 
 interface Analysis {
@@ -208,6 +217,27 @@ const SUB_STEPS: SubStep[] = [
       return log?.status === "created";
     },
   },
+  // Research sub-steps
+  {
+    id: "research_decision", label: "Decision", icon: Target, color: "text-purple",
+    parentStage: "research",
+    filterFn: (a) => hasLogStep(a, "research_decision"),
+  },
+  {
+    id: "firecrawl_search", label: "Web Search", icon: Search, color: "text-blue",
+    parentStage: "research",
+    filterFn: (a) => hasLogStep(a, "firecrawl_search", "ok"),
+  },
+  {
+    id: "perplexity_context", label: "Background", icon: Globe, color: "text-orange",
+    parentStage: "research",
+    filterFn: (a) => hasLogStep(a, "perplexity_context", "ok"),
+  },
+  {
+    id: "synthesis", label: "Synthesis", icon: Brain, color: "text-success",
+    parentStage: "research",
+    filterFn: (a) => hasLogStep(a, "synthesis", "ok"),
+  },
 ];
 
 const STAGE_DEFS = [
@@ -215,6 +245,7 @@ const STAGE_DEFS = [
   { id: "content", label: "Content", color: "text-blue", number: 2 },
   { id: "translated", label: "Translated", color: "text-purple", number: 3 },
   { id: "ai_analysis", label: "AI Analysis", color: "text-success", number: 4 },
+  { id: "research", label: "Research", color: "text-blue", number: 5 },
   { id: "review", label: "Review", color: "text-orange", number: 0 },
   { id: "failed", label: "Failed", color: "text-destructive", number: 0 },
 ];
@@ -445,6 +476,21 @@ export default function ArticlePipeline() {
               </div>
             </div>
 
+            {/* ── RESEARCH FLOW ── */}
+            <SectionHeader icon={Search} title="Research Flow" subtitle="Web search, background context, and synthesis for story enrichment" />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "research").map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                ))}
+              </div>
+              {(data?.byStage.research ?? []).length > 0 && (
+                <div className="mt-3">
+                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                </div>
+              )}
+            </div>
+
             {/* ── VECTOR INTELLIGENCE FLOW ── */}
             <VectorIntelligenceSection
               data={vectorData}
@@ -660,6 +706,58 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
           )}
         </div>
       )}
+
+      {subStep.id === "research_decision" && (() => {
+        const decision = log.find(e => e.step === "research_decision");
+        if (!decision) return null;
+        return (
+          <div className="flex items-center gap-2 text-[10px] font-mono">
+            <span className={decision.needed ? "text-success" : "text-dim"}>
+              {decision.needed ? "Research needed" : "Skipped"}
+            </span>
+            <span className="text-dim truncate">{decision.reason}</span>
+          </div>
+        );
+      })()}
+
+      {subStep.id === "firecrawl_search" && (() => {
+        const fcLog = log.find(e => e.step === "firecrawl_search" && e.status === "ok");
+        if (!fcLog) return null;
+        return (
+          <div className="space-y-1">
+            <div className="text-[10px] font-mono text-blue">
+              {(fcLog as any).resultsCount ?? 0} related articles found
+            </div>
+            {(fcLog as any).titles?.slice(0, 2).map((t: string, i: number) => (
+              <div key={i} className="text-[10px] text-dim truncate">• {t}</div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {subStep.id === "perplexity_context" && (() => {
+        const pxLog = log.find(e => e.step === "perplexity_context" && e.status === "ok");
+        if (!pxLog) return null;
+        return (
+          <div className="flex items-center gap-2 text-[10px] font-mono text-dim">
+            <span className="text-orange">{(pxLog as any).chars?.toLocaleString() ?? 0} chars</span>
+            <span>{(pxLog as any).citations ?? 0} citations</span>
+          </div>
+        );
+      })()}
+
+      {subStep.id === "synthesis" && (() => {
+        const synLog = log.find(e => e.step === "synthesis" && e.status === "ok");
+        if (!synLog) return null;
+        return (
+          <div className="flex items-center gap-2 text-[10px] font-mono">
+            <span className="text-success">Brief generated</span>
+            <span className="text-dim">
+              {(synLog as any).briefKeys?.length ?? 0} sections
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Elapsed time + retries */}
       <div className="flex items-center justify-between text-[10px] text-dim font-mono mt-1">

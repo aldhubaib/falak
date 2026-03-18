@@ -1,6 +1,6 @@
 /**
  * Article pipeline worker: polls for queued articles and processes them through stages.
- * Stages: imported → content → translated → ai_analysis → done
+ * Stages: imported → content → translated → ai_analysis → research → done
  *
  * Mirrors the video pipeline worker pattern (worker.js).
  */
@@ -12,6 +12,7 @@ const {
   doStageContent,
   doStageTranslated,
   doStageAiAnalysis,
+  doStageResearch,
 } = require('./services/articleProcessor')
 
 const POLL_MS = 10_000
@@ -22,14 +23,14 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['imported', 'content', 'translated', 'ai_analysis']
+const STAGES = ['imported', 'content', 'translated', 'ai_analysis', 'research']
 
 let paused = false
 function isPaused() { return paused }
 function setPaused(v) { paused = !!v }
 
 async function pickItems(stage) {
-  const limit = (stage === 'ai_analysis' || stage === 'translated') ? BATCH_AI : BATCH_FAST
+  const limit = (stage === 'ai_analysis' || stage === 'translated' || stage === 'research') ? BATCH_AI : BATCH_FAST
   return db.article.findMany({
     where: {
       stage,
@@ -70,6 +71,9 @@ async function processItem(article) {
         break
       case 'ai_analysis':
         out = await doStageAiAnalysis(article, project)
+        break
+      case 'research':
+        out = await doStageResearch(article, project)
         break
       default:
         return
@@ -119,7 +123,7 @@ async function processItem(article) {
 
 async function runStage(stage) {
   const items = await pickItems(stage)
-  if (stage === 'ai_analysis' || stage === 'translated') {
+  if (stage === 'ai_analysis' || stage === 'translated' || stage === 'research') {
     for (let i = 0; i < items.length; i++) {
       await processItem(items[i])
       if (i < items.length - 1) {
