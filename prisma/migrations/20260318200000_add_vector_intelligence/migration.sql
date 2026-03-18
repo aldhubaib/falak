@@ -1,13 +1,16 @@
+-- Enable pgvector extension (requires pgvector-enabled PostgreSQL)
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- Project: embedding API key + rescore interval + last refresh timestamp
 ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "embeddingApiKeyEncrypted" TEXT;
 ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "lastStatsRefreshAt" TIMESTAMP(3);
 ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS "rescoreIntervalHours" INTEGER DEFAULT 24;
 
--- Video: embedding stored as JSONB array of floats
-ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS embedding JSONB;
+-- Video: vector embedding column (1536 dimensions — OpenAI text-embedding-3-small)
+ALTER TABLE "Video" ADD COLUMN IF NOT EXISTS embedding vector(1536);
 
--- Story: embedding + rescore tracking
-ALTER TABLE "Story" ADD COLUMN IF NOT EXISTS embedding JSONB;
+-- Story: vector embedding + rescore tracking
+ALTER TABLE "Story" ADD COLUMN IF NOT EXISTS embedding vector(1536);
 ALTER TABLE "Story" ADD COLUMN IF NOT EXISTS "lastRescoredAt" TIMESTAMP(3);
 ALTER TABLE "Story" ADD COLUMN IF NOT EXISTS "rescoreLog" JSONB;
 
@@ -47,6 +50,10 @@ CREATE TABLE IF NOT EXISTS "Alert" (
 );
 CREATE INDEX IF NOT EXISTS "Alert_projectId_isRead_idx" ON "Alert"("projectId", "isRead");
 CREATE INDEX IF NOT EXISTS "Alert_projectId_createdAt_idx" ON "Alert"("projectId", "createdAt" DESC);
+
+-- HNSW indexes for fast approximate nearest-neighbor search (scales to 100K+ vectors)
+CREATE INDEX IF NOT EXISTS video_embedding_idx ON "Video" USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS story_embedding_idx ON "Story" USING hnsw (embedding vector_cosine_ops);
 
 -- Foreign keys
 DO $$ BEGIN

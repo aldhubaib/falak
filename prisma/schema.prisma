@@ -115,7 +115,7 @@ model Video {
   transcription String?       @db.Text
   analysisResult Json?       // AI analysis: Part A (classify) + Part B (insights)
   omitFromAnalytics Boolean   @default(false)  // when true, excluded from Analytics page stats
-  embedding     Json?
+  embedding     Unsupported("vector(1536)")?
   pipelineItem  PipelineItem?
   comments      Comment[]
   createdAt     DateTime      @default(now())
@@ -184,7 +184,7 @@ model Story {
   scriptLong      String?    @db.Text
   scriptShort     String?    @db.Text
   brief           Json?
-  embedding       Json?
+  embedding       Unsupported("vector(1536)")?
   lastRescoredAt  DateTime?
   rescoreLog      Json?
   log             StoryLog[]
