@@ -204,9 +204,15 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
 
     let inserted = 0
     let dupes = 0
+    let runDupes = 0
+    const seenInRun = new Set()
+
     for (const raw of passed) {
       const url = canonicalizeArticleUrl(raw.url)
       if (!url) { dupes++; continue }
+
+      if (seenInRun.has(url)) { runDupes++; continue }
+      seenInRun.add(url)
 
       const exists = await db.article.findUnique({
         where: { projectId_url: { projectId: source.projectId, url } },
@@ -241,7 +247,7 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
       data: { itemCount: result.rawCount, status: 'imported', importedAt: new Date() },
     })
 
-    res.json({ fetched: rawArticles.length, inserted, dupes })
+    res.json({ fetched: rawArticles.length, inserted, dupes, runDupes })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

@@ -254,7 +254,7 @@ function RunStatusBadge({ status }: { status: string }) {
 
 function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string; datasetId: string | null; itemCount: number | null; startedAt: string | null; status: string; importedAt: string | null }; sourceId: string; onRefresh: () => void }) {
   const [fetching, setFetching] = useState(false);
-  const canFetch = run.datasetId && (run.status === "skipped_empty" || run.status === "failed" || (run.itemCount === 0 && run.status === "imported"));
+  const canFetch = !!run.datasetId;
 
   const handleFetch = () => {
     setFetching(true);
@@ -264,8 +264,11 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
       body: JSON.stringify({ runId: run.runId }),
     })
       .then((r) => (r.ok ? r.json() : r.json().then(d => Promise.reject(d))))
-      .then((d: { fetched: number; inserted: number; dupes: number }) => {
-        toast.success(`Fetched ${d.fetched} articles, ${d.inserted} new`);
+      .then((d: { fetched: number; inserted: number; dupes: number; runDupes?: number }) => {
+        const parts = [`${d.inserted} new`];
+        if (d.dupes > 0) parts.push(`${d.dupes} already in DB`);
+        if (d.runDupes && d.runDupes > 0) parts.push(`${d.runDupes} duplicate rows in run`);
+        toast.success(`Fetched ${d.fetched} — ${parts.join(", ")}`);
         onRefresh();
       })
       .catch((e) => toast.error(e?.error || "Re-import failed"))

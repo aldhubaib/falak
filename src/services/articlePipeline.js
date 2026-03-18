@@ -461,9 +461,12 @@ async function ingestApifySourceWithRunTracking(source, project, { force = false
 async function insertArticles(projectId, sourceId, source, passed) {
   let inserted = 0
   let dupes = 0
+  const seenInBatch = new Set()
   for (const raw of passed) {
     const canonicalUrl = canonicalizeArticleUrl(raw.url)
     if (!canonicalUrl) { dupes++; continue }
+    if (seenInBatch.has(canonicalUrl)) { dupes++; continue }
+    seenInBatch.add(canonicalUrl)
     try {
       await db.article.create({
         data: {
