@@ -1,6 +1,6 @@
 /**
  * Article pipeline worker: polls for queued articles and processes them through stages.
- * Stages: imported → content → translated → ai_analysis → research → done
+ * Stages: imported → content → classify → research → translated → score → done
  *
  * Mirrors the video pipeline worker pattern (worker.js).
  */
@@ -10,9 +10,10 @@ const logger = require('./lib/logger')
 const {
   doStageImported,
   doStageContent,
-  doStageTranslated,
-  doStageAiAnalysis,
+  doStageClassify,
   doStageResearch,
+  doStageTranslated,
+  doStageScore,
 } = require('./services/articleProcessor')
 
 const POLL_MS = 10_000
@@ -23,14 +24,16 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['imported', 'content', 'translated', 'ai_analysis', 'research']
+const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
+
+const AI_STAGES = new Set(['classify', 'research', 'translated', 'score'])
 
 let paused = false
 function isPaused() { return paused }
 function setPaused(v) { paused = !!v }
 
 async function pickItems(stage) {
-  const limit = (stage === 'ai_analysis' || stage === 'translated' || stage === 'research') ? BATCH_AI : BATCH_FAST
+  const limit = AI_STAGES.has(stage) ? BATCH_AI : BATCH_FAST
   return db.article.findMany({
     where: {
       stage,
@@ -66,14 +69,17 @@ async function processItem(article) {
       case 'content':
         out = await doStageContent(article, project)
         break
-      case 'translated':
-        out = await doStageTranslated(article, project)
-        break
-      case 'ai_analysis':
-        out = await doStageAiAnalysis(article, project)
+      case 'classify':
+        out = await doStageClassify(article, project)
         break
       case 'research':
         out = await doStageResearch(article, project)
+        break
+      case 'translated':
+        out = await doStageTranslated(article, project)
+        break
+      case 'score':
+        out = await doStageScore(article, project)
         break
       default:
         return
@@ -123,7 +129,7 @@ async function processItem(article) {
 
 async function runStage(stage) {
   const items = await pickItems(stage)
-  if (stage === 'ai_analysis' || stage === 'translated' || stage === 'research') {
+  if (AI_STAGES.has(stage)) {
     for (let i = 0; i < items.length; i++) {
       await processItem(items[i])
       if (i < items.length - 1) {

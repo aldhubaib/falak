@@ -1,10 +1,12 @@
 /**
- * Story Researcher — enriches a promoted story with multi-source research.
+ * Story Researcher — enriches an article with multi-source research.
+ *
+ * Runs BEFORE translation so all web searches use the article's original language.
  *
  * Pipeline:
- *   1. Firecrawl Search — find related news articles on the web
+ *   1. Firecrawl Search — find related news articles on the web (original language)
  *   2. Perplexity Sonar — get background context & timeline
- *   3. DB Similarity — find similar stories already in our database
+ *   3. DB Similarity — find similar videos via embeddings
  *   4. Claude Synthesis — combine everything into a structured research brief
  *
  * The brief answers the core storytelling questions:
@@ -25,10 +27,8 @@ const PERPLEXITY_MAX_TOKENS = 2048
 const SYNTHESIS_MAX_TOKENS = 4096
 
 /**
- * Determine if an article/story needs deep research.
- * @param {object} article - must have analysis, storyId
- * @param {object} project - must have API key fields
- * @returns {{ needed: boolean, reason: string }}
+ * Determine if an article needs deep research.
+ * Called after classify (analysis exists) but before translation.
  */
 function needsResearch(article, project) {
   const hasFirecrawl = !!project.firecrawlApiKeyEncrypted
@@ -42,10 +42,6 @@ function needsResearch(article, project) {
     return { needed: false, reason: 'No Anthropic key for synthesis' }
   }
 
-  if (!article.storyId) {
-    return { needed: false, reason: 'Article was not promoted to a story' }
-  }
-
   const analysis = article.analysis
   if (!analysis || analysis.parseError) {
     return { needed: false, reason: 'No valid classification — cannot build search query' }
@@ -56,34 +52,37 @@ function needsResearch(article, project) {
     return { needed: false, reason: `Content type "${analysis.contentType}" does not benefit from research` }
   }
 
-  return { needed: true, reason: 'Story promoted with valid classification' }
+  return { needed: true, reason: 'Classified article ready for research' }
 }
 
 /**
- * Run the full research pipeline for an article's associated story.
- * Returns a log array of sub-step results.
- *
- * @param {object} article - full article record (must have storyId, analysis, etc.)
- * @param {object} project - full project record with encrypted keys
- * @returns {Promise<{ log: Array<object>, researchBrief: object | null }>}
+ * Run the full research pipeline for an article.
+ * Returns research data to be stored on article.analysis.research and later
+ * included in the Story brief when the score stage creates it.
  */
 async function researchStory(article, project) {
   const log = []
   const analysis = article.analysis || {}
-  const topic = analysis.topic || article.title || ''
+
+  // Use original-language fields for web search (topicOriginal, title)
+  // and Arabic fields for Perplexity/synthesis context
+  const topicOriginal = analysis.topicOriginal || article.title || analysis.topic || ''
+  const regionOriginal = analysis.regionOriginal || analysis.region || ''
+  const topicArabic = analysis.topic || ''
   const tags = Array.isArray(analysis.tags) ? analysis.tags : []
   const region = analysis.region || ''
 
-  const searchQuery = buildSearchQuery(topic, tags, region, article.title)
+  const searchQuery = buildSearchQuery(topicOriginal, regionOriginal, article.title)
 
-  // ── Step 1: Firecrawl Search ──
+  // ── Step 1: Firecrawl Search (original language) ──
   let firecrawlResults = []
   if (project.firecrawlApiKeyEncrypted) {
     try {
       const fcKey = decrypt(project.firecrawlApiKeyEncrypted)
+      const lang = (article.language === 'ar') ? 'ar' : 'en'
       const result = await searchNews(fcKey, searchQuery, {
         limit: FIRECRAWL_RESULT_LIMIT,
-        lang: article.language === 'ar' ? 'ar' : 'en',
+        lang,
       })
       if (result.error) {
         log.push({ step: 'firecrawl_search', status: 'failed', error: result.error, query: searchQuery, at: new Date().toISOString() })
@@ -110,7 +109,7 @@ async function researchStory(article, project) {
   if (project.perplexityApiKeyEncrypted) {
     try {
       const pxKey = decrypt(project.perplexityApiKeyEncrypted)
-      const bgPrompt = buildBackgroundPrompt(topic, tags, region, analysis.summary)
+      const bgPrompt = buildBackgroundPrompt(topicOriginal, topicArabic, tags, regionOriginal, analysis.summary)
       const result = await queryPerplexity(pxKey, bgPrompt, { maxTokens: PERPLEXITY_MAX_TOKENS })
       perplexityContext = result.text || null
       perplexityCitations = result.citations || []
@@ -131,9 +130,18 @@ async function researchStory(article, project) {
   let similarVideos = []
   if (project.embeddingApiKeyEncrypted) {
     try {
-      const story = await db.story.findUnique({ where: { id: article.storyId }, select: { embedding: true } })
-      if (story?.embedding) {
-        const raw = await findSimilarVideos(story.embedding, project.id, 5)
+      const { generateEmbedding, buildEmbeddingText } = require('./embeddings')
+      const embText = buildEmbeddingText({
+        topic: analysis.topic,
+        tags: analysis.tags,
+        summary: analysis.summary,
+        contentType: analysis.contentType,
+        region: analysis.region,
+        uniqueAngle: analysis.uniqueAngle,
+      })
+      if (embText.length > 10) {
+        const emb = await generateEmbedding(embText, project)
+        const raw = await findSimilarVideos(emb, project.id, 5)
         similarVideos = (raw || []).map(v => ({
           title: v.titleAr || '',
           views: v.viewCount || 0,
@@ -148,7 +156,7 @@ async function researchStory(article, project) {
           at: new Date().toISOString(),
         })
       } else {
-        log.push({ step: 'db_similarity', status: 'skipped', reason: 'Story has no embedding', at: new Date().toISOString() })
+        log.push({ step: 'db_similarity', status: 'skipped', reason: 'Not enough text for embedding', at: new Date().toISOString() })
       }
     } catch (e) {
       log.push({ step: 'db_similarity', status: 'failed', error: e.message, at: new Date().toISOString() })
@@ -163,12 +171,13 @@ async function researchStory(article, project) {
     try {
       const anthropicKey = decrypt(project.anthropicApiKeyEncrypted)
       const synthesisPrompt = buildSynthesisPrompt({
-        topic,
+        topicOriginal,
+        topicArabic,
         summary: analysis.summary,
         uniqueAngle: analysis.uniqueAngle,
         tags,
         region,
-        originalArticle: (article.contentAr || article.contentClean || '').slice(0, 8000),
+        originalArticle: (article.contentClean || article.content || '').slice(0, 8000),
         firecrawlResults,
         perplexityContext,
         perplexityCitations,
@@ -195,58 +204,43 @@ async function researchStory(article, project) {
     }
   }
 
-  // ── Save research to Story ──
-  if (article.storyId && (researchBrief || firecrawlResults.length > 0 || perplexityContext)) {
-    try {
-      const existing = await db.story.findUnique({ where: { id: article.storyId }, select: { brief: true } })
-      const currentBrief = (existing?.brief && typeof existing.brief === 'object') ? existing.brief : {}
-
-      const researchData = {
-        relatedArticles: firecrawlResults.map(r => ({
-          title: r.title,
-          url: r.url,
-          snippet: r.snippet,
-        })),
-        backgroundContext: perplexityContext,
-        citations: perplexityCitations,
-        similarVideos,
-        brief: researchBrief,
-        researchedAt: new Date().toISOString(),
-      }
-
-      await db.story.update({
-        where: { id: article.storyId },
-        data: {
-          brief: { ...currentBrief, research: researchData },
-        },
-      })
-      log.push({ step: 'save_research', status: 'ok', storyId: article.storyId, at: new Date().toISOString() })
-    } catch (e) {
-      log.push({ step: 'save_research', status: 'failed', error: e.message, at: new Date().toISOString() })
-    }
+  // Build research data package (will be stored on article.analysis.research,
+  // then included in story brief when score stage promotes)
+  const researchData = {
+    relatedArticles: firecrawlResults.map(r => ({
+      title: r.title,
+      url: r.url,
+      snippet: r.snippet,
+    })),
+    backgroundContext: perplexityContext,
+    citations: perplexityCitations,
+    similarVideos,
+    brief: researchBrief,
+    researchedAt: new Date().toISOString(),
   }
 
-  return { log, researchBrief }
+  return { log, researchBrief, researchData }
 }
 
 // ── Prompt builders ──
 
-function buildSearchQuery(topic, tags, region, title) {
+function buildSearchQuery(topicOriginal, regionOriginal, title) {
   const parts = []
-  if (topic) parts.push(topic)
-  else if (title) parts.push(title)
-  if (region) parts.push(region)
-  if (tags.length > 0) parts.push(tags.slice(0, 3).join(' '))
-  return parts.join(' ').slice(0, 200)
+  if (topicOriginal && topicOriginal !== title) parts.push(topicOriginal)
+  if (title) parts.push(title)
+  if (regionOriginal) parts.push(regionOriginal)
+  const query = parts.join(' ').slice(0, 200)
+  return query || title || ''
 }
 
-function buildBackgroundPrompt(topic, tags, region, summary) {
+function buildBackgroundPrompt(topicOriginal, topicArabic, tags, regionOriginal, summary) {
   return [
     `Provide comprehensive background context for this news story.`,
     `Include: timeline of events, key people involved, causes, consequences, and any ongoing developments.`,
     ``,
-    `Topic: ${topic}`,
-    region ? `Region: ${region}` : '',
+    `Topic: ${topicOriginal}`,
+    topicArabic ? `Topic (Arabic): ${topicArabic}` : '',
+    regionOriginal ? `Region: ${regionOriginal}` : '',
     tags.length > 0 ? `Tags: ${tags.join(', ')}` : '',
     summary ? `Summary: ${summary}` : '',
     ``,
@@ -257,7 +251,7 @@ function buildBackgroundPrompt(topic, tags, region, summary) {
   ].filter(Boolean).join('\n')
 }
 
-function buildSynthesisPrompt({ topic, summary, uniqueAngle, tags, region, originalArticle, firecrawlResults, perplexityContext, perplexityCitations, similarVideos }) {
+function buildSynthesisPrompt({ topicOriginal, topicArabic, summary, uniqueAngle, tags, region, originalArticle, firecrawlResults, perplexityContext, perplexityCitations, similarVideos }) {
   const relatedArticlesText = firecrawlResults.map((r, i) =>
     `[Article ${i + 1}] ${r.title}\nURL: ${r.url}\n${r.markdown ? r.markdown.slice(0, 3000) : r.snippet}`
   ).join('\n\n')
@@ -270,13 +264,14 @@ function buildSynthesisPrompt({ topic, summary, uniqueAngle, tags, region, origi
 Synthesize ALL the following sources into a structured research brief for a video script writer.
 
 ═══ ORIGINAL ARTICLE ═══
-Topic: ${topic}
+Topic: ${topicOriginal}
+${topicArabic ? `Topic (Arabic): ${topicArabic}` : ''}
 ${summary ? `Summary: ${summary}` : ''}
 ${uniqueAngle ? `Unique Angle: ${uniqueAngle}` : ''}
 ${tags.length ? `Tags: ${tags.join(', ')}` : ''}
 ${region ? `Region: ${region}` : ''}
 
-Article text (truncated):
+Article text (original language, truncated):
 ${originalArticle}
 
 ═══ RELATED ARTICLES (from web search) ═══

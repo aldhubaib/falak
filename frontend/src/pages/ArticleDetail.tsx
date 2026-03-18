@@ -106,14 +106,14 @@ interface TimelineStage {
 const TIMELINE_STAGES: TimelineStage[] = [
   { id: "imported", label: "Imported", icon: FileText, color: "text-orange", bgColor: "bg-orange" },
   { id: "content", label: "Content Extraction", icon: Globe, color: "text-blue", bgColor: "bg-blue" },
-  { id: "translated", label: "Translation", icon: Languages, color: "text-purple", bgColor: "bg-purple" },
-  { id: "ai_analysis", label: "AI Analysis", icon: Brain, color: "text-success", bgColor: "bg-success" },
+  { id: "classify", label: "Classification", icon: Brain, color: "text-success", bgColor: "bg-success" },
+  { id: "research", label: "Research (Original Language)", icon: Search, color: "text-purple", bgColor: "bg-purple" },
+  { id: "translated", label: "Translation", icon: Languages, color: "text-blue", bgColor: "bg-blue" },
   { id: "scoring", label: "Scoring", icon: Sparkles, color: "text-orange", bgColor: "bg-orange" },
   { id: "promote", label: "Story Promotion", icon: CheckCircle2, color: "text-success", bgColor: "bg-success" },
-  { id: "research", label: "Story Research", icon: Search, color: "text-blue", bgColor: "bg-blue" },
 ];
 
-const STAGE_ORDER = ["imported", "content", "translated", "ai_analysis", "research", "done"];
+const STAGE_ORDER = ["imported", "content", "classify", "research", "translated", "score", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -273,7 +273,7 @@ export default function ArticleDetailPage() {
           <div className="relative">
             {TIMELINE_STAGES.map((stage, i) => {
               const mappedStage =
-                stage.id === "scoring" || stage.id === "promote" ? "ai_analysis" : stage.id;
+                stage.id === "scoring" || stage.id === "promote" ? "score" : stage.id;
               const reached = isDone || currentStageIdx >= stageIndex(mappedStage);
               const isActive = !isDone && !isFailed && article.stage === mappedStage;
 
@@ -353,11 +353,11 @@ function TimelineStep({
           <div className="mt-3 rounded-xl border border-border bg-background overflow-hidden">
             {stage.id === "imported" && <ImportedDetail article={article} log={log} />}
             {stage.id === "content" && <ContentDetail article={article} log={log} />}
+            {stage.id === "classify" && <AiAnalysisDetail article={article} log={log} />}
+            {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
             {stage.id === "translated" && <TranslatedDetail article={article} log={log} />}
-            {stage.id === "ai_analysis" && <AiAnalysisDetail article={article} log={log} />}
             {stage.id === "scoring" && <ScoringDetail article={article} log={log} />}
             {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
-            {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
           </div>
         )}
       </div>
@@ -370,11 +370,11 @@ function TimelineStep({
 const STEP_MAP: Record<string, string[]> = {
   imported: ["imported"],
   content: ["apify_content", "firecrawl", "html_fetch", "content_source"],
+  classify: ["classify"],
+  research: ["research_decision", "firecrawl_search", "perplexity_context", "db_similarity", "synthesis", "research"],
   translated: ["detect_language", "translate"],
-  ai_analysis: ["classify"],
   scoring: ["score"],
   promote: ["promote"],
-  research: ["research_decision", "firecrawl_search", "perplexity_context", "db_similarity", "synthesis", "save_research", "research"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {

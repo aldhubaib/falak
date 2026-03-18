@@ -6,7 +6,7 @@ const { VALID_SOURCE_TYPES, ingestAll, ingestSource, hasApiKey, checkBudget, che
 const router = express.Router()
 router.use(requireAuth)
 
-const PIPELINE_STAGES = ['imported', 'content', 'translated', 'ai_analysis', 'research']
+const PIPELINE_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
 
 // ── GET /api/article-pipeline?projectId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
@@ -34,8 +34,8 @@ router.get('/', async (req, res) => {
 
     const [
       totalCount, reviewCount, failedCount, doneCount,
-      importedCount, contentCount, translatedCount, aiAnalysisCount, researchCount,
-      imported, content, translated, aiAnalysis, research,
+      importedCount, contentCount, classifyCount, researchCount, translatedCount, scoreCount,
+      imported, content, classify, research, translated, score,
       reviewArticles, failedArticles, doneArticles,
     ] = await Promise.all([
       db.article.count({ where: { projectId } }),
@@ -44,9 +44,10 @@ router.get('/', async (req, res) => {
       db.article.count({ where: { projectId, stage: 'done' } }),
       db.article.count({ where: { projectId, stage: 'imported', status: { not: 'review' } } }),
       db.article.count({ where: { projectId, stage: 'content', status: { not: 'review' } } }),
-      db.article.count({ where: { projectId, stage: 'translated', status: { not: 'review' } } }),
-      db.article.count({ where: { projectId, stage: 'ai_analysis', status: { not: 'review' } } }),
+      db.article.count({ where: { projectId, stage: 'classify', status: { not: 'review' } } }),
       db.article.count({ where: { projectId, stage: 'research', status: { not: 'review' } } }),
+      db.article.count({ where: { projectId, stage: 'translated', status: { not: 'review' } } }),
+      db.article.count({ where: { projectId, stage: 'score', status: { not: 'review' } } }),
       db.article.findMany({
         where: { projectId, stage: 'imported', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
@@ -56,15 +57,19 @@ router.get('/', async (req, res) => {
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'translated', status: { not: 'review' } },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { projectId, stage: 'ai_analysis', status: { not: 'review' } },
+        where: { projectId, stage: 'classify', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
         where: { projectId, stage: 'research', status: { not: 'review' } },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'translated', status: { not: 'review' } },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'score', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
@@ -85,16 +90,17 @@ router.get('/', async (req, res) => {
       total: totalCount,
       imported: importedCount,
       content: contentCount,
-      translated: translatedCount,
-      ai_analysis: aiAnalysisCount,
+      classify: classifyCount,
       research: researchCount,
+      translated: translatedCount,
+      score: scoreCount,
       review: reviewCount,
       done: doneCount,
       failed: failedCount,
     }
 
     const byStage = {
-      imported, content, translated, ai_analysis: aiAnalysis, research,
+      imported, content, classify, research, translated, score,
       review: reviewArticles, failed: failedArticles, done: doneArticles,
     }
 
@@ -331,7 +337,7 @@ router.post('/:id/skip', requireRole('owner', 'admin', 'editor'), async (req, re
     if (!article) return res.status(404).json({ error: 'Article not found' })
     if (article.status !== 'review') return res.status(400).json({ error: 'Article is not in review' })
 
-    const stageOrder = ['imported', 'content', 'translated', 'ai_analysis', 'research', 'done']
+    const stageOrder = ['imported', 'content', 'classify', 'research', 'translated', 'score', 'done']
     const idx = stageOrder.indexOf(article.stage)
     const nextStage = idx >= 0 && idx < stageOrder.length - 1 ? stageOrder[idx + 1] : 'done'
 
@@ -375,7 +381,7 @@ router.patch('/:id/content', requireRole('owner', 'admin', 'editor'), async (req
       where: { id: article.id },
       data: {
         contentClean: content.trim(),
-        stage: 'translated',
+        stage: 'classify',
         status: 'queued',
         error: null,
       },

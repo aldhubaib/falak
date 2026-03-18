@@ -184,40 +184,13 @@ const SUB_STEPS: SubStep[] = [
       return log?.source === "title_desc_fallback";
     },
   },
-  // Translated sub-steps
+  // Classify sub-steps (runs on original language)
   {
-    id: "lang_detect", label: "Language", icon: Languages, color: "text-purple",
-    parentStage: "translated",
-    filterFn: (a) => hasLogStep(a, "detect_language"),
-  },
-  {
-    id: "translate_claude", label: "Translation", icon: Languages, color: "text-blue",
-    parentStage: "translated",
-    filterFn: (a) => {
-      const log = getLogStep(a, "translate");
-      return log?.status === "ok" || log?.status === "skipped";
-    },
-  },
-  // AI Analysis sub-steps
-  {
-    id: "classify", label: "Classify", icon: Brain, color: "text-success",
-    parentStage: "ai_analysis",
+    id: "classify_result", label: "Classified", icon: Brain, color: "text-success",
+    parentStage: "classify",
     filterFn: (a) => hasLogStep(a, "classify"),
   },
-  {
-    id: "score", label: "Score", icon: Sparkles, color: "text-orange",
-    parentStage: "ai_analysis",
-    filterFn: (a) => hasLogStep(a, "score"),
-  },
-  {
-    id: "promote", label: "Story Created", icon: CheckCircle2, color: "text-success",
-    parentStage: "done",
-    filterFn: (a) => {
-      const log = getLogStep(a, "promote");
-      return log?.status === "created";
-    },
-  },
-  // Research sub-steps
+  // Research sub-steps (runs on original language)
   {
     id: "research_decision", label: "Decision", icon: Target, color: "text-purple",
     parentStage: "research",
@@ -238,14 +211,43 @@ const SUB_STEPS: SubStep[] = [
     parentStage: "research",
     filterFn: (a) => hasLogStep(a, "synthesis", "ok"),
   },
+  // Translated sub-steps (runs after research)
+  {
+    id: "lang_detect", label: "Language", icon: Languages, color: "text-purple",
+    parentStage: "translated",
+    filterFn: (a) => hasLogStep(a, "detect_language"),
+  },
+  {
+    id: "translate_claude", label: "Translation", icon: Languages, color: "text-blue",
+    parentStage: "translated",
+    filterFn: (a) => {
+      const log = getLogStep(a, "translate");
+      return log?.status === "ok" || log?.status === "skipped";
+    },
+  },
+  // Score & Promotion sub-steps (final stage)
+  {
+    id: "score", label: "Score", icon: Sparkles, color: "text-orange",
+    parentStage: "score",
+    filterFn: (a) => hasLogStep(a, "score"),
+  },
+  {
+    id: "promote", label: "Story Created", icon: CheckCircle2, color: "text-success",
+    parentStage: "score",
+    filterFn: (a) => {
+      const log = getLogStep(a, "promote");
+      return log?.status === "created";
+    },
+  },
 ];
 
 const STAGE_DEFS = [
   { id: "imported", label: "Imported", color: "text-orange", number: 1 },
   { id: "content", label: "Content", color: "text-blue", number: 2 },
-  { id: "translated", label: "Translated", color: "text-purple", number: 3 },
-  { id: "ai_analysis", label: "AI Analysis", color: "text-success", number: 4 },
-  { id: "research", label: "Research", color: "text-blue", number: 5 },
+  { id: "classify", label: "Classify", color: "text-success", number: 3 },
+  { id: "research", label: "Research", color: "text-purple", number: 4 },
+  { id: "translated", label: "Translated", color: "text-blue", number: 5 },
+  { id: "score", label: "Score", color: "text-orange", number: 6 },
   { id: "review", label: "Review", color: "text-orange", number: 0 },
   { id: "failed", label: "Failed", color: "text-destructive", number: 0 },
 ];
@@ -433,7 +435,7 @@ export default function ArticlePipeline() {
               </div>
             </div>
 
-            {/* ── CONTENT FLOW ── */}
+            {/* ── 1. CONTENT FLOW ── */}
             <SectionHeader icon={FileText} title="Content Flow" subtitle="How articles get their text" />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
@@ -442,7 +444,6 @@ export default function ArticlePipeline() {
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
               </div>
-              {/* Active content items (currently being processed) */}
               {(data?.byStage.content ?? []).length > 0 && (
                 <div className="mt-3">
                   <StageColumn stage={STAGE_DEFS[1]} items={data?.byStage.content ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
@@ -450,34 +451,21 @@ export default function ArticlePipeline() {
               )}
             </div>
 
-            {/* ── TRANSLATION FLOW ── */}
-            <SectionHeader icon={Languages} title="Translation Flow" subtitle="Language detection and Arabic translation" />
+            {/* ── 2. CLASSIFY FLOW (original language) ── */}
+            <SectionHeader icon={Brain} title="Classify Flow" subtitle="AI classification on original language content" />
             <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "translated").map((sub) => (
+              <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "classify").map((sub) => (
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
-                {(data?.byStage.translated ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[2]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                {(data?.byStage.classify ?? []).length > 0 && (
+                  <StageColumn stage={STAGE_DEFS[2]} items={data?.byStage.classify ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 )}
               </div>
             </div>
 
-            {/* ── AI ANALYSIS FLOW ── */}
-            <SectionHeader icon={Brain} title="AI Analysis Flow" subtitle="Classification, scoring, and story promotion" />
-            <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "ai_analysis" || s.parentStage === "done").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
-                ))}
-                {(data?.byStage.ai_analysis ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.ai_analysis ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
-                )}
-              </div>
-            </div>
-
-            {/* ── RESEARCH FLOW ── */}
-            <SectionHeader icon={Search} title="Research Flow" subtitle="Web search, background context, and synthesis for story enrichment" />
+            {/* ── 3. RESEARCH FLOW (original language) ── */}
+            <SectionHeader icon={Search} title="Research Flow" subtitle="Web search and enrichment in the article's original language" />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "research").map((sub) => (
@@ -486,9 +474,35 @@ export default function ArticlePipeline() {
               </div>
               {(data?.byStage.research ?? []).length > 0 && (
                 <div className="mt-3">
-                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 </div>
               )}
+            </div>
+
+            {/* ── 4. TRANSLATION FLOW (after research) ── */}
+            <SectionHeader icon={Languages} title="Translation Flow" subtitle="Language detection and Arabic translation (after research)" />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "translated").map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                ))}
+                {(data?.byStage.translated ?? []).length > 0 && (
+                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                )}
+              </div>
+            </div>
+
+            {/* ── 5. SCORE & PROMOTION ── */}
+            <SectionHeader icon={Sparkles} title="Score & Promotion" subtitle="Scoring, ranking, and story creation with full data" />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "score").map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                ))}
+                {(data?.byStage.score ?? []).length > 0 && (
+                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                )}
+              </div>
             </div>
 
             {/* ── VECTOR INTELLIGENCE FLOW ── */}
@@ -506,8 +520,8 @@ export default function ArticlePipeline() {
                 <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review and failed articles" />
                 <div className="px-6 max-lg:px-4 pb-8">
                   <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
-                    <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
-                    <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                    <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                    <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                   </div>
                 </div>
               </>
@@ -641,7 +655,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         </div>
       )}
 
-      {subStep.id === "classify" && analysis && !analysis.parseError && (
+      {subStep.id === "classify_result" && analysis && !analysis.parseError && (
         <div className="space-y-1">
           {analysis.topic && (
             <div className="text-[11px] text-foreground/80 truncate" dir="rtl">{analysis.topic}</div>

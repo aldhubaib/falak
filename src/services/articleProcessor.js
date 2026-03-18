@@ -2,10 +2,11 @@
  * Article pipeline stage processors.
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
- * Stages: imported → content → translated → ai_analysis → research → done
+ * Stages: imported → content → classify → research → translated → score → done
  *
- * Every stage appends entries to article.processingLog (JSON array) so the
- * Kanban UI can show exactly what happened at each sub-step.
+ * Key design: classify and research run on ORIGINAL language content so web
+ * searches find results in the source language. Translation happens after
+ * research, and scoring/promotion happen last with full data.
  */
 const db = require('../lib/db')
 const { decrypt } = require('./crypto')
@@ -70,7 +71,7 @@ async function doStageImported(article, project) {
   return { nextStage: 'content' }
 }
 
-// ── Stage 2: content ─────────────────────────────────────────────────────────
+// ── Stage 2: content → classify ─────────────────────────────────────────────
 
 async function doStageContent(article, project) {
   const log = getLog(article)
@@ -88,10 +89,9 @@ async function doStageContent(article, project) {
       where: { id: article.id },
       data: { contentClean: cleanedContent, processingLog: log },
     })
-    return { nextStage: 'translated' }
+    return { nextStage: 'classify' }
   }
 
-  // Firecrawl attempt
   let fetchedText = null
   if (project.firecrawlApiKeyEncrypted) {
     try {
@@ -110,7 +110,6 @@ async function doStageContent(article, project) {
     log.push({ step: 'firecrawl', status: 'skipped', reason: 'No API key' })
   }
 
-  // HTML fallback
   if (!fetchedText) {
     try {
       const result = await fetchArticleText(article.url)
@@ -131,10 +130,9 @@ async function doStageContent(article, project) {
       where: { id: article.id },
       data: { contentClean: fetchedText, processingLog: log },
     })
-    return { nextStage: 'translated' }
+    return { nextStage: 'classify' }
   }
 
-  // Title + description fallback
   const fallbackText = [article.title, article.description, cleanedContent].filter(Boolean).join('\n\n').trim()
   if (fallbackText.length >= 100) {
     log.push({ step: 'content_source', source: 'title_desc_fallback', chars: fallbackText.length, status: 'ok' })
@@ -142,7 +140,7 @@ async function doStageContent(article, project) {
       where: { id: article.id },
       data: { contentClean: fallbackText, processingLog: log },
     })
-    return { nextStage: 'translated' }
+    return { nextStage: 'classify' }
   }
 
   log.push({ step: 'content_source', source: 'none', status: 'review', reason: 'No usable content found' })
@@ -150,94 +148,33 @@ async function doStageContent(article, project) {
   return { nextStage: 'content', reviewStatus: 'review', reviewReason: 'No usable content found' }
 }
 
-// ── Stage 3: translated ──────────────────────────────────────────────────────
+// ── Stage 3: classify → research ────────────────────────────────────────────
+// Runs on original language content. Outputs Arabic classification metadata.
 
-async function doStageTranslated(article, project) {
-  const log = getLog(article)
-  const text = article.contentClean || article.content || ''
-  if (!text.trim()) {
-    log.push({ step: 'translate', status: 'review', reason: 'No content to translate' })
-    await saveLog(article.id, log)
-    return { nextStage: 'translated', reviewStatus: 'review', reviewReason: 'No content to translate' }
-  }
-
-  const sourceLang = article.language || detectLanguage(text)
-  log.push({ step: 'detect_language', detected: sourceLang, at: new Date().toISOString() })
-
-  if (sourceLang === 'ar') {
-    log.push({ step: 'translate', status: 'skipped', reason: 'Already Arabic' })
-    await db.article.update({
-      where: { id: article.id },
-      data: { contentAr: text, language: 'ar', processingLog: log },
-    })
-    return { nextStage: 'ai_analysis' }
-  }
-
-  if (!project.anthropicApiKeyEncrypted) {
-    throw new Error('Anthropic API key not configured. Go to Settings to add it.')
-  }
-  const apiKey = decrypt(project.anthropicApiKeyEncrypted)
-
-  const truncated = text.slice(0, 30000)
-  const translated = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
-    {
-      role: 'user',
-      content: `Translate this news article to Arabic.\n` +
-        `Preserve all names, dates, locations, and facts exactly.\n` +
-        `Keep a journalistic tone. Output the Arabic text only, no commentary.\n\n` +
-        truncated,
-    },
-  ], {
-    maxTokens: 4096,
-    projectId: article.projectId,
-    action: 'article-translate',
-  })
-
-  if (!translated || translated.trim().length < 50) {
-    throw new Error('Translation returned empty or too short result')
-  }
-
-  log.push({
-    step: 'translate', status: 'ok', model: 'haiku',
-    inputLang: sourceLang, inputChars: truncated.length, outputChars: translated.trim().length,
-    inputPreview: preview(truncated),
-    outputPreview: preview(translated.trim()),
-  })
-
-  await db.article.update({
-    where: { id: article.id },
-    data: {
-      contentAr: translated.trim(),
-      language: sourceLang === 'unknown' ? 'other' : sourceLang,
-      processingLog: log,
-    },
-  })
-
-  return { nextStage: 'ai_analysis' }
-}
-
-// ── Stage 4: ai_analysis ─────────────────────────────────────────────────────
-
-async function doStageAiAnalysis(article, project) {
+async function doStageClassify(article, project) {
   if (!project.anthropicApiKeyEncrypted) {
     throw new Error('Anthropic API key not configured. Go to Settings to add it.')
   }
   const log = getLog(article)
   const apiKey = decrypt(project.anthropicApiKeyEncrypted)
 
-  const articleText = (article.contentAr || article.contentClean || article.content || '').slice(0, 20000)
+  const articleText = (article.contentClean || article.content || '').slice(0, 20000)
   const title = article.title || ''
   const existingTags = Array.isArray(article.analysis?.tags) ? article.analysis.tags : []
   const category = article.analysis?.category || ''
+  const sourceLang = article.language || detectLanguage(articleText)
 
   const prompt = `You are a news analyst for an Arabic YouTube channel. Classify this article.\n` +
+    `The article may be in any language — read it and output your analysis in Arabic.\n` +
     `Reply in JSON only, no markdown fences, no explanation.\n\n` +
     `Keys:\n` +
     `- topic: one short sentence in Arabic describing what this article is about\n` +
+    `- topicOriginal: the same topic sentence but in the article's original language (for search)\n` +
     `- tags: 4 to 8 tags in Arabic (noun form, 1-3 words each, reusable across articles)\n` +
     `- sentiment: "positive" | "negative" | "neutral"\n` +
     `- contentType: "news" | "investigation" | "feature" | "opinion" | "human_interest" | "crime" | "politics" | "technology" | "other"\n` +
     `- region: the country or city in Arabic where the main event takes place, or null\n` +
+    `- regionOriginal: same region but in the article's original language, or null\n` +
     `- viralPotential: 0.0 to 1.0 — how likely this will get views on Arabic YouTube\n` +
     `- relevance: 0.0 to 1.0 — how relevant is this to Arabic audiences interested in true crime, mysteries, investigations, and untold stories\n` +
     `- summary: 2-3 sentence summary in Arabic\n` +
@@ -284,15 +221,176 @@ async function doStageAiAnalysis(article, project) {
     at: new Date().toISOString(),
   })
 
+  await db.article.update({
+    where: { id: article.id },
+    data: {
+      analysis,
+      language: sourceLang === 'unknown' ? 'other' : sourceLang,
+      processingLog: log,
+    },
+  })
+
+  return { nextStage: 'research' }
+}
+
+// ── Stage 4: research → translated ──────────────────────────────────────────
+// Runs BEFORE translation so web searches use the original language.
+
+async function doStageResearch(article, project) {
+  const log = getLog(article)
+
+  const freshArticle = await db.article.findUnique({ where: { id: article.id } })
+  const currentAnalysis = freshArticle?.analysis || article.analysis
+  const decision = needsResearch({ ...article, analysis: currentAnalysis }, project)
+
+  log.push({
+    step: 'research_decision',
+    needed: decision.needed,
+    reason: decision.reason,
+    at: new Date().toISOString(),
+  })
+
+  if (!decision.needed) {
+    log.push({ step: 'research', status: 'skipped', reason: decision.reason, at: new Date().toISOString() })
+    await saveLog(article.id, log)
+    return { nextStage: 'translated' }
+  }
+
+  try {
+    const fullArticle = await db.article.findUnique({
+      where: { id: article.id },
+      include: { source: { include: { project: true } } },
+    })
+    const result = await researchStory(fullArticle || article, project)
+
+    for (const entry of result.log) {
+      log.push(entry)
+    }
+
+    log.push({
+      step: 'research',
+      status: result.researchBrief ? 'ok' : 'partial',
+      hasBrief: !!result.researchBrief,
+      narrativeStrength: result.researchBrief?.narrativeStrength || null,
+      at: new Date().toISOString(),
+    })
+
+    // Store research results on article.analysis so score stage can include them in the story
+    if (result.researchBrief || result.researchData) {
+      const existing = freshArticle?.analysis || article.analysis || {}
+      await db.article.update({
+        where: { id: article.id },
+        data: {
+          analysis: {
+            ...existing,
+            research: result.researchData || null,
+          },
+          processingLog: log,
+        },
+      })
+    } else {
+      await saveLog(article.id, log)
+    }
+
+    return { nextStage: 'translated' }
+  } catch (e) {
+    log.push({ step: 'research', status: 'failed', error: e.message, at: new Date().toISOString() })
+    await saveLog(article.id, log)
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to translated)')
+    return { nextStage: 'translated' }
+  }
+}
+
+// ── Stage 5: translated → score ─────────────────────────────────────────────
+
+async function doStageTranslated(article, project) {
+  const log = getLog(article)
+  const text = article.contentClean || article.content || ''
+  if (!text.trim()) {
+    log.push({ step: 'translate', status: 'review', reason: 'No content to translate' })
+    await saveLog(article.id, log)
+    return { nextStage: 'translated', reviewStatus: 'review', reviewReason: 'No content to translate' }
+  }
+
+  const sourceLang = article.language || detectLanguage(text)
+  log.push({ step: 'detect_language', detected: sourceLang, at: new Date().toISOString() })
+
+  if (sourceLang === 'ar') {
+    log.push({ step: 'translate', status: 'skipped', reason: 'Already Arabic' })
+    await db.article.update({
+      where: { id: article.id },
+      data: { contentAr: text, language: 'ar', processingLog: log },
+    })
+    return { nextStage: 'score' }
+  }
+
+  if (!project.anthropicApiKeyEncrypted) {
+    throw new Error('Anthropic API key not configured. Go to Settings to add it.')
+  }
+  const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+
+  const truncated = text.slice(0, 30000)
+  const translated = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+    {
+      role: 'user',
+      content: `Translate this news article to Arabic.\n` +
+        `Preserve all names, dates, locations, and facts exactly.\n` +
+        `Keep a journalistic tone. Output the Arabic text only, no commentary.\n\n` +
+        truncated,
+    },
+  ], {
+    maxTokens: 4096,
+    projectId: article.projectId,
+    action: 'article-translate',
+  })
+
+  if (!translated || translated.trim().length < 50) {
+    throw new Error('Translation returned empty or too short result')
+  }
+
+  log.push({
+    step: 'translate', status: 'ok', model: 'haiku',
+    inputLang: sourceLang, inputChars: truncated.length, outputChars: translated.trim().length,
+    inputPreview: preview(truncated),
+    outputPreview: preview(translated.trim()),
+  })
+
+  await db.article.update({
+    where: { id: article.id },
+    data: {
+      contentAr: translated.trim(),
+      language: sourceLang === 'unknown' ? 'other' : sourceLang,
+      processingLog: log,
+    },
+  })
+
+  return { nextStage: 'score' }
+}
+
+// ── Stage 6: score → done ───────────────────────────────────────────────────
+// Has full data: classification + research + Arabic translation.
+
+async function doStageScore(article, project) {
+  const log = getLog(article)
+
+  const freshArticle = await db.article.findUnique({ where: { id: article.id } })
+  const analysis = freshArticle?.analysis || article.analysis || {}
+
+  if (analysis.parseError) {
+    log.push({ step: 'score', status: 'skipped', reason: 'Classification had parse error' })
+    log.push({ step: 'promote', status: 'skipped', reason: 'Classification parse error' })
+    await saveLog(article.id, log)
+    return { nextStage: 'done' }
+  }
+
   const relevance = typeof analysis.relevance === 'number' ? analysis.relevance : 0
   const viralPotential = typeof analysis.viralPotential === 'number' ? analysis.viralPotential : 0
 
-  const daysSincePublished = article.publishedAt
-    ? Math.max(0, (Date.now() - new Date(article.publishedAt).getTime()) / 86400000)
+  const daysSincePublished = (freshArticle || article).publishedAt
+    ? Math.max(0, (Date.now() - new Date((freshArticle || article).publishedAt).getTime()) / 86400000)
     : 14
   const freshness = Math.exp(-daysSincePublished / 7 * Math.LN2)
 
-  // Load preference profile for this project (if exists)
   let preferenceBias = 0
   try {
     const { getPreferenceProfile } = require('./articleFeedback')
@@ -321,7 +419,6 @@ async function doStageAiAnalysis(article, project) {
   await db.article.update({
     where: { id: article.id },
     data: {
-      analysis,
       relevanceScore: relevance,
       rankScore,
       rankReason: reasons.join(', ') || null,
@@ -329,99 +426,43 @@ async function doStageAiAnalysis(article, project) {
     },
   })
 
-  // Always promote to Story (no threshold)
-  if (!analysis.parseError) {
-    try {
-      const promoted = await promoteToStory(article, analysis, relevance, viralPotential, rankScore)
-      log.push({ step: 'promote', status: promoted ? 'created' : 'linked', storyId: promoted || null })
-      await saveLog(article.id, log)
-    } catch (e) {
-      log.push({ step: 'promote', status: 'failed', error: e.message })
-      await saveLog(article.id, log)
-      logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Story promotion failed (non-fatal)')
-    }
-  } else {
-    log.push({ step: 'promote', status: 'skipped', reason: 'Classification parse error' })
-    await saveLog(article.id, log)
-  }
-
-  return { nextStage: 'research' }
-}
-
-// ── Stage 5: research ─────────────────────────────────────────────────────────
-
-async function doStageResearch(article, project) {
-  const log = getLog(article)
-  const decision = needsResearch(article, project)
-
-  log.push({
-    step: 'research_decision',
-    needed: decision.needed,
-    reason: decision.reason,
-    at: new Date().toISOString(),
-  })
-
-  if (!decision.needed) {
-    log.push({ step: 'research', status: 'skipped', reason: decision.reason, at: new Date().toISOString() })
-    await saveLog(article.id, log)
-    return { nextStage: 'done' }
-  }
-
+  // Promote to Story with full data (classification + research + Arabic content)
   try {
-    const fullArticle = await db.article.findUnique({
-      where: { id: article.id },
-      include: { source: { include: { project: true } } },
-    })
-    const result = await researchStory(fullArticle || article, project)
-
-    for (const entry of result.log) {
-      log.push(entry)
-    }
-
-    log.push({
-      step: 'research',
-      status: result.researchBrief ? 'ok' : 'partial',
-      hasBrief: !!result.researchBrief,
-      narrativeStrength: result.researchBrief?.narrativeStrength || null,
-      at: new Date().toISOString(),
-    })
-
+    const promoted = await promoteToStory(
+      freshArticle || article, analysis, relevance, viralPotential, rankScore
+    )
+    log.push({ step: 'promote', status: promoted ? 'created' : 'linked', storyId: promoted || null })
     await saveLog(article.id, log)
-    return { nextStage: 'done' }
   } catch (e) {
-    log.push({ step: 'research', status: 'failed', error: e.message, at: new Date().toISOString() })
+    log.push({ step: 'promote', status: 'failed', error: e.message })
     await saveLog(article.id, log)
-    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, moving to done)')
-    return { nextStage: 'done' }
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Story promotion failed (non-fatal)')
   }
+
+  return { nextStage: 'done' }
 }
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function calculatePreferenceBias(analysis, profile) {
   if (!profile || !analysis) return 0
   let bias = 0
   const tags = Array.isArray(analysis.tags) ? analysis.tags : []
 
-  // Tag overlap with liked tags
   if (profile.likedTags && tags.length > 0) {
     const overlap = tags.filter(t => profile.likedTags.includes(t)).length
     bias += (overlap / Math.max(tags.length, 1)) * 0.4
   }
-
-  // Tag overlap with omit tags (penalty)
   if (profile.omitTags && tags.length > 0) {
     const overlap = tags.filter(t => profile.omitTags.includes(t)).length
     bias -= (overlap / Math.max(tags.length, 1)) * 0.3
   }
-
-  // Content type preference
   if (profile.preferredTypes && analysis.contentType) {
     if (profile.preferredTypes.includes(analysis.contentType)) bias += 0.15
   }
   if (profile.avoidedTypes && analysis.contentType) {
     if (profile.avoidedTypes.includes(analysis.contentType)) bias -= 0.1
   }
-
-  // Region preference
   if (profile.preferredRegions && analysis.region) {
     if (profile.preferredRegions.includes(analysis.region)) bias += 0.15
   }
@@ -450,6 +491,24 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
   const firstMoverScore = analysis.isBreaking ? 80 : 40
   const compositeScore = Math.round((relevanceScore * 0.35 + viralScore * 0.40 + firstMoverScore * 0.25) / 10 * 10) / 10
 
+  // Build story brief with classification + research + Arabic content
+  const brief = {
+    articleContent: article.contentAr || article.contentClean,
+    articleTitle: article.title,
+    summary: analysis.summary || null,
+    tags: analysis.tags || [],
+    region: analysis.region || null,
+    contentType: analysis.contentType || null,
+    uniqueAngle: analysis.uniqueAngle || null,
+    sentiment: analysis.sentiment || null,
+    articleId: article.id,
+  }
+
+  // Include research data if available (stored on analysis.research by doStageResearch)
+  if (analysis.research) {
+    brief.research = analysis.research
+  }
+
   const story = await db.story.create({
     data: {
       projectId: article.projectId,
@@ -462,17 +521,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
       viralScore,
       firstMoverScore,
       compositeScore,
-      brief: {
-        articleContent: article.contentAr || article.contentClean,
-        articleTitle: article.title,
-        summary: analysis.summary || null,
-        tags: analysis.tags || [],
-        region: analysis.region || null,
-        contentType: analysis.contentType || null,
-        uniqueAngle: analysis.uniqueAngle || null,
-        sentiment: analysis.sentiment || null,
-        articleId: article.id,
-      },
+      brief,
     },
   })
 
@@ -481,13 +530,13 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
     data: { storyId: story.id },
   })
 
-  // Generate vector embedding for the new story (non-blocking, fail-open)
+  // Generate vector embedding (non-blocking, fail-open)
   try {
-    const project = await db.project.findUnique({
+    const proj = await db.project.findUnique({
       where: { id: article.projectId },
       select: { id: true, embeddingApiKeyEncrypted: true },
     })
-    if (project?.embeddingApiKeyEncrypted) {
+    if (proj?.embeddingApiKeyEncrypted) {
       const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
       const text = buildEmbeddingText({
         topic: analysis.topic,
@@ -498,7 +547,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
         uniqueAngle: analysis.uniqueAngle,
       })
       if (text.length > 10) {
-        const emb = await generateEmbedding(text, project)
+        const emb = await generateEmbedding(text, proj)
         await storeStoryEmbedding(story.id, emb)
       }
     }
@@ -512,7 +561,8 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
 module.exports = {
   doStageImported,
   doStageContent,
-  doStageTranslated,
-  doStageAiAnalysis,
+  doStageClassify,
   doStageResearch,
+  doStageTranslated,
+  doStageScore,
 }
