@@ -7,7 +7,7 @@
  */
 const db = require('../lib/db')
 const logger = require('../lib/logger')
-const { getApifyToken, fetchLatestSuccessfulRun, fetchDatasetItemsByDatasetId } = require('./apify')
+const { getApifyToken, listSuccessfulRuns, fetchLatestSuccessfulRunWithItems, fetchDatasetItemsByDatasetId } = require('./apify')
 
 const VALID_SOURCE_TYPES = ['rss', 'apify_actor']
 
@@ -86,7 +86,7 @@ async function fetchFromApifySource(source, apiKey) {
     return { ...result, latestRun: null }
   }
 
-  const latestRun = await fetchLatestSuccessfulRun(config.actorId, apiKey)
+  const latestRun = await fetchLatestSuccessfulRunWithItems(config.actorId, apiKey)
   if (!latestRun) {
     return { articles: [], rawCount: 0, latestRun: null }
   }
@@ -221,6 +221,13 @@ function checkCooldown(source) {
 // ── FETCH: run for a single source ────────────────────────────────────────
 
 async function ingestSource(source, project, { force = false } = {}) {
+  if (source.type === 'apify_actor') {
+    return ingestApifySourceWithRunTracking(source, project, { force })
+  }
+  return ingestNonApifySource(source, project, { force })
+}
+
+async function ingestNonApifySource(source, project, { force = false } = {}) {
   const sourceId = source.id
   const projectId = source.projectId
   const startTime = Date.now()
@@ -236,30 +243,9 @@ async function ingestSource(source, project, { force = false } = {}) {
     }
   }
 
-  let apiKey = null
-  if (source.type === 'apify_actor') {
-    apiKey = getApifyToken(source)
-    if (!apiKey) {
-      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: 'No Apify API key configured for this source' }
-    }
-  }
-
   let rawArticles
-  let latestRun = null
   try {
-    const result = source.type === 'apify_actor'
-      ? await fetchFromApifySource(source, apiKey)
-      : await fetchFromSource(source, apiKey)
-    latestRun = result.latestRun || null
-    if (source.type === 'apify_actor' && latestRun?.id && !force && source.lastImportedRunId === latestRun.id) {
-      const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: null, ms: Date.now() - startTime, skipped: 'no_new_run', runId: latestRun.id }
-      await appendFetchLog(sourceId, logEntry)
-      await db.articleSource.update({
-        where: { id: sourceId },
-        data: { lastPolledAt: new Date() },
-      })
-      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: null, skipped: 'no_new_run', runId: latestRun.id }
-    }
+    const result = await fetchFromSource(source, null)
     rawArticles = result.articles || []
   } catch (e) {
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
@@ -270,10 +256,211 @@ async function ingestSource(source, project, { force = false } = {}) {
 
   const searchConfig = source.config?.search || null
   const { passed, gated } = applyKeywordGate(rawArticles, searchConfig)
+  const { inserted, dupes } = await insertArticles(projectId, sourceId, source, passed)
 
+  const logEntry = { time: new Date().toISOString(), raw: rawArticles.length, gated: gated.length, dupes, inserted, error: null, ms: Date.now() - startTime }
+  await appendFetchLog(sourceId, logEntry)
+  await db.articleSource.update({ where: { id: sourceId }, data: { lastPolledAt: new Date() } })
+
+  logger.info({ sourceId, type: source.type, label: source.label, ...logEntry }, '[articlePipeline] fetch complete')
+  return { sourceId, fetched: rawArticles.length, gated: gated.length, dupes, inserted, error: null }
+}
+
+async function ingestApifySourceDirectDataset(source, project, apiKey, { force = false } = {}) {
+  const sourceId = source.id
+  const projectId = source.projectId
+  const startTime = Date.now()
+
+  if (!force) {
+    const budget = checkBudget(source)
+    if (!budget.allowed) {
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `Daily limit reached (${budget.usedToday}/${budget.maxPerDay})` }
+    }
+    const cooldown = checkCooldown(source)
+    if (!cooldown.allowed) {
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `Cooldown active (${cooldown.minutesSince}min since last, need ${source.config?.source?.cooldownMinutes}min)` }
+    }
+  }
+
+  let rawArticles
+  try {
+    const result = await fetchDatasetItemsByDatasetId(
+      source.config.datasetId,
+      apiKey,
+      source.config.limit || 100,
+      source.language || 'en'
+    )
+    rawArticles = result.articles || []
+  } catch (e) {
+    const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
+    await appendFetchLog(sourceId, logEntry)
+    logger.error({ sourceId, error: e.message }, '[articlePipeline] Apify dataset fetch failed')
+    return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: e.message }
+  }
+
+  const searchConfig = source.config?.search || null
+  const { passed, gated } = applyKeywordGate(rawArticles, searchConfig)
+  const { inserted, dupes } = await insertArticles(projectId, sourceId, source, passed)
+
+  const logEntry = { time: new Date().toISOString(), raw: rawArticles.length, gated: gated.length, dupes, inserted, error: null, ms: Date.now() - startTime }
+  await appendFetchLog(sourceId, logEntry)
+  await db.articleSource.update({ where: { id: sourceId }, data: { lastPolledAt: new Date() } })
+
+  logger.info({ sourceId, type: source.type, label: source.label, ...logEntry }, '[articlePipeline] fetch complete')
+  return { sourceId, fetched: rawArticles.length, gated: gated.length, dupes, inserted, error: null }
+}
+
+/**
+ * Apify sources: track runs in DB, import only missing runs (oldest first).
+ */
+async function ingestApifySourceWithRunTracking(source, project, { force = false } = {}) {
+  const sourceId = source.id
+  const projectId = source.projectId
+  const startTime = Date.now()
+
+  if (!force) {
+    const budget = checkBudget(source)
+    if (!budget.allowed) {
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `Daily limit reached (${budget.usedToday}/${budget.maxPerDay})` }
+    }
+    const cooldown = checkCooldown(source)
+    if (!cooldown.allowed) {
+      return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: `Cooldown active (${cooldown.minutesSince}min since last, need ${source.config?.source?.cooldownMinutes}min)` }
+    }
+  }
+
+  const apiKey = getApifyToken(source)
+  if (!apiKey) {
+    return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: 'No Apify API key configured for this source' }
+  }
+
+  const { config } = source
+  if (config.datasetId) {
+    return ingestApifySourceDirectDataset(source, project, apiKey, { force })
+  }
+
+  let apifyRuns
+  try {
+    apifyRuns = await listSuccessfulRuns(config.actorId, apiKey, 20)
+  } catch (e) {
+    const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
+    await appendFetchLog(sourceId, logEntry)
+    logger.error({ sourceId, error: e.message }, '[articlePipeline] Apify list runs failed')
+    return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: e.message }
+  }
+
+  const tracked = await db.apifyRun.findMany({
+    where: { sourceId },
+    select: { runId: true },
+  })
+  const trackedIds = new Set(tracked.map((r) => r.runId))
+  const missingRuns = apifyRuns.filter((r) => !trackedIds.has(r.id))
+  if (missingRuns.length === 0) {
+    const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: null, ms: Date.now() - startTime, skipped: 'no_new_run' }
+    await appendFetchLog(sourceId, logEntry)
+    await db.articleSource.update({ where: { id: sourceId }, data: { lastPolledAt: new Date() } })
+    return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: null, skipped: 'no_new_run' }
+  }
+
+  const limit = config.limit || 100
+  const searchConfig = config?.search || null
+  const sortedMissing = [...missingRuns].sort((a, b) => {
+    const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0
+    const tb = b.startedAt ? new Date(b.startedAt).getTime() : 0
+    return ta - tb
+  })
+
+  let totalRaw = 0
+  let totalGated = 0
+  let totalInserted = 0
+  let totalDupes = 0
+  let lastImportedRunId = source.lastImportedRunId
+
+  for (const run of sortedMissing) {
+    if (!run.datasetId) {
+      await db.apifyRun.create({
+        data: {
+          sourceId,
+          runId: run.id,
+          datasetId: null,
+          startedAt: run.startedAt ? new Date(run.startedAt) : null,
+          finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
+          itemCount: 0,
+          status: 'skipped_empty',
+        },
+      })
+      continue
+    }
+
+    let result
+    try {
+      result = await fetchDatasetItemsByDatasetId(run.datasetId, apiKey, limit, source.language || 'en')
+    } catch (e) {
+      await db.apifyRun.create({
+        data: {
+          sourceId,
+          runId: run.id,
+          datasetId: run.datasetId,
+          startedAt: run.startedAt ? new Date(run.startedAt) : null,
+          finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
+          itemCount: null,
+          status: 'failed',
+        },
+      })
+      logger.error({ sourceId, runId: run.id, error: e.message }, '[articlePipeline] Apify dataset fetch failed')
+      continue
+    }
+
+    const { articles: rawArticles, rawCount } = result
+    const { passed, gated } = applyKeywordGate(rawArticles, searchConfig)
+    const { inserted, dupes } = await insertArticles(projectId, sourceId, source, passed)
+
+    totalRaw += rawArticles.length
+    totalGated += gated.length
+    totalInserted += inserted
+    totalDupes += dupes
+
+    lastImportedRunId = run.id
+    await db.apifyRun.create({
+      data: {
+        sourceId,
+        runId: run.id,
+        datasetId: run.datasetId,
+        startedAt: run.startedAt ? new Date(run.startedAt) : null,
+        finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
+        itemCount: rawCount,
+        status: 'imported',
+        importedAt: new Date(),
+      },
+    })
+  }
+
+  const logEntry = {
+    time: new Date().toISOString(),
+    raw: totalRaw,
+    gated: totalGated,
+    dupes: totalDupes,
+    inserted: totalInserted,
+    error: null,
+    ms: Date.now() - startTime,
+    runsProcessed: sortedMissing.length,
+  }
+  await appendFetchLog(sourceId, logEntry)
+  await db.articleSource.update({
+    where: { id: sourceId },
+    data: {
+      lastPolledAt: new Date(),
+      ...(lastImportedRunId ? { lastImportedRunId } : {}),
+    },
+  })
+
+  logger.info({ sourceId, type: source.type, label: source.label, ...logEntry }, '[articlePipeline] fetch complete')
+  return { sourceId, fetched: totalRaw, gated: totalGated, dupes: totalDupes, inserted: totalInserted, error: null }
+}
+
+async function insertArticles(projectId, sourceId, source, passed) {
   let inserted = 0
   let dupes = 0
-
   for (const raw of passed) {
     const canonicalUrl = canonicalizeArticleUrl(raw.url)
     if (!canonicalUrl) { dupes++; continue }
@@ -302,29 +489,7 @@ async function ingestSource(source, project, { force = false } = {}) {
       }
     }
   }
-
-  const logEntry = {
-    time: new Date().toISOString(),
-    raw: rawArticles.length,
-    gated: gated.length,
-    dupes,
-    inserted,
-    error: null,
-    ms: Date.now() - startTime,
-    ...(latestRun?.id ? { runId: latestRun.id } : {}),
-  }
-  await appendFetchLog(sourceId, logEntry)
-
-  await db.articleSource.update({
-    where: { id: sourceId },
-    data: {
-      lastPolledAt: new Date(),
-      ...(latestRun?.id ? { lastImportedRunId: latestRun.id } : {}),
-    },
-  })
-
-  logger.info({ sourceId, type: source.type, label: source.label, ...logEntry }, '[articlePipeline] fetch complete')
-  return { sourceId, fetched: rawArticles.length, gated: gated.length, dupes, inserted, error: null }
+  return { inserted, dupes }
 }
 
 async function appendFetchLog(sourceId, entry) {

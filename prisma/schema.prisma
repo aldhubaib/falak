@@ -338,10 +338,28 @@ model ArticleSource {
   lastPolledAt DateTime?
   fetchLog     Json?     // array of { time, raw, gated, dupes, inserted, error }
   articles     Article[]
+  apifyRuns    ApifyRun[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@index([projectId])
+}
+
+model ApifyRun {
+  id         String        @id @default(cuid())
+  sourceId   String
+  source     ArticleSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  runId      String        // Apify run ID
+  datasetId  String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  itemCount  Int?
+  status     String        // 'imported' | 'skipped_empty' | 'failed'
+  importedAt DateTime?
+  createdAt  DateTime      @default(now())
+
+  @@unique([sourceId, runId])
+  @@index([sourceId, startedAt(sort: Desc)])
 }
 
 model Article {

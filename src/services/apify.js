@@ -60,6 +60,34 @@ function buildLatestRunUrl(actorId, token) {
   return `${APIFY_API_BASE}/acts/${encodeURIComponent(normalizedActorId)}/runs/last?status=SUCCEEDED&token=${encodeURIComponent(token)}`
 }
 
+function buildActorRunsListUrl(actorId, token, limit = 10) {
+  const normalizedActorId = normalizeActorId(actorId)
+  const params = new URLSearchParams({
+    status: 'SUCCEEDED',
+    limit: String(limit),
+    desc: '1',
+    token,
+  })
+  return `${APIFY_API_BASE}/acts/${encodeURIComponent(normalizedActorId)}/runs?${params.toString()}`
+}
+
+async function listSuccessfulRuns(actorId, token, limit = 10) {
+  const normalizedActorId = normalizeActorId(actorId)
+  if (!normalizedActorId) return []
+  const url = buildActorRunsListUrl(normalizedActorId, token, limit)
+  const response = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (!response.ok) return []
+  const payload = await response.json()
+  const items = payload?.data?.items || []
+  return items.map((run) => ({
+    id: run.id,
+    datasetId: run.defaultDatasetId || null,
+    status: run.status || null,
+    startedAt: run.startedAt || null,
+    finishedAt: run.finishedAt || null,
+  }))
+}
+
 async function fetchLatestSuccessfulRun(actorId, token) {
   const normalizedActorId = normalizeActorId(actorId)
   if (!normalizedActorId) {
@@ -82,6 +110,21 @@ async function fetchLatestSuccessfulRun(actorId, token) {
     startedAt: run.startedAt || null,
     finishedAt: run.finishedAt || null,
   }
+}
+
+/**
+ * Fetches the latest successful run that has items in its dataset.
+ * If the most recent run has 0 items (e.g. empty test run), falls back to the
+ * previous successful run that has data.
+ */
+async function fetchLatestSuccessfulRunWithItems(actorId, token) {
+  const runs = await listSuccessfulRuns(actorId, token, 10)
+  for (const run of runs) {
+    if (!run.datasetId) continue
+    const { rawCount } = await fetchDatasetItemsByDatasetId(run.datasetId, token, 1, 'en')
+    if (rawCount > 0) return run
+  }
+  return runs[0] || null
 }
 
 function buildDatasetItemsUrl(datasetId, token, limit = DEFAULT_ITEM_LIMIT) {
@@ -118,6 +161,8 @@ async function fetchDatasetItemsByDatasetId(datasetId, token, limit = DEFAULT_IT
 
 module.exports = {
   getApifyToken,
+  listSuccessfulRuns,
   fetchLatestSuccessfulRun,
+  fetchLatestSuccessfulRunWithItems,
   fetchDatasetItemsByDatasetId,
 }
