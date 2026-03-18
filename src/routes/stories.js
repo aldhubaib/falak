@@ -661,6 +661,15 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     if (req.body.stage) {
       const stageLabel = req.body.stage.charAt(0).toUpperCase() + req.body.stage.slice(1)
       await addLog(story.id, req.user.id, 'stage_change', `Status changed to ${stageLabel}`)
+
+      // Refresh article preference profile when user makes a decision
+      const feedbackStages = ['liked', 'passed', 'omit', 'scripting', 'filmed', 'publish', 'done']
+      if (feedbackStages.includes(req.body.stage) && story.projectId) {
+        try {
+          const { refreshPreferenceProfile } = require('../services/articleFeedback')
+          refreshPreferenceProfile(story.projectId).catch(() => {})
+        } catch (_) {}
+      }
     }
     // Return story with log so Edit History shows who changed status
     const withLog = await db.story.findUnique({
