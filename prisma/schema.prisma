@@ -331,6 +331,7 @@ model ArticleSource {
   type         String    // rss | apify_actor
   label        String
   config       Json      // source config + optional search filters + source budget
+  image        String?   @db.Text
   apiKeyEncrypted String? @db.Text
   lastImportedRunId String?
   isActive     Boolean   @default(true)

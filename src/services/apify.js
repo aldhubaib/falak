@@ -29,7 +29,8 @@ function firstString(...values) {
 }
 
 function normalizeApifyItem(item, defaultLanguage = 'en') {
-  const url = firstString(item?.url, item?.link)
+  if (!item || typeof item !== 'object') return null
+  const url = firstString(item?.url, item?.link, item?.articleUrl, item?.pageUrl, item?.href)
   if (!url) return null
 
   return {
@@ -37,6 +38,8 @@ function normalizeApifyItem(item, defaultLanguage = 'en') {
     title: firstString(item?.title, item?.headline),
     description: firstString(item?.description, item?.summary, item?.excerpt),
     content: firstString(item?.content, item?.text, item?.body, item?.articleBody, item?.description, item?.summary),
+    tags: Array.isArray(item?.tags) ? item.tags.filter(Boolean) : (typeof item?.tags === 'string' ? [item.tags] : []),
+    category: firstString(item?.category),
     publishedAt: firstString(item?.publishedAt, item?.date, item?.pubDate, item?.published_at),
     language: firstString(item?.language, defaultLanguage),
     author: firstString(item?.author, item?.authorName),
@@ -130,7 +133,6 @@ async function fetchLatestSuccessfulRunWithItems(actorId, token) {
 function buildDatasetItemsUrl(datasetId, token, { limit = PAGE_SIZE, offset = 0 } = {}) {
   const params = new URLSearchParams({
     token,
-    clean: '1',
     format: 'json',
     limit: String(limit),
     offset: String(offset),

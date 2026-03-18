@@ -20,6 +20,8 @@ function sanitizeSource(source) {
   }
 }
 
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024 // 2 MB base64
+
 // ── GET /api/article-sources?projectId=X ──────────────────────────────────
 router.get('/', async (req, res) => {
   try {
@@ -70,7 +72,7 @@ router.get('/', async (req, res) => {
 // ── POST /api/article-sources ─────────────────────────────────────────────
 router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, type, label, config, language, apiKey } = req.body
+    const { projectId, type, label, config, language, apiKey, image } = req.body
     if (!projectId || !type || !label || !config) {
       return res.status(400).json({ error: 'projectId, type, label, and config are required' })
     }
@@ -83,6 +85,9 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
     if (type === 'apify_actor' && !apiKey?.trim()) {
       return res.status(400).json({ error: 'Apify Actor requires an API token for this source' })
     }
+    if (image && image.length > MAX_IMAGE_SIZE) {
+      return res.status(400).json({ error: 'Image too large (max 2 MB)' })
+    }
 
     const source = await db.articleSource.create({
       data: {
@@ -90,6 +95,7 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
         type,
         label: label.trim(),
         config,
+        image: image || null,
         apiKeyEncrypted: type === 'apify_actor' ? encrypt(apiKey.trim()) : null,
         language: language || 'en',
       },
@@ -111,6 +117,12 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     if (req.body.label !== undefined) data.label = req.body.label.trim()
     if (req.body.isActive !== undefined) data.isActive = !!req.body.isActive
     if (req.body.language !== undefined) data.language = req.body.language
+    if (req.body.image !== undefined) {
+      if (req.body.image && req.body.image.length > MAX_IMAGE_SIZE) {
+        return res.status(400).json({ error: 'Image too large (max 2 MB)' })
+      }
+      data.image = req.body.image || null
+    }
     if (req.body.apiKey !== undefined) {
       if (nextType === 'apify_actor') {
         data.apiKeyEncrypted = req.body.apiKey ? encrypt(req.body.apiKey.trim()) : null

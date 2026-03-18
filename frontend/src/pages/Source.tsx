@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, ChevronDown, ChevronRight, CheckCircle2, XCircle, SkipForward, Package, Rss } from "lucide-react";
+import { useRef } from "react";
+import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, ChevronDown, ChevronRight, CheckCircle2, XCircle, SkipForward, Package, Rss, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -46,6 +47,7 @@ interface ArticleSourceData {
   id: string;
   type: string;
   label: string;
+  image: string | null;
   config: Record<string, unknown>;
   language: string;
   isActive: boolean;
@@ -209,7 +211,12 @@ function ApifyLogo({ className }: { className?: string }) {
   );
 }
 
-function SourceLogo({ type }: { type: string }) {
+function SourceLogo({ type, image }: { type: string; image?: string | null }) {
+  if (image) {
+    return (
+      <img src={image} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+    );
+  }
   if (type === "rss") {
     return (
       <div className="w-8 h-8 rounded-lg bg-orange/15 flex items-center justify-center shrink-0">
@@ -268,7 +275,7 @@ function SourceCard({
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <SourceLogo type={s.type} />
+            <SourceLogo type={s.type} image={s.image} />
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${s.isActive ? "bg-blue" : "bg-zinc-600"}`} />
               <span className="text-[13px] font-semibold">{s.label}</span>
@@ -407,9 +414,11 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
   const [language, setLanguage] = useState("en");
   const [config, setConfig] = useState<Record<string, string>>({});
   const [apiKey, setApiKey] = useState("");
+  const [image, setImage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState<{ url: string; title: string }[] | null>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
 
   const typeDef = SOURCE_TYPES.find(t => t.value === type)!;
 
@@ -458,10 +467,10 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
     fetch("/api/article-sources", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, type, label: finalLabel, config: buildConfig(), language, ...(type === "apify_actor" ? { apiKey } : {}) }),
+      body: JSON.stringify({ projectId, type, label: finalLabel, config: buildConfig(), language, image, ...(type === "apify_actor" ? { apiKey } : {}) }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
-      .then(() => { toast.success("Source created"); onCreated(); onClose(); setLabel(""); setConfig({}); setApiKey(""); setTestResults(null); })
+      .then(() => { toast.success("Source created"); onCreated(); onClose(); setLabel(""); setConfig({}); setApiKey(""); setImage(null); setTestResults(null); })
       .catch((e) => toast.error(e?.error || "Failed to create"))
       .finally(() => setSaving(false));
   };
@@ -489,12 +498,33 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
             </div>
           </div>
 
-          {/* Label */}
-          <div>
-            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Label</label>
-            <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-              placeholder={`${typeDef.label} — Crime`}
-              className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+          {/* Label + Image */}
+          <div className="flex gap-3 items-start">
+            <div className="flex-1">
+              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Label</label>
+              <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+                placeholder={`${typeDef.label} — Crime`}
+                className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+            </div>
+            <div>
+              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Image</label>
+              <input type="file" accept="image/*" ref={imageRef} className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) { const reader = new FileReader(); reader.onload = (ev) => setImage(ev.target?.result as string); reader.readAsDataURL(file); }
+              }} />
+              {image ? (
+                <div className="relative w-10 h-10">
+                  <img src={image} alt="" className="w-10 h-10 rounded-lg object-cover border border-border" />
+                  <button type="button" onClick={() => { setImage(null); if (imageRef.current) imageRef.current.value = ""; }} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => imageRef.current?.click()} className="w-10 h-10 rounded-lg border border-dashed border-border bg-surface flex items-center justify-center text-dim hover:text-sensor hover:border-foreground/20 transition-colors">
+                  <ImagePlus className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Language */}
@@ -602,7 +632,9 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
   const [language, setLanguage] = useState(source.language);
   const [config, setConfig] = useState<Record<string, string>>(source.config as Record<string, string>);
   const [apiKey, setApiKey] = useState("");
+  const [image, setImage] = useState<string | null>(source.image);
   const [saving, setSaving] = useState(false);
+  const editImageRef = useRef<HTMLInputElement>(null);
 
   const typeDef = SOURCE_TYPES.find(t => t.value === source.type)!;
 
@@ -611,6 +643,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
     setLanguage(source.language);
     setConfig(source.config as Record<string, string>);
     setApiKey("");
+    setImage(source.image);
   }, [source]);
 
   const buildConfig = () => {
@@ -636,7 +669,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
     fetch(`/api/article-sources/${source.id}`, {
       method: "PATCH", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: label.trim(), language, config: buildConfig(), ...(typeDef.format === "apify" && apiKey ? { apiKey } : {}) }),
+      body: JSON.stringify({ label: label.trim(), language, config: buildConfig(), image, ...(typeDef.format === "apify" && apiKey ? { apiKey } : {}) }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
       .then(() => { toast.success("Source updated"); onUpdated(); onClose(); })
@@ -657,10 +690,31 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-elevated text-dim font-mono">{typeDef?.label || source.type}</span>
           </div>
 
-          <div>
-            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Label</label>
-            <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-              className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+          <div className="flex gap-3 items-start">
+            <div className="flex-1">
+              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Label</label>
+              <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+                className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+            </div>
+            <div>
+              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Image</label>
+              <input type="file" accept="image/*" ref={editImageRef} className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) { const reader = new FileReader(); reader.onload = (ev) => setImage(ev.target?.result as string); reader.readAsDataURL(file); }
+              }} />
+              {image ? (
+                <div className="relative w-10 h-10">
+                  <img src={image} alt="" className="w-10 h-10 rounded-lg object-cover border border-border" />
+                  <button type="button" onClick={() => { setImage(null); if (editImageRef.current) editImageRef.current.value = ""; }} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => editImageRef.current?.click()} className="w-10 h-10 rounded-lg border border-dashed border-border bg-surface flex items-center justify-center text-dim hover:text-sensor hover:border-foreground/20 transition-colors">
+                  <ImagePlus className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           <div>
