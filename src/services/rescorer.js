@@ -131,50 +131,40 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, projectId
   let newCompetitorVideos = 0
   let topCompetitor = null
 
-  // Check if story has an embedding for vector search
-  const storyEmb = await db.$queryRaw`
-    SELECT embedding IS NOT NULL as "hasEmbedding"
-    FROM "Story" WHERE id = ${story.id}
-  `
-  const hasEmbedding = storyEmb?.[0]?.hasEmbedding
+  // Look up the story embedding via Prisma (stored as JSONB)
+  const storyWithEmb = await db.story.findUnique({
+    where: { id: story.id },
+    select: { embedding: true },
+  })
+  const embedding = storyWithEmb?.embedding
 
-  if (hasEmbedding) {
+  if (Array.isArray(embedding) && embedding.length > 0) {
     try {
-      const embRow = await db.$queryRaw`
-        SELECT embedding::text FROM "Story" WHERE id = ${story.id}
-      `
-      if (embRow?.[0]?.embedding) {
-        const embStr = embRow[0].embedding
-        const embedding = JSON.parse(embStr.replace(/^\[/, '[').replace(/\]$/, ']'))
+      const similar = await findSimilarVideos(embedding, projectId, 10)
+      competitionMatches = similar.length
 
-        const similar = await findSimilarVideos(embedding, projectId, 10)
-        competitionMatches = similar.length
+      if (similar.length > 0) {
+        let totalRatio = 0
+        for (const v of similar) {
+          const channelAvg = channelAvgMap.get(v.channelId) || 1
+          const ratio = Number(v.viewCount) / channelAvg
+          totalRatio += ratio
 
-        if (similar.length > 0) {
-          let totalRatio = 0
-          for (const v of similar) {
-            const channelAvg = channelAvgMap.get(v.channelId) || 1
-            const ratio = Number(v.viewCount) / channelAvg
-            totalRatio += ratio
-
-            // Check if published after this story was created (competitor beat us)
-            if (v.publishedAt && new Date(v.publishedAt) > new Date(story.createdAt)) {
-              newCompetitorVideos++
-              if (!topCompetitor || Number(v.viewCount) > Number(topCompetitor.viewCount)) {
-                topCompetitor = {
-                  channelName: v.channelName,
-                  title: v.titleAr,
-                  viewCount: Number(v.viewCount),
-                  similarity: Number(v.similarity),
-                }
+          if (v.publishedAt && new Date(v.publishedAt) > new Date(story.createdAt)) {
+            newCompetitorVideos++
+            if (!topCompetitor || Number(v.viewCount) > Number(topCompetitor.viewCount)) {
+              topCompetitor = {
+                channelName: v.channelName,
+                title: v.titleAr,
+                viewCount: Number(v.viewCount),
+                similarity: Number(v.similarity),
               }
             }
           }
-
-          const avgRatio = totalRatio / similar.length
-          // Scale: ratio 2.0 = +15 points, ratio 0.5 = -8 points
-          provenViralBoost = Math.round(Math.min(30, Math.max(-15, (avgRatio - 1) * 15)))
         }
+
+        const avgRatio = totalRatio / similar.length
+        provenViralBoost = Math.round(Math.min(30, Math.max(-15, (avgRatio - 1) * 15)))
       }
     } catch (e) {
       logger.warn({ storyId: story.id, error: e.message }, '[rescorer] vector search failed')
@@ -183,27 +173,21 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, projectId
 
   // ── 3. Own channel affinity (from done stories with YouTube stats) ──
   let ownChannelBoost = 0
-  if (hasEmbedding) {
+  if (Array.isArray(embedding) && embedding.length > 0) {
     try {
-      const embRow = await db.$queryRaw`
-        SELECT embedding::text FROM "Story" WHERE id = ${story.id}
-      `
-      if (embRow?.[0]?.embedding) {
-        const embedding = JSON.parse(embRow[0].embedding)
-        const ownSimilar = await findSimilarOwnStories(embedding, projectId, story.id, 5)
-        const withViews = ownSimilar.filter(s => {
-          const b = (s.brief && typeof s.brief === 'object') ? s.brief : {}
-          return b.views > 0
-        })
-        if (withViews.length > 0) {
-          const channelAvg = Number(profile.channelAvgViews) || 1
-          let totalRatio = 0
-          for (const s of withViews) {
-            totalRatio += (s.brief.views || 0) / channelAvg
-          }
-          const avgOwnRatio = totalRatio / withViews.length
-          ownChannelBoost = Math.round(Math.min(15, Math.max(-10, (avgOwnRatio - 1) * 10)))
+      const ownSimilar = await findSimilarOwnStories(embedding, projectId, story.id, 5)
+      const withViews = ownSimilar.filter(s => {
+        const b = (s.brief && typeof s.brief === 'object') ? s.brief : {}
+        return b.views > 0
+      })
+      if (withViews.length > 0) {
+        const channelAvg = Number(profile.channelAvgViews) || 1
+        let totalRatio = 0
+        for (const s of withViews) {
+          totalRatio += (s.brief.views || 0) / channelAvg
         }
+        const avgOwnRatio = totalRatio / withViews.length
+        ownChannelBoost = Math.round(Math.min(15, Math.max(-10, (avgOwnRatio - 1) * 10)))
       }
     } catch (_) {}
   }

@@ -1,6 +1,7 @@
 /**
- * Embedding service: generates vectors via OpenAI and queries pgvector for similarity.
+ * Embedding service: generates vectors via OpenAI and computes similarity in JS.
  * Uses text-embedding-3-small (1536 dimensions).
+ * Embeddings stored as JSONB arrays in PostgreSQL.
  */
 const fetch = require('node-fetch')
 const db = require('../lib/db')
@@ -14,8 +15,8 @@ const DIMENSIONS = 1536
 
 /**
  * Generate an embedding vector for the given text.
- * @param {string} text - Text to embed (topic + tags + summary concatenated)
- * @param {object} project - Project record (needs embeddingApiKeyEncrypted)
+ * @param {string} text
+ * @param {object} project - needs embeddingApiKeyEncrypted
  * @returns {number[]} Float array of length 1536
  */
 async function generateEmbedding(text, project) {
@@ -31,11 +32,7 @@ async function generateEmbedding(text, project) {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      input,
-      dimensions: DIMENSIONS,
-    }),
+    body: JSON.stringify({ model: DEFAULT_MODEL, input, dimensions: DIMENSIONS }),
   })
 
   if (!res.ok) {
@@ -64,7 +61,6 @@ async function generateEmbedding(text, project) {
 
 /**
  * Build the text string to embed from an analysis/brief object.
- * Concatenates topic + tags + summary for a rich semantic representation.
  */
 function buildEmbeddingText(data) {
   const parts = []
@@ -78,67 +74,101 @@ function buildEmbeddingText(data) {
 }
 
 /**
- * Store an embedding vector for a Video record using raw SQL (Prisma can't handle vector type).
+ * Cosine similarity between two vectors.
+ */
+function cosineSimilarity(a, b) {
+  if (!a || !b || a.length !== b.length) return 0
+  let dot = 0, magA = 0, magB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    magA += a[i] * a[i]
+    magB += b[i] * b[i]
+  }
+  const denom = Math.sqrt(magA) * Math.sqrt(magB)
+  return denom === 0 ? 0 : dot / denom
+}
+
+/**
+ * Store an embedding vector for a Video record (as JSONB).
  */
 async function storeVideoEmbedding(videoId, embedding) {
-  const vecStr = `[${embedding.join(',')}]`
-  await db.$executeRaw`UPDATE "Video" SET embedding = ${vecStr}::vector WHERE id = ${videoId}`
+  await db.video.update({ where: { id: videoId }, data: { embedding } })
 }
 
 /**
- * Store an embedding vector for a Story record.
+ * Store an embedding vector for a Story record (as JSONB).
  */
 async function storeStoryEmbedding(storyId, embedding) {
-  const vecStr = `[${embedding.join(',')}]`
-  await db.$executeRaw`UPDATE "Story" SET embedding = ${vecStr}::vector WHERE id = ${storyId}`
+  await db.story.update({ where: { id: storyId }, data: { embedding } })
 }
 
 /**
- * Find the most similar competition videos to a given embedding vector.
- * Returns videos with similarity score, view counts, and channel info.
+ * Find the most similar competition videos to a given embedding.
+ * Fetches all embedded competition videos, computes similarity in JS, returns top N.
  */
 async function findSimilarVideos(embedding, projectId, limit = 10) {
-  const vecStr = `[${embedding.join(',')}]`
-  return db.$queryRaw`
-    SELECT
-      v.id, v."titleAr", v."viewCount", v."likeCount", v."commentCount",
-      v."publishedAt", v."analysisResult", v."videoType",
-      c."nameAr" as "channelName", c.id as "channelId", c.subscribers as "channelSubscribers",
-      1 - (v.embedding <=> ${vecStr}::vector) as similarity
-    FROM "Video" v
-    JOIN "Channel" c ON v."channelId" = c.id
-    WHERE c."projectId" = ${projectId}
-      AND c."type" = 'competitor'
-      AND v.embedding IS NOT NULL
-      AND v."analysisResult" IS NOT NULL
-    ORDER BY v.embedding <=> ${vecStr}::vector
-    LIMIT ${limit}
-  `
+  const videos = await db.video.findMany({
+    where: {
+      channel: { projectId, type: 'competitor' },
+      embedding: { not: null },
+      analysisResult: { not: null },
+    },
+    select: {
+      id: true, titleAr: true, viewCount: true, likeCount: true, commentCount: true,
+      publishedAt: true, analysisResult: true, videoType: true, embedding: true,
+      channel: { select: { id: true, nameAr: true, subscribers: true } },
+    },
+  })
+
+  const scored = videos
+    .map(v => ({
+      ...v,
+      channelId: v.channel.id,
+      channelName: v.channel.nameAr,
+      channelSubscribers: v.channel.subscribers,
+      similarity: cosineSimilarity(embedding, v.embedding),
+      embedding: undefined,
+    }))
+    .filter(v => v.similarity > 0.5)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit)
+
+  return scored
 }
 
 /**
  * Find the most similar "done" stories from our own channel.
- * Used to compute ownChannelAffinity (how similar topics performed for us).
  */
 async function findSimilarOwnStories(embedding, projectId, excludeStoryId, limit = 5) {
-  const vecStr = `[${embedding.join(',')}]`
-  return db.$queryRaw`
-    SELECT
-      s.id, s.headline, s.brief, s."compositeScore", s.stage,
-      1 - (s.embedding <=> ${vecStr}::vector) as similarity
-    FROM "Story" s
-    WHERE s."projectId" = ${projectId}
-      AND s.stage = 'done'
-      AND s.embedding IS NOT NULL
-      AND s.id != ${excludeStoryId || ''}
-    ORDER BY s.embedding <=> ${vecStr}::vector
-    LIMIT ${limit}
-  `
+  const stories = await db.story.findMany({
+    where: {
+      projectId,
+      stage: 'done',
+      embedding: { not: null },
+      id: excludeStoryId ? { not: excludeStoryId } : undefined,
+    },
+    select: {
+      id: true, headline: true, brief: true, compositeScore: true, stage: true, embedding: true,
+    },
+  })
+
+  const scored = stories
+    .map(s => ({
+      ...s,
+      similarity: cosineSimilarity(embedding, s.embedding),
+      embedding: undefined,
+    }))
+    .filter(s => s.similarity > 0.5)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit)
+
+  return scored
 }
 
 module.exports = {
   generateEmbedding,
   buildEmbeddingText,
+  cosineSimilarity,
   storeVideoEmbedding,
   storeStoryEmbedding,
   findSimilarVideos,
