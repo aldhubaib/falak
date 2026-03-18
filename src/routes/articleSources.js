@@ -171,6 +171,75 @@ router.post('/:id/test', requireRole('owner', 'admin', 'editor'), async (req, re
   }
 })
 
+// ── POST /api/article-sources/:id/reimport-run — re-import a specific Apify run
+router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { runId } = req.body
+    if (!runId) return res.status(400).json({ error: 'runId required' })
+
+    const source = await db.articleSource.findUnique({
+      where: { id: req.params.id },
+      include: { project: true },
+    })
+    if (!source) return res.status(404).json({ error: 'Source not found' })
+
+    const apifyRun = await db.apifyRun.findFirst({
+      where: { sourceId: source.id, runId },
+    })
+    if (!apifyRun) return res.status(404).json({ error: 'Run not found' })
+    if (!apifyRun.datasetId) return res.status(400).json({ error: 'Run has no dataset' })
+
+    const { getApifyToken, fetchDatasetItemsByDatasetId } = require('../services/apify')
+    const { applyKeywordGate } = require('../services/articlePipeline')
+
+    const apiKey = getApifyToken(source)
+    if (!apiKey) return res.status(400).json({ error: 'No API key for this source' })
+
+    const limit = source.config?.limit || 0
+    const result = await fetchDatasetItemsByDatasetId(apifyRun.datasetId, apiKey, limit, source.language || 'en')
+    const rawArticles = result.articles || []
+
+    const searchConfig = source.config?.search || null
+    const { passed } = applyKeywordGate(rawArticles, searchConfig)
+
+    let inserted = 0
+    let dupes = 0
+    for (const raw of passed) {
+      const url = raw.url?.trim()
+      if (!url) { dupes++; continue }
+      try {
+        await db.article.create({
+          data: {
+            projectId: source.projectId,
+            sourceId: source.id,
+            url,
+            title: raw.title || null,
+            description: raw.description || null,
+            content: raw.content || null,
+            publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
+            language: raw.language || source.language || 'en',
+            stage: 'imported',
+            status: 'queued',
+          },
+        })
+        inserted++
+      } catch (e) {
+        if (e.code === 'P2002') dupes++
+        else dupes++
+      }
+    }
+
+    await db.apifyRun.update({
+      where: { id: apifyRun.id },
+      data: { itemCount: result.rawCount, status: 'imported', importedAt: new Date() },
+    })
+
+    res.json({ fetched: rawArticles.length, inserted, dupes })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── GET /api/article-sources/field-schema — API-specific SEARCH fields ────
 router.get('/field-schema', async (req, res) => {
   const schema = {

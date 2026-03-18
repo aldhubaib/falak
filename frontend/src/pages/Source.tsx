@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, CheckCircle2, XCircle, SkipForward, Clock, Package, Rss, ImagePlus } from "lucide-react";
+import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, CheckCircle2, XCircle, SkipForward, Clock, Package, Rss, ImagePlus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -251,6 +251,60 @@ function RunStatusBadge({ status }: { status: string }) {
   );
 }
 
+function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string; datasetId: string | null; itemCount: number | null; startedAt: string | null; status: string; importedAt: string | null }; sourceId: string; onRefresh: () => void }) {
+  const [fetching, setFetching] = useState(false);
+  const canFetch = run.datasetId && (run.status === "skipped_empty" || run.status === "failed" || (run.itemCount === 0 && run.status === "imported"));
+
+  const handleFetch = () => {
+    setFetching(true);
+    fetch(`/api/article-sources/${sourceId}/reimport-run`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runId: run.runId }),
+    })
+      .then((r) => (r.ok ? r.json() : r.json().then(d => Promise.reject(d))))
+      .then((d: { fetched: number; inserted: number; dupes: number }) => {
+        toast.success(`Fetched ${d.fetched} articles, ${d.inserted} new`);
+        onRefresh();
+      })
+      .catch((e) => toast.error(e?.error || "Re-import failed"))
+      .finally(() => setFetching(false));
+  };
+
+  return (
+    <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center px-3 py-2 text-[11px] border-b border-border/20 last:border-0 hover:bg-elevated/20 transition-colors">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <a
+          href={`https://console.apify.com/storage/datasets/${run.datasetId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-mono text-foreground hover:text-blue transition-colors truncate inline-flex items-center gap-1"
+        >
+          {run.runId.slice(0, 16)}
+          <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-40" />
+        </a>
+      </div>
+      <span className="text-right font-mono text-foreground tabular-nums">
+        {run.itemCount != null ? run.itemCount.toLocaleString() : "—"}
+      </span>
+      <span className="text-right text-dim font-mono tabular-nums">
+        {run.startedAt ? timeAgo(run.startedAt) : "—"}
+      </span>
+      <div className="text-right">
+        <RunStatusBadge status={run.status} />
+      </div>
+      <div className="w-7 flex items-center justify-center">
+        {canFetch ? (
+          <button onClick={handleFetch} disabled={fetching} title="Re-import this run"
+            className="w-6 h-6 rounded flex items-center justify-center text-dim hover:text-blue hover:bg-blue/10 transition-colors disabled:opacity-50">
+            {fetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -386,36 +440,16 @@ function SourceCard({
           {/* Runs list */}
           <div className="px-4 pb-3">
             <div className="rounded-lg border border-border/50 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1.5 text-[10px] font-mono text-dim uppercase tracking-wider bg-elevated/30 border-b border-border/30">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 px-3 py-1.5 text-[10px] font-mono text-dim uppercase tracking-wider bg-elevated/30 border-b border-border/30">
                 <span>Run</span>
                 <span className="text-right">Items</span>
                 <span className="text-right">Date</span>
                 <span className="text-right">Status</span>
+                <span></span>
               </div>
               <div className="max-h-[240px] overflow-y-auto">
                 {runs.map((run) => (
-                  <div key={run.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-3 py-2 text-[11px] border-b border-border/20 last:border-0 hover:bg-elevated/20 transition-colors">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <a
-                        href={`https://console.apify.com/storage/datasets/${run.datasetId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-foreground hover:text-blue transition-colors truncate inline-flex items-center gap-1"
-                      >
-                        {run.runId.slice(0, 16)}
-                        <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-40" />
-                      </a>
-                    </div>
-                    <span className="text-right font-mono text-foreground tabular-nums">
-                      {run.itemCount != null ? run.itemCount.toLocaleString() : "—"}
-                    </span>
-                    <span className="text-right text-dim font-mono tabular-nums">
-                      {run.startedAt ? timeAgo(run.startedAt) : "—"}
-                    </span>
-                    <div className="text-right">
-                      <RunStatusBadge status={run.status} />
-                    </div>
-                  </div>
+                  <RunRow key={run.id} run={run} sourceId={s.id} onRefresh={fetchSources} />
                 ))}
               </div>
             </div>
