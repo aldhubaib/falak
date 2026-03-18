@@ -160,6 +160,7 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
               onEdit={() => setEditSource(s)}
               onToggle={() => handleToggle(s.id, s.isActive)}
               onDelete={() => handleDelete(s.id, s.label)}
+              onRefresh={fetchSources}
             />
           ))}
         </div>
@@ -325,6 +326,7 @@ function SourceCard({
   onEdit,
   onToggle,
   onDelete,
+  onRefresh,
 }: {
   source: ArticleSourceData;
   testingId: string | null;
@@ -332,6 +334,7 @@ function SourceCard({
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
+  onRefresh: () => void;
 }) {
   const runs = s.apifyRuns || [];
 
@@ -449,7 +452,7 @@ function SourceCard({
               </div>
               <div className="max-h-[240px] overflow-y-auto">
                 {runs.map((run) => (
-                  <RunRow key={run.id} run={run} sourceId={s.id} onRefresh={fetchSources} />
+                  <RunRow key={run.id} run={run} sourceId={s.id} onRefresh={onRefresh} />
                 ))}
               </div>
             </div>
