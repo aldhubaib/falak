@@ -210,24 +210,24 @@ function SourceLogo({ type, image, size = "md" }: { type: string; image?: string
   const iconDim = size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4";
 
   if (image) {
-    return <img src={image} alt="" className={`${dim} rounded-lg object-cover shrink-0`} />;
+    return <img src={image} alt="" className={`${dim} rounded-full object-cover shrink-0`} />;
   }
   if (type === "rss") {
     return (
-      <div className={`${dim} rounded-lg bg-orange/15 flex items-center justify-center shrink-0`}>
+      <div className={`${dim} rounded-full bg-orange/15 flex items-center justify-center shrink-0`}>
         <Rss className={`${iconDim} text-orange`} />
       </div>
     );
   }
   if (type === "apify_actor") {
     return (
-      <div className={`${dim} rounded-lg bg-[#00d68a]/15 flex items-center justify-center shrink-0`}>
+      <div className={`${dim} rounded-full bg-[#00d68a]/15 flex items-center justify-center shrink-0`}>
         <ApifyLogo className={`${iconDim} text-[#00d68a]`} />
       </div>
     );
   }
   return (
-    <div className={`${dim} rounded-lg bg-elevated flex items-center justify-center shrink-0`}>
+    <div className={`${dim} rounded-full bg-elevated flex items-center justify-center shrink-0`}>
       <Package className={`${iconDim} text-dim`} />
     </div>
   );
