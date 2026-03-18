@@ -399,13 +399,15 @@ function ContentBlock({ label, content, dir, maxHeight = 200 }: {
         </div>
       </div>
       <div
-        className={`px-3 py-2.5 text-[12px] text-foreground/80 leading-relaxed font-mono whitespace-pre-wrap overflow-hidden transition-all ${
-          expanded ? "" : ""
-        }`}
+        className="px-3 py-2.5 text-[12px] text-foreground/80 leading-[1.9] overflow-hidden transition-all"
         style={{ maxHeight: expanded ? "none" : maxHeight }}
         dir={dir || "auto"}
       >
-        {content}
+        {content.split(/\n\n+/).map((para, i) => (
+          <p key={i} className="mb-3 last:mb-0 whitespace-pre-wrap">
+            {para}
+          </p>
+        ))}
       </div>
       {content.length > 300 && (
         <button
