@@ -190,7 +190,7 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
     if (!apifyRun.datasetId) return res.status(400).json({ error: 'Run has no dataset' })
 
     const { getApifyToken, fetchDatasetItemsByDatasetId } = require('../services/apify')
-    const { applyKeywordGate } = require('../services/articlePipeline')
+    const { applyKeywordGate, canonicalizeArticleUrl } = require('../services/articlePipeline')
 
     const apiKey = getApifyToken(source)
     if (!apiKey) return res.status(400).json({ error: 'No API key for this source' })
@@ -205,8 +205,15 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
     let inserted = 0
     let dupes = 0
     for (const raw of passed) {
-      const url = raw.url?.trim()
+      const url = canonicalizeArticleUrl(raw.url)
       if (!url) { dupes++; continue }
+
+      const exists = await db.article.findUnique({
+        where: { projectId_url: { projectId: source.projectId, url } },
+        select: { id: true },
+      })
+      if (exists) { dupes++; continue }
+
       try {
         await db.article.create({
           data: {

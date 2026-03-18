@@ -547,6 +547,7 @@ module.exports = {
   VALID_SOURCE_TYPES,
   validateConfig: validateSourceConfig,
   hasApiKey,
+  canonicalizeArticleUrl,
   ingestSource,
   ingestAll,
   testSourceFetch,
