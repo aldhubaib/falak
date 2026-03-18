@@ -408,17 +408,17 @@ router.post('/retry-all-failed', requireRole('owner', 'admin', 'editor'), async 
   }
 })
 
-// ── POST /api/article-pipeline/test-run — process up to N articles through the full pipeline
+// ── POST /api/article-pipeline/test-run — kick off processing for N articles (returns immediately)
+const _testRuns = new Map()
+
 router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { projectId, limit = 5 } = req.body
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
 
     const cap = Math.min(Math.max(1, Number(limit) || 5), 20)
-    const { processItem } = require('../worker-articles')
 
     const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
-    const results = []
 
     const articles = await db.article.findMany({
       where: {
@@ -432,24 +432,72 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
       take: cap,
     })
 
-    for (const article of articles) {
-      const before = { id: article.id, title: article.title, stage: article.stage }
-      try {
-        await processItem(article)
-        const after = await db.article.findUnique({
-          where: { id: article.id },
-          select: { stage: true, status: true, error: true },
-        })
-        results.push({ ...before, after: after?.stage, status: after?.status, error: after?.error || null })
-      } catch (e) {
-        results.push({ ...before, after: before.stage, status: 'error', error: e.message })
-      }
+    if (articles.length === 0) {
+      return res.json({ runId: null, total: 0, articles: [] })
     }
 
-    res.json({ processed: results.length, requested: cap, results })
+    const runId = `test-${Date.now()}`
+    const items = articles.map(a => ({
+      id: a.id, title: a.title, stageBefore: a.stage,
+      stageAfter: null, status: 'pending', error: null,
+    }))
+
+    _testRuns.set(runId, { projectId, items, startedAt: Date.now() })
+
+    // Process in background — one by one
+    const { processItem } = require('../worker-articles')
+    ;(async () => {
+      for (const item of items) {
+        item.status = 'running'
+        try {
+          const fresh = await db.article.findUnique({
+            where: { id: item.id },
+            include: { source: { include: { project: true } } },
+          })
+          if (fresh) await processItem(fresh)
+          const after = await db.article.findUnique({
+            where: { id: item.id },
+            select: { stage: true, status: true, error: true },
+          })
+          item.stageAfter = after?.stage || item.stageBefore
+          item.status = after?.error ? 'error' : 'done'
+          item.error = after?.error || null
+        } catch (e) {
+          item.stageAfter = item.stageBefore
+          item.status = 'error'
+          item.error = e.message
+        }
+      }
+      // Clean up after 5 minutes
+      setTimeout(() => _testRuns.delete(runId), 5 * 60 * 1000)
+    })()
+
+    res.json({
+      runId,
+      total: items.length,
+      articles: items.map(i => ({ id: i.id, title: i.title, stageBefore: i.stageBefore, status: i.status })),
+    })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
+})
+
+// ── GET /api/article-pipeline/test-run/:runId — poll for test run progress
+router.get('/test-run/:runId', async (req, res) => {
+  const run = _testRuns.get(req.params.runId)
+  if (!run) return res.status(404).json({ error: 'Test run not found or expired' })
+
+  const done = run.items.filter(i => i.status === 'done' || i.status === 'error').length
+  const running = run.items.find(i => i.status === 'running')
+
+  res.json({
+    runId: req.params.runId,
+    total: run.items.length,
+    completed: done,
+    currentlyProcessing: running ? running.title || running.id : null,
+    finished: done === run.items.length,
+    items: run.items,
+  })
 })
 
 module.exports = router

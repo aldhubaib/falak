@@ -100,12 +100,12 @@ interface PipelineData {
   paused: boolean;
 }
 
-interface TestResult {
+interface TestResultItem {
   id: string;
   title: string | null;
-  stage: string;
-  after: string;
-  status: string;
+  stageBefore: string;
+  stageAfter: string | null;
+  status: "pending" | "running" | "done" | "error";
   error: string | null;
 }
 
@@ -295,7 +295,8 @@ export default function ArticlePipeline() {
   const [retryingAll, setRetryingAll] = useState(false);
   const [fetchingAll, setFetchingAll] = useState(false);
   const [testRunning, setTestRunning] = useState(false);
-  const [testResults, setTestResults] = useState<TestResult[] | null>(null);
+  const [testResults, setTestResults] = useState<TestResultItem[] | null>(null);
+  const [testProgress, setTestProgress] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(30);
 
   // Vector Intelligence state
@@ -388,21 +389,62 @@ export default function ArticlePipeline() {
   };
 
   const handleTestRun = () => {
-    if (!projectId) return;
+    if (!projectId || testRunning) return;
     setTestRunning(true);
     setTestResults(null);
+    setTestProgress("Starting…");
+
     fetch("/api/article-pipeline/test-run", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId, limit: 5 }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { processed: number; results: TestResult[] }) => {
-        setTestResults(d.results);
-        fetchPipeline();
+      .then((d: { runId: string | null; total: number; articles: { id: string; title: string | null; stageBefore: string }[] }) => {
+        if (!d.runId || d.total === 0) {
+          toast("No queued articles to process");
+          setTestRunning(false);
+          setTestProgress(null);
+          return;
+        }
+
+        // Show initial pending items immediately
+        setTestResults(d.articles.map(a => ({
+          id: a.id, title: a.title, stageBefore: a.stageBefore,
+          stageAfter: null, status: "pending" as const, error: null,
+        })));
+        setTestProgress(`0 / ${d.total}`);
+
+        // Poll for progress
+        const poll = () => {
+          fetch(`/api/article-pipeline/test-run/${d.runId}`, { credentials: "include" })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then((p: { total: number; completed: number; finished: boolean; currentlyProcessing: string | null; items: TestResultItem[] }) => {
+              setTestResults(p.items);
+              setTestProgress(p.finished ? null : `${p.completed} / ${p.total}${p.currentlyProcessing ? ` · ${p.currentlyProcessing}` : ""}`);
+
+              if (p.finished) {
+                setTestRunning(false);
+                fetchPipeline();
+                const ok = p.items.filter(i => i.status === "done").length;
+                const errors = p.items.filter(i => i.status === "error").length;
+                toast.success(`Test done: ${ok} processed${errors ? `, ${errors} errors` : ""}`);
+              } else {
+                setTimeout(poll, 2000);
+              }
+            })
+            .catch(() => {
+              setTestRunning(false);
+              setTestProgress(null);
+            });
+        };
+        setTimeout(poll, 1500);
       })
-      .catch(() => toast.error("Test run failed"))
-      .finally(() => setTestRunning(false));
+      .catch(() => {
+        toast.error("Test run failed");
+        setTestRunning(false);
+        setTestProgress(null);
+      });
   };
 
   const allArticles = data
@@ -433,7 +475,7 @@ export default function ArticlePipeline() {
           <button onClick={handleTestRun} disabled={testRunning}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple/30 bg-purple/10 text-[11px] text-purple font-medium hover:bg-purple/20 transition-colors disabled:opacity-50">
             {testRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
-            {testRunning ? "Running…" : "Test 5"}
+            {testRunning ? (testProgress || "Running…") : "Test 5"}
           </button>
           <button onClick={handleFetchAll} disabled={fetchingAll}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
@@ -478,41 +520,69 @@ export default function ArticlePipeline() {
                       <FlaskConical className="w-3.5 h-3.5 text-purple" />
                       <span className="text-[12px] font-semibold text-foreground">Test Run Results</span>
                       <span className="text-[11px] text-dim font-mono">
-                        {testResults.filter(r => r.status !== "error").length} ok
+                        {testResults.filter(r => r.status === "done").length} done
+                        {testResults.some(r => r.status === "running") && (
+                          <>, <span className="text-purple">{testResults.filter(r => r.status === "running").length} running</span></>
+                        )}
+                        {testResults.some(r => r.status === "pending") && (
+                          <>, <span className="text-dim">{testResults.filter(r => r.status === "pending").length} waiting</span></>
+                        )}
                         {testResults.some(r => r.status === "error") && (
                           <>, <span className="text-destructive">{testResults.filter(r => r.status === "error").length} errors</span></>
                         )}
                       </span>
                     </div>
-                    <button onClick={() => setTestResults(null)}
-                      className="text-dim hover:text-foreground transition-colors">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    {!testRunning && (
+                      <button onClick={() => setTestResults(null)}
+                        className="text-dim hover:text-foreground transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                   <div className="divide-y divide-purple/10">
                     {testResults.map((r, i) => (
                       <Link key={r.id || i} to={pp(`/article/${r.id}`)}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple/[0.04] transition-colors group no-underline">
+                        {/* Status indicator */}
                         <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                          r.status === "running" ? "bg-purple/15 text-purple" :
+                          r.status === "done" ? "bg-success/15 text-success" :
                           r.status === "error" ? "bg-destructive/15 text-destructive" :
-                          r.after === "done" ? "bg-success/15 text-success" :
-                          "bg-purple/15 text-purple"
+                          "bg-dim/10 text-dim"
                         }`}>
-                          {i + 1}
+                          {r.status === "running" ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : r.status === "done" ? (
+                            <CheckCircle2 className="w-3 h-3" />
+                          ) : r.status === "error" ? (
+                            <AlertTriangle className="w-3 h-3" />
+                          ) : (
+                            <span>{i + 1}</span>
+                          )}
                         </span>
+                        {/* Title */}
                         <span className="text-[12px] text-foreground font-medium truncate flex-1 min-w-0" dir="auto">
                           {r.title || r.id?.slice(0, 12)}
                         </span>
+                        {/* Stage transition */}
                         <div className="flex items-center gap-1.5 text-[10px] font-mono shrink-0">
-                          <span className="px-1.5 py-0.5 rounded bg-dim/10 text-dim">{r.stage}</span>
-                          <ArrowRight className="w-3 h-3 text-dim" />
-                          <span className={`px-1.5 py-0.5 rounded ${
-                            r.status === "error" ? "bg-destructive/10 text-destructive" :
-                            r.after === "done" ? "bg-success/10 text-success" :
-                            "bg-purple/10 text-purple"
-                          }`}>
-                            {r.status === "error" ? "error" : r.after}
-                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-dim/10 text-dim">{r.stageBefore}</span>
+                          {r.status === "running" ? (
+                            <Loader2 className="w-3 h-3 text-purple animate-spin" />
+                          ) : r.stageAfter ? (
+                            <>
+                              <ArrowRight className="w-3 h-3 text-dim" />
+                              <span className={`px-1.5 py-0.5 rounded ${
+                                r.status === "error" ? "bg-destructive/10 text-destructive" :
+                                r.stageAfter === "done" ? "bg-success/10 text-success" :
+                                "bg-purple/10 text-purple"
+                              }`}>
+                                {r.stageAfter}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-dim/50">waiting…</span>
+                          )}
                         </div>
                         {r.error && (
                           <span className="text-[10px] text-destructive/70 font-mono truncate max-w-[200px]">{r.error}</span>
