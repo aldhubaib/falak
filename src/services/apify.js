@@ -3,7 +3,7 @@ const logger = require('../lib/logger')
 const { decrypt } = require('./crypto')
 
 const APIFY_API_BASE = 'https://api.apify.com/v2'
-const DEFAULT_ITEM_LIMIT = 100
+const PAGE_SIZE = 1000
 
 function getApifyToken(source) {
   const encrypted = source?.apiKeyEncrypted
@@ -127,36 +127,56 @@ async function fetchLatestSuccessfulRunWithItems(actorId, token) {
   return runs[0] || null
 }
 
-function buildDatasetItemsUrl(datasetId, token, limit = DEFAULT_ITEM_LIMIT) {
+function buildDatasetItemsUrl(datasetId, token, { limit = PAGE_SIZE, offset = 0 } = {}) {
   const params = new URLSearchParams({
     token,
     clean: '1',
     format: 'json',
-    desc: '1',
     limit: String(limit),
+    offset: String(offset),
   })
   return `${APIFY_API_BASE}/datasets/${encodeURIComponent(datasetId)}/items?${params.toString()}`
 }
 
-async function fetchDatasetItemsByDatasetId(datasetId, token, limit = DEFAULT_ITEM_LIMIT, defaultLanguage = 'en') {
-  const url = buildDatasetItemsUrl(datasetId, token, limit)
+async function fetchDatasetPage(datasetId, token, offset, pageSize) {
+  const url = buildDatasetItemsUrl(datasetId, token, { limit: pageSize, offset })
   const response = await fetch(url, { headers: { Accept: 'application/json' } })
-
   if (!response.ok) {
     const body = await response.text()
     throw new Error(`Apify request failed (${response.status}): ${body.slice(0, 300)}`)
   }
-
   const items = await response.json()
-  if (!Array.isArray(items)) {
-    throw new Error('Apify response was not a dataset item array')
+  if (!Array.isArray(items)) throw new Error('Apify response was not a dataset item array')
+  return items
+}
+
+/**
+ * Fetch ALL items from an Apify dataset, paginating in chunks of PAGE_SIZE.
+ * If maxItems is provided and > 0, cap total items fetched.
+ */
+async function fetchDatasetItemsByDatasetId(datasetId, token, maxItems = 0, defaultLanguage = 'en') {
+  const allItems = []
+  let offset = 0
+
+  while (true) {
+    const remaining = maxItems > 0 ? maxItems - allItems.length : PAGE_SIZE
+    const pageSize = maxItems > 0 ? Math.min(PAGE_SIZE, remaining) : PAGE_SIZE
+    if (pageSize <= 0) break
+
+    const page = await fetchDatasetPage(datasetId, token, offset, pageSize)
+    allItems.push(...page)
+    offset += page.length
+
+    if (page.length < pageSize) break
+    if (maxItems > 0 && allItems.length >= maxItems) break
   }
 
-  const articles = items
+  const articles = allItems
     .map((item) => normalizeApifyItem(item, defaultLanguage))
     .filter(Boolean)
 
-  return { articles, rawCount: items.length }
+  logger.info({ datasetId, totalFetched: allItems.length, normalized: articles.length }, '[apify] dataset fetched')
+  return { articles, rawCount: allItems.length }
 }
 
 module.exports = {

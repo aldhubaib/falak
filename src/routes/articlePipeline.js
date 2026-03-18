@@ -28,6 +28,7 @@ router.get('/', async (req, res) => {
         publishedAt: true, language: true, startedAt: true, finishedAt: true,
         relevanceScore: true, rankScore: true, rankReason: true,
         storyId: true, createdAt: true, updatedAt: true,
+        processingLog: true, analysis: true,
         source: { select: { id: true, label: true, type: true, language: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -35,7 +36,7 @@ router.get('/', async (req, res) => {
     })
 
     const stats = { total: allArticles.length, imported: 0, content: 0, translated: 0, ai_analysis: 0, review: 0, done: 0, failed: 0 }
-    const byStage = { imported: [], content: [], translated: [], ai_analysis: [], review: [], failed: [] }
+    const byStage = { imported: [], content: [], translated: [], ai_analysis: [], review: [], done: [], failed: [] }
 
     for (const a of allArticles) {
       if (a.status === 'review') {
@@ -46,6 +47,7 @@ router.get('/', async (req, res) => {
         byStage.failed.push(a)
       } else if (a.stage === 'done') {
         stats.done++
+        byStage.done.push(a)
       } else if (byStage[a.stage]) {
         stats[a.stage] = (stats[a.stage] || 0) + 1
         byStage[a.stage].push(a)

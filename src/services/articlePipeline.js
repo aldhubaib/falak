@@ -27,8 +27,8 @@ function validateSourceConfig(type, config) {
       if (config.datasetId !== undefined && config.datasetId !== null && typeof config.datasetId !== 'string') {
         return 'apify_actor config.datasetId must be a string when provided'
       }
-      if (config.limit !== undefined && (!Number.isInteger(config.limit) || config.limit < 1 || config.limit > 1000)) {
-        return 'apify_actor config.limit must be an integer between 1 and 1000'
+      if (config.limit !== undefined && config.limit !== null && config.limit !== 0 && (!Number.isInteger(config.limit) || config.limit < 1 || config.limit > 50000)) {
+        return 'apify_actor config.limit must be 0 (all) or an integer between 1 and 50000'
       }
       break
     default:
@@ -82,7 +82,7 @@ async function fetchFromApifySource(source, apiKey) {
   const { config } = source
 
   if (config.datasetId) {
-    const result = await fetchDatasetItemsByDatasetId(config.datasetId, apiKey, config.limit || 100, source.language || 'en')
+    const result = await fetchDatasetItemsByDatasetId(config.datasetId, apiKey, config.limit || 0, source.language || 'en')
     return { ...result, latestRun: null }
   }
 
@@ -94,7 +94,7 @@ async function fetchFromApifySource(source, apiKey) {
     throw new Error('Latest successful Apify run is missing a dataset ID')
   }
 
-  const result = await fetchDatasetItemsByDatasetId(latestRun.datasetId, apiKey, config.limit || 100, source.language || 'en')
+  const result = await fetchDatasetItemsByDatasetId(latestRun.datasetId, apiKey, config.limit || 0, source.language || 'en')
   return { ...result, latestRun }
 }
 
@@ -287,7 +287,7 @@ async function ingestApifySourceDirectDataset(source, project, apiKey, { force =
     const result = await fetchDatasetItemsByDatasetId(
       source.config.datasetId,
       apiKey,
-      source.config.limit || 100,
+      source.config.limit || 0,
       source.language || 'en'
     )
     rawArticles = result.articles || []
@@ -362,7 +362,7 @@ async function ingestApifySourceWithRunTracking(source, project, { force = false
     return { sourceId, fetched: 0, gated: 0, dupes: 0, inserted: 0, error: null, skipped: 'no_new_run' }
   }
 
-  const limit = config.limit || 100
+  const limit = config.limit || 0
   const searchConfig = config?.search || null
   const sortedMissing = [...missingRuns].sort((a, b) => {
     const ta = a.startedAt ? new Date(a.startedAt).getTime() : 0

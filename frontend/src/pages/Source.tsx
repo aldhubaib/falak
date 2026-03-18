@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, ChevronDown } from "lucide-react";
+import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, ChevronDown, ChevronRight, CheckCircle2, XCircle, SkipForward, Package, Rss } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -31,6 +31,17 @@ export default function Source() {
 
 // ── Types for Article Sources ───────────────────────────────────────────
 
+interface ApifyRunData {
+  id: string;
+  runId: string;
+  datasetId: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  itemCount: number | null;
+  status: string;
+  importedAt: string | null;
+}
+
 interface ArticleSourceData {
   id: string;
   type: string;
@@ -42,6 +53,10 @@ interface ArticleSourceData {
   articleCount: number;
   stats: Record<string, number>;
   hasApiKey?: boolean;
+  apifyRuns?: ApifyRunData[];
+  createdAt?: string;
+  lastImportedRunId?: string | null;
+  fetchLog?: { time: string; raw: number; gated: number; dupes: number; inserted: number; error: string | null; ms: number; runsProcessed?: number }[];
 }
 
 const SOURCE_TYPES = [
@@ -49,7 +64,7 @@ const SOURCE_TYPES = [
   { value: "apify_actor", label: "Apify Actor",          format: "apify",    configFields: [
     { key: "actorId", label: "Actor ID", placeholder: "username/actor-name" },
     { key: "datasetId", label: "Dataset ID (optional)", placeholder: "Optional fixed dataset ID", optional: true },
-    { key: "limit", label: "Items to sync", placeholder: "100", optional: true },
+    { key: "limit", label: "Max items per run (0 = all)", placeholder: "0 (imports entire run)", optional: true },
   ] },
 ] as const;
 
@@ -115,7 +130,7 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">ARTICLE SOURCES</div>
-          <p className="text-[12px] text-dim">Configure RSS feeds or Apify actors for the article pipeline. Apify tokens are saved per source.</p>
+          <p className="text-[12px] text-dim">Configure RSS feeds or Apify actors for the article pipeline. Each run is imported in full.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] text-dim font-mono">{totalArticles} articles · {activeCount}/{sources.length} active</span>
@@ -138,68 +153,17 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {sources.map((s) => {
-            const typeDef = SOURCE_TYPES.find(t => t.value === s.type);
-            const lang = LANG_OPTIONS.find(l => l.value === s.language);
-            return (
-              <div key={s.id} className={`rounded-xl border p-4 transition-colors ${s.isActive ? "border-blue/30 bg-blue/[0.02]" : "border-border opacity-60"}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${s.isActive ? "bg-blue" : "bg-zinc-600"}`} />
-                    <span className="text-[13px] font-semibold">{s.label}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-elevated text-dim font-mono">{typeDef?.label || s.type}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-elevated text-dim font-mono">{lang?.label || s.language}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => handleTest(s.id)} disabled={testingId === s.id}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated/60 transition-colors disabled:opacity-50" title="Test fetch">
-                      {testingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube2 className="w-3.5 h-3.5" />}
-                    </button>
-                    <button onClick={() => setEditSource(s)}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated/60 transition-colors" title="Edit">
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => handleToggle(s.id, s.isActive)}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${s.isActive ? "text-blue hover:bg-blue/10" : "text-dim hover:bg-elevated/60"}`} title={s.isActive ? "Pause" : "Activate"}>
-                      <Power className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => handleDelete(s.id, s.label)}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors" title="Delete">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Config display */}
-                <div className="text-[11px] font-mono text-dim mb-2">
-                  {Object.entries(s.config as Record<string, unknown>).map(([k, v]) => (
-                    <span key={k} className="mr-3">{k}: <span className="text-foreground">{String(v)}</span></span>
-                  ))}
-                </div>
-                {s.type === "apify_actor" && (
-                  <div className="mb-2">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${s.hasApiKey ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
-                      {s.hasApiKey ? "Actor API token saved" : "Actor API token missing"}
-                    </span>
-                  </div>
-                )}
-
-                {/* Stage stats */}
-                <div className="flex items-center gap-3 text-[10px] font-mono">
-                  {Object.entries(s.stats || {}).map(([stage, count]) => (
-                    <span key={stage} className={`px-2 py-0.5 rounded-full ${stage === 'failed' ? 'bg-destructive/10 text-destructive' : 'bg-elevated text-dim'}`}>
-                      {stage}: {count}
-                    </span>
-                  ))}
-                  {Object.keys(s.stats || {}).length === 0 && <span className="text-dim">No articles yet</span>}
-                  {s.lastPolledAt && <span className="text-dim ml-auto">Last poll: {new Date(s.lastPolledAt).toLocaleString()}</span>}
-                </div>
-
-                {/* Test results */}
-                {testResults && testingId === null && s.id === sources.find(x => testResults.length >= 0)?.id && null}
-              </div>
-            );
-          })}
+          {sources.map((s) => (
+            <SourceCard
+              key={s.id}
+              source={s}
+              testingId={testingId}
+              onTest={handleTest}
+              onEdit={() => setEditSource(s)}
+              onToggle={() => handleToggle(s.id, s.isActive)}
+              onDelete={() => handleDelete(s.id, s.label)}
+            />
+          ))}
         </div>
       )}
 
@@ -226,12 +190,210 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {/* Add Source Dialog */}
       <AddSourceDialog projectId={projectId} open={addOpen} onClose={() => setAddOpen(false)} onCreated={fetchSources} />
 
-      {/* Edit Source Dialog */}
       {editSource && (
         <EditSourceDialog source={editSource} open={!!editSource} onClose={() => setEditSource(null)} onUpdated={fetchSources} />
+      )}
+    </div>
+  );
+}
+
+// ── Source Logos ───────────────────────────────────────────────────────────
+
+function ApifyLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.473 4.637L17.089 2.03a2.607 2.607 0 00-2.178 0L9.527 4.637a2.607 2.607 0 00-1.478 2.35v9.006l-4.571-2.212A2.607 2.607 0 012 11.43V5.906a.652.652 0 01.937-.585l2.173 1.052V4.637A2.607 2.607 0 016.588 2.29L11.97.03a2.607 2.607 0 012.06 0l5.383 2.26a2.607 2.607 0 011.478 2.35v5.523a.652.652 0 01-.937.585l-2.173-1.052v1.737l4.571 2.212A2.607 2.607 0 0123.83 16v5.637a.652.652 0 01-.937.585l-2.173-1.052v1.737l4.571 2.212A2.607 2.607 0 0126.77 27.47v-5.524a.652.652 0 01.937-.585l2.173 1.052V20.67a2.607 2.607 0 00-1.478-2.35l-5.384-2.607a2.607 2.607 0 00-2.178 0l-5.384 2.607a2.607 2.607 0 00-1.478 2.35v9.006l-4.571-2.212a2.607 2.607 0 01-1.478-2.35v-5.524a.652.652 0 01.937-.585l2.173 1.052v-1.737l-4.571-2.212A2.607 2.607 0 014.99 14.508V8.984a.652.652 0 01.937-.585l2.173 1.052V7.714" fill="currentColor" fillOpacity="0.9"/>
+    </svg>
+  );
+}
+
+function SourceLogo({ type }: { type: string }) {
+  if (type === "rss") {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-orange/15 flex items-center justify-center shrink-0">
+        <Rss className="w-4 h-4 text-orange" />
+      </div>
+    );
+  }
+  if (type === "apify_actor") {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-[#00d68a]/15 flex items-center justify-center shrink-0">
+        <ApifyLogo className="w-4 h-4 text-[#00d68a]" />
+      </div>
+    );
+  }
+  return (
+    <div className="w-8 h-8 rounded-lg bg-elevated flex items-center justify-center shrink-0">
+      <Package className="w-4 h-4 text-dim" />
+    </div>
+  );
+}
+
+// ── Source Card ────────────────────────────────────────────────────────────
+
+const RUN_STATUS_ICON: Record<string, React.ReactNode> = {
+  imported: <CheckCircle2 className="w-3 h-3 text-emerald-400" />,
+  failed: <XCircle className="w-3 h-3 text-destructive" />,
+  skipped_empty: <SkipForward className="w-3 h-3 text-dim" />,
+};
+
+function SourceCard({
+  source: s,
+  testingId,
+  onTest,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  source: ArticleSourceData;
+  testingId: string | null;
+  onTest: (id: string) => void;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const [runsOpen, setRunsOpen] = useState(false);
+  const typeDef = SOURCE_TYPES.find(t => t.value === s.type);
+  const lang = LANG_OPTIONS.find(l => l.value === s.language);
+  const runs = s.apifyRuns || [];
+  const importedRuns = runs.filter(r => r.status === "imported");
+  const totalItemsImported = importedRuns.reduce((sum, r) => sum + (r.itemCount || 0), 0);
+  const limitValue = (s.config as Record<string, unknown>).limit;
+  const isLimited = typeof limitValue === "number" && limitValue > 0;
+
+  return (
+    <div className={`rounded-xl border transition-colors ${s.isActive ? "border-blue/30 bg-blue/[0.02]" : "border-border opacity-60"}`}>
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <SourceLogo type={s.type} />
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${s.isActive ? "bg-blue" : "bg-zinc-600"}`} />
+              <span className="text-[13px] font-semibold">{s.label}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-elevated text-dim font-mono">{typeDef?.label || s.type}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-elevated text-dim font-mono">{lang?.label || s.language}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => onTest(s.id)} disabled={testingId === s.id}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated/60 transition-colors disabled:opacity-50" title="Test fetch">
+              {testingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube2 className="w-3.5 h-3.5" />}
+            </button>
+            <button onClick={onEdit}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated/60 transition-colors" title="Edit">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={onToggle}
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${s.isActive ? "text-blue hover:bg-blue/10" : "text-dim hover:bg-elevated/60"}`} title={s.isActive ? "Pause" : "Activate"}>
+              <Power className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={onDelete}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors" title="Delete">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="text-[11px] font-mono text-dim mb-2">
+          {Object.entries(s.config as Record<string, unknown>)
+            .filter(([k]) => k !== "limit" || (typeof (s.config as Record<string, unknown>).limit === "number" && (s.config as Record<string, unknown>).limit! > 0))
+            .map(([k, v]) => (
+              <span key={k} className="mr-3">{k}: <span className="text-foreground">{String(v)}</span></span>
+            ))}
+          {isLimited && (
+            <span className="mr-3 text-orange">limit: <span className="text-orange">{String(limitValue)}</span> (capped)</span>
+          )}
+        </div>
+
+        {s.type === "apify_actor" && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${s.hasApiKey ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
+              {s.hasApiKey ? "API token saved" : "API token missing"}
+            </span>
+            {runs.length > 0 && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-blue/10 text-blue">
+                {importedRuns.length} run{importedRuns.length !== 1 ? "s" : ""} imported · {totalItemsImported.toLocaleString()} items total
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 text-[10px] font-mono">
+          {Object.entries(s.stats || {}).map(([stage, count]) => (
+            <span key={stage} className={`px-2 py-0.5 rounded-full ${stage === "failed" ? "bg-destructive/10 text-destructive" : "bg-elevated text-dim"}`}>
+              {stage}: {count}
+            </span>
+          ))}
+          {Object.keys(s.stats || {}).length === 0 && <span className="text-dim">No articles yet</span>}
+          {s.lastPolledAt && <span className="text-dim ml-auto">Last poll: {new Date(s.lastPolledAt).toLocaleString()}</span>}
+        </div>
+      </div>
+
+      {/* Expandable Apify Runs */}
+      {s.type === "apify_actor" && runs.length > 0 && (
+        <div className="border-t border-border/50">
+          <button
+            onClick={() => setRunsOpen(!runsOpen)}
+            className="w-full px-4 py-2 flex items-center gap-2 text-[11px] font-mono text-dim hover:text-sensor transition-colors"
+          >
+            {runsOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            <Package className="w-3 h-3" />
+            Apify Runs ({runs.length})
+          </button>
+          {runsOpen && (
+            <div className="px-4 pb-3">
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full text-[11px] font-mono">
+                  <thead>
+                    <tr className="bg-elevated/50 text-dim">
+                      <th className="px-3 py-1.5 text-left font-medium">Status</th>
+                      <th className="px-3 py-1.5 text-left font-medium">Run ID</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Items</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Run Date</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Imported</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {runs.map((run) => (
+                      <tr key={run.id} className="border-t border-border/30 hover:bg-elevated/20">
+                        <td className="px-3 py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            {RUN_STATUS_ICON[run.status] || <span className="w-3 h-3 rounded-full bg-dim/30" />}
+                            <span className={run.status === "imported" ? "text-emerald-400" : run.status === "failed" ? "text-destructive" : "text-dim"}>
+                              {run.status}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-1.5 text-foreground">
+                          <a
+                            href={`https://console.apify.com/storage/datasets/${run.datasetId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-blue transition-colors inline-flex items-center gap-1"
+                          >
+                            {run.runId.slice(0, 12)}…
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-foreground">
+                          {run.itemCount != null ? run.itemCount.toLocaleString() : "—"}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-dim">
+                          {run.startedAt ? new Date(run.startedAt).toLocaleDateString() : "—"}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-dim">
+                          {run.importedAt ? new Date(run.importedAt).toLocaleString() : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -262,7 +424,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
     if (typeDef.format === "category") return { category: config.category || typeDef.categories?.[0] || "general" };
     if (typeDef.format === "section") return { section: config.section || (typeDef as any).sections?.[0] || "world" };
     if (typeDef.format === "apify") {
-      const limit = parseInt(config.limit || "", 10);
+      const limit = parseInt(config.limit || "0", 10);
       return {
         actorId: config.actorId || "",
         ...(config.datasetId ? { datasetId: config.datasetId } : {}),
@@ -316,10 +478,11 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
           {/* Type selector */}
           <div>
             <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Source Type</label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {SOURCE_TYPES.map(t => (
                 <button key={t.value} onClick={() => handleTypeChange(t.value)}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${type === t.value ? "bg-blue text-blue-foreground" : "bg-elevated text-dim hover:text-sensor"}`}>
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-medium transition-colors border ${type === t.value ? "bg-blue/10 text-blue border-blue/30" : "bg-elevated/50 text-dim border-border hover:text-sensor hover:border-border"}`}>
+                  <SourceLogo type={t.value} />
                   {t.label}
                 </button>
               ))}

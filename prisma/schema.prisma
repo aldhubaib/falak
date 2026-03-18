@@ -383,6 +383,7 @@ model Article {
   startedAt      DateTime?
   finishedAt     DateTime?
 
+  processingLog  Json?
   analysis       Json?
   relevanceScore Float?
 

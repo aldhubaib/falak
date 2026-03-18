@@ -12,7 +12,7 @@ const router = express.Router()
 router.use(requireAuth)
 
 function sanitizeSource(source) {
-  const { apiKeyEncrypted, _count, ...rest } = source
+  const { apiKeyEncrypted, _count, apifyRuns, ...rest } = source
   return {
     ...rest,
     hasApiKey: !!apiKeyEncrypted,
@@ -30,6 +30,20 @@ router.get('/', async (req, res) => {
       where: { projectId, type: { in: VALID_SOURCE_TYPES } },
       include: {
         _count: { select: { articles: true } },
+        apifyRuns: {
+          orderBy: { startedAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            runId: true,
+            datasetId: true,
+            startedAt: true,
+            finishedAt: true,
+            itemCount: true,
+            status: true,
+            importedAt: true,
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -44,7 +58,7 @@ router.get('/', async (req, res) => {
       for (const row of stageCounts) {
         stats[row.stage] = row._count
       }
-      return { ...sanitizeSource(s), stats }
+      return { ...sanitizeSource(s), stats, apifyRuns: s.apifyRuns || [] }
     }))
 
     res.json(withStats)

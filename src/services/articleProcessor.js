@@ -3,19 +3,19 @@
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
  * Stages: imported → content → translated → ai_analysis → done
+ *
+ * Every stage appends entries to article.processingLog (JSON array) so the
+ * Kanban UI can show exactly what happened at each sub-step.
  */
 const db = require('../lib/db')
 const { decrypt } = require('./crypto')
 const { scrapeUrl, preClean } = require('./firecrawl')
 const { fetchArticleText } = require('./articleFetcher')
 const { callAnthropic } = require('./pipelineProcessor')
-const { trackUsage } = require('./usageTracker')
 const logger = require('../lib/logger')
 
 const MIN_CONTENT_LENGTH = 300
 const ARABIC_CHAR_REGEX = /[\u0600-\u06FF]/g
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 function stripHtml(text) {
   if (!text || typeof text !== 'string') return ''
@@ -36,89 +36,119 @@ function detectLanguage(text) {
   return 'other'
 }
 
+function getLog(article) {
+  return Array.isArray(article.processingLog) ? [...article.processingLog] : []
+}
+
+async function saveLog(articleId, log) {
+  await db.article.update({ where: { id: articleId }, data: { processingLog: log } })
+}
+
 // ── Stage 1: imported → content ──────────────────────────────────────────────
 
 async function doStageImported(article, project) {
+  const log = getLog(article)
+  log.push({ step: 'imported', status: 'ok', at: new Date().toISOString() })
+  await saveLog(article.id, log)
   return { nextStage: 'content' }
 }
 
 // ── Stage 2: content ─────────────────────────────────────────────────────────
 
 async function doStageContent(article, project) {
+  const log = getLog(article)
   const rawContent = article.content || ''
   const cleanedContent = stripHtml(rawContent).trim()
 
+  log.push({ step: 'apify_content', chars: cleanedContent.length, threshold: MIN_CONTENT_LENGTH, at: new Date().toISOString() })
+
   if (cleanedContent.length >= MIN_CONTENT_LENGTH) {
+    log.push({ step: 'content_source', source: 'apify', chars: cleanedContent.length, status: 'ok' })
     await db.article.update({
       where: { id: article.id },
-      data: { contentClean: cleanedContent },
+      data: { contentClean: cleanedContent, processingLog: log },
     })
     return { nextStage: 'translated' }
   }
 
-  // Content is short/missing — try to fetch the full article
+  // Firecrawl attempt
   let fetchedText = null
-
   if (project.firecrawlApiKeyEncrypted) {
     try {
       const apiKey = decrypt(project.firecrawlApiKeyEncrypted)
       const result = await scrapeUrl(apiKey, article.url)
       if (result.text) {
         fetchedText = preClean(result.text)
+        log.push({ step: 'firecrawl', status: 'ok', chars: fetchedText.length })
+      } else {
+        log.push({ step: 'firecrawl', status: 'failed', error: result.error || 'No text returned' })
       }
     } catch (e) {
-      logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Firecrawl failed, trying fallback')
+      log.push({ step: 'firecrawl', status: 'failed', error: e.message })
     }
+  } else {
+    log.push({ step: 'firecrawl', status: 'skipped', reason: 'No API key' })
   }
 
+  // HTML fallback
   if (!fetchedText) {
     try {
       const result = await fetchArticleText(article.url)
-      if (result.text) fetchedText = result.text
+      if (result.text) {
+        fetchedText = result.text
+        log.push({ step: 'html_fetch', status: 'ok', chars: fetchedText.length })
+      } else {
+        log.push({ step: 'html_fetch', status: 'failed', error: result.error || 'No text extracted' })
+      }
     } catch (e) {
-      logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] fallback fetch failed')
+      log.push({ step: 'html_fetch', status: 'failed', error: e.message })
     }
   }
 
   if (fetchedText && fetchedText.length >= MIN_CONTENT_LENGTH) {
+    log.push({ step: 'content_source', source: 'firecrawl_or_html', chars: fetchedText.length, status: 'ok' })
     await db.article.update({
       where: { id: article.id },
-      data: { contentClean: fetchedText },
+      data: { contentClean: fetchedText, processingLog: log },
     })
     return { nextStage: 'translated' }
   }
 
-  // Still too short — check if we have at least title + description to work with
+  // Title + description fallback
   const fallbackText = [article.title, article.description, cleanedContent].filter(Boolean).join('\n\n').trim()
   if (fallbackText.length >= 100) {
+    log.push({ step: 'content_source', source: 'title_desc_fallback', chars: fallbackText.length, status: 'ok' })
     await db.article.update({
       where: { id: article.id },
-      data: { contentClean: fallbackText },
+      data: { contentClean: fallbackText, processingLog: log },
     })
     return { nextStage: 'translated' }
   }
 
-  // Nothing usable — send to review
+  log.push({ step: 'content_source', source: 'none', status: 'review', reason: 'No usable content found' })
+  await saveLog(article.id, log)
   return { nextStage: 'content', reviewStatus: 'review', reviewReason: 'No usable content found' }
 }
 
 // ── Stage 3: translated ──────────────────────────────────────────────────────
 
 async function doStageTranslated(article, project) {
+  const log = getLog(article)
   const text = article.contentClean || article.content || ''
   if (!text.trim()) {
+    log.push({ step: 'translate', status: 'review', reason: 'No content to translate' })
+    await saveLog(article.id, log)
     return { nextStage: 'translated', reviewStatus: 'review', reviewReason: 'No content to translate' }
   }
 
   const sourceLang = article.language || detectLanguage(text)
+  log.push({ step: 'detect_language', detected: sourceLang, at: new Date().toISOString() })
 
   if (sourceLang === 'ar') {
+    log.push({ step: 'translate', status: 'skipped', reason: 'Already Arabic' })
     await db.article.update({
       where: { id: article.id },
-      data: {
-        contentAr: text,
-        language: 'ar',
-      },
+      data: { contentAr: text, language: 'ar', processingLog: log },
     })
     return { nextStage: 'ai_analysis' }
   }
@@ -147,11 +177,17 @@ async function doStageTranslated(article, project) {
     throw new Error('Translation returned empty or too short result')
   }
 
+  log.push({
+    step: 'translate', status: 'ok', model: 'haiku',
+    inputLang: sourceLang, inputChars: truncated.length, outputChars: translated.trim().length,
+  })
+
   await db.article.update({
     where: { id: article.id },
     data: {
       contentAr: translated.trim(),
       language: sourceLang === 'unknown' ? 'other' : sourceLang,
+      processingLog: log,
     },
   })
 
@@ -164,6 +200,7 @@ async function doStageAiAnalysis(article, project) {
   if (!project.anthropicApiKeyEncrypted) {
     throw new Error('Anthropic API key not configured. Go to Settings to add it.')
   }
+  const log = getLog(article)
   const apiKey = decrypt(project.anthropicApiKeyEncrypted)
 
   const articleText = (article.contentAr || article.contentClean || article.content || '').slice(0, 20000)
@@ -206,8 +243,18 @@ async function doStageAiAnalysis(article, project) {
     analysis = JSON.parse(trimmed.slice(start, end))
   } catch (e) {
     logger.warn({ articleId: article.id, raw: (raw || '').slice(0, 200) }, '[articleProcessor] Failed to parse classification')
-    analysis = { raw, parseError: true }
+    analysis = { raw: (raw || '').slice(0, 500), parseError: true }
   }
+
+  log.push({
+    step: 'classify', status: analysis.parseError ? 'parse_error' : 'ok',
+    topic: analysis.topic || null,
+    tags: analysis.tags || [],
+    sentiment: analysis.sentiment || null,
+    contentType: analysis.contentType || null,
+    region: analysis.region || null,
+    at: new Date().toISOString(),
+  })
 
   const relevance = typeof analysis.relevance === 'number' ? analysis.relevance : 0
   const viralPotential = typeof analysis.viralPotential === 'number' ? analysis.viralPotential : 0
@@ -217,17 +264,31 @@ async function doStageAiAnalysis(article, project) {
     : 14
   const freshness = Math.exp(-daysSincePublished / 7 * Math.LN2)
 
-  const rankScore = Math.round((
-    relevance * 0.35 +
-    viralPotential * 0.30 +
-    freshness * 0.35
-  ) * 100) / 100
+  // Load preference profile for this project (if exists)
+  let preferenceBias = 0
+  try {
+    const { getPreferenceProfile } = require('./articleFeedback')
+    const profile = await getPreferenceProfile(article.projectId)
+    if (profile) {
+      preferenceBias = calculatePreferenceBias(analysis, profile)
+    }
+  } catch (_) {}
+
+  const rawScore = relevance * 0.35 + viralPotential * 0.30 + freshness * 0.35
+  const rankScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40)) * 100) / 100
+
+  log.push({
+    step: 'score', relevance, viralPotential, freshness: Math.round(freshness * 100) / 100,
+    preferenceBias: Math.round(preferenceBias * 100) / 100,
+    rankScore,
+  })
 
   const reasons = []
   if (relevance >= 0.7) reasons.push('high-relevance')
   if (viralPotential >= 0.7) reasons.push('viral-potential')
   if (freshness >= 0.7) reasons.push('fresh')
   if (analysis.isBreaking) reasons.push('breaking')
+  if (preferenceBias > 0.2) reasons.push('matches-preferences')
 
   await db.article.update({
     where: { id: article.id },
@@ -236,25 +297,65 @@ async function doStageAiAnalysis(article, project) {
       relevanceScore: relevance,
       rankScore,
       rankReason: reasons.join(', ') || null,
+      processingLog: log,
     },
   })
 
-  // Promote to Story if above threshold
-  const PROMOTION_THRESHOLD = 0.5
-  if (relevance >= PROMOTION_THRESHOLD && !analysis.parseError) {
+  // Always promote to Story (no threshold)
+  if (!analysis.parseError) {
     try {
-      await promoteToStory(article, analysis, relevance, viralPotential, rankScore)
+      const promoted = await promoteToStory(article, analysis, relevance, viralPotential, rankScore)
+      log.push({ step: 'promote', status: promoted ? 'created' : 'linked', storyId: promoted || null })
+      await saveLog(article.id, log)
     } catch (e) {
+      log.push({ step: 'promote', status: 'failed', error: e.message })
+      await saveLog(article.id, log)
       logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Story promotion failed (non-fatal)')
     }
+  } else {
+    log.push({ step: 'promote', status: 'skipped', reason: 'Classification parse error' })
+    await saveLog(article.id, log)
   }
 
   return { nextStage: 'done' }
 }
 
+function calculatePreferenceBias(analysis, profile) {
+  if (!profile || !analysis) return 0
+  let bias = 0
+  const tags = Array.isArray(analysis.tags) ? analysis.tags : []
+
+  // Tag overlap with liked tags
+  if (profile.likedTags && tags.length > 0) {
+    const overlap = tags.filter(t => profile.likedTags.includes(t)).length
+    bias += (overlap / Math.max(tags.length, 1)) * 0.4
+  }
+
+  // Tag overlap with omit tags (penalty)
+  if (profile.omitTags && tags.length > 0) {
+    const overlap = tags.filter(t => profile.omitTags.includes(t)).length
+    bias -= (overlap / Math.max(tags.length, 1)) * 0.3
+  }
+
+  // Content type preference
+  if (profile.preferredTypes && analysis.contentType) {
+    if (profile.preferredTypes.includes(analysis.contentType)) bias += 0.15
+  }
+  if (profile.avoidedTypes && analysis.contentType) {
+    if (profile.avoidedTypes.includes(analysis.contentType)) bias -= 0.1
+  }
+
+  // Region preference
+  if (profile.preferredRegions && analysis.region) {
+    if (profile.preferredRegions.includes(analysis.region)) bias += 0.15
+  }
+
+  return Math.max(-0.5, Math.min(0.5, bias))
+}
+
 async function promoteToStory(article, analysis, relevance, viralPotential, rankScore) {
   const headline = analysis.topic || article.title || ''
-  if (!headline.trim()) return
+  if (!headline.trim()) return null
 
   const existing = await db.story.findFirst({
     where: { projectId: article.projectId, headline: headline.trim() },
@@ -265,7 +366,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
       where: { id: article.id },
       data: { storyId: existing.id },
     })
-    return
+    return null
   }
 
   const relevanceScore = Math.round(relevance * 100)
@@ -293,6 +394,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
         region: analysis.region || null,
         contentType: analysis.contentType || null,
         uniqueAngle: analysis.uniqueAngle || null,
+        sentiment: analysis.sentiment || null,
         articleId: article.id,
       },
     },
@@ -302,6 +404,8 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
     where: { id: article.id },
     data: { storyId: story.id },
   })
+
+  return story.id
 }
 
 module.exports = {
