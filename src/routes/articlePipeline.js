@@ -418,12 +418,10 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
 
     const cap = Math.min(Math.max(1, Number(limit) || 5), 20)
 
-    const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
-
     const articles = await db.article.findMany({
       where: {
         projectId,
-        stage: { in: STAGES },
+        stage: 'imported',
         status: 'queued',
         retries: { lt: 3 },
       },
@@ -437,39 +435,55 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
     }
 
     const runId = `test-${Date.now()}`
+    const DONE_STAGES = new Set(['done', 'failed'])
     const items = articles.map(a => ({
-      id: a.id, title: a.title, stageBefore: a.stage,
-      stageAfter: null, status: 'pending', error: null,
+      id: a.id, title: a.title, stageBefore: 'imported',
+      stageAfter: null, currentStage: 'imported', status: 'pending', error: null,
     }))
 
     _testRuns.set(runId, { projectId, items, startedAt: Date.now() })
 
-    // Process in background — one by one
+    // Process each article through ALL stages until done/failed
     const { processItem } = require('../worker-articles')
     ;(async () => {
       for (const item of items) {
         item.status = 'running'
         try {
-          const fresh = await db.article.findUnique({
-            where: { id: item.id },
-            include: { source: { include: { project: true } } },
-          })
-          if (fresh) await processItem(fresh)
-          const after = await db.article.findUnique({
+          let loops = 0
+          while (loops < 10) {
+            loops++
+            const fresh = await db.article.findUnique({
+              where: { id: item.id },
+              include: { source: { include: { project: true } } },
+            })
+            if (!fresh || DONE_STAGES.has(fresh.stage) || fresh.status === 'review') break
+            item.currentStage = fresh.stage
+            await processItem(fresh)
+            const after = await db.article.findUnique({
+              where: { id: item.id },
+              select: { stage: true, status: true, error: true },
+            })
+            if (!after || DONE_STAGES.has(after.stage) || after.status === 'review' || after.error) {
+              item.stageAfter = after?.stage || item.currentStage
+              item.error = after?.error || null
+              break
+            }
+          }
+          const final = await db.article.findUnique({
             where: { id: item.id },
             select: { stage: true, status: true, error: true },
           })
-          item.stageAfter = after?.stage || item.stageBefore
-          item.status = after?.error ? 'error' : 'done'
-          item.error = after?.error || null
+          item.stageAfter = final?.stage || item.currentStage
+          item.status = final?.error ? 'error' : 'done'
+          item.error = final?.error || null
+          item.currentStage = final?.stage || item.currentStage
         } catch (e) {
-          item.stageAfter = item.stageBefore
+          item.stageAfter = item.currentStage
           item.status = 'error'
           item.error = e.message
         }
       }
-      // Clean up after 5 minutes
-      setTimeout(() => _testRuns.delete(runId), 5 * 60 * 1000)
+      setTimeout(() => _testRuns.delete(runId), 10 * 60 * 1000)
     })()
 
     res.json({

@@ -105,6 +105,7 @@ interface TestResultItem {
   title: string | null;
   stageBefore: string;
   stageAfter: string | null;
+  currentStage: string;
   status: "pending" | "running" | "done" | "error";
   error: string | null;
 }
@@ -408,10 +409,10 @@ export default function ArticlePipeline() {
           return;
         }
 
-        // Show initial pending items immediately
         setTestResults(d.articles.map(a => ({
           id: a.id, title: a.title, stageBefore: a.stageBefore,
-          stageAfter: null, status: "pending" as const, error: null,
+          stageAfter: null, currentStage: a.stageBefore,
+          status: "pending" as const, error: null,
         })));
         setTestProgress(`0 / ${d.total}`);
 
@@ -568,7 +569,13 @@ export default function ArticlePipeline() {
                         <div className="flex items-center gap-1.5 text-[10px] font-mono shrink-0">
                           <span className="px-1.5 py-0.5 rounded bg-dim/10 text-dim">{r.stageBefore}</span>
                           {r.status === "running" ? (
-                            <Loader2 className="w-3 h-3 text-purple animate-spin" />
+                            <>
+                              <ArrowRight className="w-3 h-3 text-dim" />
+                              <span className="px-1.5 py-0.5 rounded bg-purple/10 text-purple animate-pulse">
+                                {r.currentStage}
+                              </span>
+                              <Loader2 className="w-3 h-3 text-purple animate-spin" />
+                            </>
                           ) : r.stageAfter ? (
                             <>
                               <ArrowRight className="w-3 h-3 text-dim" />
