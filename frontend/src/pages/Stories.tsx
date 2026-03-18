@@ -110,8 +110,6 @@ export default function Stories() {
     firstMoverPct: number;
   } | null>(null);
   const [storiesDisplayLimit, setStoriesDisplayLimit] = useState(STORIES_PAGE_SIZE);
-  const [listSort, setListSort] = useState<"score" | "date">("score");
-  const [listOrder, setListOrder] = useState<"asc" | "desc">("desc");
   const [loadError, setLoadError] = useState<string | null>(null);
   const storyListScrollRef = useRef<HTMLDivElement>(null);
 
@@ -136,9 +134,10 @@ export default function Stories() {
 
   useEffect(() => {
     loadStories();
+    const interval = setInterval(loadStories, 30_000);
+    return () => clearInterval(interval);
   }, [loadStories]);
 
-  // Reset display limit when changing stage (must be before any conditional return to satisfy rules of hooks)
   useEffect(() => {
     setStoriesDisplayLimit(STORIES_PAGE_SIZE);
   }, [activeStage]);
@@ -223,16 +222,10 @@ export default function Stories() {
 
   const stageStories = activeStage === "all" ? stories : stories.filter((s) => s.stage === activeStage);
   const stageStoriesSorted = [...stageStories].sort((a, b) => {
-    const dateA = new Date(a.createdAt).getTime();
-    const dateB = new Date(b.createdAt).getTime();
     const scoreA = a.compositeScore ?? 0;
     const scoreB = b.compositeScore ?? 0;
-    const mul = listOrder === "desc" ? 1 : -1;
-    if (listSort === "date") {
-      return (dateB - dateA) * mul;
-    }
-    if (scoreB !== scoreA) return (scoreB - scoreA) * mul;
-    return (dateB - dateA) * mul;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
   const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
   const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
@@ -328,49 +321,11 @@ export default function Stories() {
             style={{ maxHeight: "calc(100vh - 300px)" }}
           >
             {/* Header */}
-            <div className="px-4 py-3 bg-background shrink-0 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold">
-                  {activeStage === "all" ? "All" : STAGES.find((s) => s.key === activeStage)?.label}
-                </span>
-                <span className="text-[12px] text-dim font-mono">({stageStories.length})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-dim font-mono uppercase tracking-wider mr-1">Sort:</span>
-                {(["score", "date"] as const).map((sortKey) => {
-                  const isActive = listSort === sortKey;
-                  const order = listSort === sortKey ? listOrder : "desc";
-                  const label =
-                    sortKey === "score"
-                      ? order === "desc"
-                        ? "Score ↓"
-                        : "Score ↑"
-                      : order === "desc"
-                        ? "Date ↓"
-                        : "Date ↑";
-                  return (
-                    <button
-                      key={sortKey}
-                      type="button"
-                      onClick={() => {
-                        if (listSort === sortKey) {
-                          setListOrder((o) => (o === "desc" ? "asc" : "desc"));
-                        } else {
-                          setListSort(sortKey);
-                          setListOrder("desc");
-                        }
-                      }}
-                      className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                        isActive
-                          ? "bg-foreground/10 text-foreground border border-foreground/20"
-                          : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="px-4 py-3 bg-background shrink-0 flex items-center gap-2">
+              <span className="text-[13px] font-semibold">
+                {activeStage === "all" ? "All" : STAGES.find((s) => s.key === activeStage)?.label}
+              </span>
+              <span className="text-[12px] text-dim font-mono">({stageStories.length})</span>
             </div>
 
             {/* Items */}
