@@ -659,6 +659,14 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
           )}
         </div>
       )}
+
+      {/* Elapsed time + retries */}
+      <div className="flex items-center justify-between text-[10px] text-dim font-mono mt-1">
+        {(article.createdAt || article.startedAt) && (
+          <span>⏱ {fmtElapsed(article.createdAt, article.finishedAt)}</span>
+        )}
+        {article.retries > 0 && <span>{article.retries} Retry</span>}
+      </div>
     </div>
   );
 }
@@ -838,7 +846,10 @@ function ActiveArticleRow({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {article.retries > 0 && <span>⟳{article.retries}</span>}
+          {(article.startedAt || article.createdAt) && (
+            <span>⏱ {fmtElapsed(article.startedAt || article.createdAt)}</span>
+          )}
+          {article.retries > 0 && <span>{article.retries} Retry</span>}
           {(isFailed || isReview) && (
             <button onClick={handleAction(`/api/article-pipeline/${article.id}/retry`, setRetrying, "Retrying")}
               disabled={retrying} className="hover:text-sensor disabled:opacity-50">
@@ -1156,4 +1167,18 @@ function fmtShortAgo(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function fmtElapsed(from: string | null | undefined, to?: string | null): string {
+  if (!from) return "";
+  const start = new Date(from).getTime();
+  const end = to ? new Date(to).getTime() : Date.now();
+  const ms = end - start;
+  if (ms < 0) return "";
+  const totalMinutes = Math.floor(ms / 60000);
+  if (totalMinutes < 1) return "<1m";
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
 }

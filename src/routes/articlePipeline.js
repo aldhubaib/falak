@@ -20,8 +20,24 @@ router.get('/', async (req, res) => {
 
     const { isPaused } = require('../worker-articles')
 
-    // Stats from full DB (not limited) so "total" and "done" are accurate
-    const [totalCount, reviewCount, failedCount, doneCount, importedCount, contentCount, translatedCount, aiAnalysisCount, allArticles] = await Promise.all([
+    const articleSelect = {
+      id: true, url: true, title: true, description: true,
+      stage: true, status: true, error: true, retries: true,
+      publishedAt: true, language: true, startedAt: true, finishedAt: true,
+      relevanceScore: true, rankScore: true, rankReason: true,
+      storyId: true, createdAt: true, updatedAt: true,
+      processingLog: true, analysis: true,
+      source: { select: { id: true, label: true, type: true, language: true } },
+    }
+
+    const STAGE_LIMIT = 200
+
+    const [
+      totalCount, reviewCount, failedCount, doneCount,
+      importedCount, contentCount, translatedCount, aiAnalysisCount,
+      imported, content, translated, aiAnalysis,
+      reviewArticles, failedArticles, doneArticles,
+    ] = await Promise.all([
       db.article.count({ where: { projectId } }),
       db.article.count({ where: { projectId, status: 'review' } }),
       db.article.count({ where: { projectId, stage: 'failed' } }),
@@ -31,18 +47,32 @@ router.get('/', async (req, res) => {
       db.article.count({ where: { projectId, stage: 'translated', status: { not: 'review' } } }),
       db.article.count({ where: { projectId, stage: 'ai_analysis', status: { not: 'review' } } }),
       db.article.findMany({
-        where: { projectId },
-        select: {
-          id: true, url: true, title: true, description: true,
-          stage: true, status: true, error: true, retries: true,
-          publishedAt: true, language: true, startedAt: true, finishedAt: true,
-          relevanceScore: true, rankScore: true, rankReason: true,
-          storyId: true, createdAt: true, updatedAt: true,
-          processingLog: true, analysis: true,
-          source: { select: { id: true, label: true, type: true, language: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 2000,
+        where: { projectId, stage: 'imported', status: { not: 'review' } },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'content', status: { not: 'review' } },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'translated', status: { not: 'review' } },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'ai_analysis', status: { not: 'review' } },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, status: 'review' },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'failed' },
+        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
+      }),
+      db.article.findMany({
+        where: { projectId, stage: 'done' },
+        select: articleSelect, orderBy: { updatedAt: 'desc' }, take: STAGE_LIMIT,
       }),
     ])
 
@@ -57,20 +87,50 @@ router.get('/', async (req, res) => {
       failed: failedCount,
     }
 
-    const byStage = { imported: [], content: [], translated: [], ai_analysis: [], review: [], done: [], failed: [] }
-    for (const a of allArticles) {
-      if (a.status === 'review') {
-        byStage.review.push(a)
-      } else if (a.stage === 'failed') {
-        byStage.failed.push(a)
-      } else if (a.stage === 'done') {
-        byStage.done.push(a)
-      } else if (byStage[a.stage]) {
-        byStage[a.stage].push(a)
-      }
+    const byStage = {
+      imported, content, translated, ai_analysis: aiAnalysis,
+      review: reviewArticles, failed: failedArticles, done: doneArticles,
     }
 
     res.json({ stats, byStage, paused: isPaused() })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── GET /api/article-pipeline/firecrawl-example?projectId=X — one article where Firecrawl succeeded
+router.get('/firecrawl-example', async (req, res) => {
+  try {
+    const { projectId } = req.query
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+
+    const articles = await db.article.findMany({
+      where: { projectId, processingLog: { not: null } },
+      select: { id: true, url: true, title: true, stage: true, processingLog: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 1000,
+    })
+
+    const found = articles.find((a) => {
+      const log = Array.isArray(a.processingLog) ? a.processingLog : []
+      return log.some((e) => e.step === 'firecrawl' && e.status === 'ok')
+    })
+
+    if (!found) {
+      return res.json({ found: false, message: 'No articles where Firecrawl succeeded in this project.' })
+    }
+
+    const firecrawlLog = found.processingLog.find((e) => e.step === 'firecrawl')
+    res.json({
+      found: true,
+      article: {
+        id: found.id,
+        url: found.url,
+        title: found.title,
+        stage: found.stage,
+        firecrawlChars: firecrawlLog?.chars ?? null,
+      },
+    })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
