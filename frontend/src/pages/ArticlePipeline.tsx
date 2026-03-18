@@ -100,6 +100,15 @@ interface PipelineData {
   paused: boolean;
 }
 
+interface TestResult {
+  id: string;
+  title: string | null;
+  stage: string;
+  after: string;
+  status: string;
+  error: string | null;
+}
+
 interface VectorIntelligenceData {
   hasEmbeddingKey: boolean;
   lastStatsRefreshAt: string | null;
@@ -286,6 +295,7 @@ export default function ArticlePipeline() {
   const [retryingAll, setRetryingAll] = useState(false);
   const [fetchingAll, setFetchingAll] = useState(false);
   const [testRunning, setTestRunning] = useState(false);
+  const [testResults, setTestResults] = useState<TestResult[] | null>(null);
   const [countdown, setCountdown] = useState(30);
 
   // Vector Intelligence state
@@ -380,16 +390,15 @@ export default function ArticlePipeline() {
   const handleTestRun = () => {
     if (!projectId) return;
     setTestRunning(true);
+    setTestResults(null);
     fetch("/api/article-pipeline/test-run", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId, limit: 5 }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { processed: number; results: { title: string; stage: string; after: string; status: string; error: string | null }[] }) => {
-        const ok = d.results.filter(r => r.status !== "error").length;
-        const failed = d.results.filter(r => r.status === "error").length;
-        toast.success(`Test run: ${ok} processed${failed ? `, ${failed} errors` : ""}`);
+      .then((d: { processed: number; results: TestResult[] }) => {
+        setTestResults(d.results);
         fetchPipeline();
       })
       .catch(() => toast.error("Test run failed"))
@@ -459,6 +468,61 @@ export default function ArticlePipeline() {
                 <StatBox label="Failed" value={failedCount} color="text-destructive" last />
               </div>
             </div>
+
+            {/* ── TEST RUN RESULTS ── */}
+            {testResults && testResults.length > 0 && (
+              <div className="px-6 max-lg:px-4 mb-5">
+                <div className="rounded-xl border border-purple/30 bg-purple/[0.04] overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-purple/20">
+                    <div className="flex items-center gap-2">
+                      <FlaskConical className="w-3.5 h-3.5 text-purple" />
+                      <span className="text-[12px] font-semibold text-foreground">Test Run Results</span>
+                      <span className="text-[11px] text-dim font-mono">
+                        {testResults.filter(r => r.status !== "error").length} ok
+                        {testResults.some(r => r.status === "error") && (
+                          <>, <span className="text-destructive">{testResults.filter(r => r.status === "error").length} errors</span></>
+                        )}
+                      </span>
+                    </div>
+                    <button onClick={() => setTestResults(null)}
+                      className="text-dim hover:text-foreground transition-colors">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="divide-y divide-purple/10">
+                    {testResults.map((r, i) => (
+                      <Link key={r.id || i} to={pp(`/article/${r.id}`)}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-purple/[0.04] transition-colors group no-underline">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                          r.status === "error" ? "bg-destructive/15 text-destructive" :
+                          r.after === "done" ? "bg-success/15 text-success" :
+                          "bg-purple/15 text-purple"
+                        }`}>
+                          {i + 1}
+                        </span>
+                        <span className="text-[12px] text-foreground font-medium truncate flex-1 min-w-0" dir="auto">
+                          {r.title || r.id?.slice(0, 12)}
+                        </span>
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono shrink-0">
+                          <span className="px-1.5 py-0.5 rounded bg-dim/10 text-dim">{r.stage}</span>
+                          <ArrowRight className="w-3 h-3 text-dim" />
+                          <span className={`px-1.5 py-0.5 rounded ${
+                            r.status === "error" ? "bg-destructive/10 text-destructive" :
+                            r.after === "done" ? "bg-success/10 text-success" :
+                            "bg-purple/10 text-purple"
+                          }`}>
+                            {r.status === "error" ? "error" : r.after}
+                          </span>
+                        </div>
+                        {r.error && (
+                          <span className="text-[10px] text-destructive/70 font-mono truncate max-w-[200px]">{r.error}</span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── 1. CONTENT FLOW ── */}
             <SectionHeader icon={FileText} title="Content Flow" subtitle="How articles get their text" />
