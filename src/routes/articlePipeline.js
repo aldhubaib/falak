@@ -182,6 +182,55 @@ async function getSourcesView(req, res, projectId) {
   res.json({ workflows, totals })
 }
 
+// ── GET /api/article-pipeline/:id/detail — full article with all content fields ──
+router.get('/:id/detail', async (req, res) => {
+  try {
+    const article = await db.article.findUnique({
+      where: { id: req.params.id },
+      include: {
+        source: { select: { id: true, label: true, type: true, language: true } },
+      },
+    })
+    if (!article) return res.status(404).json({ error: 'Article not found' })
+
+    const contentPreviewLen = 5000
+    const truncate = (s) => s && s.length > contentPreviewLen ? s.slice(0, contentPreviewLen) + '…' : s
+
+    res.json({
+      id: article.id,
+      projectId: article.projectId,
+      url: article.url,
+      title: article.title,
+      description: article.description,
+      content: truncate(article.content),
+      contentClean: truncate(article.contentClean),
+      contentAr: truncate(article.contentAr),
+      contentRawLength: article.content?.length ?? 0,
+      contentCleanLength: article.contentClean?.length ?? 0,
+      contentArLength: article.contentAr?.length ?? 0,
+      publishedAt: article.publishedAt,
+      language: article.language,
+      stage: article.stage,
+      status: article.status,
+      retries: article.retries,
+      error: article.error,
+      startedAt: article.startedAt,
+      finishedAt: article.finishedAt,
+      processingLog: article.processingLog,
+      analysis: article.analysis,
+      relevanceScore: article.relevanceScore,
+      rankScore: article.rankScore,
+      rankReason: article.rankReason,
+      storyId: article.storyId,
+      source: article.source,
+      createdAt: article.createdAt,
+      updatedAt: article.updatedAt,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── GET /api/article-pipeline/:sourceId/articles ──────────────────────────
 router.get('/:sourceId/articles', async (req, res) => {
   try {

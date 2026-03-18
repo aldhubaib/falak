@@ -16,6 +16,12 @@ const logger = require('../lib/logger')
 
 const MIN_CONTENT_LENGTH = 300
 const ARABIC_CHAR_REGEX = /[\u0600-\u06FF]/g
+const PREVIEW_LENGTH = 500
+
+function preview(text) {
+  if (!text || typeof text !== 'string') return null
+  return text.length > PREVIEW_LENGTH ? text.slice(0, PREVIEW_LENGTH) + '…' : text
+}
 
 function stripHtml(text) {
   if (!text || typeof text !== 'string') return ''
@@ -48,7 +54,12 @@ async function saveLog(articleId, log) {
 
 async function doStageImported(article, project) {
   const log = getLog(article)
-  log.push({ step: 'imported', status: 'ok', at: new Date().toISOString() })
+  log.push({
+    step: 'imported', status: 'ok', at: new Date().toISOString(),
+    rawChars: (article.content || '').length,
+    titlePreview: article.title || null,
+    contentPreview: preview(article.content),
+  })
   await saveLog(article.id, log)
   return { nextStage: 'content' }
 }
@@ -60,7 +71,10 @@ async function doStageContent(article, project) {
   const rawContent = article.content || ''
   const cleanedContent = stripHtml(rawContent).trim()
 
-  log.push({ step: 'apify_content', chars: cleanedContent.length, threshold: MIN_CONTENT_LENGTH, at: new Date().toISOString() })
+  log.push({
+    step: 'apify_content', chars: cleanedContent.length, threshold: MIN_CONTENT_LENGTH,
+    at: new Date().toISOString(), contentPreview: preview(cleanedContent),
+  })
 
   if (cleanedContent.length >= MIN_CONTENT_LENGTH) {
     log.push({ step: 'content_source', source: 'apify', chars: cleanedContent.length, status: 'ok' })
@@ -180,6 +194,8 @@ async function doStageTranslated(article, project) {
   log.push({
     step: 'translate', status: 'ok', model: 'haiku',
     inputLang: sourceLang, inputChars: truncated.length, outputChars: translated.trim().length,
+    inputPreview: preview(truncated),
+    outputPreview: preview(translated.trim()),
   })
 
   await db.article.update({
@@ -253,6 +269,12 @@ async function doStageAiAnalysis(article, project) {
     sentiment: analysis.sentiment || null,
     contentType: analysis.contentType || null,
     region: analysis.region || null,
+    summary: analysis.summary || null,
+    uniqueAngle: analysis.uniqueAngle || null,
+    viralPotential: typeof analysis.viralPotential === 'number' ? analysis.viralPotential : null,
+    relevance: typeof analysis.relevance === 'number' ? analysis.relevance : null,
+    isBreaking: !!analysis.isBreaking,
+    inputChars: articleText.length,
     at: new Date().toISOString(),
   })
 

@@ -543,13 +543,14 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
   const promoteLog = log.find(e => e.step === "promote");
 
   return (
-    <div className="px-3 py-2.5 border-t border-border hover:bg-surface/50 transition-colors group">
+    <Link to={pp(`/article/${article.id}`)} className="block px-3 py-2.5 border-t border-border hover:bg-surface/50 transition-colors group no-underline cursor-pointer">
       {/* Title row */}
       <div className="flex items-center justify-between gap-1.5 mb-1">
         <span className="text-[12px] text-foreground font-medium truncate flex-1" dir="auto">
           {article.title || domain || article.id.slice(0, 8)}
         </span>
         <a href={article.url} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <ExternalLink className="w-3 h-3 text-dim hover:text-sensor" />
         </a>
@@ -667,7 +668,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         )}
         {article.retries > 0 && <span>{article.retries} Retry</span>}
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -804,9 +805,9 @@ function ActiveArticleRow({
           {article.status === "queued" && <span className="w-1.5 h-1.5 rounded-full bg-dim/50 shrink-0" />}
           {isReview && <span className="w-1.5 h-1.5 rounded-full bg-orange shrink-0" />}
           {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />}
-          <span className="text-[12px] text-foreground font-medium truncate" dir="auto">
+          <Link to={pp(`/article/${article.id}`)} className="text-[12px] text-foreground font-medium truncate hover:text-blue transition-colors no-underline" dir="auto">
             {article.title || domain || article.id.slice(0, 8)}
-          </span>
+          </Link>
         </div>
         <a href={article.url} target="_blank" rel="noopener noreferrer"
           className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">

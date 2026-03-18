@@ -22,6 +22,7 @@ import Stories from "./pages/Stories";
 import BrainV2 from "./pages/BrainV2";
 import StoryDetail from "./pages/StoryDetail";
 import ArticlePipeline from "./pages/ArticlePipeline";
+import ArticleDetail from "./pages/ArticleDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,7 @@ const App = () => (
               <Route path="story/:id" element={<StoryDetail />} />
               <Route path="source" element={<Source />} />
               <Route path="article-pipeline" element={<ArticlePipeline />} />
+              <Route path="article/:id" element={<ArticleDetail />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Route>
