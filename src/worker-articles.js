@@ -201,4 +201,4 @@ async function runPollingWorker() {
   }
 }
 
-module.exports = { tick, rescueStuckItems, runPollingWorker, isPaused, setPaused }
+module.exports = { tick, rescueStuckItems, runPollingWorker, isPaused, setPaused, processItem }

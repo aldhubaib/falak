@@ -6,7 +6,7 @@ import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
   SkipForward, Trash2, ClipboardPaste, X, Loader2, CheckCircle2,
   ArrowRight, Globe, Languages, Brain, Sparkles, FileText, Download,
-  Zap, TrendingUp, Bell, Search, Activity, Target,
+  Zap, TrendingUp, Bell, Search, Activity, Target, FlaskConical,
 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -285,6 +285,7 @@ export default function ArticlePipeline() {
   const [paused, setPaused] = useState(false);
   const [retryingAll, setRetryingAll] = useState(false);
   const [fetchingAll, setFetchingAll] = useState(false);
+  const [testRunning, setTestRunning] = useState(false);
   const [countdown, setCountdown] = useState(30);
 
   // Vector Intelligence state
@@ -376,6 +377,25 @@ export default function ArticlePipeline() {
       .finally(() => setFetchingAll(false));
   };
 
+  const handleTestRun = () => {
+    if (!projectId) return;
+    setTestRunning(true);
+    fetch("/api/article-pipeline/test-run", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, limit: 5 }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { processed: number; results: { title: string; stage: string; after: string; status: string; error: string | null }[] }) => {
+        const ok = d.results.filter(r => r.status !== "error").length;
+        const failed = d.results.filter(r => r.status === "error").length;
+        toast.success(`Test run: ${ok} processed${failed ? `, ${failed} errors` : ""}`);
+        fetchPipeline();
+      })
+      .catch(() => toast.error("Test run failed"))
+      .finally(() => setTestRunning(false));
+  };
+
   const allArticles = data
     ? [...Object.values(data.byStage)].flat()
     : [];
@@ -400,6 +420,11 @@ export default function ArticlePipeline() {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
             {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
             {paused ? "Resume" : "Pause"}
+          </button>
+          <button onClick={handleTestRun} disabled={testRunning}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple/30 bg-purple/10 text-[11px] text-purple font-medium hover:bg-purple/20 transition-colors disabled:opacity-50">
+            {testRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
+            {testRunning ? "Running…" : "Test 5"}
           </button>
           <button onClick={handleFetchAll} disabled={fetchingAll}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">

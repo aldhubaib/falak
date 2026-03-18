@@ -408,4 +408,48 @@ router.post('/retry-all-failed', requireRole('owner', 'admin', 'editor'), async 
   }
 })
 
+// ── POST /api/article-pipeline/test-run — process up to N articles through the full pipeline
+router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { projectId, limit = 5 } = req.body
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+
+    const cap = Math.min(Math.max(1, Number(limit) || 5), 20)
+    const { processItem } = require('../worker-articles')
+
+    const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
+    const results = []
+
+    const articles = await db.article.findMany({
+      where: {
+        projectId,
+        stage: { in: STAGES },
+        status: 'queued',
+        retries: { lt: 3 },
+      },
+      include: { source: { include: { project: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: cap,
+    })
+
+    for (const article of articles) {
+      const before = { id: article.id, title: article.title, stage: article.stage }
+      try {
+        await processItem(article)
+        const after = await db.article.findUnique({
+          where: { id: article.id },
+          select: { stage: true, status: true, error: true },
+        })
+        results.push({ ...before, after: after?.stage, status: after?.status, error: after?.error || null })
+      } catch (e) {
+        results.push({ ...before, after: before.stage, status: 'error', error: e.message })
+      }
+    }
+
+    res.json({ processed: results.length, requested: cap, results })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 module.exports = router
