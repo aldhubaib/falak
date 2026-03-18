@@ -26,7 +26,7 @@ async function rescoreActiveStories(projectId) {
       id: true, headline: true, stage: true, brief: true,
       relevanceScore: true, viralScore: true, firstMoverScore: true,
       compositeScore: true, sourceDate: true, createdAt: true,
-      rescoreLog: true, embedding: undefined, // Unsupported type, use raw query if needed
+      rescoreLog: true,
     },
   })
 

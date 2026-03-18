@@ -694,8 +694,6 @@ router.post('/re-evaluate', requireRole('owner', 'admin'), async (req, res) => {
     if (!projectId) return res.status(400).json({ error: 'projectId query param required' })
     const { runCycleForProject } = require('../worker-rescore')
     const result = await runCycleForProject(projectId)
-    await addLog(null, req.user.id, 'manual_rescore', `Re-evaluated: ${result.evaluated || 0} stories, ${result.changed || 0} changed`)
-      .catch(() => {})
     res.json(result)
   } catch (e) {
     console.error('[stories/re-evaluate]', e)
