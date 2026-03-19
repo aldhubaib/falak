@@ -422,9 +422,10 @@ function TimelineStep({
 
 /* ─── Step log helpers ─── */
 
+/** Step order and ids per stage — must match Article Pipeline Kanban exactly. */
 const STEP_MAP: Record<string, string[]> = {
   imported: ["imported"],
-  content: ["apify_content", "firecrawl", "html_fetch", "content_source"],
+  content: ["apify_content", "firecrawl", "html_fetch", "title_desc"],
   classify: ["classify"],
   research: ["research_decision", "firecrawl_search", "perplexity_context"],
   synthesis: ["synthesis", "research"],
@@ -438,34 +439,36 @@ function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
   return log.filter((e) => steps.includes(e.step));
 }
 
-/** Step id → label and icon for Kanban-style cards (same as pipeline columns). */
-const STEP_DISPLAY: Record<string, { label: string; icon: typeof FileText }> = {
-  imported: { label: "Imported", icon: FileText },
-  apify_content: { label: "Check Apify Data", icon: FileText },
-  firecrawl: { label: "Firecrawl Scrape", icon: Globe },
-  html_fetch: { label: "HTML Fetch", icon: Globe },
+/** Step id → label, subtitle, icon (matches Pipeline Kanban columns exactly). */
+const STEP_DISPLAY: Record<string, { label: string; subtitle?: string; icon: typeof FileText }> = {
+  imported: { label: "Imported", subtitle: "Queued for ingestion", icon: FileText },
+  apify_content: { label: "Apify Content", subtitle: "Article body from Apify actor", icon: FileText },
+  firecrawl: { label: "Firecrawl", subtitle: "Scraped via Firecrawl API", icon: Globe },
+  html_fetch: { label: "HTML Fetch", subtitle: "Fallback HTML fetch", icon: Globe },
   content_source: { label: "Content Source", icon: CheckCircle2 },
-  classify: { label: "Classification", icon: Brain },
-  research_decision: { label: "Research Decision", icon: Search },
-  firecrawl_search: { label: "Web Search", icon: Search },
-  perplexity_context: { label: "Background Context", icon: Brain },
-  synthesis: { label: "AI Synthesis", icon: Sparkles },
-  research: { label: "Research Complete", icon: Search },
-  detect_language: { label: "Language Detection", icon: Languages },
-  translate_content: { label: "Translate Article Content", icon: Languages },
-  translate_analysis: { label: "Translate Classification Fields", icon: Brain },
-  translate_research: { label: "Translate Research Brief", icon: Search },
-  score_similarity: { label: "Competition Match", icon: Target },
-  score_ai_analysis: { label: "AI Scoring", icon: Brain },
-  score: { label: "Final Score", icon: Sparkles },
-  promote: { label: "Story Promotion", icon: CheckCircle2 },
+  title_desc: { label: "Title+Desc", subtitle: "Title and description only", icon: FileText },
+  classify: { label: "Classified", subtitle: "Topic, tags, region, sentiment", icon: Brain },
+  research_decision: { label: "Decision", subtitle: "Whether research is needed", icon: Target },
+  firecrawl_search: { label: "Web Search", subtitle: "Related articles via search", icon: Search },
+  perplexity_context: { label: "Background", subtitle: "Context from Perplexity", icon: Globe },
+  synthesis: { label: "Synthesis", subtitle: "AI brief (hook, narrative, facts)", icon: Brain },
+  research: { label: "Research Complete", subtitle: "Research stage done", icon: Search },
+  detect_language: { label: "Language", subtitle: "Detect source language", icon: Languages },
+  translate_content: { label: "Translate Content", subtitle: "Article text → Arabic", icon: Languages },
+  translate_analysis: { label: "Translate Fields", subtitle: "Classification fields → Arabic", icon: Brain },
+  translate_research: { label: "Translate Brief", subtitle: "Research brief → Arabic", icon: Search },
+  score_similarity: { label: "Competition Match", subtitle: "Match vs. existing stories", icon: Target },
+  score_ai_analysis: { label: "AI Scoring", subtitle: "Relevance & viral scores", icon: Brain },
+  score: { label: "Final Score", subtitle: "Composite score", icon: Sparkles },
+  promote: { label: "Story Created", subtitle: "Create or link story", icon: CheckCircle2 },
 };
 
-/** Single card for one pipeline step — identical style to Kanban view. */
+/** Single card for one pipeline step — matches Kanban column (title + optional subtitle). */
 function LogStepCard({
   entry,
   stepId,
   label,
+  subtitle,
   icon: Icon,
   children,
   skippedReason,
@@ -473,6 +476,7 @@ function LogStepCard({
   entry: LogEntry | null;
   stepId: string;
   label: string;
+  subtitle?: string;
   icon: typeof FileText;
   children: React.ReactNode;
   skippedReason?: string;
@@ -481,13 +485,16 @@ function LogStepCard({
   return (
     <div className={`px-3 py-2.5 rounded-lg border space-y-2 ${skipped ? "bg-surface/20 border-border/50 opacity-60" : "bg-surface/50 border-border"}`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className="w-3.5 h-3.5 text-dim" />}
-          <span className="text-[11px] font-semibold">{label}</span>
-          {entry?.processor && <ProcessorBadge type={entry.processor} />}
-          {entry?.service && <span className="text-[9px] font-mono text-dim">{entry.service}</span>}
-          {entry?.status && <StatusBadge status={entry.status} />}
-          {skipped && <span className="text-[9px] font-mono text-dim px-1.5 py-0.5 rounded bg-muted">skipped</span>}
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            {Icon && <Icon className="w-3.5 h-3.5 text-dim shrink-0" />}
+            <span className="text-[11px] font-semibold">{label}</span>
+            {entry?.processor && <ProcessorBadge type={entry.processor} />}
+            {entry?.service && <span className="text-[9px] font-mono text-dim">{entry.service}</span>}
+            {entry?.status && <StatusBadge status={entry.status} />}
+            {skipped && <span className="text-[9px] font-mono text-dim px-1.5 py-0.5 rounded bg-muted">skipped</span>}
+          </div>
+          {subtitle && <div className="text-[10px] text-dim font-mono leading-tight pl-5.5">{subtitle}</div>}
         </div>
         {entry && (entry.inputTokens != null || entry.outputTokens != null) && (
           <TokensBadge entry={entry} />
@@ -706,7 +713,7 @@ function ImportedDetail({ article, log }: { article: ArticleDetail; log: LogEntr
 
   return (
     <div className="p-4 space-y-4">
-      <LogStepCard entry={entry ?? null} stepId={stepId} label={label} icon={icon}>
+      <LogStepCard entry={entry ?? null} stepId={stepId} label={label} subtitle={STEP_DISPLAY[stepId]?.subtitle} icon={icon}>
         {article.source && (
           <span>Source: <span className="text-foreground">{article.source.label}</span> ({article.source.type})</span>
         )}
@@ -738,12 +745,20 @@ function ContentDetail({ article, log }: { article: ArticleDetail; log: LogEntry
   const steps = STEP_MAP.content;
   const apifyLog = log.find((e) => e.step === "apify_content");
   const apifySufficient = apifyLog && apifyLog.chars != null && apifyLog.threshold != null && apifyLog.chars >= apifyLog.threshold;
+  const contentSourceLog = log.find((e) => e.step === "content_source");
+
+  const getEntry = (stepId: string): LogEntry | null => {
+    if (stepId === "title_desc") {
+      return contentSourceLog?.source === "title_desc_fallback" ? contentSourceLog : null;
+    }
+    return log.find((e) => e.step === stepId) ?? null;
+  };
 
   return (
     <div className="p-4 space-y-3">
       {steps.map((stepId) => {
-        const entry = log.find((e) => e.step === stepId);
-        const { label, icon } = STEP_DISPLAY[stepId] || { label: stepId, icon: FileText };
+        const entry = getEntry(stepId);
+        const { label, subtitle, icon } = STEP_DISPLAY[stepId] || { label: stepId, icon: FileText };
         let body: React.ReactNode = null;
         if (stepId === "apify_content" && entry) {
           body = <>{entry.chars?.toLocaleString()} chars / {entry.threshold?.toLocaleString()} needed · {apifySufficient ? "Sufficient" : "Too short"}</>;
@@ -751,13 +766,8 @@ function ContentDetail({ article, log }: { article: ArticleDetail; log: LogEntry
           body = <>{entry.chars != null && <span>{entry.chars.toLocaleString()} chars</span>}{entry.error && <span className="text-destructive"> · {entry.error}</span>}{entry.reason && <span> · {entry.reason}</span>}</>;
         } else if (stepId === "html_fetch" && entry) {
           body = <>{entry.chars != null && <span>{entry.chars.toLocaleString()} chars</span>}{entry.error && <span className="text-destructive"> · {entry.error}</span>}</>;
-        } else if (stepId === "content_source" && entry) {
-          body = (
-            <>
-              {entry.source === "apify" ? "Apify (original)" : entry.source === "firecrawl_or_html" ? "Firecrawl / HTML Fetch" : entry.source === "title_desc_fallback" ? "Title + Description (fallback)" : entry.source || "—"}
-              {entry.chars != null && ` · ${entry.chars.toLocaleString()} chars extracted`}
-            </>
-          );
+        } else if (stepId === "title_desc" && entry) {
+          body = <>{entry.chars != null && <span>{entry.chars.toLocaleString()} chars</span>}{entry.reason && <span> · {entry.reason}</span>}</>;
         }
         let skippedReason: string | undefined;
         if (!entry) {
@@ -765,9 +775,11 @@ function ContentDetail({ article, log }: { article: ArticleDetail; log: LogEntry
             skippedReason = "Apify content was sufficient";
           } else if (stepId === "html_fetch" && log.find((e) => e.step === "firecrawl")?.status === "ok") {
             skippedReason = "Firecrawl content was sufficient";
+          } else if (stepId === "title_desc") {
+            skippedReason = "Another content source was used";
           }
         }
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
+        return <LogStepCard key={stepId} entry={entry} stepId={stepId} label={label} subtitle={subtitle} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
       <div className="text-[10px] font-mono text-dim uppercase tracking-wider pt-2">Content Comparison</div>
       <ContentComparison
@@ -823,7 +835,8 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
             </>
           );
         }
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon}>{body}</LogStepCard>;
+        const { subtitle } = STEP_DISPLAY[stepId] || {};
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} subtitle={subtitle} icon={icon}>{body}</LogStepCard>;
       })}
 
       {article.analysis && (article.analysis.topicAr || article.analysis.summaryAr || article.analysis.tagsAr?.length || article.analysis.regionAr || article.analysis.uniqueAngleAr) && (
@@ -888,7 +901,7 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
 
   return (
     <div className="p-4 space-y-4">
-      <LogStepCard entry={classifyLog ?? null} stepId={stepId} label={label} icon={icon}>
+      <LogStepCard entry={classifyLog ?? null} stepId={stepId} label={label} subtitle={STEP_DISPLAY[stepId]?.subtitle} icon={icon}>
         {classifyLog?.quality && <QualityBadge quality={classifyLog.quality} />}
         {classifyLog?.inputChars != null && <span>{classifyLog.inputChars.toLocaleString()} chars → {classifyLog.service ?? "Claude Haiku"}</span>}
         {classifyLog?.promptSent && <div className="mt-1"><ExpandableText label="prompt" text={classifyLog.promptSent} maxLen={800} /></div>}
@@ -1010,7 +1023,8 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
         if (!entry && stepId === "score_similarity") {
           skippedReason = similarityLog?.reason ?? "No embedding key";
         }
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
+        const { subtitle } = STEP_DISPLAY[stepId] || {};
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} subtitle={subtitle} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
 
       {article.rankReason && (
@@ -1061,7 +1075,8 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
         }
         const decision = log.find((e) => e.step === "research_decision");
         const skippedReason = !entry && decision && !decision.needed ? "Research not needed" : undefined;
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
+        const { subtitle } = STEP_DISPLAY[stepId] || {};
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} subtitle={subtitle} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
 
       {brief?.suggestedHook && (
@@ -1165,6 +1180,7 @@ function PromoteDetail({ article, log, pp }: { article: ArticleDetail; log: LogE
         entry={entry ?? null}
         stepId={stepId}
         label={entry?.status === "created" ? "Story Created" : entry?.status === "linked" ? "Linked to Existing" : label}
+        subtitle={STEP_DISPLAY[stepId]?.subtitle}
         icon={icon}
       >
         {entry?.status === "created" && article.storyId && (
@@ -1245,7 +1261,8 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
           const decision = log.find((e) => e.step === "research_decision");
           if (decision && !decision.needed) skippedReason = "Research not needed";
         }
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
+        const { subtitle } = STEP_DISPLAY[stepId] || {};
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} subtitle={subtitle} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
 
       {brief?.suggestedHook && (

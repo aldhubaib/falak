@@ -403,7 +403,7 @@ export default function ArticlePipeline() {
     fetch("/api/article-pipeline/test-run", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, limit: 5 }),
+      body: JSON.stringify({ projectId, limit: 1 }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { runId: string | null; total: number; articles: { id: string; title: string | null; stageBefore: string }[] }) => {
@@ -481,10 +481,10 @@ export default function ArticlePipeline() {
           <button
             onClick={handleTestRun}
             disabled={testRunning}
-            title={paused ? "Run test on 5 articles (works even when pipeline is paused)" : "Run test on 5 articles"}
+            title={paused ? "Run test on 1 article (works even when pipeline is paused)" : "Run test on 1 article"}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple/30 bg-purple/10 text-[11px] text-purple font-medium hover:bg-purple/20 transition-colors disabled:opacity-50">
             {testRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
-            {testRunning ? (testProgress || "Running…") : "Test 5"}
+            {testRunning ? (testProgress || "Running…") : "Test 1"}
           </button>
           <button onClick={handleFetchAll} disabled={fetchingAll}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
