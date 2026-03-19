@@ -111,45 +111,6 @@ interface TestResultItem {
   error: string | null;
 }
 
-interface VectorIntelligenceData {
-  hasEmbeddingKey: boolean;
-  lastStatsRefreshAt: string | null;
-  rescoreIntervalHours: number;
-  embeddings: {
-    videos: { total: number; embedded: number };
-    stories: { total: number; embedded: number };
-  };
-  rescoreStats: { total: number; rescored: number };
-  scoreProfile: {
-    totalOutcomes: number;
-    totalDecisions: number;
-    aiViralAccuracy: number;
-    aiRelevanceAccuracy: number;
-    channelAvgViews: string;
-    tagSignals: Record<string, number> | null;
-    contentTypeSignals: Record<string, number> | null;
-    regionSignals: Record<string, number> | null;
-    lastLearnedAt: string | null;
-  } | null;
-  alerts: {
-    items: Array<{ id: string; type: string; title: string; detail: unknown; storyId: string | null; isRead: boolean; createdAt: string }>;
-    unreadCount: number;
-  };
-  recentRescores: Array<{
-    id: string; headline: string; compositeScore: number; lastRescoredAt: string | null;
-    latestEntry: {
-      before: Record<string, number>;
-      after: Record<string, number>;
-      factors: Record<string, unknown>;
-      trigger: string;
-    } | null;
-  }>;
-  topSimilarity: Array<{
-    id: string; headline: string; competitionMatches: number;
-    viralBoost: number; freshness: number; compositeScore: number;
-  }>;
-}
-
 /* ─── Sub-step column definitions ─── */
 
 interface SubStep {
@@ -329,37 +290,6 @@ export default function ArticlePipeline() {
   const [testProgress, setTestProgress] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(30);
 
-  // Vector Intelligence state
-  const [vectorData, setVectorData] = useState<VectorIntelligenceData | null>(null);
-  const [vectorLoading, setVectorLoading] = useState(true);
-  const [reEvaluating, setReEvaluating] = useState(false);
-
-  const fetchVectorIntelligence = useCallback(() => {
-    if (!projectId) return;
-    fetch(`/api/vector-intelligence/status?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setVectorData(d); })
-      .catch(() => {})
-      .finally(() => setVectorLoading(false));
-  }, [projectId]);
-
-  useEffect(() => { fetchVectorIntelligence(); }, [fetchVectorIntelligence]);
-
-  const handleReEvaluate = () => {
-    if (!projectId) return;
-    setReEvaluating(true);
-    fetch(`/api/stories/re-evaluate?projectId=${encodeURIComponent(projectId)}`, {
-      method: "POST", credentials: "include",
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => {
-        toast.success(`Re-evaluated ${d.evaluated} stories, ${d.changed} scores changed`);
-        fetchVectorIntelligence();
-      })
-      .catch(() => toast.error("Re-evaluation failed"))
-      .finally(() => setReEvaluating(false));
-  };
-
   const fetchPipeline = useCallback(() => {
     if (!projectId) return;
     fetch(`/api/article-pipeline?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
@@ -491,16 +421,13 @@ export default function ArticlePipeline() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <h1 className="text-[13px] font-medium text-foreground">Article Pipeline</h1>
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
-            paused ? "bg-orange/15 text-orange" : "bg-success/15 text-success"
-          }`}>
+          <button onClick={handlePauseResume}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+              paused ? "bg-orange/15 text-orange hover:bg-orange/25" : "bg-success/15 text-success hover:bg-success/25"
+            }`}>
             <Circle className="w-2 h-2 fill-current" />
             {paused ? "Paused" : `Running · ${countdown}s`}
-          </span>
-          <button onClick={handlePauseResume}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
             {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-            {paused ? "Resume" : "Pause"}
           </button>
           <button
             onClick={handleTestRun}
@@ -729,15 +656,6 @@ export default function ArticlePipeline() {
                 ))}
               </div>
             </div>
-
-            {/* ── VECTOR INTELLIGENCE FLOW ── */}
-            <VectorIntelligenceSection
-              data={vectorData}
-              loading={vectorLoading}
-              reEvaluating={reEvaluating}
-              onReEvaluate={handleReEvaluate}
-              pp={pp}
-            />
 
             {/* ── REVIEW + FAILED ── */}
             {((data?.byStage.review ?? []).length > 0 || (data?.byStage.failed ?? []).length > 0) && (

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutGrid, Swords, GitBranch, Circle, TrendingUp, Sparkles, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X, Newspaper, FileText } from "lucide-react";
+import { LayoutGrid, Swords, GitBranch, Circle, TrendingUp, Sparkles, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X, Newspaper, FileText, Zap } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { icon: Sparkles, label: "AI Intelligence", path: "/stories" },
   { icon: Newspaper, label: "Source", path: "/source" },
   { icon: FileText, label: "Article Pipeline", path: "/article-pipeline" },
+  { icon: Zap, label: "Vector Intelligence", path: "/vector-intelligence" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
