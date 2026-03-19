@@ -338,8 +338,12 @@ async function doStageTranslated(article, project) {
       regionAr: analysis.region || null,
       uniqueAngleAr: analysis.uniqueAngle || null,
     }
+    if (analysis.research?.brief) {
+      arAnalysis.research = { ...(analysis.research || {}), briefAr: analysis.research.brief }
+    }
     log.push({ step: 'translate_content', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
     log.push({ step: 'translate_analysis', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
+    log.push({ step: 'translate_research', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
     await db.article.update({
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
@@ -438,6 +442,58 @@ async function doStageTranslated(article, project) {
     })
   } else {
     log.push({ step: 'translate_analysis', processor: 'server', service: 'Skip (no fields)', status: 'skipped', reason: 'No classification fields to translate', at: new Date().toISOString() })
+  }
+
+  // ── Step C: Translate research brief to Arabic ──
+  const researchBrief = analysis.research?.brief
+  if (researchBrief && typeof researchBrief === 'object') {
+    try {
+      const briefJson = JSON.stringify(researchBrief)
+      const researchPrompt = `Translate this research brief to Arabic. Keep the exact same JSON structure and keys. Translate all string values to Arabic (whatHappened, howItHappened, whatWasTheResult, keyFacts array, timeline[].event, mainCharacters[].role, competitionInsight, suggestedHook). Keep narrativeStrength as a number. Keep sources[].url unchanged; you may translate sources[].title to Arabic. Reply with ONLY valid JSON, no markdown fences, no explanation.\n\n${briefJson}`
+      const translatedBriefRaw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+        { role: 'user', content: researchPrompt },
+      ], {
+        maxTokens: 4096,
+        projectId: article.projectId,
+        action: 'article-translate-research',
+      })
+      const researchUsage = callAnthropic._lastUsage || {}
+      let briefAr = null
+      if (translatedBriefRaw && translatedBriefRaw.trim()) {
+        const trimmed = translatedBriefRaw.trim()
+        const start = trimmed.indexOf('{')
+        const end = trimmed.lastIndexOf('}') + 1
+        if (start !== -1 && end > start) {
+          briefAr = JSON.parse(trimmed.slice(start, end))
+        }
+      }
+      if (briefAr) {
+        arAnalysis.research = {
+          ...(arAnalysis.research || {}),
+          briefAr,
+        }
+        log.push({
+          step: 'translate_research', status: 'ok',
+          processor: 'ai', service: 'Anthropic Claude Haiku',
+          model: 'claude-haiku-4-5-20251001',
+          inputChars: briefJson.length,
+          outputChars: (translatedBriefRaw || '').trim().length,
+          inputTokens: researchUsage.inputTokens || null,
+          outputTokens: researchUsage.outputTokens || null,
+          totalTokens: researchUsage.totalTokens || null,
+          promptSent: researchPrompt.slice(0, 1500),
+          rawResponse: (translatedBriefRaw || '').trim().slice(0, 1500),
+          at: new Date().toISOString(),
+        })
+      } else {
+        log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', reason: 'Failed to parse translated brief JSON', at: new Date().toISOString() })
+      }
+    } catch (e) {
+      log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message, at: new Date().toISOString() })
+      logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] translate_research failed (non-fatal)')
+    }
+  } else {
+    log.push({ step: 'translate_research', processor: 'server', service: 'Skip (no research brief)', status: 'skipped', reason: researchBrief ? 'Invalid brief' : 'No research brief', at: new Date().toISOString() })
   }
 
   await db.article.update({
@@ -645,7 +701,12 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
   }
 
   if (analysis.research) {
-    brief.research = analysis.research
+    // Prefer Arabic research brief for the story (from translate_research step)
+    const research = { ...analysis.research }
+    if (analysis.research.briefAr) {
+      research.brief = analysis.research.briefAr
+    }
+    brief.research = research
   }
 
   const story = await db.story.create({

@@ -261,10 +261,10 @@ function buildBackgroundPrompt(topic, tags, region, summary) {
     tags.length > 0 ? `Tags: ${tags.join(', ')}` : '',
     summary ? `Summary: ${summary}` : '',
     ``,
-    `Write in Arabic. Be factual and detailed. Focus on answering:`,
-    `1. ماذا حدث؟ (What happened?)`,
-    `2. كيف حدث؟ (How did it happen?)`,
-    `3. ما النتيجة؟ (What was the result?)`,
+    `Write in English. Be factual and detailed. Focus on answering:`,
+    `1. What happened?`,
+    `2. How did it happen?`,
+    `3. What was the result?`,
   ].filter(Boolean).join('\n')
 }
 
@@ -301,18 +301,18 @@ ${perplexityCitations.length > 0 ? `\nCitations: ${perplexityCitations.join(', '
 ${competitionText}
 
 ═══ OUTPUT FORMAT ═══
-Reply ONLY with valid JSON (no markdown fences, no extra text). Use this exact structure:
+Reply ONLY with valid JSON (no markdown fences, no extra text). Output all text fields in English (the article's original language). Use this exact structure:
 
 {
-  "whatHappened": "2-4 sentences in Arabic — the core event",
-  "howItHappened": "3-5 sentences in Arabic — the process, causes, chain of events",
-  "whatWasTheResult": "2-4 sentences in Arabic — consequences, current status, future outlook",
-  "keyFacts": ["fact 1 in Arabic", "fact 2", "...up to 8 key facts"],
-  "timeline": [{"date": "...", "event": "description in Arabic"}],
-  "mainCharacters": [{"name": "...", "role": "description in Arabic"}],
+  "whatHappened": "2-4 sentences in English — the core event",
+  "howItHappened": "3-5 sentences in English — the process, causes, chain of events",
+  "whatWasTheResult": "2-4 sentences in English — consequences, current status, future outlook",
+  "keyFacts": ["fact 1 in English", "fact 2", "...up to 8 key facts"],
+  "timeline": [{"date": "...", "event": "description in English"}],
+  "mainCharacters": [{"name": "...", "role": "description in English"}],
   "sources": [{"title": "...", "url": "..."}],
-  "competitionInsight": "1-2 sentences in Arabic about how competitors covered this or similar topics",
-  "suggestedHook": "1 sentence — a compelling opening hook for the video in Arabic",
+  "competitionInsight": "1-2 sentences in English about how competitors covered this or similar topics",
+  "suggestedHook": "1 sentence — a compelling opening hook for the video in English",
   "narrativeStrength": 1-10
 }`
 }

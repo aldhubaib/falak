@@ -423,7 +423,7 @@ const STEP_MAP: Record<string, string[]> = {
   content: ["apify_content", "firecrawl", "html_fetch", "content_source"],
   classify: ["classify"],
   research: ["research_decision", "firecrawl_search", "perplexity_context", "db_similarity", "synthesis", "research"],
-  translated: ["detect_language", "translate_content", "translate_analysis"],
+  translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
   scoring: ["score"],
   promote: ["promote"],
 };
@@ -759,6 +759,7 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
   const detectLog = log.find((e) => e.step === "detect_language");
   const contentLog = log.find((e) => e.step === "translate_content");
   const analysisLog = log.find((e) => e.step === "translate_analysis");
+  const researchLog = log.find((e) => e.step === "translate_research");
 
   return (
     <div className="p-4 space-y-4">
@@ -862,6 +863,44 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
 
           {analysisLog.status === "skipped" && (
             <div className="text-[11px] text-dim font-mono">{analysisLog.reason || "Skipped"}</div>
+          )}
+        </div>
+      )}
+
+      {/* Step 4: Translate research brief */}
+      {researchLog && (
+        <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+          <StepHeader entry={researchLog} label="Translate Research Brief" icon={Search} />
+
+          {researchLog.status === "ok" && (
+            <>
+              <div className="flex items-center gap-4 text-[11px] font-mono text-dim">
+                {researchLog.inputChars != null && <span>Input: {researchLog.inputChars.toLocaleString()} chars (EN)</span>}
+                {researchLog.outputChars != null && <span>→ Output: {researchLog.outputChars.toLocaleString()} chars (AR)</span>}
+              </div>
+
+              {researchLog.promptSent && (
+                <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1.5">
+                  <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Before — Brief sent to AI</div>
+                  <ExpandableText label="brief JSON" text={researchLog.promptSent} maxLen={1500} />
+                </div>
+              )}
+
+              {researchLog.rawResponse && (
+                <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1.5">
+                  <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">After — Arabic Brief</div>
+                  <ExpandableText label="translated brief" text={researchLog.rawResponse} maxLen={1500} />
+                </div>
+              )}
+            </>
+          )}
+
+          {researchLog.status === "skipped" && (
+            <div className="text-[11px] text-dim font-mono">{researchLog.reason || "Skipped"}</div>
+          )}
+
+          {researchLog.status === "failed" && researchLog.error && (
+            <div className="text-[11px] font-mono text-destructive">{researchLog.error}</div>
           )}
         </div>
       )}
@@ -983,29 +1022,6 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
         <div>
           <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle (original language)</div>
           <div className="text-[12px] text-foreground/80 italic" dir="auto">{analysis.uniqueAngle}</div>
-        </div>
-      )}
-
-      {/* Arabic versions (if translated stage has run) */}
-      {analysis.topicAr && (
-        <div className="mt-2 px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Arabic Translations (from Translation stage)</div>
-          {analysis.topicAr && (
-            <div><span className="text-[10px] font-mono text-purple">Topic AR:</span> <span className="text-[12px] text-foreground" dir="rtl">{analysis.topicAr}</span></div>
-          )}
-          {analysis.summaryAr && (
-            <div><span className="text-[10px] font-mono text-purple">Summary AR:</span> <span className="text-[12px] text-foreground" dir="rtl">{analysis.summaryAr}</span></div>
-          )}
-          {analysis.regionAr && (
-            <div><span className="text-[10px] font-mono text-purple">Region AR:</span> <span className="text-[12px] text-foreground" dir="rtl">{analysis.regionAr}</span></div>
-          )}
-          {analysis.tagsAr && analysis.tagsAr.length > 0 && (
-            <div className="flex flex-wrap gap-1.5" dir="rtl">
-              {analysis.tagsAr.map((tag, i) => (
-                <span key={i} className="px-2 py-0.5 rounded-full bg-purple/10 text-purple text-[10px] font-mono">{tag}</span>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -1271,7 +1287,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
       {brief?.suggestedHook && (
         <div className="px-4 py-3 rounded-lg bg-purple/5 border border-purple/20">
           <div className="text-[10px] font-mono text-purple uppercase tracking-wider mb-1.5">Suggested Video Hook</div>
-          <div className="text-[14px] text-foreground font-medium leading-relaxed" dir="rtl">
+          <div className="text-[14px] text-foreground font-medium leading-relaxed" dir="auto">
             "{brief.suggestedHook}"
           </div>
         </div>
@@ -1284,19 +1300,19 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
           {brief?.whatHappened && (
             <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
               <div className="text-[10px] font-mono text-blue uppercase tracking-wider mb-1.5">What happened?</div>
-              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="rtl">{brief.whatHappened}</div>
+              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatHappened}</div>
             </div>
           )}
           {brief?.howItHappened && (
             <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
               <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">How did it happen?</div>
-              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="rtl">{brief.howItHappened}</div>
+              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.howItHappened}</div>
             </div>
           )}
           {brief?.whatWasTheResult && (
             <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
               <div className="text-[10px] font-mono text-success uppercase tracking-wider mb-1.5">What was the result?</div>
-              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="rtl">{brief.whatWasTheResult}</div>
+              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatWasTheResult}</div>
             </div>
           )}
         </div>
@@ -1310,7 +1326,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
             {brief.keyFacts.map((fact, i) => (
               <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface/50 border border-border">
                 <span className="text-[10px] font-mono text-purple font-bold mt-0.5 shrink-0">{i + 1}</span>
-                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="rtl">{fact}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{fact}</span>
               </div>
             ))}
           </div>
@@ -1325,7 +1341,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
             {brief.timeline.map((entry, i) => (
               <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
                 <span className="text-[11px] font-mono text-blue shrink-0 w-24">{entry.date}</span>
-                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="rtl">{entry.event}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{entry.event}</span>
               </div>
             ))}
           </div>
@@ -1340,7 +1356,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
             {brief.mainCharacters.map((person, i) => (
               <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
                 <div className="text-[12px] font-semibold text-foreground" dir="auto">{person.name}</div>
-                <div className="text-[11px] text-dim mt-0.5" dir="rtl">{person.role}</div>
+                <div className="text-[11px] text-dim mt-0.5" dir="auto">{person.role}</div>
               </div>
             ))}
           </div>
@@ -1351,7 +1367,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
       {brief?.competitionInsight && (
         <div className="px-4 py-3 rounded-lg bg-orange/5 border border-orange/20">
           <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">Competition Insight</div>
-          <div className="text-[12px] text-foreground/85 leading-relaxed" dir="rtl">{brief.competitionInsight}</div>
+          <div className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{brief.competitionInsight}</div>
         </div>
       )}
 
@@ -1389,7 +1405,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
         <ContentBlock
           label={`Background Context from Perplexity (${research.backgroundContext.length.toLocaleString()} chars)`}
           content={research.backgroundContext}
-          dir="rtl"
+          dir="auto"
         />
       )}
 
