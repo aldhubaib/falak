@@ -38,12 +38,10 @@ interface LogEntry {
   inputChars?: number;
   outputChars?: number;
   topic?: string;
-  topicOriginal?: string;
   tags?: string[];
   sentiment?: string;
   contentType?: string;
   region?: string;
-  regionOriginal?: string;
   relevance?: number;
   viralPotential?: number;
   freshness?: number;
@@ -70,21 +68,28 @@ interface LogEntry {
   rawResponse?: string;
   contentPreview?: string;
   quality?: QualityEval;
+  fieldsTranslated?: number;
+  summary?: string;
+  uniqueAngle?: string;
+  isBreaking?: boolean;
 }
 
 interface Analysis {
   topic?: string;
-  topicOriginal?: string;
+  topicAr?: string;
   tags?: string[];
+  tagsAr?: string[];
   sentiment?: string;
   contentType?: string;
   region?: string;
-  regionOriginal?: string;
+  regionAr?: string;
   viralPotential?: number;
   relevance?: number;
   summary?: string;
+  summaryAr?: string;
   isBreaking?: boolean;
   uniqueAngle?: string;
+  uniqueAngleAr?: string;
   parseError?: boolean;
   raw?: string;
   research?: {
@@ -152,9 +157,9 @@ interface TimelineStage {
 const TIMELINE_STAGES: TimelineStage[] = [
   { id: "imported", label: "Imported", icon: FileText, color: "text-orange", bgColor: "bg-orange" },
   { id: "content", label: "Content Extraction", icon: Globe, color: "text-blue", bgColor: "bg-blue" },
-  { id: "classify", label: "Classification", icon: Brain, color: "text-success", bgColor: "bg-success" },
+  { id: "classify", label: "Classification (Original Language)", icon: Brain, color: "text-success", bgColor: "bg-success" },
   { id: "research", label: "Research (Original Language)", icon: Search, color: "text-purple", bgColor: "bg-purple" },
-  { id: "translated", label: "Translation", icon: Languages, color: "text-blue", bgColor: "bg-blue" },
+  { id: "translated", label: "Translation to Arabic", icon: Languages, color: "text-blue", bgColor: "bg-blue" },
   { id: "scoring", label: "Scoring", icon: Sparkles, color: "text-orange", bgColor: "bg-orange" },
   { id: "promote", label: "Story Promotion", icon: CheckCircle2, color: "text-success", bgColor: "bg-success" },
 ];
@@ -418,7 +423,7 @@ const STEP_MAP: Record<string, string[]> = {
   content: ["apify_content", "firecrawl", "html_fetch", "content_source"],
   classify: ["classify"],
   research: ["research_decision", "firecrawl_search", "perplexity_context", "db_similarity", "synthesis", "research"],
-  translated: ["detect_language", "translate"],
+  translated: ["detect_language", "translate_content", "translate_analysis"],
   scoring: ["score"],
   promote: ["promote"],
 };
@@ -752,19 +757,15 @@ function ContentDetail({ article, log }: { article: ArticleDetail; log: LogEntry
 
 function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
   const detectLog = log.find((e) => e.step === "detect_language");
-  const translateLog = log.find((e) => e.step === "translate");
+  const contentLog = log.find((e) => e.step === "translate_content");
+  const analysisLog = log.find((e) => e.step === "translate_analysis");
 
   return (
     <div className="p-4 space-y-4">
-      {/* Language detection */}
+      {/* Step 1: Language detection */}
       {detectLog && (
         <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1">
-          <div className="flex items-center gap-2">
-            <Languages className="w-3.5 h-3.5 text-purple" />
-            <span className="text-[11px] font-semibold">Language Detection</span>
-            <ProcessorBadge type={detectLog.processor || "server"} />
-            <span className="text-[9px] font-mono text-dim">{detectLog.service || "Local regex"}</span>
-          </div>
+          <StepHeader entry={detectLog} label="Language Detection" icon={Languages} />
           <div className="flex items-center gap-2">
             <span className="text-[12px] font-mono">Result:</span>
             <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
@@ -776,46 +777,97 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
         </div>
       )}
 
-      {/* Translation */}
-      {translateLog && (
-        <div className="space-y-3">
-          <StepHeader entry={translateLog} label={
-            translateLog.status === "skipped" ? "Translation (Skipped)" : "Translation"
-          } icon={Languages} />
+      {/* Step 2: Translate article content */}
+      {contentLog && (
+        <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+          <StepHeader entry={contentLog} label="Translate Article Content" icon={Languages} />
 
-          {/* Quality */}
-          {translateLog.quality && <QualityBadge quality={translateLog.quality} />}
+          {contentLog.quality && <QualityBadge quality={contentLog.quality} />}
 
-          {translateLog.status === "ok" && (
+          {contentLog.status === "ok" && (
             <>
               <div className="flex items-center gap-4 text-[11px] font-mono text-dim">
-                <span>Input: {translateLog.inputChars?.toLocaleString()} chars ({translateLog.inputLang?.toUpperCase()})</span>
+                <span>Input: {contentLog.inputChars?.toLocaleString()} chars ({contentLog.inputLang?.toUpperCase()})</span>
                 <span>→</span>
-                <span>Output: {translateLog.outputChars?.toLocaleString()} chars (AR)</span>
+                <span>Output: {contentLog.outputChars?.toLocaleString()} chars (AR)</span>
               </div>
 
-              {/* Before AI: what was sent */}
-              {translateLog.promptSent && (
+              {contentLog.promptSent && (
                 <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1.5">
-                  <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Sent to AI</div>
-                  <ExpandableText label="full prompt" text={translateLog.promptSent} maxLen={1500} />
+                  <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Before — Sent to AI</div>
+                  <ExpandableText label="full prompt" text={contentLog.promptSent} maxLen={1500} />
                 </div>
               )}
 
-              {/* After AI: what came back */}
-              {translateLog.rawResponse && (
+              {contentLog.rawResponse && (
                 <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1.5">
-                  <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">AI Response</div>
-                  <ExpandableText label="translated text" text={translateLog.rawResponse} maxLen={1500} />
+                  <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">After — Arabic Content</div>
+                  <ExpandableText label="translated text" text={contentLog.rawResponse} maxLen={1500} />
                 </div>
               )}
             </>
+          )}
+
+          {contentLog.status === "skipped" && (
+            <div className="text-[11px] text-dim font-mono">{contentLog.reason || "Skipped"}</div>
+          )}
+        </div>
+      )}
+
+      {/* Step 3: Translate classification fields */}
+      {analysisLog && (
+        <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+          <StepHeader entry={analysisLog} label="Translate Classification Fields" icon={Brain} />
+
+          {analysisLog.status === "ok" && (
+            <>
+              <div className="text-[11px] font-mono text-dim">
+                {analysisLog.fieldsTranslated} fields translated to Arabic
+              </div>
+
+              {analysisLog.promptSent && (
+                <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1.5">
+                  <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Before — Fields sent to AI</div>
+                  <ExpandableText label="full prompt" text={analysisLog.promptSent} maxLen={1500} />
+                </div>
+              )}
+
+              {analysisLog.rawResponse && (
+                <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1.5">
+                  <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">After — Arabic Fields</div>
+                  <ExpandableText label="translated fields" text={analysisLog.rawResponse} maxLen={1500} />
+                </div>
+              )}
+
+              {/* Show the resulting Arabic fields */}
+              {article.analysis && (article.analysis.topicAr || article.analysis.summaryAr) && (
+                <div className="rounded-lg border border-purple/20 bg-purple/5 p-3 space-y-1.5">
+                  <div className="text-[10px] font-mono text-purple font-bold uppercase tracking-wider">Translated Fields Result</div>
+                  {article.analysis.topicAr && <div className="text-[11px]" dir="rtl"><span className="text-dim font-mono">topic:</span> {article.analysis.topicAr}</div>}
+                  {article.analysis.summaryAr && <div className="text-[11px]" dir="rtl"><span className="text-dim font-mono">summary:</span> {article.analysis.summaryAr}</div>}
+                  {article.analysis.regionAr && <div className="text-[11px]" dir="rtl"><span className="text-dim font-mono">region:</span> {article.analysis.regionAr}</div>}
+                  {article.analysis.uniqueAngleAr && <div className="text-[11px]" dir="rtl"><span className="text-dim font-mono">uniqueAngle:</span> {article.analysis.uniqueAngleAr}</div>}
+                  {article.analysis.tagsAr && article.analysis.tagsAr.length > 0 && (
+                    <div className="flex flex-wrap gap-1" dir="rtl">
+                      <span className="text-dim font-mono text-[11px]">tags:</span>
+                      {article.analysis.tagsAr.map((tag, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-full bg-purple/10 text-purple text-[10px] font-mono">{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {analysisLog.status === "skipped" && (
+            <div className="text-[11px] text-dim font-mono">{analysisLog.reason || "Skipped"}</div>
           )}
         </div>
       )}
 
       {/* Content comparison */}
-      {translateLog?.status === "ok" && (
+      {contentLog?.status === "ok" && (
         <>
           <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Translation Comparison</div>
           <ContentComparison
@@ -828,7 +880,7 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
         </>
       )}
 
-      {translateLog?.status === "skipped" && article.contentAr && (
+      {contentLog?.status === "skipped" && article.contentAr && (
         <ContentBlock
           label={`Arabic Content (${article.contentArLength.toLocaleString()} chars)`}
           content={article.contentAr}
@@ -867,8 +919,8 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
       {/* Before AI: what was sent */}
       {classifyLog?.promptSent && (
         <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1.5">
-          <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Sent to AI</div>
-          <div className="text-[10px] font-mono text-dim">{classifyLog.inputChars?.toLocaleString()} chars article text → Claude Haiku</div>
+          <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Before — Sent to AI</div>
+          <div className="text-[10px] font-mono text-dim">{classifyLog.inputChars?.toLocaleString()} chars article text → {classifyLog.service || "Claude Haiku"}</div>
           <ExpandableText label="full prompt" text={classifyLog.promptSent} maxLen={1500} />
         </div>
       )}
@@ -876,43 +928,32 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
       {/* After AI: what came back */}
       {classifyLog?.rawResponse && (
         <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1.5">
-          <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">AI Response</div>
+          <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">After — AI Response (original language)</div>
           <ExpandableText label="raw response" text={classifyLog.rawResponse} maxLen={1500} />
         </div>
       )}
 
-      {/* Topic — Arabic (display) vs Original (for search) */}
-      {(analysis.topic || analysis.topicOriginal) && (
-        <div className="space-y-2">
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Topic</div>
-          {analysis.topic && (
-            <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-              <div className="text-[10px] font-mono text-purple mb-1">Arabic (display)</div>
-              <div className="text-[13px] text-foreground font-medium leading-relaxed" dir="rtl">{analysis.topic}</div>
-            </div>
-          )}
-          {analysis.topicOriginal && (
-            <div className="px-3 py-2.5 rounded-lg bg-blue/5 border border-blue/20">
-              <div className="text-[10px] font-mono text-blue mb-1">Original language (used for search)</div>
-              <div className="text-[13px] text-foreground font-medium leading-relaxed">{analysis.topicOriginal}</div>
-            </div>
-          )}
+      {/* Topic (original language) */}
+      {analysis.topic && (
+        <div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Topic (original language)</div>
+          <div className="text-[13px] text-foreground font-medium leading-relaxed" dir="auto">{analysis.topic}</div>
         </div>
       )}
 
-      {/* Summary */}
+      {/* Summary (original language) */}
       {analysis.summary && (
         <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Summary</div>
-          <div className="text-[12px] text-foreground/80 leading-relaxed" dir="rtl">{analysis.summary}</div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Summary (original language)</div>
+          <div className="text-[12px] text-foreground/80 leading-relaxed" dir="auto">{analysis.summary}</div>
         </div>
       )}
 
-      {/* Tags */}
+      {/* Tags (original language) */}
       {analysis.tags && analysis.tags.length > 0 && (
         <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Tags</div>
-          <div className="flex flex-wrap gap-1.5" dir="rtl">
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Tags (original language)</div>
+          <div className="flex flex-wrap gap-1.5" dir="auto">
             {analysis.tags.map((tag, i) => (
               <span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-mono">{tag}</span>
             ))}
@@ -920,18 +961,9 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
         </div>
       )}
 
-      {/* Region — Arabic vs Original */}
-      {(analysis.region || analysis.regionOriginal) && (
-        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-0.5">Region (Arabic)</div>
-            <div className="text-[13px] font-medium text-foreground" dir="rtl">{analysis.region || "—"}</div>
-          </div>
-          <div className="px-3 py-2.5 rounded-lg bg-blue/5 border border-blue/20">
-            <div className="text-[10px] font-mono text-blue uppercase tracking-wider mb-0.5">Region (for search)</div>
-            <div className="text-[13px] font-medium text-foreground">{analysis.regionOriginal || "—"}</div>
-          </div>
-        </div>
+      {/* Region (original language) */}
+      {analysis.region && (
+        <InfoCard label="Region (original language)" value={analysis.region} />
       )}
 
       {/* Classification grid */}
@@ -949,8 +981,31 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
       {/* Unique angle */}
       {analysis.uniqueAngle && (
         <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle</div>
-          <div className="text-[12px] text-foreground/80 italic" dir="rtl">{analysis.uniqueAngle}</div>
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle (original language)</div>
+          <div className="text-[12px] text-foreground/80 italic" dir="auto">{analysis.uniqueAngle}</div>
+        </div>
+      )}
+
+      {/* Arabic versions (if translated stage has run) */}
+      {analysis.topicAr && (
+        <div className="mt-2 px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Arabic Translations (from Translation stage)</div>
+          {analysis.topicAr && (
+            <div><span className="text-[10px] font-mono text-purple">Topic AR:</span> <span className="text-[12px] text-foreground" dir="rtl">{analysis.topicAr}</span></div>
+          )}
+          {analysis.summaryAr && (
+            <div><span className="text-[10px] font-mono text-purple">Summary AR:</span> <span className="text-[12px] text-foreground" dir="rtl">{analysis.summaryAr}</span></div>
+          )}
+          {analysis.regionAr && (
+            <div><span className="text-[10px] font-mono text-purple">Region AR:</span> <span className="text-[12px] text-foreground" dir="rtl">{analysis.regionAr}</span></div>
+          )}
+          {analysis.tagsAr && analysis.tagsAr.length > 0 && (
+            <div className="flex flex-wrap gap-1.5" dir="rtl">
+              {analysis.tagsAr.map((tag, i) => (
+                <span key={i} className="px-2 py-0.5 rounded-full bg-purple/10 text-purple text-[10px] font-mono">{tag}</span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

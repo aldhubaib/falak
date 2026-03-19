@@ -150,7 +150,7 @@ async function doStageContent(article, project) {
 }
 
 // ── Stage 3: classify → research ────────────────────────────────────────────
-// Runs on original language content. Outputs Arabic classification metadata.
+// Classifies in the article's ORIGINAL language. Arabic translation happens later.
 
 async function doStageClassify(article, project) {
   if (!project.anthropicApiKeyEncrypted) {
@@ -165,22 +165,20 @@ async function doStageClassify(article, project) {
   const category = article.analysis?.category || ''
   const sourceLang = article.language || detectLanguage(articleText)
 
-  const prompt = `You are a news analyst for an Arabic YouTube channel. Classify this article.\n` +
-    `The article may be in any language — read it and output your analysis in Arabic.\n` +
+  const prompt = `You are a news analyst. Classify this article.\n` +
+    `Read the article and output your analysis in the SAME language as the article.\n` +
     `Reply in JSON only, no markdown fences, no explanation.\n\n` +
     `Keys:\n` +
-    `- topic: one short sentence in Arabic describing what this article is about\n` +
-    `- topicOriginal: the same topic sentence but in the article's original language (for search)\n` +
-    `- tags: 4 to 8 tags in Arabic (noun form, 1-3 words each, reusable across articles)\n` +
+    `- topic: one short sentence describing what this article is about\n` +
+    `- tags: 4 to 8 tags (noun form, 1-3 words each, reusable across articles)\n` +
     `- sentiment: "positive" | "negative" | "neutral"\n` +
     `- contentType: "news" | "investigation" | "feature" | "opinion" | "human_interest" | "crime" | "politics" | "technology" | "other"\n` +
-    `- region: the country or city in Arabic where the main event takes place, or null\n` +
-    `- regionOriginal: same region but in the article's original language, or null\n` +
+    `- region: the country or city where the main event takes place, or null\n` +
     `- viralPotential: 0.0 to 1.0 — how likely this will get views on Arabic YouTube\n` +
     `- relevance: 0.0 to 1.0 — how relevant is this to Arabic audiences interested in true crime, mysteries, investigations, and untold stories\n` +
-    `- summary: 2-3 sentence summary in Arabic\n` +
+    `- summary: 2-3 sentence summary in the article's language\n` +
     `- isBreaking: true if the event happened in the last 48 hours\n` +
-    `- uniqueAngle: one sentence in Arabic about what makes this story unique, or null\n\n` +
+    `- uniqueAngle: one sentence about what makes this story unique, or null\n\n` +
     `Title: ${title}\n` +
     (existingTags.length ? `Scraper tags: ${existingTags.join(', ')}\n` : '') +
     (category ? `Category: ${category}\n` : '') +
@@ -214,16 +212,14 @@ async function doStageClassify(article, project) {
     processor: 'ai', service: 'Anthropic Claude Haiku',
     model: 'claude-haiku-4-5-20251001',
     topic: analysis.topic || null,
-    topicOriginal: analysis.topicOriginal || null,
     tags: analysis.tags || [],
     sentiment: analysis.sentiment || null,
     contentType: analysis.contentType || null,
     region: analysis.region || null,
-    regionOriginal: analysis.regionOriginal || null,
-    summary: analysis.summary || null,
-    uniqueAngle: analysis.uniqueAngle || null,
     viralPotential: typeof analysis.viralPotential === 'number' ? analysis.viralPotential : null,
     relevance: typeof analysis.relevance === 'number' ? analysis.relevance : null,
+    summary: analysis.summary || null,
+    uniqueAngle: analysis.uniqueAngle || null,
     isBreaking: !!analysis.isBreaking,
     inputChars: articleText.length,
     inputTokens: classifyUsage.inputTokens || null,
@@ -316,6 +312,7 @@ async function doStageResearch(article, project) {
 }
 
 // ── Stage 5: translated → score ─────────────────────────────────────────────
+// Translates EVERYTHING to Arabic: article content + all classification fields.
 
 async function doStageTranslated(article, project) {
   const log = getLog(article)
@@ -326,14 +323,26 @@ async function doStageTranslated(article, project) {
     return { nextStage: 'translated', reviewStatus: 'review', reviewReason: 'No content to translate' }
   }
 
+  const freshArticle = await db.article.findUnique({ where: { id: article.id } })
+  const analysis = freshArticle?.analysis || article.analysis || {}
   const sourceLang = article.language || detectLanguage(text)
+
   log.push({ step: 'detect_language', processor: 'server', service: 'Local regex detection', detected: sourceLang, at: new Date().toISOString() })
 
   if (sourceLang === 'ar') {
-    log.push({ step: 'translate', processor: 'server', status: 'skipped', reason: 'Already Arabic' })
+    const arAnalysis = {
+      ...analysis,
+      topicAr: analysis.topic || null,
+      tagsAr: analysis.tags || [],
+      summaryAr: analysis.summary || null,
+      regionAr: analysis.region || null,
+      uniqueAngleAr: analysis.uniqueAngle || null,
+    }
+    log.push({ step: 'translate_content', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
+    log.push({ step: 'translate_analysis', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
     await db.article.update({
       where: { id: article.id },
-      data: { contentAr: text, language: 'ar', processingLog: log },
+      data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
     })
     return { nextStage: 'score' }
   }
@@ -343,49 +352,122 @@ async function doStageTranslated(article, project) {
   }
   const apiKey = decrypt(project.anthropicApiKeyEncrypted)
 
+  // ── Step A: Translate article content ──
   const truncated = text.slice(0, 30000)
-  const translatePrompt = `Translate this news article to Arabic.\n` +
+  const contentPrompt = `Translate this news article to Arabic.\n` +
     `Preserve all names, dates, locations, and facts exactly.\n` +
     `Keep a journalistic tone. Output the Arabic text only, no commentary.\n\n` +
     truncated
-  const translated = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
-    { role: 'user', content: translatePrompt },
+  const translatedContent = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+    { role: 'user', content: contentPrompt },
   ], {
     maxTokens: 4096,
     projectId: article.projectId,
-    action: 'article-translate',
+    action: 'article-translate-content',
   })
-  const translateUsage = callAnthropic._lastUsage || {}
+  const contentUsage = callAnthropic._lastUsage || {}
 
-  if (!translated || translated.trim().length < 50) {
-    throw new Error('Translation returned empty or too short result')
+  if (!translatedContent || translatedContent.trim().length < 50) {
+    throw new Error('Content translation returned empty or too short result')
   }
 
-  const translationQuality = evaluateTranslationQuality(truncated.length, translated.trim().length, translated.trim())
+  const contentQuality = evaluateTranslationQuality(truncated.length, translatedContent.trim().length, translatedContent.trim())
 
   log.push({
-    step: 'translate', status: 'ok',
+    step: 'translate_content', status: 'ok',
     processor: 'ai', service: 'Anthropic Claude Haiku',
     model: 'claude-haiku-4-5-20251001',
-    inputLang: sourceLang, inputChars: truncated.length, outputChars: translated.trim().length,
-    inputTokens: translateUsage.inputTokens || null,
-    outputTokens: translateUsage.outputTokens || null,
-    totalTokens: translateUsage.totalTokens || null,
-    promptSent: translatePrompt.slice(0, 1500),
-    rawResponse: translated.trim().slice(0, 1500),
-    quality: translationQuality,
+    inputLang: sourceLang, inputChars: truncated.length, outputChars: translatedContent.trim().length,
+    inputTokens: contentUsage.inputTokens || null,
+    outputTokens: contentUsage.outputTokens || null,
+    totalTokens: contentUsage.totalTokens || null,
+    promptSent: contentPrompt.slice(0, 1500),
+    rawResponse: translatedContent.trim().slice(0, 1500),
+    quality: contentQuality,
+    at: new Date().toISOString(),
   })
+
+  // ── Step B: Translate classification fields ──
+  const fieldsToTranslate = {
+    topic: analysis.topic || '',
+    summary: analysis.summary || '',
+    region: analysis.region || '',
+    uniqueAngle: analysis.uniqueAngle || '',
+    tags: (analysis.tags || []).join(' | '),
+  }
+  const fieldsText = Object.entries(fieldsToTranslate)
+    .filter(([, v]) => v.trim())
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n')
+
+  let arAnalysis = { ...analysis }
+
+  if (fieldsText.trim()) {
+    const analysisPrompt = `Translate these classification fields from ${sourceLang === 'other' ? 'English' : sourceLang} to Arabic.\n` +
+      `Keep the same key names. For "tags", return them separated by " | ".\n` +
+      `Reply in the exact same format (key: value), one per line, no extra text.\n\n` +
+      fieldsText
+
+    const translatedFields = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+      { role: 'user', content: analysisPrompt },
+    ], {
+      maxTokens: 1024,
+      projectId: article.projectId,
+      action: 'article-translate-analysis',
+    })
+    const analysisUsage = callAnthropic._lastUsage || {}
+
+    const parsed = parseTranslatedFields(translatedFields || '')
+    arAnalysis.topicAr = parsed.topic || analysis.topic || null
+    arAnalysis.tagsAr = parsed.tags ? parsed.tags.split(/\s*\|\s*/).filter(Boolean) : (analysis.tags || [])
+    arAnalysis.summaryAr = parsed.summary || analysis.summary || null
+    arAnalysis.regionAr = parsed.region || analysis.region || null
+    arAnalysis.uniqueAngleAr = parsed.uniqueAngle || analysis.uniqueAngle || null
+
+    log.push({
+      step: 'translate_analysis', status: 'ok',
+      processor: 'ai', service: 'Anthropic Claude Haiku',
+      model: 'claude-haiku-4-5-20251001',
+      fieldsTranslated: Object.keys(parsed).length,
+      inputTokens: analysisUsage.inputTokens || null,
+      outputTokens: analysisUsage.outputTokens || null,
+      totalTokens: analysisUsage.totalTokens || null,
+      promptSent: analysisPrompt.slice(0, 1500),
+      rawResponse: (translatedFields || '').trim().slice(0, 1500),
+      at: new Date().toISOString(),
+    })
+  } else {
+    log.push({ step: 'translate_analysis', processor: 'server', service: 'Skip (no fields)', status: 'skipped', reason: 'No classification fields to translate', at: new Date().toISOString() })
+  }
 
   await db.article.update({
     where: { id: article.id },
     data: {
-      contentAr: translated.trim(),
+      contentAr: translatedContent.trim(),
       language: sourceLang === 'unknown' ? 'other' : sourceLang,
+      analysis: arAnalysis,
       processingLog: log,
     },
   })
 
   return { nextStage: 'score' }
+}
+
+function parseTranslatedFields(raw) {
+  const result = {}
+  const lines = (raw || '').trim().split('\n')
+  for (const line of lines) {
+    const colonIdx = line.indexOf(':')
+    if (colonIdx === -1) continue
+    const key = line.slice(0, colonIdx).trim().toLowerCase().replace(/\s+/g, '')
+    const value = line.slice(colonIdx + 1).trim()
+    if (key === 'topic') result.topic = value
+    else if (key === 'summary') result.summary = value
+    else if (key === 'region') result.region = value
+    else if (key === 'uniqueangle') result.uniqueAngle = value
+    else if (key === 'tags') result.tags = value
+  }
+  return result
 }
 
 // ── Stage 6: score → done ───────────────────────────────────────────────────
@@ -469,13 +551,13 @@ async function doStageScore(article, project) {
 function evaluateClassifyQuality(analysis) {
   if (!analysis || analysis.parseError) return { score: 0, issues: ['Failed to parse AI response'] }
   const issues = []
-  const expectedKeys = ['topic', 'topicOriginal', 'tags', 'sentiment', 'contentType', 'region', 'viralPotential', 'relevance', 'summary', 'uniqueAngle']
+  const expectedKeys = ['topic', 'tags', 'sentiment', 'contentType', 'region', 'viralPotential', 'relevance', 'summary', 'uniqueAngle']
   const filledKeys = expectedKeys.filter(k => analysis[k] != null && analysis[k] !== '').length
-  if (filledKeys < 7) issues.push(`Only ${filledKeys}/10 fields filled`)
+  if (filledKeys < 6) issues.push(`Only ${filledKeys}/9 fields filled`)
   if (!Array.isArray(analysis.tags) || analysis.tags.length < 3) issues.push('Too few tags (< 3)')
   if (typeof analysis.viralPotential === 'number' && (analysis.viralPotential < 0 || analysis.viralPotential > 1)) issues.push('viralPotential out of range')
   if (typeof analysis.relevance === 'number' && (analysis.relevance < 0 || analysis.relevance > 1)) issues.push('relevance out of range')
-  if (!analysis.topicOriginal) issues.push('Missing topicOriginal (needed for search)')
+  if (!analysis.topic) issues.push('Missing topic')
   if (!analysis.summary) issues.push('Missing summary')
   const score = Math.max(0, 10 - issues.length * 2)
   return { score, filled: filledKeys, total: expectedKeys.length, issues: issues.length ? issues : null }
@@ -523,7 +605,8 @@ function calculatePreferenceBias(analysis, profile) {
 }
 
 async function promoteToStory(article, analysis, relevance, viralPotential, rankScore) {
-  const headline = analysis.topic || article.title || ''
+  // Use Arabic headline (topicAr from translation stage), fallback to original
+  const headline = analysis.topicAr || analysis.topic || article.title || ''
   if (!headline.trim()) return null
 
   const existing = await db.story.findFirst({
@@ -543,20 +626,24 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
   const firstMoverScore = analysis.isBreaking ? 80 : 40
   const compositeScore = Math.round((relevanceScore * 0.35 + viralScore * 0.40 + firstMoverScore * 0.25) / 10 * 10) / 10
 
-  // Build story brief with classification + research + Arabic content
+  // Use Arabic fields (from translation stage) for story brief, fallback to originals
   const brief = {
     articleContent: article.contentAr || article.contentClean,
     articleTitle: article.title,
-    summary: analysis.summary || null,
-    tags: analysis.tags || [],
-    region: analysis.region || null,
+    summary: analysis.summaryAr || analysis.summary || null,
+    tags: analysis.tagsAr || analysis.tags || [],
+    region: analysis.regionAr || analysis.region || null,
     contentType: analysis.contentType || null,
-    uniqueAngle: analysis.uniqueAngle || null,
+    uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle || null,
     sentiment: analysis.sentiment || null,
     articleId: article.id,
+    // Keep originals for reference
+    topicOriginal: analysis.topic || null,
+    summaryOriginal: analysis.summary || null,
+    tagsOriginal: analysis.tags || [],
+    regionOriginal: analysis.region || null,
   }
 
-  // Include research data if available (stored on analysis.research by doStageResearch)
   if (analysis.research) {
     brief.research = analysis.research
   }
@@ -582,7 +669,6 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
     data: { storyId: story.id },
   })
 
-  // Generate vector embedding (non-blocking, fail-open)
   try {
     const proj = await db.project.findUnique({
       where: { id: article.projectId },
@@ -590,13 +676,14 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
     })
     if (proj?.embeddingApiKeyEncrypted) {
       const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
+      // Use Arabic fields for embedding (final display language)
       const text = buildEmbeddingText({
-        topic: analysis.topic,
-        tags: analysis.tags,
-        summary: analysis.summary,
+        topic: analysis.topicAr || analysis.topic,
+        tags: analysis.tagsAr || analysis.tags,
+        summary: analysis.summaryAr || analysis.summary,
         contentType: analysis.contentType,
-        region: analysis.region,
-        uniqueAngle: analysis.uniqueAngle,
+        region: analysis.regionAr || analysis.region,
+        uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle,
       })
       if (text.length > 10) {
         const emb = await generateEmbedding(text, proj)

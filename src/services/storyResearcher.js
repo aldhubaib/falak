@@ -64,15 +64,12 @@ async function researchStory(article, project) {
   const log = []
   const analysis = article.analysis || {}
 
-  // Use original-language fields for web search (topicOriginal, title)
-  // and Arabic fields for Perplexity/synthesis context
-  const topicOriginal = analysis.topicOriginal || article.title || analysis.topic || ''
-  const regionOriginal = analysis.regionOriginal || analysis.region || ''
-  const topicArabic = analysis.topic || ''
-  const tags = Array.isArray(analysis.tags) ? analysis.tags : []
+  // Classification is now in original language — use directly
+  const topic = analysis.topic || article.title || ''
   const region = analysis.region || ''
+  const tags = Array.isArray(analysis.tags) ? analysis.tags : []
 
-  const searchQuery = buildSearchQuery(topicOriginal, regionOriginal, article.title)
+  const searchQuery = buildSearchQuery(topic, region, article.title)
 
   // ── Step 1: Firecrawl Search (original language) ──
   let firecrawlResults = []
@@ -111,7 +108,7 @@ async function researchStory(article, project) {
   if (project.perplexityApiKeyEncrypted) {
     try {
       const pxKey = decrypt(project.perplexityApiKeyEncrypted)
-      const bgPrompt = buildBackgroundPrompt(topicOriginal, topicArabic, tags, regionOriginal, analysis.summary)
+      const bgPrompt = buildBackgroundPrompt(topic, tags, region, analysis.summary)
       const result = await queryPerplexity(pxKey, bgPrompt, { maxTokens: PERPLEXITY_MAX_TOKENS })
       perplexityContext = result.text || null
       perplexityCitations = result.citations || []
@@ -184,8 +181,7 @@ async function researchStory(article, project) {
     try {
       const anthropicKey = decrypt(project.anthropicApiKeyEncrypted)
       const synthesisPrompt = buildSynthesisPrompt({
-        topicOriginal,
-        topicArabic,
+        topic,
         summary: analysis.summary,
         uniqueAngle: analysis.uniqueAngle,
         tags,
@@ -246,23 +242,22 @@ async function researchStory(article, project) {
 
 // ── Prompt builders ──
 
-function buildSearchQuery(topicOriginal, regionOriginal, title) {
+function buildSearchQuery(topic, region, title) {
   const parts = []
-  if (topicOriginal && topicOriginal !== title) parts.push(topicOriginal)
+  if (topic && topic !== title) parts.push(topic)
   if (title) parts.push(title)
-  if (regionOriginal) parts.push(regionOriginal)
+  if (region) parts.push(region)
   const query = parts.join(' ').slice(0, 200)
   return query || title || ''
 }
 
-function buildBackgroundPrompt(topicOriginal, topicArabic, tags, regionOriginal, summary) {
+function buildBackgroundPrompt(topic, tags, region, summary) {
   return [
     `Provide comprehensive background context for this news story.`,
     `Include: timeline of events, key people involved, causes, consequences, and any ongoing developments.`,
     ``,
-    `Topic: ${topicOriginal}`,
-    topicArabic ? `Topic (Arabic): ${topicArabic}` : '',
-    regionOriginal ? `Region: ${regionOriginal}` : '',
+    `Topic: ${topic}`,
+    region ? `Region: ${region}` : '',
     tags.length > 0 ? `Tags: ${tags.join(', ')}` : '',
     summary ? `Summary: ${summary}` : '',
     ``,
@@ -273,7 +268,7 @@ function buildBackgroundPrompt(topicOriginal, topicArabic, tags, regionOriginal,
   ].filter(Boolean).join('\n')
 }
 
-function buildSynthesisPrompt({ topicOriginal, topicArabic, summary, uniqueAngle, tags, region, originalArticle, firecrawlResults, perplexityContext, perplexityCitations, similarVideos }) {
+function buildSynthesisPrompt({ topic, summary, uniqueAngle, tags, region, originalArticle, firecrawlResults, perplexityContext, perplexityCitations, similarVideos }) {
   const relatedArticlesText = firecrawlResults.map((r, i) =>
     `[Article ${i + 1}] ${r.title}\nURL: ${r.url}\n${r.markdown ? r.markdown.slice(0, 3000) : r.snippet}`
   ).join('\n\n')
@@ -286,8 +281,7 @@ function buildSynthesisPrompt({ topicOriginal, topicArabic, summary, uniqueAngle
 Synthesize ALL the following sources into a structured research brief for a video script writer.
 
 ═══ ORIGINAL ARTICLE ═══
-Topic: ${topicOriginal}
-${topicArabic ? `Topic (Arabic): ${topicArabic}` : ''}
+Topic: ${topic}
 ${summary ? `Summary: ${summary}` : ''}
 ${uniqueAngle ? `Unique Angle: ${uniqueAngle}` : ''}
 ${tags.length ? `Tags: ${tags.join(', ')}` : ''}
