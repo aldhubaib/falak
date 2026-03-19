@@ -222,19 +222,31 @@ const SUB_STEPS: SubStep[] = [
     parentStage: "research",
     filterFn: (a) => hasLogStep(a, "synthesis", "ok"),
   },
-  // Translated sub-steps (runs after research)
+  {
+    id: "research", label: "Research Complete", icon: Search, color: "text-success",
+    parentStage: "research",
+    filterFn: (a) => hasLogStep(a, "research"),
+  },
+  // Translated sub-steps (one column per process)
   {
     id: "lang_detect", label: "Language", icon: Languages, color: "text-purple",
     parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "detect_language"),
   },
   {
-    id: "translate_claude", label: "Translation", icon: Languages, color: "text-blue",
+    id: "translate_content", label: "Translate Content", icon: Languages, color: "text-blue",
     parentStage: "translated",
-    filterFn: (a) => {
-      const log = getLogStep(a, "translate");
-      return log?.status === "ok" || log?.status === "skipped";
-    },
+    filterFn: (a) => hasLogStep(a, "translate_content"),
+  },
+  {
+    id: "translate_analysis", label: "Translate Fields", icon: Brain, color: "text-blue",
+    parentStage: "translated",
+    filterFn: (a) => hasLogStep(a, "translate_analysis"),
+  },
+  {
+    id: "translate_research", label: "Translate Brief", icon: Search, color: "text-blue",
+    parentStage: "translated",
+    filterFn: (a) => hasLogStep(a, "translate_research"),
   },
   // Score & Promotion sub-steps (final stage — Arabic AI analysis)
   {
@@ -644,7 +656,7 @@ export default function ArticlePipeline() {
             {/* ── 3. RESEARCH FLOW ── */}
             <SectionHeader icon={getFlowDef("research")!.icon} title={getFlowDef("research")!.name} subtitle={getFlowDef("research")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-1 items-start">
+              <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "research").map((sub) => (
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
@@ -659,7 +671,7 @@ export default function ArticlePipeline() {
             {/* ── 4. TRANSLATION ── */}
             <SectionHeader icon={getFlowDef("translated")!.icon} title={getFlowDef("translated")!.name} subtitle={getFlowDef("translated")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+              <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "translated").map((sub) => (
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
@@ -672,7 +684,7 @@ export default function ArticlePipeline() {
             {/* ── 5. SCORE AND PROMOTION ── */}
             <SectionHeader icon={getFlowDef("scoring")!.icon} title={getFlowDef("scoring")!.name} subtitle={getFlowDef("scoring")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+              <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "score").map((sub) => (
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
@@ -773,8 +785,9 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
   const langLabel = LANG_LABELS[article.language || ""] || article.language || "";
 
   const contentSourceLog = log.find(e => e.step === "content_source");
-  const translateLog = log.find(e => e.step === "translate");
+  const translateContentLog = log.find(e => e.step === "translate_content");
   const detectLog = log.find(e => e.step === "detect_language");
+  const researchLog = log.find(e => e.step === "research");
   const classifyLog = log.find(e => e.step === "classify");
   const scoreLog = log.find(e => e.step === "score");
   const promoteLog = log.find(e => e.step === "promote");
@@ -803,6 +816,13 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         </div>
       )}
 
+      {subStep.id === "research" && researchLog && (
+        <div className="flex items-center gap-2 text-[10px] font-mono">
+          <span className={researchLog.status === "ok" ? "text-success" : "text-dim"}>{researchLog.status === "ok" ? "Done" : researchLog.status === "partial" ? "Partial" : researchLog.status}</span>
+          {researchLog.narrativeStrength != null && <span className="text-success font-semibold">Narrative {researchLog.narrativeStrength}/10</span>}
+        </div>
+      )}
+
       {subStep.id === "lang_detect" && detectLog && (
         <div className="flex items-center gap-2 text-[10px] font-mono">
           <span className={`px-1.5 py-0.5 rounded font-bold ${
@@ -810,27 +830,46 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
           }`}>
             {(detectLog.detected || "?").toUpperCase()}
           </span>
-          {translateLog?.status === "skipped" && (
+          {translateContentLog?.status === "skipped" && (
             <span className="text-dim">Already Arabic</span>
-          )}
-          {translateLog?.status === "ok" && (
-            <span className="text-blue">→ AR via Claude</span>
           )}
         </div>
       )}
 
-      {subStep.id === "translate_claude" && translateLog && (
+      {subStep.id === "translate_content" && translateContentLog && (
         <div className="flex items-center gap-2 text-[10px] font-mono text-dim">
-          {translateLog.status === "skipped" ? (
+          {translateContentLog.status === "skipped" ? (
             <span className="text-success">Native Arabic</span>
           ) : (
             <>
-              <span>{translateLog.inputChars?.toLocaleString()} → {translateLog.outputChars?.toLocaleString()} chars</span>
-              <span className="text-blue">{translateLog.model}</span>
+              <span>{translateContentLog.inputChars?.toLocaleString()} → {translateContentLog.outputChars?.toLocaleString()} chars</span>
+              {translateContentLog.model && <span className="text-blue">{translateContentLog.model}</span>}
             </>
           )}
         </div>
       )}
+
+      {subStep.id === "translate_analysis" && (() => {
+        const logEntry = log.find(e => e.step === "translate_analysis");
+        if (!logEntry) return null;
+        return (
+          <div className="text-[10px] font-mono text-dim">
+            {logEntry.status === "skipped" ? <span className="text-success">Skipped</span> : (logEntry as any).fieldsTranslated != null && <span>{(logEntry as any).fieldsTranslated} fields</span>}
+          </div>
+        );
+      })()}
+
+      {subStep.id === "translate_research" && (() => {
+        const logEntry = log.find(e => e.step === "translate_research");
+        if (!logEntry) return null;
+        return (
+          <div className="text-[10px] font-mono text-dim">
+            {logEntry.status === "skipped" ? <span className="text-success">Skipped</span> : logEntry.status === "ok" && logEntry.inputChars != null && logEntry.outputChars != null && (
+              <span>{logEntry.inputChars.toLocaleString()} → {logEntry.outputChars.toLocaleString()} chars</span>
+            )}
+          </div>
+        );
+      })()}
 
       {subStep.id === "classify_result" && analysis && !analysis.parseError && (
         <div className="space-y-1">
