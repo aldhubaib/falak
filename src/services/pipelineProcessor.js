@@ -9,6 +9,7 @@ const { fetchVideoMetadata, fetchComments } = require('./youtube')
 const { fetchTranscript } = require('./transcript')
 const { trackUsage } = require('./usageTracker')
 const MAX_ANTHROPIC_TOKENS = 4096
+const ANTHROPIC_TIMEOUT_MS = 120_000
 const ANTHROPIC_RETRY_DELAYS_MS = [10_000, 30_000, 60_000] // on 429: wait 10s, 30s, 60s
 // Small gap between sequential AI calls within one video to avoid burst
 const ANTHROPIC_INTER_CALL_DELAY_MS = 2_000
@@ -325,15 +326,29 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
   if (system) body.system = system
 
   for (let attempt = 0; attempt <= ANTHROPIC_RETRY_DELAYS_MS.length; attempt++) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(body),
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), ANTHROPIC_TIMEOUT_MS)
+    let res
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+    } catch (e) {
+      clearTimeout(timeout)
+      if (e.name === 'AbortError') {
+        trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: 'timeout' })
+        throw new Error(`Anthropic API: request timed out after ${ANTHROPIC_TIMEOUT_MS / 1000}s`)
+      }
+      throw e
+    }
+    clearTimeout(timeout)
 
     if (res.status === 429) {
       trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: '429' })

@@ -5,6 +5,7 @@
 const fetch = require('node-fetch')
 
 const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions'
+const PERPLEXITY_TIMEOUT_MS = 60_000
 const MODEL = 'sonar'
 
 /**
@@ -16,24 +17,37 @@ const MODEL = 'sonar'
  */
 async function queryPerplexity(apiKey, userPrompt, opts = {}) {
   const maxTokens = opts.maxTokens ?? 4096
-  const res = await fetch(PERPLEXITY_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.2,
-    }),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), PERPLEXITY_TIMEOUT_MS)
+  let res
+  try {
+    res = await fetch(PERPLEXITY_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.2,
+      }),
+      signal: controller.signal,
+    })
+  } catch (e) {
+    clearTimeout(timeout)
+    if (e.name === 'AbortError') {
+      throw new Error(`Perplexity API: request timed out after ${PERPLEXITY_TIMEOUT_MS / 1000}s`)
+    }
+    throw e
+  }
+  clearTimeout(timeout)
 
   if (!res.ok) {
     const errBody = await res.text()
