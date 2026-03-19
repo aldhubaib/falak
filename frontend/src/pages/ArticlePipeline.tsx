@@ -8,6 +8,7 @@ import {
   ArrowRight, Globe, Languages, Brain, Sparkles, FileText, Download,
   Zap, TrendingUp, Bell, Search, Activity, Target, FlaskConical,
 } from "lucide-react";
+import { getFlowDef } from "@/constants/flowDefs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
@@ -612,7 +613,7 @@ export default function ArticlePipeline() {
             )}
 
             {/* ── 1. CONTENT FLOW ── */}
-            <SectionHeader icon={FileText} title="Content Flow" subtitle="How articles get their text" />
+            <SectionHeader icon={getFlowDef("content")!.icon} title={getFlowDef("content")!.name} subtitle={getFlowDef("content")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 <StageColumn stage={STAGE_DEFS[0]} items={data?.byStage.imported ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
@@ -627,8 +628,8 @@ export default function ArticlePipeline() {
               )}
             </div>
 
-            {/* ── 2. CLASSIFY FLOW (original language) ── */}
-            <SectionHeader icon={Brain} title="Classify Flow" subtitle="AI classification on original language content" />
+            {/* ── 2. CLASSIFICATION ── */}
+            <SectionHeader icon={getFlowDef("classify")!.icon} title={getFlowDef("classify")!.name} subtitle={getFlowDef("classify")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "classify").map((sub) => (
@@ -640,8 +641,8 @@ export default function ArticlePipeline() {
               </div>
             </div>
 
-            {/* ── 3. RESEARCH FLOW (original language) ── */}
-            <SectionHeader icon={Search} title="Research Flow" subtitle="Web search and enrichment in the article's original language" />
+            {/* ── 3. RESEARCH FLOW ── */}
+            <SectionHeader icon={getFlowDef("research")!.icon} title={getFlowDef("research")!.name} subtitle={getFlowDef("research")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "research").map((sub) => (
@@ -655,8 +656,8 @@ export default function ArticlePipeline() {
               )}
             </div>
 
-            {/* ── 4. TRANSLATION FLOW (after research) ── */}
-            <SectionHeader icon={Languages} title="Translation Flow" subtitle="Language detection and Arabic translation (after research)" />
+            {/* ── 4. TRANSLATION ── */}
+            <SectionHeader icon={getFlowDef("translated")!.icon} title={getFlowDef("translated")!.name} subtitle={getFlowDef("translated")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "translated").map((sub) => (
@@ -668,8 +669,8 @@ export default function ArticlePipeline() {
               </div>
             </div>
 
-            {/* ── 5. SCORE & PROMOTION ── */}
-            <SectionHeader icon={Sparkles} title="Score & Promotion" subtitle="Scoring, ranking, and story creation with full data" />
+            {/* ── 5. SCORE AND PROMOTION ── */}
+            <SectionHeader icon={getFlowDef("scoring")!.icon} title={getFlowDef("scoring")!.name} subtitle={getFlowDef("scoring")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "score").map((sub) => (

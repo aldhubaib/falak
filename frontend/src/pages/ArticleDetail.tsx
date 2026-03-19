@@ -4,9 +4,10 @@ import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
-  Copy, Check, Search, Target, Server, Cpu,
+  Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { FLOW_DEFS } from "@/constants/flowDefs";
 
 /* ─── Types ─── */
 
@@ -144,7 +145,7 @@ interface ArticleDetail {
   updatedAt: string;
 }
 
-/* ─── Timeline stage definitions ─── */
+/* ─── Timeline stage definitions (aligned with Pipeline mother flows) ─── */
 
 interface TimelineStage {
   id: string;
@@ -154,14 +155,23 @@ interface TimelineStage {
   bgColor: string;
 }
 
+const IMPORTED_STAGE: TimelineStage = {
+  id: "imported",
+  label: "Imported",
+  icon: FileText,
+  color: "text-orange",
+  bgColor: "bg-orange",
+};
+
 const TIMELINE_STAGES: TimelineStage[] = [
-  { id: "imported", label: "Imported", icon: FileText, color: "text-orange", bgColor: "bg-orange" },
-  { id: "content", label: "Content Extraction", icon: Globe, color: "text-blue", bgColor: "bg-blue" },
-  { id: "classify", label: "Classification (Original Language)", icon: Brain, color: "text-success", bgColor: "bg-success" },
-  { id: "research", label: "Research (Original Language)", icon: Search, color: "text-purple", bgColor: "bg-purple" },
-  { id: "translated", label: "Translation to Arabic", icon: Languages, color: "text-blue", bgColor: "bg-blue" },
-  { id: "scoring", label: "Scoring (Arabic AI Analysis)", icon: Sparkles, color: "text-orange", bgColor: "bg-orange" },
-  { id: "promote", label: "Story Promotion", icon: CheckCircle2, color: "text-success", bgColor: "bg-success" },
+  IMPORTED_STAGE,
+  ...FLOW_DEFS.map((f) => ({
+    id: f.id,
+    label: f.name,
+    icon: f.icon,
+    color: f.color,
+    bgColor: f.bgColor,
+  })),
 ];
 
 const STAGE_ORDER = ["imported", "content", "classify", "research", "translated", "score", "done"];
@@ -323,8 +333,7 @@ export default function ArticleDetailPage() {
           {/* Timeline */}
           <div className="relative">
             {TIMELINE_STAGES.map((stage, i) => {
-              const mappedStage =
-                stage.id === "scoring" || stage.id === "promote" ? "score" : stage.id;
+              const mappedStage = stage.id === "scoring" ? "score" : stage.id;
               const reached = isDone || currentStageIdx >= stageIndex(mappedStage);
               const isActive = !isDone && !isFailed && article.stage === mappedStage;
 
@@ -407,8 +416,12 @@ function TimelineStep({
             {stage.id === "classify" && <AiAnalysisDetail article={article} log={log} />}
             {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
             {stage.id === "translated" && <TranslatedDetail article={article} log={log} />}
-            {stage.id === "scoring" && <ScoringDetail article={article} log={log} />}
-            {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
+            {stage.id === "scoring" && (
+              <>
+                <ScoringDetail article={article} log={log} />
+                <PromoteDetail article={article} log={log} pp={pp} />
+              </>
+            )}
           </div>
         )}
       </div>
@@ -424,8 +437,7 @@ const STEP_MAP: Record<string, string[]> = {
   classify: ["classify"],
   research: ["research_decision", "firecrawl_search", "perplexity_context", "synthesis", "research"],
   translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
-  scoring: ["score_similarity", "score_ai_analysis", "score"],
-  promote: ["promote"],
+  scoring: ["score_similarity", "score_ai_analysis", "score", "promote"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
@@ -490,6 +502,27 @@ function LogStepCard({
       </div>
       {skipped && <div className="text-[11px] text-dim">{skippedReason}</div>}
       {!skipped && children && <div className="text-[12px] text-dim leading-relaxed">{children}</div>}
+    </div>
+  );
+}
+
+/** Result output card — no processor/status/tokens; for grouped result sections. */
+function ResultCard({
+  label,
+  icon: Icon,
+  children,
+}: {
+  label: string;
+  icon: typeof FileText;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="px-3 py-2.5 rounded-lg border border-border/80 bg-background/80 space-y-2">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="w-3.5 h-3.5 text-dim" />}
+        <span className="text-[11px] font-semibold text-foreground">{label}</span>
+      </div>
+      {children && <div className="text-[12px] text-dim leading-relaxed">{children}</div>}
     </div>
   );
 }
@@ -689,19 +722,21 @@ function ImportedDetail({ article, log }: { article: ArticleDetail; log: LogEntr
         )}
         {entry?.rawChars != null && <span className="block mt-1">{entry.rawChars.toLocaleString()} chars · {entry.titlePreview ? "title present" : ""}</span>}
       </LogStepCard>
-      {article.title && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Title</div>
-          <div className="text-[13px] text-foreground font-medium" dir="auto">{article.title}</div>
-        </div>
-      )}
-      {article.description && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Description</div>
-          <div className="text-[12px] text-foreground/80" dir="auto">{article.description}</div>
-        </div>
-      )}
-      <ContentBlock label={`Raw Content (${article.contentRawLength.toLocaleString()} chars)`} content={article.content} />
+      <ResultCard label="Source Content" icon={FileText}>
+        {article.title && (
+          <div className="mb-2">
+            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Title</div>
+            <div className="text-[13px] text-foreground font-medium" dir="auto">{article.title}</div>
+          </div>
+        )}
+        {article.description && (
+          <div className="mb-2">
+            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Description</div>
+            <div className="text-[12px] text-foreground/80" dir="auto">{article.description}</div>
+          </div>
+        )}
+        <ContentBlock label={`Raw Content (${article.contentRawLength.toLocaleString()} chars)`} content={article.content} />
+      </ResultCard>
     </div>
   );
 }
@@ -798,12 +833,19 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
         return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon}>{body}</LogStepCard>;
       })}
 
-      {article.analysis && (article.analysis.topicAr || article.analysis.summaryAr) && (
-        <div className="rounded-lg border border-purple/20 bg-purple/5 p-3 space-y-1.5">
-          <div className="text-[10px] font-mono text-purple uppercase tracking-wider">Arabic fields</div>
-          {article.analysis.topicAr && <div className="text-[11px]" dir="rtl">{article.analysis.topicAr}</div>}
-          {article.analysis.summaryAr && <div className="text-[11px]" dir="rtl">{article.analysis.summaryAr}</div>}
-        </div>
+      {article.analysis && (article.analysis.topicAr || article.analysis.summaryAr || article.analysis.tagsAr?.length || article.analysis.regionAr || article.analysis.uniqueAngleAr) && (
+        <ResultCard label="Arabic Output" icon={Languages}>
+          {article.analysis.topicAr && <div className="mb-2"><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Topic</div><div className="text-[11px]" dir="rtl">{article.analysis.topicAr}</div></div>}
+          {article.analysis.summaryAr && <div className="mb-2"><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Summary</div><div className="text-[11px]" dir="rtl">{article.analysis.summaryAr}</div></div>}
+          {article.analysis.tagsAr && article.analysis.tagsAr.length > 0 && (
+            <div className="mb-2">
+              <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Tags</div>
+              <div className="flex flex-wrap gap-1.5" dir="rtl">{article.analysis.tagsAr.map((t, i) => <span key={i} className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono">{t}</span>)}</div>
+            </div>
+          )}
+          {article.analysis.regionAr && <div className="mb-2"><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Region</div><div className="text-[11px]" dir="rtl">{article.analysis.regionAr}</div></div>}
+          {article.analysis.uniqueAngleAr && <div><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle</div><div className="text-[11px] italic" dir="rtl">{article.analysis.uniqueAngleAr}</div></div>}
+        </ResultCard>
       )}
 
       {/* Content comparison */}
@@ -860,51 +902,40 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
         {classifyLog?.rawResponse && <div className="mt-1"><ExpandableText label="response" text={classifyLog.rawResponse} maxLen={800} /></div>}
       </LogStepCard>
 
-      {/* Topic (original language) */}
-      {analysis.topic && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Topic (original language)</div>
-          <div className="text-[13px] text-foreground font-medium leading-relaxed" dir="auto">{analysis.topic}</div>
-        </div>
-      )}
-
-      {/* Summary (original language) */}
-      {analysis.summary && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Summary (original language)</div>
-          <div className="text-[12px] text-foreground/80 leading-relaxed" dir="auto">{analysis.summary}</div>
-        </div>
-      )}
-
-      {/* Tags (original language) */}
-      {analysis.tags && analysis.tags.length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Tags (original language)</div>
-          <div className="flex flex-wrap gap-1.5" dir="auto">
-            {analysis.tags.map((tag, i) => (
-              <span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-mono">{tag}</span>
-            ))}
+      <ResultCard label="Classification Results" icon={Brain}>
+        {analysis.topic && (
+          <div className="mb-2">
+            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Topic (original language)</div>
+            <div className="text-[13px] text-foreground font-medium leading-relaxed" dir="auto">{analysis.topic}</div>
           </div>
+        )}
+        {analysis.summary && (
+          <div className="mb-2">
+            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Summary (original language)</div>
+            <div className="text-[12px] text-foreground/80 leading-relaxed" dir="auto">{analysis.summary}</div>
+          </div>
+        )}
+        {analysis.tags && analysis.tags.length > 0 && (
+          <div className="mb-2">
+            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Tags (original language)</div>
+            <div className="flex flex-wrap gap-1.5" dir="auto">
+              {analysis.tags.map((tag, i) => (
+                <span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-mono">{tag}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {analysis.region && <InfoCard label="Region (original language)" value={analysis.region} />}
+        <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+          <InfoCard label="Content Type" value={analysis.contentType || "—"} />
         </div>
-      )}
-
-      {/* Region (original language) */}
-      {analysis.region && (
-        <InfoCard label="Region (original language)" value={analysis.region} />
-      )}
-
-      {/* Classification grid — no sentiment/viral/relevance/breaking (those are in Scoring stage) */}
-      <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-        <InfoCard label="Content Type" value={analysis.contentType || "—"} />
-      </div>
-
-      {/* Unique angle */}
-      {analysis.uniqueAngle && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle (original language)</div>
-          <div className="text-[12px] text-foreground/80 italic" dir="auto">{analysis.uniqueAngle}</div>
-        </div>
-      )}
+        {analysis.uniqueAngle && (
+          <div>
+            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle (original language)</div>
+            <div className="text-[12px] text-foreground/80 italic" dir="auto">{analysis.uniqueAngle}</div>
+          </div>
+        )}
+      </ResultCard>
     </div>
   );
 }
@@ -990,13 +1021,15 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
       })}
 
       {article.rankReason && (
-        <div className="flex flex-wrap gap-1.5">
-          {article.rankReason.split(", ").map((reason, i) => (
-            <span key={i} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-mono">
-              {reason}
-            </span>
-          ))}
-        </div>
+        <ResultCard label="Score Rationale" icon={Sparkles}>
+          <div className="flex flex-wrap gap-1.5">
+            {article.rankReason.split(", ").map((reason, i) => (
+              <span key={i} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-mono">
+                {reason}
+              </span>
+            ))}
+          </div>
+        </ResultCard>
       )}
     </div>
   );
@@ -1096,45 +1129,41 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
         return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
 
-      {/* ── Suggested Hook ── */}
       {brief?.suggestedHook && (
-        <div className="px-4 py-3 rounded-lg bg-purple/5 border border-purple/20">
-          <div className="text-[10px] font-mono text-purple uppercase tracking-wider mb-1.5">Suggested Video Hook</div>
+        <ResultCard label="Video Hook" icon={Sparkles}>
           <div className="text-[14px] text-foreground font-medium leading-relaxed" dir="auto">
             "{brief.suggestedHook}"
           </div>
-        </div>
+        </ResultCard>
       )}
 
-      {/* ── Core Story: What / How / Result ── */}
       {(brief?.whatHappened || brief?.howItHappened || brief?.whatWasTheResult) && (
-        <div className="space-y-3">
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Core Narrative</div>
-          {brief?.whatHappened && (
-            <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
-              <div className="text-[10px] font-mono text-blue uppercase tracking-wider mb-1.5">What happened?</div>
-              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatHappened}</div>
-            </div>
-          )}
-          {brief?.howItHappened && (
-            <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
-              <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">How did it happen?</div>
-              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.howItHappened}</div>
-            </div>
-          )}
-          {brief?.whatWasTheResult && (
-            <div className="px-4 py-3 rounded-lg bg-surface/50 border border-border">
-              <div className="text-[10px] font-mono text-success uppercase tracking-wider mb-1.5">What was the result?</div>
-              <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatWasTheResult}</div>
-            </div>
-          )}
-        </div>
+        <ResultCard label="Core Narrative" icon={FileText}>
+          <div className="space-y-3">
+            {brief?.whatHappened && (
+              <div>
+                <div className="text-[10px] font-mono text-blue uppercase tracking-wider mb-1.5">What happened?</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatHappened}</div>
+              </div>
+            )}
+            {brief?.howItHappened && (
+              <div>
+                <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">How did it happen?</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.howItHappened}</div>
+              </div>
+            )}
+            {brief?.whatWasTheResult && (
+              <div>
+                <div className="text-[10px] font-mono text-success uppercase tracking-wider mb-1.5">What was the result?</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatWasTheResult}</div>
+              </div>
+            )}
+          </div>
+        </ResultCard>
       )}
 
-      {/* ── Key Facts ── */}
       {brief?.keyFacts && brief.keyFacts.length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Key Facts</div>
+        <ResultCard label="Key Facts" icon={ListOrdered}>
           <div className="space-y-1.5">
             {brief.keyFacts.map((fact, i) => (
               <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface/50 border border-border">
@@ -1143,13 +1172,11 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
               </div>
             ))}
           </div>
-        </div>
+        </ResultCard>
       )}
 
-      {/* ── Timeline ── */}
       {brief?.timeline && brief.timeline.length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Timeline</div>
+        <ResultCard label="Timeline" icon={ListOrdered}>
           <div className="space-y-1">
             {brief.timeline.map((entry, i) => (
               <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
@@ -1158,13 +1185,11 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
               </div>
             ))}
           </div>
-        </div>
+        </ResultCard>
       )}
 
-      {/* ── Main Characters ── */}
       {brief?.mainCharacters && brief.mainCharacters.length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Key People</div>
+        <ResultCard label="Key People" icon={Users}>
           <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
             {brief.mainCharacters.map((person, i) => (
               <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
@@ -1173,23 +1198,17 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
               </div>
             ))}
           </div>
-        </div>
+        </ResultCard>
       )}
 
-      {/* ── Competition Insight ── */}
       {brief?.competitionInsight && (
-        <div className="px-4 py-3 rounded-lg bg-orange/5 border border-orange/20">
-          <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">Competition Insight</div>
+        <ResultCard label="Competition Insight" icon={Target}>
           <div className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{brief.competitionInsight}</div>
-        </div>
+        </ResultCard>
       )}
 
-      {/* ── Related Articles Found ── */}
       {research?.relatedArticles && research.relatedArticles.length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">
-            Related Articles Found ({research.relatedArticles.length})
-          </div>
+        <ResultCard label="Related Articles" icon={Search}>
           <div className="space-y-1.5">
             {research.relatedArticles.map((ra, i) => (
               <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
@@ -1210,24 +1229,21 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
               </div>
             ))}
           </div>
-        </div>
+        </ResultCard>
       )}
 
-      {/* ── Background Context ── */}
       {research?.backgroundContext && (
-        <ContentBlock
-          label={`Background Context from Perplexity (${research.backgroundContext.length.toLocaleString()} chars)`}
-          content={research.backgroundContext}
-          dir="auto"
-        />
+        <ResultCard label="Background Context" icon={Brain}>
+          <ContentBlock
+            label={`Perplexity (${research.backgroundContext.length.toLocaleString()} chars)`}
+            content={research.backgroundContext}
+            dir="auto"
+          />
+        </ResultCard>
       )}
 
-      {/* ── Similar Competition Videos ── */}
       {research?.similarVideos && research.similarVideos.length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">
-            Similar Competition Videos ({research.similarVideos.length})
-          </div>
+        <ResultCard label="Similar Competition Videos" icon={Target}>
           <div className="space-y-1.5">
             {research.similarVideos.map((v, i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
@@ -1243,13 +1259,11 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
               </div>
             ))}
           </div>
-        </div>
+        </ResultCard>
       )}
 
-      {/* ── Sources ── */}
       {brief?.sources && brief.sources.length > 0 && (
-        <div>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Sources</div>
+        <ResultCard label="Sources" icon={Link2}>
           <div className="flex flex-wrap gap-1.5">
             {brief.sources.map((s, i) => (
               s.url ? (
@@ -1264,7 +1278,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
               )
             ))}
           </div>
-        </div>
+        </ResultCard>
       )}
     </div>
   );
