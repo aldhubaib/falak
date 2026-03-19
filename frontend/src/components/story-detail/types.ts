@@ -80,4 +80,8 @@ export interface StoryBrief {
   videoFileName?: string;
   /** File size in bytes of the uploaded video. */
   videoFileSize?: number;
+  /** Full transcript text from Whisper (manual videos). */
+  transcript?: string;
+  /** Timestamped transcript segments from Whisper. */
+  transcriptSegments?: { text: string; start: number; end: number }[];
 }

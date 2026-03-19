@@ -151,6 +151,7 @@ model Story {
   channelId       String
   channel         Channel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
   headline        String
+  origin          String     @default("ai")
   stage           String     @default("suggestion")
   coverageStatus  String?
   sourceUrl       String?

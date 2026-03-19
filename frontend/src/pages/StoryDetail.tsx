@@ -24,6 +24,7 @@ import {
   StoryDetailStageOmit,
   StoryDetailStagePublish,
   VideoUpload,
+  TranscriptSection,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
 
@@ -95,6 +96,360 @@ const MOCK_STORY: StoryWithLog = {
   brief: null,
   log: [],
 } as StoryWithLog;
+
+// ── Manual Story Workflow ──────────────────────────────────────────
+function ManualStoryWorkflow({
+  story,
+  brief,
+  storyId,
+  saving,
+  onBriefChange,
+  onStageChange,
+}: {
+  story: StoryWithLog;
+  brief: StoryBrief;
+  storyId: string;
+  saving: boolean;
+  onBriefChange: (updater: (prev: StoryBrief) => StoryBrief) => void;
+  onStageChange: (stage: Stage) => void;
+}) {
+  const [generatingTitle, setGeneratingTitle] = useState(false);
+  const [generatingDesc, setGeneratingDesc] = useState(false);
+  const [generatingTags, setGeneratingTags] = useState(false);
+  const [classifying, setClassifying] = useState(false);
+  const [srtCopied, setSrtCopied] = useState(false);
+  const [youtubeInput, setYoutubeInput] = useState(brief.youtubeUrl || "");
+
+  const generateTitle = async () => {
+    setGeneratingTitle(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/generate-title`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        toast.error(err.error || "Generate title failed");
+        return;
+      }
+      const data = await res.json();
+      onBriefChange((b) => ({ ...b, suggestedTitle: data.title }));
+      toast.success("Title generated");
+    } catch {
+      toast.error("Generate title failed");
+    } finally {
+      setGeneratingTitle(false);
+    }
+  };
+
+  const generateDescription = async () => {
+    setGeneratingDesc(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/generate-description`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        toast.error(err.error || "Generate description failed");
+        return;
+      }
+      const data = await res.json();
+      onBriefChange((b) => ({ ...b, youtubeDescription: data.description }));
+      toast.success("Description generated");
+    } catch {
+      toast.error("Generate description failed");
+    } finally {
+      setGeneratingDesc(false);
+    }
+  };
+
+  const generateTags = async () => {
+    setGeneratingTags(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/suggest-tags`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        toast.error(err.error || "Generate tags failed");
+        return;
+      }
+      const data = await res.json();
+      const tags = data.tags || data.brief?.youtubeTags || [];
+      onBriefChange((b) => ({ ...b, youtubeTags: tags }));
+      toast.success("Tags generated");
+    } catch {
+      toast.error("Generate tags failed");
+    } finally {
+      setGeneratingTags(false);
+    }
+  };
+
+  const saveYoutubeUrl = async () => {
+    const url = youtubeInput.trim();
+    if (!url) return;
+    onBriefChange((b) => ({ ...b, youtubeUrl: url }));
+    toast.success("YouTube URL saved");
+
+    setClassifying(true);
+    try {
+      const res = await fetch(`/api/stories/${storyId}/classify-video`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onBriefChange((b) => ({ ...b, youtubeUrl: url, videoFormat: data.videoFormat }));
+        toast.success(`Classified as ${data.videoFormat === "short" ? "Short" : "Video"}`);
+      }
+    } catch {
+      // Classification is best-effort
+    } finally {
+      setClassifying(false);
+    }
+  };
+
+  const downloadSRT = () => {
+    if (!brief.subtitlesSRT) return;
+    const blob = new Blob([brief.subtitlesSRT], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(brief.suggestedTitle || "subtitles").replace(/[^a-zA-Z0-9\u0600-\u06FF ]/g, "_")}.srt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const isDone = story.stage === "done";
+
+  return (
+    <div className="space-y-5">
+      {/* Manual badge */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">
+          Manual Video
+        </span>
+        {brief.videoFormat && (
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue">
+            {brief.videoFormat === "short" ? "Short" : "Long Video"}
+          </span>
+        )}
+      </div>
+
+      {/* Step 1: Upload Video */}
+      <VideoUpload
+        storyId={storyId}
+        videoR2Key={brief.videoR2Key}
+        videoFileName={brief.videoFileName}
+        videoFileSize={brief.videoFileSize}
+        videoFormat={(brief.videoFormat as "short" | "long") || "long"}
+        headline={brief.suggestedTitle ?? story.headline ?? ""}
+        readOnly={isDone}
+        required
+      />
+
+      {/* Step 2: Transcribe */}
+      <TranscriptSection
+        storyId={storyId}
+        brief={brief}
+        onBriefChange={onBriefChange}
+      />
+
+      {/* Step 3: Title */}
+      <div className="rounded-xl bg-background border border-border overflow-hidden">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+          <span className="text-[12px] text-dim font-medium">Title</span>
+          <button
+            type="button"
+            onClick={generateTitle}
+            disabled={generatingTitle || !brief.transcript}
+            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingTitle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            {generatingTitle ? "Generating…" : "AI Generate"}
+          </button>
+        </div>
+        <div className="px-4 py-3">
+          <input
+            type="text"
+            value={brief.suggestedTitle || ""}
+            onChange={(e) => onBriefChange((b) => ({ ...b, suggestedTitle: e.target.value }))}
+            placeholder="Video title…"
+            className="w-full bg-transparent text-[14px] text-foreground placeholder:text-dim/40 focus:outline-none"
+            dir="auto"
+          />
+        </div>
+      </div>
+
+      {/* Step 4: Description */}
+      <div className="rounded-xl bg-background border border-border overflow-hidden">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+          <span className="text-[12px] text-dim font-medium">Description</span>
+          <button
+            type="button"
+            onClick={generateDescription}
+            disabled={generatingDesc || !brief.transcript}
+            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            {generatingDesc ? "Generating…" : "AI Generate"}
+          </button>
+        </div>
+        <div className="px-4 py-3">
+          <textarea
+            value={brief.youtubeDescription || ""}
+            onChange={(e) => onBriefChange((b) => ({ ...b, youtubeDescription: e.target.value }))}
+            placeholder="YouTube description…"
+            rows={5}
+            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-dim/40 focus:outline-none resize-none leading-relaxed"
+            dir="auto"
+          />
+        </div>
+      </div>
+
+      {/* Step 5: Tags */}
+      <div className="rounded-xl bg-background border border-border overflow-hidden">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+          <span className="text-[12px] text-dim font-medium">Tags</span>
+          <button
+            type="button"
+            onClick={generateTags}
+            disabled={generatingTags || !brief.transcript}
+            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            {generatingTags ? "Generating…" : "AI Generate"}
+          </button>
+        </div>
+        <div className="px-4 py-3">
+          <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+            {(brief.youtubeTags || []).map((tag, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-full bg-surface border border-border text-sensor"
+              >
+                #{tag}
+                {!isDone && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onBriefChange((b) => ({
+                        ...b,
+                        youtubeTags: (b.youtubeTags || []).filter((_, j) => j !== i),
+                      }))
+                    }
+                    className="text-dim hover:text-foreground transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            {!isDone && (
+              <input
+                type="text"
+                placeholder="Add tag…"
+                className="text-[11px] bg-transparent text-foreground placeholder:text-dim/40 focus:outline-none min-w-[80px] flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.replace(/^#/, "").trim();
+                    if (val) {
+                      onBriefChange((b) => ({
+                        ...b,
+                        youtubeTags: [...(b.youtubeTags || []), val],
+                      }));
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* SRT Download */}
+      {brief.subtitlesSRT && (
+        <div className="rounded-xl bg-background border border-border overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <span className="text-[12px] text-dim font-medium">Subtitles (SRT)</span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(brief.subtitlesSRT!).then(() => {
+                    setSrtCopied(true);
+                    setTimeout(() => setSrtCopied(false), 2000);
+                  });
+                }}
+                className="text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+              >
+                {srtCopied ? "Copied!" : "Copy SRT"}
+              </button>
+              <button
+                type="button"
+                onClick={downloadSRT}
+                className="text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+              >
+                Download .srt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YouTube URL */}
+      <div className="rounded-xl bg-background border border-border overflow-hidden">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+          <span className="text-[12px] text-dim font-medium">YouTube URL</span>
+          {brief.youtubeUrl && (
+            <a
+              href={brief.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" /> Open
+            </a>
+          )}
+        </div>
+        <div className="px-4 py-3 flex items-center gap-2">
+          <input
+            type="url"
+            value={youtubeInput}
+            onChange={(e) => setYoutubeInput(e.target.value)}
+            placeholder="https://youtube.com/watch?v=..."
+            className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-dim/40 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={saveYoutubeUrl}
+            disabled={!youtubeInput.trim() || classifying}
+            className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-blue text-blue-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {classifying ? "Classifying…" : "Save"}
+          </button>
+        </div>
+      </div>
+
+      {/* Mark Done */}
+      {story.stage !== "done" && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => onStageChange("done")}
+            disabled={saving}
+            className="w-full py-3 rounded-xl text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            Mark as Done
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function StoryDetail() {
   const { id, channelId } = useParams<{ id: string; channelId: string }>();
@@ -644,6 +999,24 @@ export default function StoryDetail() {
 
         <div className="flex-1 overflow-auto">
           <div className="px-6 max-lg:px-4 max-sm:px-3 py-5 pb-16 space-y-5">
+            {/* ── MANUAL STORY LAYOUT ─────────────────────────────────── */}
+            {story.origin === "manual" ? (
+              <ManualStoryWorkflow
+                story={story}
+                brief={brief}
+                storyId={id!}
+                saving={saving}
+                onBriefChange={(updater) => {
+                  setBrief((b) => {
+                    const next = updater(b);
+                    if (id) saveScript(id, next);
+                    return next;
+                  });
+                }}
+                onStageChange={(stage) => moveToStage(stage)}
+              />
+            ) : (
+            <>
             {(activeStage === "filmed" || activeStage === "publish" || activeStage === "done") && (
               <VideoUpload
                 storyId={id}
@@ -955,6 +1328,8 @@ export default function StoryDetail() {
               </>
             )}
           </div>
+            </>
+            )}
         </div>
       </div>
     </div>

@@ -7,6 +7,8 @@ const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
 const { getDialectForCountry } = require('../lib/dialects')
 const { fetchTranscript } = require('../services/transcript')
+const { transcribeFromR2 } = require('../services/whisper')
+const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
@@ -614,6 +616,153 @@ router.get('/:id', async (req, res) => {
   }
 })
 
+// ── POST /api/stories/manual — create a manual (non-AI) story for "Ready to Publish" flow
+router.post('/manual', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { channelId, headline } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId is required' })
+
+    const story = await db.story.create({
+      data: {
+        channelId,
+        headline: headline || 'Manual Video',
+        origin: 'manual',
+        stage: 'publish',
+        brief: {},
+      },
+    })
+    await addLog(story.id, req.user.id, 'created', 'Manual video — Ready to Publish')
+    res.json(story)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/stories/:id/transcribe — transcribe uploaded video via OpenAI Whisper
+router.post('/:id/transcribe', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+
+    if (!brief.videoR2Key) {
+      return res.status(400).json({ error: 'Upload a video first before transcribing.' })
+    }
+
+    const result = await transcribeFromR2(brief.videoR2Key, story.channelId)
+
+    const newBrief = {
+      ...brief,
+      transcript: result.text,
+      transcriptSegments: result.segments,
+      subtitlesSRT: result.srt,
+      script: result.text,
+    }
+    const updated = await db.story.update({
+      where: { id: story.id },
+      data: { brief: newBrief },
+    })
+    await addLog(story.id, req.user.id, 'note', 'Video transcribed via Whisper')
+    res.json({ transcript: result.text, segments: result.segments, srt: result.srt, brief: updated.brief })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/transcribe]', e)
+    res.status(500).json({ error: e.message || 'Transcription failed' })
+  }
+})
+
+// ── POST /api/stories/:id/generate-title — AI generate YouTube title from transcript
+router.post('/:id/generate-title', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const anthropicKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+    if (!anthropicKeyRow?.encryptedKey) {
+      return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
+    }
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    const transcript = brief.transcript || brief.script || ''
+    if (!transcript) {
+      return res.status(400).json({ error: 'No transcript available. Transcribe the video first.' })
+    }
+
+    const channel = await db.channel.findFirst({
+      where: { id: story.channelId },
+      select: { nationality: true },
+    })
+    const dialect = await getDialectForCountry(channel?.nationality)
+    const langNote = dialect
+      ? `The title should be in ${dialect.short} (${dialect.long}).`
+      : 'The title should be in Arabic.'
+
+    const apiKey = decrypt(anthropicKeyRow.encryptedKey)
+    const system = `You are an expert Arabic YouTube title writer. ${langNote}
+
+Rules:
+- Output ONLY the title, nothing else. No quotes, no explanation.
+- Keep it under 70 characters for best YouTube SEO.
+- Make it attention-grabbing and click-worthy.
+- Use numbers, questions, or strong verbs when appropriate.`
+
+    const userMessage = `Generate a compelling YouTube video title based on this transcript:\n\n${transcript.slice(0, 15000)}`
+
+    const title = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+      system,
+      maxTokens: 200,
+      channelId: story.channelId,
+      action: 'Story Generate Title',
+    })
+
+    const cleanTitle = (title || '').trim().replace(/^["']|["']$/g, '')
+    const newBrief = { ...brief, suggestedTitle: cleanTitle }
+    await db.story.update({
+      where: { id: story.id },
+      data: { headline: cleanTitle, brief: newBrief },
+    })
+    await addLog(story.id, req.user.id, 'note', 'AI title generated')
+    res.json({ title: cleanTitle, brief: newBrief })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/generate-title]', e)
+    res.status(500).json({ error: e.message || 'Generate title failed' })
+  }
+})
+
+// ── POST /api/stories/:id/classify-video — detect Short vs Video from YouTube URL
+router.post('/:id/classify-video', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    const youtubeUrl = brief.youtubeUrl || ''
+    if (!youtubeUrl) {
+      return res.status(400).json({ error: 'No YouTube URL found.' })
+    }
+
+    let videoId = null
+    try {
+      const u = new URL(youtubeUrl)
+      if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1).split('/')[0]
+      else if (u.pathname.startsWith('/watch')) videoId = u.searchParams.get('v')
+      else if (u.pathname.startsWith('/shorts/')) videoId = u.pathname.split('/')[2]
+      else if (u.pathname.startsWith('/live/')) videoId = u.pathname.split('/')[2]
+    } catch (_) {}
+    if (!videoId) {
+      return res.status(400).json({ error: 'Could not extract YouTube video ID from URL.' })
+    }
+
+    const isShort = await isYouTubeShort(videoId)
+    const videoFormat = isShort ? 'short' : 'long'
+    const newBrief = { ...brief, videoFormat }
+    await db.story.update({
+      where: { id: story.id },
+      data: { brief: newBrief },
+    })
+    res.json({ videoFormat, videoId })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/classify-video]', e)
+    res.status(500).json({ error: e.message || 'Classification failed' })
+  }
+})
+
 // ── POST /api/stories
 router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
@@ -633,7 +782,7 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
 // ── PATCH /api/stories/:id
 router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const allowed = ['headline', 'stage', 'sourceUrl', 'sourceName', 'sourceDate',
+    const allowed = ['headline', 'stage', 'origin', 'sourceUrl', 'sourceName', 'sourceDate',
                      'coverageStatus', 'scriptLong', 'scriptShort', 'brief',
                      'relevanceScore', 'viralScore', 'firstMoverScore', 'compositeScore']
     const data = {}
