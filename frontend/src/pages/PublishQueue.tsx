@@ -17,6 +17,7 @@ import {
   RotateCw,
   Trash2,
   X,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { storyQueue } from "@/lib/uploadQueue";
@@ -139,6 +140,7 @@ export default function PublishQueue() {
   const [existingStories, setExistingStories] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const processingRef = useRef<Set<string>>(new Set());
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
   const uploadTasks = useSyncExternalStore(storyQueue.subscribe, storyQueue.getSnapshot);
 
@@ -203,62 +205,92 @@ export default function PublishQueue() {
     });
   }, [uploadTasks]);
 
-  const runPipeline = async (storyId: string) => {
+  const runPipeline = async (storyId: string, startFrom?: ProcessingStep) => {
+    const controller = new AbortController();
+    abortControllersRef.current.set(storyId, controller);
+    const { signal } = controller;
+
     const updateStep = (step: ProcessingStep, error?: string) => {
       setQueue((prev) =>
         prev.map((item) =>
-          item.storyId === storyId ? { ...item, step, ...(error ? { error } : {}) } : item
+          item.storyId === storyId ? { ...item, step, error: error ?? undefined } : item
         )
       );
     };
 
+    const steps: ProcessingStep[] = ["transcribing", "title", "description", "tags"];
+    const startIdx = startFrom ? steps.indexOf(startFrom) : 0;
+
     try {
-      updateStep("transcribing");
-      const transcribeRes = await fetch(`/api/stories/${storyId}/transcribe`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!transcribeRes.ok) {
-        const err = await transcribeRes.json().catch(() => ({ error: "Transcription failed" }));
-        throw new Error(err.error || "Transcription failed");
+      for (let i = Math.max(startIdx, 0); i < steps.length; i++) {
+        if (signal.aborted) return;
+        const step = steps[i];
+        updateStep(step);
+
+        let endpoint: string;
+        if (step === "transcribing") endpoint = `/api/stories/${storyId}/transcribe`;
+        else if (step === "title") endpoint = `/api/stories/${storyId}/generate-title`;
+        else if (step === "description") endpoint = `/api/stories/${storyId}/generate-description`;
+        else endpoint = `/api/stories/${storyId}/suggest-tags`;
+
+        const res = await fetch(endpoint, { method: "POST", credentials: "include", signal });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: `${step} failed` }));
+          throw new Error(err.error || `${step} failed`);
+        }
+
+        if (step === "title") {
+          const titleData = await res.json();
+          setQueue((prev) =>
+            prev.map((item) =>
+              item.storyId === storyId ? { ...item, headline: titleData.title || item.headline } : item
+            )
+          );
+        }
       }
-
-      updateStep("title");
-      const titleRes = await fetch(`/api/stories/${storyId}/generate-title`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!titleRes.ok) {
-        const err = await titleRes.json().catch(() => ({ error: "Title generation failed" }));
-        throw new Error(err.error || "Title generation failed");
-      }
-      const titleData = await titleRes.json();
-
-      setQueue((prev) =>
-        prev.map((item) =>
-          item.storyId === storyId ? { ...item, headline: titleData.title || item.headline } : item
-        )
-      );
-
-      updateStep("description");
-      await fetch(`/api/stories/${storyId}/generate-description`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      updateStep("tags");
-      await fetch(`/api/stories/${storyId}/suggest-tags`, {
-        method: "POST",
-        credentials: "include",
-      });
 
       updateStep("ready");
       toast.success("Video ready to publish");
     } catch (e: any) {
+      if (signal.aborted) return;
       updateStep("error", e.message || "Processing failed");
       toast.error(e.message || "Processing failed");
     } finally {
+      abortControllersRef.current.delete(storyId);
       processingRef.current.delete(storyId);
+    }
+  };
+
+  const handleRetryProcessing = async (storyId: string) => {
+    const prev = abortControllersRef.current.get(storyId);
+    if (prev) prev.abort();
+    abortControllersRef.current.delete(storyId);
+
+    try {
+      const res = await fetch(`/api/stories/${storyId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch story");
+      const story = await res.json();
+      const step = deriveStep(story.brief, story.stage);
+
+      const restartFrom = (["transcribing", "title", "description", "tags"] as ProcessingStep[]).includes(step)
+        ? step
+        : "transcribing";
+
+      processingRef.current.add(storyId);
+      setQueue((prev) => {
+        const exists = prev.some((q) => q.storyId === storyId);
+        if (exists) {
+          return prev.map((q) =>
+            q.storyId === storyId ? { ...q, step: restartFrom, error: undefined } : q
+          );
+        }
+        return prev;
+      });
+
+      runPipeline(storyId, restartFrom);
+      toast.info("Retrying processing…");
+    } catch {
+      toast.error("Failed to retry");
     }
   };
 
@@ -698,11 +730,18 @@ export default function PublishQueue() {
                       {item.step === "error" && (
                         <>
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleReupload(item.storyId); }}
+                            onClick={(e) => { e.stopPropagation(); handleRetryProcessing(item.storyId); }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-blue hover:bg-blue/10 transition-colors"
                           >
-                            <RotateCw className="w-3 h-3" />
+                            <RefreshCw className="w-3 h-3" />
                             Retry
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReupload(item.storyId); }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-dim hover:bg-elevated transition-colors"
+                          >
+                            <RotateCw className="w-3 h-3" />
+                            Re-upload
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteStory(item.storyId); }}
@@ -719,6 +758,16 @@ export default function PublishQueue() {
                         >
                           <X className="w-3 h-3" />
                           Cancel
+                        </button>
+                      )}
+                      {isProcessing && item.step !== "uploading" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRetryProcessing(item.storyId); }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-orange hover:bg-orange/10 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Retry if stuck"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Retry
                         </button>
                       )}
                       {isActionable && (
