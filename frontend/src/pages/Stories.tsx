@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
-import { ArrowUpRight, Loader2, Plus, Upload } from "lucide-react";
+import { ArrowUpRight, Loader2, Upload } from "lucide-react";
 import { PageError } from "@/components/PageError";
 
 const STORIES_PAGE_SIZE = 50;
@@ -147,9 +147,7 @@ export default function Stories() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [reEvaluating, setReEvaluating] = useState(false);
   const [nextRescore, setNextRescore] = useState<string | null>(null);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualHeadline, setManualHeadline] = useState("");
-  const [creatingManual, setCreatingManual] = useState(false);
+  
 
   useEffect(() => {
     if (!channelId) return;
@@ -194,27 +192,7 @@ export default function Stories() {
     }
   };
 
-  const handleCreateManual = async () => {
-    if (!channelId || creatingManual) return;
-    setCreatingManual(true);
-    try {
-      const res = await fetch("/api/stories/manual", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channelId, headline: manualHeadline || "Manual Video" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create");
-      setManualOpen(false);
-      setManualHeadline("");
-      navigate(channelPath(`/story/${data.id}`));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create manual story");
-    } finally {
-      setCreatingManual(false);
-    }
-  };
+  
 
   if (loadError) {
     return (
@@ -286,7 +264,7 @@ export default function Stories() {
             )}
           </button>
           <button
-            onClick={() => setManualOpen(true)}
+            onClick={() => navigate(channelPath("/publish"))}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange text-orange-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
           >
             <Upload className="w-3 h-3" />
@@ -453,50 +431,7 @@ export default function Stories() {
         </div>
       </div>
 
-      {/* Ready to Publish modal */}
-      {manualOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setManualOpen(false)}>
-          <div className="w-full max-w-md rounded-xl bg-background border border-border shadow-2xl mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Upload className="w-4 h-4 text-orange" />
-                <span className="text-[14px] font-semibold">Ready to Publish</span>
-              </div>
-              <button type="button" onClick={() => setManualOpen(false)} className="text-dim hover:text-foreground transition-colors text-lg leading-none">&times;</button>
-            </div>
-            <div className="px-5 py-4 space-y-4">
-              <p className="text-[12px] text-dim leading-relaxed">
-                Create a manual video entry outside the AI suggestion pipeline. Upload your video, get AI-generated metadata (title, description, tags, subtitles), then publish to YouTube.
-              </p>
-              <div>
-                <label className="text-[11px] text-dim font-medium block mb-1.5">Video Name (optional)</label>
-                <input
-                  type="text"
-                  value={manualHeadline}
-                  onChange={(e) => setManualHeadline(e.target.value)}
-                  placeholder="e.g. Weekly Q&A Episode 12"
-                  className="w-full px-3 py-2 text-[13px] bg-surface border border-border rounded-lg text-foreground placeholder:text-dim/40 focus:outline-none focus:border-blue/40"
-                  dir="auto"
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateManual()}
-                />
-              </div>
-            </div>
-            <div className="px-5 py-3 border-t border-border flex justify-end gap-2">
-              <button type="button" onClick={() => setManualOpen(false)} className="px-4 py-2 text-[12px] font-medium text-dim hover:text-foreground transition-colors">
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCreateManual}
-                disabled={creatingManual}
-                className="px-4 py-2 rounded-lg text-[12px] font-semibold bg-orange text-orange-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {creatingManual ? "Creating…" : "Create & Open"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 }

@@ -39,6 +39,8 @@ model Channel {
   articleSources  ArticleSource[]
   scoreProfile    ScoreProfile?
   alerts          Alert[]
+  galleryMedia    GalleryMedia[]
+  galleryAlbums   GalleryAlbum[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -203,9 +205,62 @@ model User {
   pageAccess    Json?
   channelAccess Json?
   storyLogs     StoryLog[]
+  uploadedMedia GalleryMedia[] @relation("GalleryMediaUploadedBy")
+  createdAlbums GalleryAlbum[] @relation("GalleryAlbumCreatedBy")
   sessions      Session[]
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+model GalleryAlbum {
+  id          String        @id @default(cuid())
+  channelId   String
+  channel     Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  coverMediaId String?
+  coverMedia  GalleryMedia? @relation("GalleryAlbumCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  media       GalleryMedia[]
+  createdById String
+  createdBy   User          @relation("GalleryAlbumCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([channelId, createdAt(sort: Desc)])
+  @@index([coverMediaId])
+}
+
+model GalleryMedia {
+  id             String        @id @default(cuid())
+  channelId      String
+  channel        Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  albumId        String?
+  album          GalleryAlbum? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  type           MediaType
+  fileName       String
+  fileSize       BigInt
+  mimeType       String
+  width          Int?
+  height         Int?
+  duration       Float?
+  r2Key          String        @unique
+  r2Url          String
+  thumbnailR2Key String?
+  thumbnailR2Url String?
+  uploadedById   String
+  uploadedBy     User          @relation("GalleryMediaUploadedBy", fields: [uploadedById], references: [id], onDelete: Cascade)
+  albumCoverFor  GalleryAlbum[] @relation("GalleryAlbumCover")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([channelId, createdAt(sort: Desc)])
+  @@index([albumId, createdAt(sort: Desc)])
+  @@index([uploadedById])
 }
 
 model Session {

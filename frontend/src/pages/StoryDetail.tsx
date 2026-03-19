@@ -247,6 +247,15 @@ function ManualStoryWorkflow({
         headline={brief.suggestedTitle ?? story.headline ?? ""}
         readOnly={isDone}
         required
+        onUploadComplete={(data) => {
+          onBriefChange((b) => ({
+            ...b,
+            videoR2Key: data.videoR2Key,
+            videoR2Url: data.videoR2Url,
+            videoFileName: data.videoFileName,
+            videoFileSize: data.videoFileSize,
+          }));
+        }}
       />
 
       {/* Step 2: Transcribe */}
@@ -1027,6 +1036,19 @@ export default function StoryDetail() {
                 headline={brief.articleTitle ?? story.headline ?? ""}
                 readOnly={activeStage === "done"}
                 required={activeStage === "filmed"}
+                onUploadComplete={(data) => {
+                  setBrief((b) => {
+                    const next = {
+                      ...b,
+                      videoR2Key: data.videoR2Key,
+                      videoR2Url: data.videoR2Url,
+                      videoFileName: data.videoFileName,
+                      videoFileSize: data.videoFileSize,
+                    };
+                    if (id) saveScript(id, next);
+                    return next;
+                  });
+                }}
               />
             )}
             <StoryDetailArticle

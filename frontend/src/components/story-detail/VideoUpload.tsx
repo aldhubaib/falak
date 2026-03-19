@@ -23,6 +23,7 @@ interface VideoUploadProps {
   headline?: string;
   readOnly?: boolean;
   required?: boolean;
+  onUploadComplete?: (data: { videoR2Key: string; videoR2Url: string; videoFileName: string; videoFileSize: number }) => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -61,11 +62,28 @@ export function VideoUpload({
   headline = "",
   readOnly,
   required,
+  onUploadComplete,
 }: VideoUploadProps) {
   const { task, upload, abort, dismiss } = useStoryUpload(storyId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const notifiedRef = useRef(false);
+
+  useEffect(() => {
+    if (task?.status === "completed" && !notifiedRef.current && onUploadComplete && task.key) {
+      notifiedRef.current = true;
+      onUploadComplete({
+        videoR2Key: task.key,
+        videoR2Url: task.videoUrl || "",
+        videoFileName: task.file.name,
+        videoFileSize: task.file.size,
+      });
+    }
+    if (task?.status !== "completed") {
+      notifiedRef.current = false;
+    }
+  }, [task?.status, task?.key, onUploadComplete]);
 
   const isShort = videoFormat === "short";
   const thumbW = isShort ? "w-[200px] max-md:w-full" : "w-[380px] max-md:w-full";
@@ -293,24 +311,32 @@ export function VideoUpload({
 
     return (
       <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
-        {/* Thumbnail left — same sizing as VideoDetail */}
+        {/* Thumbnail left — video preview */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           {url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary/40 group"
-            >
-              <div className={`w-full ${thumbAspect} bg-elevated flex items-center justify-center`}>
-                <div className="flex flex-col items-center gap-2 group-hover:scale-110 transition-transform">
-                  <div className="w-12 h-12 rounded-full bg-surface/80 flex items-center justify-center backdrop-blur-sm">
-                    <Play className="w-5 h-5 text-foreground ml-0.5" />
-                  </div>
-                  <span className="text-[9px] font-mono text-dim uppercase tracking-widest">{ext}</span>
+            <div className="block rounded-xl overflow-hidden group relative">
+              <video
+                src={url}
+                className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}
+                muted
+                preload="metadata"
+                onLoadedMetadata={(e) => {
+                  const video = e.currentTarget;
+                  video.currentTime = 1;
+                }}
+              />
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+              >
+                <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center backdrop-blur-sm">
+                  <Play className="w-5 h-5 text-white ml-0.5" />
                 </div>
-              </div>
-            </a>
+              </a>
+              <span className="absolute bottom-4 right-4 text-[9px] font-mono text-white/80 bg-black/50 px-1.5 py-0.5 rounded uppercase tracking-widest">{ext}</span>
+            </div>
           ) : (
             <div className={`w-full ${thumbAspect} rounded-xl bg-elevated flex items-center justify-center`}>
               <div className="flex flex-col items-center gap-2">

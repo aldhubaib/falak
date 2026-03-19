@@ -7,20 +7,34 @@ const { v4: uuidv4 } = require('uuid')
 const router = express.Router()
 router.use(requireAuth)
 
+function toFiniteNumber(value) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : null
+}
+
 // POST /api/upload/init — start a multipart upload, return presigned URLs for each chunk
 router.post('/init', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { fileName, fileSize, contentType, storyId } = req.body
+    const { fileName, fileSize, contentType, storyId, galleryChannelId } = req.body
     if (!fileName || !fileSize || !contentType) {
       return res.status(400).json({ error: 'fileName, fileSize, and contentType are required' })
+    }
+    if (storyId && galleryChannelId) {
+      return res.status(400).json({ error: 'Provide either storyId or galleryChannelId, not both' })
     }
     if (storyId) {
       const story = await db.story.findUnique({ where: { id: storyId } })
       if (!story) return res.status(404).json({ error: 'Story not found' })
     }
+    if (galleryChannelId) {
+      const channel = await db.channel.findUnique({ where: { id: galleryChannelId }, select: { id: true } })
+      if (!channel) return res.status(404).json({ error: 'Channel not found' })
+    }
 
     const ext = fileName.split('.').pop() || 'mp4'
-    const key = `videos/${storyId || 'general'}/${uuidv4()}.${ext}`
+    const key = galleryChannelId
+      ? `gallery/${galleryChannelId}/${uuidv4()}.${ext}`
+      : `videos/${storyId || 'general'}/${uuidv4()}.${ext}`
     const totalParts = Math.ceil(fileSize / CHUNK_SIZE)
 
     const uploadId = await initMultipartUpload(key, contentType)
@@ -42,9 +56,12 @@ router.post('/init', requireRole('owner', 'admin', 'editor'), async (req, res) =
 // POST /api/upload/complete — finalize multipart upload, save to story brief
 router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { uploadId, key, parts, storyId, fileName, fileSize } = req.body
+    const { uploadId, key, parts, storyId, galleryChannelId, albumId, fileName, fileSize, contentType, width, height, duration, thumbnailR2Key, thumbnailR2Url } = req.body
     if (!uploadId || !key || !parts) {
       return res.status(400).json({ error: 'uploadId, key, and parts are required' })
+    }
+    if (storyId && galleryChannelId) {
+      return res.status(400).json({ error: 'Provide either storyId or galleryChannelId, not both' })
     }
 
     const publicUrl = await completeMultipartUpload(key, uploadId, parts)
@@ -71,7 +88,41 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
       }
     }
 
-    res.json({ url: publicUrl, key })
+    let createdMedia = null
+    if (galleryChannelId) {
+      const channel = await db.channel.findUnique({ where: { id: galleryChannelId }, select: { id: true } })
+      if (!channel) return res.status(404).json({ error: 'Channel not found' })
+
+      let validAlbumId = null
+      if (albumId) {
+        const album = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId: galleryChannelId }, select: { id: true } })
+        if (!album) return res.status(404).json({ error: 'Album not found' })
+        validAlbumId = album.id
+      }
+
+      const mime = String(contentType || '').trim() || 'application/octet-stream'
+      const mediaType = mime.startsWith('video/') ? 'VIDEO' : 'PHOTO'
+      createdMedia = await db.galleryMedia.create({
+        data: {
+          channelId: galleryChannelId,
+          albumId: validAlbumId,
+          type: mediaType,
+          fileName: fileName || key.split('/').pop() || 'upload',
+          fileSize: fileSize ? BigInt(fileSize) : BigInt(0),
+          mimeType: mime,
+          width: toFiniteNumber(width) != null ? Math.round(Number(width)) : null,
+          height: toFiniteNumber(height) != null ? Math.round(Number(height)) : null,
+          duration: toFiniteNumber(duration),
+          r2Key: key,
+          r2Url: publicUrl,
+          thumbnailR2Key: thumbnailR2Key || null,
+          thumbnailR2Url: thumbnailR2Url || null,
+          uploadedById: req.user.id,
+        },
+      })
+    }
+
+    res.json({ url: publicUrl, key, media: createdMedia })
   } catch (e) {
     console.error('[upload/complete]', e)
     res.status(500).json({ error: e.message || 'Failed to complete upload' })
