@@ -145,6 +145,7 @@ async function doUpload(task: UploadTask, signal: AbortSignal) {
       const start = (partInfo.partNumber - 1) * chunkSize;
       const end = Math.min(start + chunkSize, task.file.size);
       const chunk = task.file.slice(start, end);
+      const chunkLength = end - start;
 
       const res = await fetch(partInfo.url, {
         method: "PUT",
@@ -157,7 +158,7 @@ async function doUpload(task: UploadTask, signal: AbortSignal) {
       const etag = res.headers.get("ETag") || `"part-${partInfo.partNumber}"`;
       parts.push({ partNumber: partInfo.partNumber, etag });
       task.completedParts++;
-      task.bytesUploaded += size;
+      task.bytesUploaded += chunkLength;
       task.progress = Math.round((task.completedParts / task.totalParts) * 95);
       notify();
     }
