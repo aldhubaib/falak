@@ -55,7 +55,7 @@ export function MediaViewer({ open, items, index, onOpenChange, onIndexChange, o
         {!active ? null : (
           <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[1fr_300px] overflow-hidden">
             {/* Media area */}
-            <div className="relative bg-black flex items-center justify-center overflow-hidden">
+            <div className="relative bg-black flex items-center justify-center overflow-hidden h-full min-h-0">
               {/* Close */}
               <button
                 onClick={close}
