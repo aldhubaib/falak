@@ -70,7 +70,7 @@ Rules:
 /**
  * Fetch story suggestions from Perplexity and return parsed array.
  * @param {string} apiKey
- * @param {string} autoSearchQuery - Full prompt from Brain v2 (Arabic + instructions)
+ * @param {string} autoSearchQuery - Full prompt (Arabic + instructions)
  * @returns {Promise<Array<{ headline: string, summary?: string, sourceUrl?: string }>>}
  */
 async function fetchStorySuggestions(apiKey, autoSearchQuery) {

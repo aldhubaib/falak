@@ -8,8 +8,6 @@ const { decrypt } = require('./crypto')
 const { fetchVideoMetadata, fetchComments } = require('./youtube')
 const { fetchTranscript } = require('./transcript')
 const { trackUsage } = require('./usageTracker')
-const { updateTopicMemoryFromVideo } = require('./topicMemory')
-
 const MAX_ANTHROPIC_TOKENS = 4096
 const ANTHROPIC_RETRY_DELAYS_MS = [10_000, 30_000, 60_000] // on 429: wait 10s, 30s, 60s
 // Small gap between sequential AI calls within one video to avoid burst
@@ -183,12 +181,6 @@ Comments (sample):\n${commentsSample}`,
     where: { id: video.id },
     data: { analysisResult },
   })
-
-  try {
-    await updateTopicMemoryFromVideo(video.id, project.id)
-  } catch (e) {
-    console.warn('[pipeline] topicMemory update failed:', e.message)
-  }
 
   // Generate vector embedding for similarity search (non-blocking, fail-open)
   if (project.embeddingApiKeyEncrypted) {

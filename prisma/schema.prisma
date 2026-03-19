@@ -289,49 +289,7 @@ model YoutubeApiKey {
 }
 
 // ─────────────────────────────────────────────
-// BRAIN V2: Topic Memory (learning from analyzed videos)
-// ─────────────────────────────────────────────
-model TopicMemory {
-  id                String    @id @default(cuid())
-  projectId         String
-  topicKey          String    // normalized canonical key
-  topicLabel        String?   // most recent human-readable label
-  winsCount         Int       @default(0)
-  lateCount         Int       @default(0)
-  videosCount       Int       @default(0)
-  viewsSum          BigInt    @default(0)
-  performanceScore  Float     @default(0)
-  weight            Float     @default(0)
-  lastOutcomeAt     DateTime?
-  lastSeenAt        DateTime  @default(now())
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  demandScore       Float     @default(0)
-  winsShort         Float     @default(0)
-  winsLong          Float     @default(0)
-  velocityScore     Float     @default(0)
-
-  @@unique([projectId, topicKey])
-  @@index([projectId])
-  @@index([projectId, weight])
-  @@index([projectId, lastSeenAt])
-}
-
-model TopicMemoryEvent {
-  id         String   @id @default(cuid())
-  projectId  String
-  videoId    String
-  topicKey   String
-  outcome    String   // 'gap_win' | 'late'
-  views      BigInt   @default(0)
-  occurredAt DateTime @default(now())
-
-  @@unique([videoId, topicKey, outcome])
-  @@index([projectId, occurredAt])
-}
-
-// ─────────────────────────────────────────────
-// BRAIN V3: Article Sources & Article Pipeline
+// Article Sources & Article Pipeline
 // ─────────────────────────────────────────────
 model ArticleSource {
   id           String    @id @default(cuid())
