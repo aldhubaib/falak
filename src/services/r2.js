@@ -1,8 +1,17 @@
-const { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3')
+const { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3')
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 const config = require('../config')
 
-const CHUNK_SIZE = 25 * 1024 * 1024 // 25 MB
+const MB = 1024 * 1024
+const GB = 1024 * MB
+
+function getChunkSize(fileSize) {
+  let size = 25 * MB
+  if (fileSize > 500 * MB) size = 50 * MB
+  if (fileSize > 2 * GB) size = 100 * MB
+  const minForLimit = Math.ceil(fileSize / 10_000)
+  return Math.max(size, minForLimit)
+}
 
 let _client = null
 
@@ -45,6 +54,17 @@ async function initMultipartUpload(key, contentType) {
   return res.UploadId
 }
 
+async function getDirectUploadUrl(key, contentType) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured')
+  const cmd = new PutObjectCommand({
+    Bucket: getBucket(),
+    Key: key,
+    ContentType: contentType,
+  })
+  return getSignedUrl(client, cmd, { expiresIn: 3600 })
+}
+
 async function getPartPresignedUrls(key, uploadId, totalParts) {
   const client = getClient()
   if (!client) throw new Error('R2 not configured')
@@ -61,6 +81,22 @@ async function getPartPresignedUrls(key, uploadId, totalParts) {
     )
   }
   return Promise.all(promises)
+}
+
+async function getSpecificPartUrls(key, uploadId, partNumbers) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured')
+  return Promise.all(
+    partNumbers.map(part => {
+      const cmd = new UploadPartCommand({
+        Bucket: getBucket(),
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: part,
+      })
+      return getSignedUrl(client, cmd, { expiresIn: 3600 }).then(url => ({ partNumber: part, url }))
+    })
+  )
 }
 
 async function completeMultipartUpload(key, uploadId, parts) {
@@ -115,10 +151,12 @@ module.exports = {
   getBucket,
   getPublicUrl,
   getSignedReadUrl,
+  getChunkSize,
+  getDirectUploadUrl,
   initMultipartUpload,
   getPartPresignedUrls,
+  getSpecificPartUrls,
   completeMultipartUpload,
   abortMultipartUpload,
   deleteObject,
-  CHUNK_SIZE,
 }

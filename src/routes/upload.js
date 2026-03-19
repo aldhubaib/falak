@@ -1,6 +1,6 @@
 const express = require('express')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { initMultipartUpload, getPartPresignedUrls, completeMultipartUpload, abortMultipartUpload, deleteObject, CHUNK_SIZE, getPublicUrl, getSignedReadUrl } = require('../services/r2')
+const { initMultipartUpload, getPartPresignedUrls, getSpecificPartUrls, completeMultipartUpload, abortMultipartUpload, deleteObject, getChunkSize, getDirectUploadUrl, getPublicUrl, getSignedReadUrl } = require('../services/r2')
 const db = require('../lib/db')
 const { v4: uuidv4 } = require('uuid')
 
@@ -13,7 +13,7 @@ function toFiniteNumber(value) {
   return Number.isFinite(num) ? num : null
 }
 
-// POST /api/upload/init — start a multipart upload, return presigned URLs for each chunk
+// POST /api/upload/init — start an upload, return presigned URLs
 router.post('/init', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const { fileName, fileSize, contentType, storyId, galleryChannelId } = req.body
@@ -36,43 +36,66 @@ router.post('/init', requireRole('owner', 'admin', 'editor'), async (req, res) =
     const key = galleryChannelId
       ? `gallery/${galleryChannelId}/${uuidv4()}.${ext}`
       : `videos/${storyId || 'general'}/${uuidv4()}.${ext}`
-    const totalParts = Math.ceil(fileSize / CHUNK_SIZE)
+
+    const chunkSize = getChunkSize(fileSize)
+    const totalParts = Math.ceil(fileSize / chunkSize)
+
+    if (totalParts <= 1) {
+      const presignedUrl = await getDirectUploadUrl(key, contentType)
+      return res.json({ mode: 'direct', key, presignedUrl, contentType, chunkSize: fileSize, totalParts: 1 })
+    }
 
     const uploadId = await initMultipartUpload(key, contentType)
     const presignedUrls = await getPartPresignedUrls(key, uploadId, totalParts)
 
-    res.json({
-      uploadId,
-      key,
-      chunkSize: CHUNK_SIZE,
-      totalParts,
-      presignedUrls,
-    })
+    res.json({ mode: 'multipart', uploadId, key, chunkSize, totalParts, presignedUrls })
   } catch (e) {
     console.error('[upload/init]', e)
     res.status(500).json({ error: e.message || 'Failed to init upload' })
   }
 })
 
-// POST /api/upload/complete — finalize multipart upload, save to story brief
+// POST /api/upload/resume — get fresh presigned URLs for remaining parts of an existing multipart upload
+router.post('/resume', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { uploadId, key, partNumbers } = req.body
+    if (!uploadId || !key || !Array.isArray(partNumbers) || partNumbers.length === 0) {
+      return res.status(400).json({ error: 'uploadId, key, and partNumbers[] are required' })
+    }
+    const presignedUrls = await getSpecificPartUrls(key, uploadId, partNumbers)
+    res.json({ presignedUrls })
+  } catch (e) {
+    console.error('[upload/resume]', e)
+    res.status(500).json({ error: e.message || 'Failed to resume upload' })
+  }
+})
+
+// POST /api/upload/complete — finalize upload, save to story brief or gallery
 router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { uploadId, key, parts, storyId, galleryChannelId, albumId, fileName, fileSize, contentType, width, height, duration, thumbnailR2Key, thumbnailR2Url } = req.body
-    if (!uploadId || !key || !parts) {
-      return res.status(400).json({ error: 'uploadId, key, and parts are required' })
+    const { uploadId, key, parts, mode, storyId, galleryChannelId, albumId, fileName, fileSize, contentType, width, height, duration, thumbnailR2Key, thumbnailR2Url } = req.body
+    if (!key) {
+      return res.status(400).json({ error: 'key is required' })
+    }
+    if (mode !== 'direct' && (!uploadId || !parts)) {
+      return res.status(400).json({ error: 'uploadId and parts are required for multipart uploads' })
     }
     if (storyId && galleryChannelId) {
       return res.status(400).json({ error: 'Provide either storyId or galleryChannelId, not both' })
     }
 
-    const publicUrl = await completeMultipartUpload(key, uploadId, parts)
+    let publicUrl
+    if (mode === 'direct') {
+      publicUrl = getPublicUrl(key)
+    } else {
+      publicUrl = await completeMultipartUpload(key, uploadId, parts)
+    }
 
     if (storyId) {
       const story = await db.story.findUnique({ where: { id: storyId } })
       if (story) {
         const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
 
-        // Delete previous video from R2 if replacing
         if (brief.videoR2Key && brief.videoR2Key !== key) {
           deleteObject(brief.videoR2Key).catch(() => {})
         }

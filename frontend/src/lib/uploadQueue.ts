@@ -4,7 +4,7 @@
  * Components subscribe via useSyncExternalStore.
  */
 
-import { uploadFile, abortRemoteUpload, type UploadProgress } from "./uploadEngine";
+import { uploadFile, abortRemoteUpload, clearResumeState, type UploadProgress } from "./uploadEngine";
 
 export type UploadTaskStatus = "queued" | "uploading" | "completed" | "failed" | "aborted";
 
@@ -188,6 +188,7 @@ export function createUploadQueue(opts: CreateQueueOptions = {}) {
         abortControllers.delete(taskId);
       }
       patchTask(taskId, { status: "aborted", error: "Upload cancelled", finishedAt: Date.now() });
+      clearResumeState(task.metadata, task.file.name, task.file.size);
       if (task.uploadId && task.key) abortRemoteUpload(task.uploadId, task.key);
     },
 
