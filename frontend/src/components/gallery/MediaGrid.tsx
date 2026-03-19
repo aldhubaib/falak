@@ -1,8 +1,8 @@
-import { Image, Play, Video } from "lucide-react";
+import { Check, Image, Play } from "lucide-react";
 import { RowsPhotoAlbum } from "react-photo-album";
 import "react-photo-album/rows.css";
 import type { GalleryMedia } from "@/lib/gallery-api";
-import type { Photo, RenderPhotoProps } from "react-photo-album";
+import type { Photo } from "react-photo-album";
 
 export type GalleryPhoto = Photo & { media: GalleryMedia };
 
@@ -12,15 +12,6 @@ interface MediaGridProps {
   selectionMode: boolean;
   onToggleSelect: (mediaId: string, selected: boolean) => void;
   onOpen: (index: number) => void;
-}
-
-function formatBytes(size: string | number) {
-  const num = Number(size || 0);
-  if (!Number.isFinite(num) || num <= 0) return "";
-  const units = ["B", "KB", "MB", "GB"];
-  const exponent = Math.min(Math.floor(Math.log(num) / Math.log(1024)), units.length - 1);
-  const value = num / 1024 ** exponent;
-  return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
 
 export function mediaToPhoto(item: GalleryMedia): GalleryPhoto {
@@ -42,51 +33,55 @@ export function MediaOverlay({
   selected: boolean;
   selectionMode: boolean;
 }) {
-  const sizeLabel = formatBytes(media.fileSize);
-
   return (
     <>
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-
-      <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2 flex items-end justify-between gap-1">
-        <span className="text-[10px] text-white/90 font-medium truncate leading-tight">
-          {media.fileName}
-        </span>
-        <div className="flex items-center gap-1 shrink-0">
-          {sizeLabel && (
-            <span className="text-[9px] text-white/60 font-mono">{sizeLabel}</span>
-          )}
-          {media.type === "VIDEO" && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] text-white/80 font-mono bg-black/40 rounded px-1 py-0.5">
-              <Video className="w-2.5 h-2.5" />
-            </span>
-          )}
-        </div>
-      </div>
-
       {media.type === "VIDEO" && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="rounded-full bg-black/50 backdrop-blur-sm p-2.5 text-white">
-            <Play className="w-4 h-4 fill-current" />
+            <Play className="w-5 h-5 fill-current" />
+          </span>
+        </div>
+      )}
+
+      {media.type === "VIDEO" && media.duration != null && media.duration > 0 && (
+        <div className="absolute bottom-1.5 right-1.5 pointer-events-none">
+          <span className="text-[11px] text-white font-medium tabular-nums drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+            {formatDuration(media.duration)}
           </span>
         </div>
       )}
 
       {selectionMode && (
-        <div className="absolute top-2 left-2">
+        <div className="absolute top-1.5 left-1.5 z-10">
           <span
-            className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold transition-colors ${
+            className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-[0_1px_3px_rgba(0,0,0,0.3)] ${
               selected
-                ? "bg-primary text-primary-foreground"
-                : "bg-black/40 backdrop-blur-sm text-white/70 border border-white/20"
+                ? "bg-blue-500 text-white scale-100"
+                : "bg-white/80 backdrop-blur-sm border-2 border-white/60 scale-90"
             }`}
           >
-            {selected && "✓"}
+            {selected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
           </span>
         </div>
       )}
+
+      {!selectionMode && (
+        <div className="absolute top-1.5 left-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-white/80 backdrop-blur-sm border-2 border-white/60 shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
+        </div>
+      )}
+
+      {selected && (
+        <div className="absolute inset-0 ring-2 ring-inset ring-blue-500 pointer-events-none" />
+      )}
     </>
   );
+}
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, onOpen }: MediaGridProps) {
@@ -104,9 +99,9 @@ export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, o
   return (
     <RowsPhotoAlbum
       photos={photos}
-      targetRowHeight={220}
-      rowConstraints={{ maxPhotos: 6 }}
-      spacing={4}
+      targetRowHeight={280}
+      rowConstraints={{ maxPhotos: 5 }}
+      spacing={2}
       onClick={({ index }) => {
         if (selectionMode) {
           const item = items[index];
@@ -116,7 +111,7 @@ export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, o
         }
       }}
       render={{
-        extras: (_, { photo, index }) => {
+        extras: (_, { photo }) => {
           const gp = photo as GalleryPhoto;
           return (
             <MediaOverlay
@@ -128,9 +123,6 @@ export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, o
         },
         image: (props, { photo }) => {
           const gp = photo as GalleryPhoto;
-          if (gp.media.type === "VIDEO" && gp.media.thumbnailR2Url) {
-            return <img {...props} />;
-          }
           if (gp.media.type === "VIDEO" && !gp.media.thumbnailR2Url) {
             return (
               <video
@@ -147,9 +139,9 @@ export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, o
       }}
       componentsProps={{
         button: {
-          className: "group relative rounded-xl overflow-hidden transition-all hover:ring-1 hover:ring-border",
+          className: "group relative overflow-hidden rounded-sm hover:brightness-90 transition-[filter]",
         },
-        image: { loading: "lazy", decoding: "async" },
+        image: { loading: "lazy", decoding: "async", className: "object-cover" },
       }}
     />
   );

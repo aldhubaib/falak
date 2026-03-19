@@ -426,9 +426,9 @@ export default function Gallery() {
             >
               <RowsPhotoAlbum
                 photos={[]}
-                targetRowHeight={220}
-                rowConstraints={{ maxPhotos: 6 }}
-                spacing={4}
+                targetRowHeight={280}
+                rowConstraints={{ maxPhotos: 5 }}
+                spacing={2}
                 render={{
                   extras: (_, { photo }) => {
                     const gp = photo as GalleryPhoto;
@@ -459,9 +459,9 @@ export default function Gallery() {
                 componentsProps={{
                   button: {
                     className:
-                      "group relative rounded-xl overflow-hidden transition-all hover:ring-1 hover:ring-border",
+                      "group relative overflow-hidden rounded-sm hover:brightness-90 transition-[filter]",
                   },
-                  image: { loading: "lazy", decoding: "async" },
+                  image: { loading: "lazy", decoding: "async", className: "object-cover" },
                 }}
               />
             </InfiniteScroll>
