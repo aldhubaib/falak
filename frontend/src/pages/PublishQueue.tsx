@@ -92,6 +92,30 @@ function relativeTime(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+function elapsedTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m < 60) return `${m}m ${rs}s`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return `${h}h ${rm}m`;
+}
+
+const STEP_PROGRESS: Record<ProcessingStep, number> = {
+  uploading: 10,
+  transcribing: 35,
+  title: 55,
+  description: 70,
+  tags: 85,
+  ready: 100,
+  done: 100,
+  error: 0,
+  stalled: 0,
+};
+
 const ACCEPTED_TYPES = [
   "video/mp4",
   "video/webm",
@@ -117,6 +141,12 @@ export default function PublishQueue() {
   const processingRef = useRef<Set<string>>(new Set());
 
   const uploadTasks = useSyncExternalStore(storyQueue.subscribe, storyQueue.getSnapshot);
+
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const loadExistingStories = useCallback(async () => {
     if (!channelId) return;
@@ -628,10 +658,21 @@ export default function PublishQueue() {
                           Stalled
                         </span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${meta.color}`}>
-                          {meta.icon}
-                          {meta.label}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${meta.color}`}>
+                            {meta.icon}
+                            {meta.label}
+                          </span>
+                          <div className="flex items-center gap-1.5 text-[9px] font-mono text-dim">
+                            <span>
+                              {item.step === "uploading" && uploadProgress != null
+                                ? `${Math.round(uploadProgress * 0.2)}%`
+                                : `${STEP_PROGRESS[item.step]}%`}
+                            </span>
+                            <span className="opacity-40">·</span>
+                            <span>{item.createdAt ? elapsedTime(item.createdAt) : "—"}</span>
+                          </div>
+                        </div>
                       )}
                     </div>
 
