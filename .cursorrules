@@ -1,0 +1,115 @@
+# Falak — Cursor Rules
+
+## Stack Summary
+
+- **App type**: Full-stack YouTube competitive-intelligence platform
+- **Backend**: Node.js 20 (Express 4, CommonJS)
+- **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui
+- **Database**: PostgreSQL via Prisma 5 (with pgvector extension for 1536-dim embeddings)
+- **Queue**: Bull 4 on Redis (optional — polling fallback when REDIS_URL is absent)
+- **Object storage**: Cloudflare R2 (S3-compatible API via @aws-sdk/client-s3)
+- **Auth**: Google OAuth 2.0 → JWT in HTTP-only cookie
+- **Realtime**: Hocuspocus (Tiptap collab) + ws
+- **AI**: Anthropic Claude (analysis), OpenAI Embeddings + Whisper, Firecrawl, Perplexity, Apify
+- **Hosting**: Railway (single service, no Docker, no IaC)
+- **CI/CD**: None — Railway auto-deploys on push
+
+## File Layout
+
+```
+falak/
+├── src/                 # Express backend (CommonJS .js files)
+│   ├── server.js        # Entry point — Express setup, static serving
+│   ├── config.js        # Central env config (fail-fast on missing vars)
+│   ├── worker.js        # Video pipeline worker (Bull or polling)
+│   ├── worker-articles.js
+│   ├── worker-rescore.js
+│   ├── ws-server.js     # Hocuspocus WebSocket server
+│   ├── routes/          # Express route handlers
+│   ├── services/        # Business logic and external API integrations
+│   ├── middleware/       # auth, errors, requestId
+│   ├── lib/             # db client, cache, validation, helpers
+│   └── queue/           # Bull queue definitions
+├── frontend/            # React SPA (TypeScript)
+│   ├── src/
+│   │   ├── pages/       # Route-level page components
+│   │   ├── components/  # Reusable UI (+ shadcn/ui in components/ui/)
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   └── data/        # Mock data and constants
+│   ├── vite.config.ts
+│   └── tailwind.config.ts
+├── prisma/
+│   ├── schema.prisma    # THE source of truth for the data model
+│   ├── migrations/      # Prisma Migrate history
+│   └── seed.js
+├── scripts/             # One-off utility scripts
+├── docs/                # Design docs and plans
+├── railway.json         # Railway build/deploy config
+├── .env.example         # Template for local env vars
+└── ARCHITECTURE.md      # Full infrastructure overview
+```
+
+## Rules for Infrastructure Questions
+
+1. **Always reference ARCHITECTURE.md** for the current state of the infrastructure.
+   If the user asks "what services do we use?" or "how is X deployed?", check
+   ARCHITECTURE.md first — it is the single source of truth.
+
+2. **Database changes go through Prisma.** Never suggest raw DDL. Use
+   `npx prisma migrate dev --name <name>` locally and `prisma migrate deploy`
+   in production (it runs automatically on `npm start`).
+
+3. **Secrets management:**
+   - Local: `.env` file (never committed).
+   - Production: Railway environment variables (set via dashboard).
+   - Third-party API keys: stored encrypted (AES-256-GCM) in the `ApiKey` /
+     `YoutubeApiKey` tables. Encrypt with `src/services/crypto.js`.
+   - Never suggest hardcoding secrets or committing `.env` files.
+
+4. **No IaC exists.** Do not suggest Terraform, Pulumi, or CDK changes.
+   Railway config is in `railway.json` and the Railway dashboard.
+
+5. **No CI/CD pipelines exist.** Railway auto-deploys from the `main` branch.
+   If CI is needed in the future, suggest GitHub Actions in `.github/workflows/`.
+
+6. **No Docker.** Railway builds from source using `npm install && npm run build`.
+   Do not suggest Dockerfile changes unless the user explicitly wants to
+   containerise.
+
+7. **R2 storage** uses the S3-compatible SDK. The bucket is `falak-uploads`.
+   All R2 operations go through `src/services/r2.js`. Do not create alternative
+   upload paths.
+
+8. **Workers** are separate Node processes (`worker.js`, `worker-articles.js`,
+   `worker-rescore.js`). They use Bull queues when Redis is available, otherwise
+   they poll the database. Keep this dual-mode pattern when adding new workers.
+
+9. **Frontend proxy:** In dev, Vite proxies `/api` to `:3000` and `/collab` to
+   the WebSocket server. In prod, Express serves `frontend/dist` as static
+   files. Keep this arrangement.
+
+10. **Node version is 20.x** (see `.nvmrc`). Do not suggest features that
+    require Node 22+.
+
+## Before Suggesting Changes
+
+- Check if the change affects `prisma/schema.prisma` — if so, a migration is needed.
+- Check if new env vars are required — add them to `src/config.js` and `.env.example`.
+- Check if the change needs a new npm dependency — add it to the correct `package.json`
+  (root for backend, `frontend/` for frontend).
+- If suggesting a new external service, note that API keys must be encrypted at
+  rest using `src/services/crypto.js` and stored in the `ApiKey` table.
+- Railway has a 5 GB ephemeral disk. Large file processing must stream to R2,
+  not to local disk.
+
+## Conventions to Follow
+
+- Backend files are CommonJS (`.js`, `require/module.exports`).
+- Frontend files are TypeScript (`.ts/.tsx`, ES modules).
+- IDs are CUIDs.
+- Use Zod for request validation.
+- Use Pino for structured logging.
+- Use `cn()` (clsx + tailwind-merge) for className composition in the frontend.
+- Use shadcn/ui primitives — do not install alternative component libraries.
+- All dates are UTC.
