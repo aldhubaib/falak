@@ -127,16 +127,14 @@ router.get('/:id/videos', asyncWrap(async (req, res) => {
   res.json({ videos, total, hasMore: offset + videos.length < total })
 }))
 
-// ── GET /api/channels/:id/videos-not-done — count videos whose pipeline is not yet done
-router.get('/:id/videos-not-done', asyncWrap(async (req, res) => {
+// ── GET /api/channels/:id/publish-not-done — count manual stories not yet done
+router.get('/:id/publish-not-done', asyncWrap(async (req, res) => {
   const channelId = req.params.id
-  const count = await db.video.count({
+  const count = await db.story.count({
     where: {
       channelId,
-      OR: [
-        { pipelineItem: null },
-        { pipelineItem: { stage: { not: 'done' } } },
-      ],
+      origin: 'manual',
+      stage: { not: 'done' },
     },
   })
   res.json({ count })

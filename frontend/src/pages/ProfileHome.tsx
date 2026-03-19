@@ -124,7 +124,7 @@ export default function ProfileHome() {
         fetch(`/api/channels?parentChannelId=${channelId}&limit=200`, { credentials: "include" }).then(r => r.ok ? r.json() : { channels: [] }),
         fetch(`/api/stories/summary?channelId=${channelId}`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
         fetch(`/api/analytics?channelId=${channelId}&period=30d`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
-        fetch(`/api/channels/${channelId}/videos-not-done`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
+        fetch(`/api/channels/${channelId}/publish-not-done`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
       ]);
 
       if (chRes.status === "fulfilled" && chRes.value) setChannel(chRes.value);
@@ -272,7 +272,7 @@ export default function ProfileHome() {
   const quickLinks = [
     { label: "Competitors", path: "/competitors", icon: Swords, count: competitorCount, color: "text-orange-400" },
     { label: "AI Stories", path: "/stories", icon: Sparkles, count: storySummary?.total || 0, color: "text-purple-400" },
-    { label: "Ready to Publish", path: "/pipeline", icon: Send, count: notDoneCount ?? 0, color: "text-rose-400" },
+    { label: "Ready to Publish", path: "/publish", icon: Send, count: notDoneCount ?? 0, color: "text-rose-400" },
     { label: "Pipeline", path: "/pipeline", icon: Activity, count: undefined, color: "text-blue-400" },
     { label: "Analytics", path: "/analytics", icon: TrendingUp, count: undefined, color: "text-emerald-400" },
   ];
