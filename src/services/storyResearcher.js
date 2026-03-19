@@ -6,8 +6,8 @@
  * Pipeline:
  *   1. Firecrawl Search — find related news articles on the web (original language)
  *   2. Perplexity Sonar — get background context & timeline
- *   3. DB Similarity — find similar videos via embeddings
- *   4. Claude Synthesis — combine everything into a structured research brief
+ *   3. Claude Synthesis — combine everything into a structured research brief
+ * (DB Similarity runs in the scoring stage after translation, Arabic vs Arabic.)
  *
  * The brief answers the core storytelling questions:
  *   - What happened?
@@ -19,7 +19,6 @@ const { decrypt } = require('./crypto')
 const { searchNews } = require('./firecrawl')
 const { queryPerplexity } = require('./perplexity')
 const { callAnthropic } = require('./pipelineProcessor')
-const { findSimilarVideos } = require('./embeddings')
 const logger = require('../lib/logger')
 
 const FIRECRAWL_RESULT_LIMIT = 5
@@ -133,49 +132,7 @@ async function researchStory(article, project) {
     log.push({ step: 'perplexity_context', processor: 'ai', service: 'Perplexity Sonar', status: 'skipped', reason: 'No Perplexity key', at: new Date().toISOString() })
   }
 
-  // ── Step 3: DB Similarity (find related competition videos) ──
-  let similarVideos = []
-  if (project.embeddingApiKeyEncrypted) {
-    try {
-      const { generateEmbedding, buildEmbeddingText } = require('./embeddings')
-      const embText = buildEmbeddingText({
-        topic: analysis.topic,
-        tags: analysis.tags,
-        summary: analysis.summary,
-        contentType: analysis.contentType,
-        region: analysis.region,
-        uniqueAngle: analysis.uniqueAngle,
-      })
-      if (embText.length > 10) {
-        const emb = await generateEmbedding(embText, project)
-        const raw = await findSimilarVideos(emb, project.id, 5)
-        similarVideos = (raw || []).map(v => ({
-          title: v.titleAr || '',
-          views: v.viewCount || 0,
-          channel: v.channelName || '',
-          similarity: typeof v.similarity === 'number' ? Math.round(v.similarity * 100) / 100 : null,
-          type: v.videoType || '',
-        }))
-        log.push({
-          step: 'db_similarity',
-          processor: 'api', service: 'OpenAI Embeddings + pgvector',
-          status: 'ok',
-          embeddingInputChars: embText.length,
-          matchCount: similarVideos.length,
-          topMatch: similarVideos[0]?.title || null,
-          at: new Date().toISOString(),
-        })
-      } else {
-        log.push({ step: 'db_similarity', processor: 'server', service: 'Local check', status: 'skipped', reason: 'Not enough text for embedding', at: new Date().toISOString() })
-      }
-    } catch (e) {
-      log.push({ step: 'db_similarity', processor: 'api', service: 'OpenAI Embeddings + pgvector', status: 'failed', error: e.message, at: new Date().toISOString() })
-    }
-  } else {
-    log.push({ step: 'db_similarity', processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key', at: new Date().toISOString() })
-  }
-
-  // ── Step 4: Claude Synthesis ──
+  // ── Step 3: Claude Synthesis ──
   let researchBrief = null
   if (project.anthropicApiKeyEncrypted) {
     try {
@@ -190,7 +147,6 @@ async function researchStory(article, project) {
         firecrawlResults,
         perplexityContext,
         perplexityCitations,
-        similarVideos,
       })
 
       const raw = await callAnthropic(anthropicKey, 'claude-sonnet-4-6', [
@@ -232,7 +188,6 @@ async function researchStory(article, project) {
     })),
     backgroundContext: perplexityContext,
     citations: perplexityCitations,
-    similarVideos,
     brief: researchBrief,
     researchedAt: new Date().toISOString(),
   }
@@ -268,14 +223,10 @@ function buildBackgroundPrompt(topic, tags, region, summary) {
   ].filter(Boolean).join('\n')
 }
 
-function buildSynthesisPrompt({ topic, summary, uniqueAngle, tags, region, originalArticle, firecrawlResults, perplexityContext, perplexityCitations, similarVideos }) {
+function buildSynthesisPrompt({ topic, summary, uniqueAngle, tags, region, originalArticle, firecrawlResults, perplexityContext, perplexityCitations }) {
   const relatedArticlesText = firecrawlResults.map((r, i) =>
     `[Article ${i + 1}] ${r.title}\nURL: ${r.url}\n${r.markdown ? r.markdown.slice(0, 3000) : r.snippet}`
   ).join('\n\n')
-
-  const competitionText = similarVideos.length > 0
-    ? similarVideos.map(v => `- "${v.title}" (${v.views.toLocaleString()} views, ${v.channel}, similarity: ${v.similarity})`).join('\n')
-    : 'No similar competition videos found.'
 
   return `You are a senior researcher for an Arabic YouTube news channel.
 Synthesize ALL the following sources into a structured research brief for a video script writer.
@@ -297,9 +248,6 @@ ${relatedArticlesText || 'No related articles found.'}
 ${perplexityContext || 'No background context available.'}
 ${perplexityCitations.length > 0 ? `\nCitations: ${perplexityCitations.join(', ')}` : ''}
 
-═══ COMPETITION ANALYSIS ═══
-${competitionText}
-
 ═══ OUTPUT FORMAT ═══
 Reply ONLY with valid JSON (no markdown fences, no extra text). Output all text fields in English (the article's original language). Use this exact structure:
 
@@ -311,7 +259,7 @@ Reply ONLY with valid JSON (no markdown fences, no extra text). Output all text 
   "timeline": [{"date": "...", "event": "description in English"}],
   "mainCharacters": [{"name": "...", "role": "description in English"}],
   "sources": [{"title": "...", "url": "..."}],
-  "competitionInsight": "1-2 sentences in English about how competitors covered this or similar topics",
+  "competitionInsight": "1-2 sentences in English — leave blank or generic if no competition data available",
   "suggestedHook": "1 sentence — a compelling opening hook for the video in English",
   "narrativeStrength": 1-10
 }`

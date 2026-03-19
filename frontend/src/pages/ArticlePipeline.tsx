@@ -35,7 +35,7 @@ interface LogEntry {
   viralPotential?: number;
   freshness?: number;
   preferenceBias?: number;
-  rankScore?: number;
+  finalScore?: number;
   storyId?: string | null;
   at?: string;
   needed?: boolean;
@@ -84,7 +84,7 @@ interface ApiArticle {
   publishedAt: string | null;
   language: string | null;
   relevanceScore: number | null;
-  rankScore: number | null;
+  finalScore: number | null;
   rankReason: string | null;
   storyId: string | null;
   createdAt: string;
@@ -235,9 +235,19 @@ const SUB_STEPS: SubStep[] = [
       return log?.status === "ok" || log?.status === "skipped";
     },
   },
-  // Score & Promotion sub-steps (final stage)
+  // Score & Promotion sub-steps (final stage — Arabic AI analysis)
   {
-    id: "score", label: "Score", icon: Sparkles, color: "text-orange",
+    id: "score_similarity", label: "Competition Match", icon: Target, color: "text-purple",
+    parentStage: "score",
+    filterFn: (a) => hasLogStep(a, "score_similarity", "ok"),
+  },
+  {
+    id: "score_ai_analysis", label: "AI Scoring", icon: Brain, color: "text-orange",
+    parentStage: "score",
+    filterFn: (a) => hasLogStep(a, "score_ai_analysis", "ok"),
+  },
+  {
+    id: "score", label: "Final Score", icon: Sparkles, color: "text-orange",
     parentStage: "score",
     filterFn: (a) => hasLogStep(a, "score"),
   },
@@ -848,6 +858,34 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         </div>
       )}
 
+      {subStep.id === "score_similarity" && (() => {
+        const simLog = log.find(e => e.step === "score_similarity" && e.status === "ok");
+        if (!simLog) return null;
+        const matchCount = (simLog as any).matchCount ?? 0;
+        const top = (simLog as any).topMatch;
+        return (
+          <div className="space-y-1 text-[10px] font-mono text-dim">
+            <span>{matchCount} similar videos</span>
+            {top?.title && <div className="truncate" title={top.title}>{top.title}</div>}
+            {top?.similarity != null && <span className="text-purple">{(top.similarity as number).toFixed(2)}</span>}
+          </div>
+        );
+      })()}
+
+      {subStep.id === "score_ai_analysis" && (() => {
+        const aiLog = log.find(e => e.step === "score_ai_analysis" && e.status === "ok");
+        if (!aiLog) return null;
+        return (
+          <div className="space-y-1 text-[10px] font-mono">
+            <span className="text-dim">Sentiment: <span className="text-foreground">{(aiLog as any).sentiment ?? "—"}</span></span>
+            <div className="flex gap-2">
+              <ScoreBar label="Rel" value={(aiLog as any).relevance} />
+              <ScoreBar label="Viral" value={(aiLog as any).viralPotential} />
+            </div>
+          </div>
+        );
+      })()}
+
       {subStep.id === "score" && scoreLog && (
         <div className="space-y-1.5">
           <div className="flex items-center gap-3 text-[10px] font-mono">
@@ -863,7 +901,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
             </div>
           )}
           <div className="text-[11px] font-mono font-semibold">
-            Rank: <span className="text-success">{scoreLog.rankScore}</span>
+            Final: <span className="text-success">{scoreLog.finalScore}</span>
           </div>
         </div>
       )}
@@ -881,8 +919,8 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
           ) : (
             <span className="text-destructive">{promoteLog.error || "Failed"}</span>
           )}
-          {article.rankScore != null && (
-            <span className="text-dim ml-auto">Score: {article.rankScore.toFixed(2)}</span>
+          {article.finalScore != null && (
+            <span className="text-dim ml-auto">Score: {article.finalScore.toFixed(2)}</span>
           )}
         </div>
       )}

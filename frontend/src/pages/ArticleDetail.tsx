@@ -46,7 +46,7 @@ interface LogEntry {
   viralPotential?: number;
   freshness?: number;
   preferenceBias?: number;
-  rankScore?: number;
+  finalScore?: number;
   storyId?: string | null;
   at?: string;
   needed?: boolean;
@@ -136,7 +136,7 @@ interface ArticleDetail {
   processingLog: LogEntry[] | null;
   analysis: Analysis | null;
   relevanceScore: number | null;
-  rankScore: number | null;
+  finalScore: number | null;
   rankReason: string | null;
   storyId: string | null;
   source: { id: string; label: string; type: string; language: string } | null;
@@ -160,7 +160,7 @@ const TIMELINE_STAGES: TimelineStage[] = [
   { id: "classify", label: "Classification (Original Language)", icon: Brain, color: "text-success", bgColor: "bg-success" },
   { id: "research", label: "Research (Original Language)", icon: Search, color: "text-purple", bgColor: "bg-purple" },
   { id: "translated", label: "Translation to Arabic", icon: Languages, color: "text-blue", bgColor: "bg-blue" },
-  { id: "scoring", label: "Scoring", icon: Sparkles, color: "text-orange", bgColor: "bg-orange" },
+  { id: "scoring", label: "Scoring (Arabic AI Analysis)", icon: Sparkles, color: "text-orange", bgColor: "bg-orange" },
   { id: "promote", label: "Story Promotion", icon: CheckCircle2, color: "text-success", bgColor: "bg-success" },
 ];
 
@@ -303,9 +303,9 @@ export default function ArticleDetailPage() {
                 {article.error}
               </div>
             )}
-            {article.rankScore != null && (
+            {article.finalScore != null && (
               <div className="mt-3 flex items-center gap-4 text-[11px] font-mono">
-                <span className="text-foreground font-semibold">Rank: {article.rankScore.toFixed(2)}</span>
+                <span className="text-foreground font-semibold">Score: {article.finalScore.toFixed(2)}</span>
                 {article.relevanceScore != null && <span className="text-dim">Relevance: {article.relevanceScore.toFixed(2)}</span>}
                 {article.rankReason && <span className="text-dim">{article.rankReason}</span>}
               </div>
@@ -422,9 +422,9 @@ const STEP_MAP: Record<string, string[]> = {
   imported: ["imported"],
   content: ["apify_content", "firecrawl", "html_fetch", "content_source"],
   classify: ["classify"],
-  research: ["research_decision", "firecrawl_search", "perplexity_context", "db_similarity", "synthesis", "research"],
+  research: ["research_decision", "firecrawl_search", "perplexity_context", "synthesis", "research"],
   translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
-  scoring: ["score"],
+  scoring: ["score_similarity", "score_ai_analysis", "score"],
   promote: ["promote"],
 };
 
@@ -1005,12 +1005,8 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
         <InfoCard label="Region (original language)" value={analysis.region} />
       )}
 
-      {/* Classification grid */}
+      {/* Classification grid — no sentiment/viral/relevance (those are in Scoring stage) */}
       <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-        <InfoCard label="Sentiment" value={analysis.sentiment || "—"} color={
-          analysis.sentiment === "positive" ? "text-success" :
-          analysis.sentiment === "negative" ? "text-destructive" : "text-dim"
-        } />
         <InfoCard label="Content Type" value={analysis.contentType || "—"} />
         <InfoCard label="Breaking" value={analysis.isBreaking ? "Yes" : "No"} color={
           analysis.isBreaking ? "text-orange" : "text-dim"
@@ -1024,60 +1020,124 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
           <div className="text-[12px] text-foreground/80 italic" dir="auto">{analysis.uniqueAngle}</div>
         </div>
       )}
-
-      {/* AI scores */}
-      <div className="text-[10px] font-mono text-dim uppercase tracking-wider">AI Assessment</div>
-      <div className="grid grid-cols-2 gap-3">
-        <ScoreGauge label="Viral Potential" value={analysis.viralPotential} />
-        <ScoreGauge label="Relevance" value={analysis.relevance} />
-      </div>
     </div>
   );
 }
 
 function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
+  const similarityLog = log.find((e) => e.step === "score_similarity");
+  const aiLog = log.find((e) => e.step === "score_ai_analysis");
   const scoreLog = log.find((e) => e.step === "score");
 
-  if (!scoreLog) {
+  const hasAny = similarityLog || aiLog || scoreLog;
+  if (!hasAny) {
     return <div className="p-4 text-[12px] text-dim font-mono">No scoring data yet.</div>;
   }
 
-  const relevance = scoreLog.relevance ?? 0;
-  const viral = scoreLog.viralPotential ?? 0;
-  const freshness = scoreLog.freshness ?? 0;
-  const prefBias = scoreLog.preferenceBias ?? 0;
-  const rank = scoreLog.rankScore ?? 0;
+  const relevance = (aiLog?.relevance ?? scoreLog?.relevance) ?? 0;
+  const viral = (aiLog?.viralPotential ?? scoreLog?.viralPotential) ?? 0;
+  const freshness = scoreLog?.freshness ?? 0;
+  const prefBias = scoreLog?.preferenceBias ?? 0;
+  const competitionPenalty = scoreLog?.competitionPenalty ?? 0;
+  const finalScore = scoreLog?.finalScore ?? 0;
 
   return (
     <div className="p-4 space-y-4">
-      <StepHeader entry={scoreLog} label="Scoring" icon={Sparkles} />
-      <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Score Breakdown</div>
-      <div className="space-y-2">
-        <ScoreRow label="Relevance" value={relevance} weight={0.35} result={relevance * 0.35} />
-        <ScoreRow label="Viral Potential" value={viral} weight={0.30} result={viral * 0.30} />
-        <ScoreRow label="Freshness" value={freshness} weight={0.35} result={freshness * 0.35} />
-      </div>
-
-      <div className="h-px bg-border" />
-
-      <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
-        <span className="text-[12px] font-mono text-dim">Raw Score</span>
-        <span className="text-[13px] font-mono font-semibold">{(relevance * 0.35 + viral * 0.30 + freshness * 0.35).toFixed(3)}</span>
-      </div>
-
-      {prefBias !== 0 && (
-        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
-          <span className="text-[12px] font-mono text-dim">Preference Bias</span>
-          <span className={`text-[13px] font-mono font-semibold ${prefBias > 0 ? "text-success" : "text-destructive"}`}>
-            {prefBias > 0 ? "+" : ""}{prefBias.toFixed(3)}
-          </span>
+      {/* Similarity search (Arabic vs Arabic) */}
+      {similarityLog && (
+        <div className="rounded-lg border border-border bg-surface/50 p-3 space-y-2">
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Competition Match (Arabic vs Arabic)</div>
+          <StepHeader entry={similarityLog} label="Similarity Search" icon={Sparkles} />
+          {similarityLog.status === "ok" && (
+            <>
+              <div className="text-[11px] font-mono text-dim">
+                {similarityLog.embeddingInputChars?.toLocaleString()} chars → {similarityLog.matchCount ?? 0} matches
+              </div>
+              {similarityLog.similarVideos && (similarityLog.similarVideos as { title?: string; similarity?: number }[]).length > 0 && (
+                <ul className="list-disc list-inside text-[11px] font-mono text-foreground/80 space-y-0.5">
+                  {(similarityLog.similarVideos as { title?: string; similarity?: number }[]).slice(0, 5).map((v, i) => (
+                    <li key={i}>{v.title || "—"} ({(v.similarity ?? 0).toFixed(2)})</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+          {similarityLog.status !== "ok" && (
+            <div className="text-[11px] font-mono text-dim">{similarityLog.reason || similarityLog.error || "Skipped"}</div>
+          )}
         </div>
       )}
 
-      <div className="flex items-center justify-between px-3 py-3 rounded-lg border-2 border-success/30 bg-success/5">
-        <span className="text-[13px] font-semibold text-foreground">Final Rank Score</span>
-        <span className="text-[18px] font-mono font-bold text-success">{rank.toFixed(2)}</span>
-      </div>
+      {/* AI scoring on Arabic */}
+      {aiLog && (
+        <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-2">
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">AI Scoring (Arabic)</div>
+          <StepHeader entry={aiLog} label="Claude Haiku" icon={Brain} />
+          {(aiLog.inputTokens != null || aiLog.outputTokens != null) && (
+            <div className="text-[11px] font-mono text-dim">
+              Tokens: in {aiLog.inputTokens ?? "—"} / out {aiLog.outputTokens ?? "—"} / total {aiLog.totalTokens ?? "—"}
+            </div>
+          )}
+          {aiLog.promptSent && (
+            <div className="rounded border border-border/50 p-2 mt-1">
+              <div className="text-[9px] font-mono text-dim uppercase">Before (Arabic prompt)</div>
+              <ExpandableText label="prompt" text={aiLog.promptSent} maxLen={800} />
+            </div>
+          )}
+          {aiLog.rawResponse && (
+            <div className="rounded border border-success/20 p-2 mt-1">
+              <div className="text-[9px] font-mono text-success uppercase">After (AI response)</div>
+              <ExpandableText label="response" text={aiLog.rawResponse} maxLen={800} />
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {aiLog.sentiment && <InfoCard label="Sentiment" value={aiLog.sentiment} />}
+            {aiLog.viralPotential != null && <InfoCard label="Viral Potential" value={(aiLog.viralPotential as number).toFixed(2)} />}
+            {aiLog.relevance != null && <InfoCard label="Relevance" value={(aiLog.relevance as number).toFixed(2)} />}
+          </div>
+        </div>
+      )}
+
+      {/* Final score computation */}
+      {scoreLog && (
+        <>
+          <StepHeader entry={scoreLog} label="Score Computation" icon={Sparkles} />
+          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Score Breakdown</div>
+          <div className="space-y-2">
+            <ScoreRow label="Relevance" value={relevance} weight={0.35} result={relevance * 0.35} />
+            <ScoreRow label="Viral Potential" value={viral} weight={0.30} result={viral * 0.30} />
+            <ScoreRow label="Freshness" value={freshness} weight={0.35} result={freshness * 0.35} />
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
+            <span className="text-[12px] font-mono text-dim">Raw Score</span>
+            <span className="text-[13px] font-mono font-semibold">{(relevance * 0.35 + viral * 0.30 + freshness * 0.35).toFixed(3)}</span>
+          </div>
+
+          {prefBias !== 0 && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
+              <span className="text-[12px] font-mono text-dim">Preference Bias</span>
+              <span className={`text-[13px] font-mono font-semibold ${prefBias > 0 ? "text-success" : "text-destructive"}`}>
+                {prefBias > 0 ? "+" : ""}{prefBias.toFixed(3)}
+              </span>
+            </div>
+          )}
+
+          {competitionPenalty > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
+              <span className="text-[12px] font-mono text-dim">Competition Penalty</span>
+              <span className="text-[13px] font-mono font-semibold text-destructive">-{competitionPenalty.toFixed(2)}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between px-3 py-3 rounded-lg border-2 border-success/30 bg-success/5">
+            <span className="text-[13px] font-semibold text-foreground">Final Score</span>
+            <span className="text-[18px] font-mono font-bold text-success">{finalScore.toFixed(2)}</span>
+          </div>
+        </>
+      )}
 
       {article.rankReason && (
         <div className="flex flex-wrap gap-1.5">

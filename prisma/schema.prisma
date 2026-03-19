@@ -397,7 +397,7 @@ model Article {
   analysis       Json?
   relevanceScore Float?
 
-  rankScore      Float?
+  finalScore     Float?
   rankReason     String?
 
   storyId        String?

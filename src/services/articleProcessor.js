@@ -177,11 +177,8 @@ async function doStageClassify(article, project) {
       `Keys:\n` +
       `- topic: one short sentence describing what this article is about (in ${targetLang})\n` +
       `- tags: 4 to 8 tags (noun form, 1-3 words each, reusable across articles, in ${targetLang})\n` +
-      `- sentiment: "positive" | "negative" | "neutral"\n` +
       `- contentType: "news" | "investigation" | "feature" | "opinion" | "human_interest" | "crime" | "politics" | "technology" | "other"\n` +
       `- region: the country or city where the main event takes place, or null (in ${targetLang})\n` +
-      `- viralPotential: 0.0 to 1.0 — how likely this will get views\n` +
-      `- relevance: 0.0 to 1.0 — how relevant is this to audiences interested in true crime, mysteries, investigations, and untold stories\n` +
       `- summary: 2-3 sentence summary in ${targetLang}\n` +
       `- isBreaking: true if the event happened in the last 48 hours\n` +
       `- uniqueAngle: one sentence about what makes this story unique, or null (in ${targetLang})\n\n` +
@@ -251,11 +248,8 @@ async function doStageClassify(article, project) {
     model: 'claude-haiku-4-5-20251001',
     topic: analysis?.topic || null,
     tags: analysis?.tags || [],
-    sentiment: analysis?.sentiment || null,
     contentType: analysis?.contentType || null,
     region: analysis?.region || null,
-    viralPotential: typeof analysis?.viralPotential === 'number' ? analysis.viralPotential : null,
-    relevance: typeof analysis?.relevance === 'number' ? analysis.relevance : null,
     summary: analysis?.summary || null,
     uniqueAngle: analysis?.uniqueAngle || null,
     isBreaking: !!analysis?.isBreaking,
@@ -398,7 +392,8 @@ async function doStageTranslated(article, project) {
   const truncated = text.slice(0, 30000)
   const contentPrompt = `Translate this news article to Arabic.\n` +
     `Preserve all names, dates, locations, and facts exactly.\n` +
-    `Keep a journalistic tone. Output the Arabic text only, no commentary.\n\n` +
+    `Keep a journalistic tone. Output the Arabic text only, no commentary.\n` +
+    `Important: Transliterate sport names, do not translate them to different sports. Examples: "snooker" → "سنوكر" (NOT "اسكواش"), "cricket" → "كريكيت", "rugby" → "رغبي".\n\n` +
     truncated
   const translatedContent = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
     { role: 'user', content: contentPrompt },
@@ -447,7 +442,8 @@ async function doStageTranslated(article, project) {
   if (fieldsText.trim()) {
     const analysisPrompt = `Translate these classification fields from ${sourceLang === 'other' ? 'English' : sourceLang} to Arabic.\n` +
       `Keep the same key names. For "tags", return them separated by " | ".\n` +
-      `Reply in the exact same format (key: value), one per line, no extra text.\n\n` +
+      `Reply in the exact same format (key: value), one per line, no extra text.\n` +
+      `Important: Transliterate sport names, do not translate them to different sports. Examples: "snooker" → "سنوكر" (NOT "اسكواش"), "cricket" → "كريكيت", "rugby" → "رغبي".\n\n` +
       fieldsText
 
     const translatedFields = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
@@ -565,26 +561,147 @@ function parseTranslatedFields(raw) {
 }
 
 // ── Stage 6: score → done ───────────────────────────────────────────────────
-// Has full data: classification + research + Arabic translation.
+// THE DECISION STAGE: similarity search (AR vs AR), AI scoring on Arabic, final score, promote.
 
 async function doStageScore(article, project) {
   const log = getLog(article)
 
   const freshArticle = await db.article.findUnique({ where: { id: article.id } })
-  const analysis = freshArticle?.analysis || article.analysis || {}
+  const art = freshArticle || article
+  const analysis = art.analysis || {}
 
   if (analysis.parseError) {
-    log.push({ step: 'score', status: 'skipped', reason: 'Classification had parse error' })
+    log.push({ step: 'score_similarity', status: 'skipped', reason: 'Classification had parse error' })
+    log.push({ step: 'score_ai_analysis', status: 'skipped', reason: 'Classification parse error' })
+    log.push({ step: 'score', status: 'skipped', reason: 'Classification parse error' })
     log.push({ step: 'promote', status: 'skipped', reason: 'Classification parse error' })
     await saveLog(article.id, log)
     return { nextStage: 'done' }
   }
 
-  const relevance = typeof analysis.relevance === 'number' ? analysis.relevance : 0
-  const viralPotential = typeof analysis.viralPotential === 'number' ? analysis.viralPotential : 0
+  let scoreEmbedding = null
+  let similarVideos = []
+  let relevance = 0
+  let viralPotential = 0
+  let sentiment = 'neutral'
 
-  const daysSincePublished = (freshArticle || article).publishedAt
-    ? Math.max(0, (Date.now() - new Date((freshArticle || article).publishedAt).getTime()) / 86400000)
+  // ── Sub-step A: score_similarity (Arabic vs Arabic) ──
+  if (project.embeddingApiKeyEncrypted) {
+    try {
+      const { generateEmbedding, buildEmbeddingText, findSimilarVideos } = require('./embeddings')
+      const embData = {
+        topic: analysis.topicAr || analysis.topic,
+        tags: analysis.tagsAr || analysis.tags,
+        summary: analysis.summaryAr || analysis.summary,
+        region: analysis.regionAr || analysis.region,
+        uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle,
+        contentType: analysis.contentType,
+      }
+      const embText = buildEmbeddingText(embData)
+      if (embText.length > 10) {
+        scoreEmbedding = await generateEmbedding(embText, project)
+        const raw = await findSimilarVideos(scoreEmbedding, project.id, 5)
+        similarVideos = (raw || []).map(v => ({
+          title: v.titleAr || '',
+          views: v.viewCount || 0,
+          channel: v.channelName || '',
+          similarity: typeof v.similarity === 'number' ? Math.round(v.similarity * 100) / 100 : null,
+          type: v.videoType || '',
+        }))
+        log.push({
+          step: 'score_similarity',
+          processor: 'server',
+          service: 'OpenAI Embeddings + pgvector',
+          status: 'ok',
+          embeddingInputChars: embText.length,
+          matchCount: similarVideos.length,
+          topMatch: similarVideos[0] ? { title: similarVideos[0].title, similarity: similarVideos[0].similarity } : null,
+          similarVideos,
+          at: new Date().toISOString(),
+        })
+      } else {
+        log.push({ step: 'score_similarity', processor: 'server', service: 'OpenAI Embeddings', status: 'skipped', reason: 'Not enough Arabic text for embedding', at: new Date().toISOString() })
+      }
+    } catch (e) {
+      log.push({ step: 'score_similarity', processor: 'api', service: 'OpenAI Embeddings + pgvector', status: 'failed', error: e.message, at: new Date().toISOString() })
+    }
+  } else {
+    log.push({ step: 'score_similarity', processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key', at: new Date().toISOString() })
+  }
+
+  // ── Sub-step B: score_ai_analysis (AI scoring on Arabic text) ──
+  const contentAr = art.contentAr || ''
+  if (project.anthropicApiKeyEncrypted && contentAr.trim().length > 50) {
+    try {
+      const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+      const competitionContext = similarVideos.length > 0
+        ? '\n\nCompetition (similar Arabic videos already in DB):\n' +
+          similarVideos.map(v => `- "${v.title}" (similarity: ${v.similarity})`).join('\n')
+        : ''
+      const scoringPrompt = `You are a news analyst for an Arabic YouTube audience. Analyze this Arabic article and respond with JSON only (no markdown, no explanation).
+
+Keys:
+- sentiment: "positive" | "negative" | "neutral" (how Arabic-speaking audiences will react emotionally)
+- viralPotential: 0.0 to 1.0 — how likely this will get shares and engagement among Arabic audiences
+- relevance: 0.0 to 1.0 — how relevant is this to audiences interested in true crime, mysteries, investigations, and untold stories
+${competitionContext}
+
+Article (Arabic):
+${contentAr.slice(0, 15000)}`
+
+      const raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+        { role: 'user', content: scoringPrompt },
+      ], {
+        maxTokens: 512,
+        projectId: article.projectId,
+        action: 'article-score-ai',
+      })
+      const usage = callAnthropic._lastUsage || {}
+
+      let parsed = null
+      try {
+        const trimmed = (raw || '').trim()
+        const start = trimmed.indexOf('{')
+        const end = trimmed.lastIndexOf('}') + 1
+        if (start !== -1 && end > start) {
+          parsed = JSON.parse(trimmed.slice(start, end))
+        }
+      } catch (_) {}
+
+      if (parsed) {
+        sentiment = ['positive', 'negative', 'neutral'].includes(parsed.sentiment) ? parsed.sentiment : 'neutral'
+        relevance = typeof parsed.relevance === 'number' ? Math.max(0, Math.min(1, parsed.relevance)) : 0
+        viralPotential = typeof parsed.viralPotential === 'number' ? Math.max(0, Math.min(1, parsed.viralPotential)) : 0
+        analysis.sentiment = sentiment
+        log.push({
+          step: 'score_ai_analysis',
+          processor: 'ai',
+          service: 'Anthropic Claude Haiku',
+          model: 'claude-haiku-4-5-20251001',
+          status: 'ok',
+          inputTokens: usage.inputTokens || null,
+          outputTokens: usage.outputTokens || null,
+          totalTokens: usage.totalTokens || null,
+          promptSent: scoringPrompt.slice(0, 1500),
+          rawResponse: (raw || '').slice(0, 1500),
+          sentiment,
+          viralPotential,
+          relevance,
+          at: new Date().toISOString(),
+        })
+      } else {
+        log.push({ step: 'score_ai_analysis', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'parse_error', rawResponse: (raw || '').slice(0, 500), at: new Date().toISOString() })
+      }
+    } catch (e) {
+      log.push({ step: 'score_ai_analysis', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message, at: new Date().toISOString() })
+    }
+  } else {
+    log.push({ step: 'score_ai_analysis', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'skipped', reason: contentAr.trim().length <= 50 ? 'No Arabic content' : 'No Anthropic key', at: new Date().toISOString() })
+  }
+
+  // ── Sub-step C: score (compute final score) ──
+  const daysSincePublished = art.publishedAt
+    ? Math.max(0, (Date.now() - new Date(art.publishedAt).getTime()) / 86400000)
     : 14
   const freshness = Math.exp(-daysSincePublished / 7 * Math.LN2)
 
@@ -597,14 +714,23 @@ async function doStageScore(article, project) {
     }
   } catch (_) {}
 
+  const topSimilarity = similarVideos[0]?.similarity
+  const competitionPenalty = typeof topSimilarity === 'number' && topSimilarity >= 0.7 ? 0.05 : (topSimilarity >= 0.5 ? 0.02 : 0)
+
   const rawScore = relevance * 0.35 + viralPotential * 0.30 + freshness * 0.35
-  const rankScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40)) * 100) / 100
+  const finalScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40 - competitionPenalty)) * 100) / 100
 
   log.push({
-    step: 'score', processor: 'server', service: 'Local math formula (no 3rd party)',
-    relevance, viralPotential, freshness: Math.round(freshness * 100) / 100,
+    step: 'score',
+    processor: 'server',
+    service: 'Score computation',
+    relevance,
+    viralPotential,
+    freshness: Math.round(freshness * 100) / 100,
     preferenceBias: Math.round(preferenceBias * 100) / 100,
-    rankScore,
+    competitionPenalty,
+    finalScore,
+    at: new Date().toISOString(),
   })
 
   const reasons = []
@@ -618,17 +744,15 @@ async function doStageScore(article, project) {
     where: { id: article.id },
     data: {
       relevanceScore: relevance,
-      rankScore,
+      finalScore,
       rankReason: reasons.join(', ') || null,
       processingLog: log,
     },
   })
 
-  // Promote to Story with full data (classification + research + Arabic content)
+  // ── Sub-step D: promote ──
   try {
-    const promoted = await promoteToStory(
-      freshArticle || article, analysis, relevance, viralPotential, rankScore
-    )
+    const promoted = await promoteToStory(art, analysis, relevance, viralPotential, finalScore, scoreEmbedding)
     log.push({ step: 'promote', processor: 'server', service: 'Database write (no 3rd party)', status: promoted ? 'created' : 'linked', storyId: promoted || null })
     await saveLog(article.id, log)
   } catch (e) {
@@ -645,12 +769,10 @@ async function doStageScore(article, project) {
 function evaluateClassifyQuality(analysis) {
   if (!analysis || analysis.parseError) return { score: 0, issues: ['Failed to parse AI response'] }
   const issues = []
-  const expectedKeys = ['topic', 'tags', 'sentiment', 'contentType', 'region', 'viralPotential', 'relevance', 'summary', 'uniqueAngle']
+  const expectedKeys = ['topic', 'tags', 'contentType', 'region', 'summary', 'uniqueAngle']
   const filledKeys = expectedKeys.filter(k => analysis[k] != null && analysis[k] !== '').length
-  if (filledKeys < 6) issues.push(`Only ${filledKeys}/9 fields filled`)
+  if (filledKeys < 4) issues.push(`Only ${filledKeys}/6 fields filled`)
   if (!Array.isArray(analysis.tags) || analysis.tags.length < 3) issues.push('Too few tags (< 3)')
-  if (typeof analysis.viralPotential === 'number' && (analysis.viralPotential < 0 || analysis.viralPotential > 1)) issues.push('viralPotential out of range')
-  if (typeof analysis.relevance === 'number' && (analysis.relevance < 0 || analysis.relevance > 1)) issues.push('relevance out of range')
   if (!analysis.topic) issues.push('Missing topic')
   if (!analysis.summary) issues.push('Missing summary')
   const score = Math.max(0, 10 - issues.length * 2)
@@ -698,7 +820,7 @@ function calculatePreferenceBias(analysis, profile) {
   return Math.max(-0.5, Math.min(0.5, bias))
 }
 
-async function promoteToStory(article, analysis, relevance, viralPotential, rankScore) {
+async function promoteToStory(article, analysis, relevance, viralPotential, finalScore, scoreEmbedding = null) {
   // Use Arabic headline (topicAr from translation stage), fallback to original
   const headline = analysis.topicAr || analysis.topic || article.title || ''
   if (!headline.trim()) return null
@@ -769,24 +891,28 @@ async function promoteToStory(article, analysis, relevance, viralPotential, rank
   })
 
   try {
-    const proj = await db.project.findUnique({
-      where: { id: article.projectId },
-      select: { id: true, embeddingApiKeyEncrypted: true },
-    })
-    if (proj?.embeddingApiKeyEncrypted) {
-      const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
-      // Use Arabic fields for embedding (final display language)
-      const text = buildEmbeddingText({
-        topic: analysis.topicAr || analysis.topic,
-        tags: analysis.tagsAr || analysis.tags,
-        summary: analysis.summaryAr || analysis.summary,
-        contentType: analysis.contentType,
-        region: analysis.regionAr || analysis.region,
-        uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle,
+    if (scoreEmbedding && scoreEmbedding.length > 0) {
+      const { storeStoryEmbedding } = require('./embeddings')
+      await storeStoryEmbedding(story.id, scoreEmbedding)
+    } else {
+      const proj = await db.project.findUnique({
+        where: { id: article.projectId },
+        select: { id: true, embeddingApiKeyEncrypted: true },
       })
-      if (text.length > 10) {
-        const emb = await generateEmbedding(text, proj)
-        await storeStoryEmbedding(story.id, emb)
+      if (proj?.embeddingApiKeyEncrypted) {
+        const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
+        const text = buildEmbeddingText({
+          topic: analysis.topicAr || analysis.topic,
+          tags: analysis.tagsAr || analysis.tags,
+          summary: analysis.summaryAr || analysis.summary,
+          contentType: analysis.contentType,
+          region: analysis.regionAr || analysis.region,
+          uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle,
+        })
+        if (text.length > 10) {
+          const emb = await generateEmbedding(text, proj)
+          await storeStoryEmbedding(story.id, emb)
+        }
       }
     }
   } catch (e) {
