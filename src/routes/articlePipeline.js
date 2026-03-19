@@ -330,6 +330,53 @@ router.post('/:id/retry', requireRole('owner', 'admin', 'editor'), async (req, r
   }
 })
 
+// ── POST /api/article-pipeline/:id/restart ────────────────────────────────
+// Re-queue from current stage (or optional ?stage= to restart from a specific stage)
+router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const article = await db.article.findUnique({ where: { id: req.params.id } })
+    if (!article) return res.status(404).json({ error: 'Article not found' })
+    if (article.status === 'running') {
+      return res.status(400).json({ error: 'Article is currently running — wait or let rescue handle it' })
+    }
+
+    const VALID_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
+    const targetStage = req.body.stage || article.stage
+    if (!VALID_STAGES.includes(targetStage)) {
+      return res.status(400).json({ error: `Invalid stage "${targetStage}"` })
+    }
+
+    await db.article.update({
+      where: { id: article.id },
+      data: { stage: targetStage, status: 'queued', error: null, retries: 0 },
+    })
+    res.json({ ok: true, stage: targetStage })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-pipeline/restart-stage ──────────────────────────────
+// Bulk re-queue all non-running articles in a given stage (clears errors & retries)
+router.post('/restart-stage', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { projectId, stage } = req.body
+    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const VALID_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
+    if (!VALID_STAGES.includes(stage)) {
+      return res.status(400).json({ error: `Invalid stage "${stage}"` })
+    }
+
+    const result = await db.article.updateMany({
+      where: { projectId, stage, status: { not: 'running' } },
+      data: { status: 'queued', error: null, retries: 0 },
+    })
+    res.json({ restarted: result.count, stage })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── POST /api/article-pipeline/:id/skip — advance review item to next stage
 router.post('/:id/skip', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {

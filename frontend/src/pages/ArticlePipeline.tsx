@@ -1014,6 +1014,7 @@ function StageColumn({
 }) {
   const isFailed = stage.id === "failed";
   const isReview = stage.id === "review";
+  const isProcessingStage = !isFailed && !isReview;
   const [retryingAll, setRetryingAll] = useState(false);
 
   const handleRetryAll = () => {
@@ -1026,6 +1027,20 @@ function StageColumn({
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(() => { toast.success("Retrying"); onRefresh(); })
+      .catch(() => toast.error("Failed"))
+      .finally(() => setRetryingAll(false));
+  };
+
+  const handleRestartStage = () => {
+    if (!projectId) return;
+    setRetryingAll(true);
+    fetch("/api/article-pipeline/restart-stage", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId, stage: stage.id }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { restarted: number }) => { toast.success(`Restarted ${d.restarted} articles`); onRefresh(); })
       .catch(() => toast.error("Failed"))
       .finally(() => setRetryingAll(false));
   };
@@ -1049,6 +1064,13 @@ function StageColumn({
             <button onClick={handleRetryAll} disabled={retryingAll}
               className="text-[10px] text-dim font-mono hover:text-sensor disabled:opacity-50">
               <RotateCw className={`w-3 h-3 inline mr-1 ${retryingAll ? "animate-spin" : ""}`} />Retry all
+            </button>
+          )}
+          {isProcessingStage && items.length > 0 && (
+            <button onClick={handleRestartStage} disabled={retryingAll}
+              title={`Restart all ${items.length} articles in ${stage.label}`}
+              className="text-dim hover:text-sensor disabled:opacity-50 transition-colors">
+              <RotateCw className={`w-3.5 h-3.5 ${retryingAll ? "animate-spin" : ""}`} />
             </button>
           )}
         </div>

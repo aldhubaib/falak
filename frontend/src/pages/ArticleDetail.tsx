@@ -5,6 +5,7 @@ import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
   Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2, Info,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FLOW_DEFS } from "@/constants/flowDefs";
@@ -209,8 +210,9 @@ export default function ArticleDetailPage() {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [restarting, setRestarting] = useState(false);
 
-  useEffect(() => {
+  const fetchArticle = () => {
     if (!id) return;
     setLoading(true);
     fetch(`/api/article-pipeline/${id}/detail`, { credentials: "include" })
@@ -218,7 +220,30 @@ export default function ArticleDetailPage() {
       .then((d) => setArticle(d))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  };
+
+  useEffect(fetchArticle, [id]);
+
+  const handleRestart = async (stage?: string) => {
+    if (!id || restarting) return;
+    setRestarting(true);
+    try {
+      const res = await fetch(`/api/article-pipeline/${id}/restart`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(stage ? { stage } : {}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Restart failed");
+      toast.success(`Restarting from "${data.stage}" stage`);
+      fetchArticle();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setRestarting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -303,6 +328,13 @@ export default function ArticleDetailPage() {
                 {article.error}
               </div>
             )}
+            {article.status !== "running" && (
+              <RestartControl
+                stage={article.stage}
+                restarting={restarting}
+                onRestart={handleRestart}
+              />
+            )}
             {article.finalScore != null && (
               <div className="mt-3 flex items-center gap-4 text-[11px] font-mono">
                 <span className="text-foreground font-semibold">Score: {article.finalScore.toFixed(2)}</span>
@@ -346,6 +378,67 @@ export default function ArticleDetailPage() {
             })}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Restart Control ─── */
+
+const RESTARTABLE_STAGES = [
+  { id: "imported", label: "Imported" },
+  { id: "content", label: "Content" },
+  { id: "classify", label: "Classify" },
+  { id: "research", label: "Research" },
+  { id: "translated", label: "Translation" },
+  { id: "score", label: "Score" },
+];
+
+function RestartControl({
+  stage,
+  restarting,
+  onRestart,
+}: {
+  stage: string;
+  restarting: boolean;
+  onRestart: (stage?: string) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+  const currentIdx = RESTARTABLE_STAGES.findIndex((s) => s.id === stage);
+  const canRestartCurrent = currentIdx !== -1 || stage === "done" || stage === "failed";
+
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <button
+        onClick={() => onRestart()}
+        disabled={restarting || !canRestartCurrent}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface/80 text-[11px] font-semibold text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <RotateCcw className={`w-3 h-3 ${restarting ? "animate-spin" : ""}`} />
+        {restarting ? "Restarting…" : "Restart"}
+      </button>
+      <div className="relative">
+        <button
+          onClick={() => setShowPicker(!showPicker)}
+          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface/80 text-[10px] font-mono text-dim transition-colors"
+        >
+          from stage
+          <ChevronDown className="w-3 h-3" />
+        </button>
+        {showPicker && (
+          <div className="absolute top-full left-0 mt-1 z-50 min-w-[140px] rounded-lg border border-border bg-background shadow-lg py-1">
+            {RESTARTABLE_STAGES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => { setShowPicker(false); onRestart(s.id); }}
+                disabled={restarting}
+                className="w-full text-left px-3 py-1.5 text-[11px] font-mono text-foreground hover:bg-surface transition-colors disabled:opacity-40"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
