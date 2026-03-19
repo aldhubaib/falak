@@ -14,7 +14,6 @@ import Competitions from "./pages/Competitions";
 import ChannelDetail from "./pages/ChannelDetail";
 import VideoDetail from "./pages/VideoDetail";
 import Pipeline from "./pages/Pipeline";
-import Monitor from "./pages/Monitor";
 import Analytics from "./pages/Analytics";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
@@ -77,7 +76,6 @@ const App = () => (
               <Route path="channel/:id" element={<ChannelDetail />} />
               <Route path="video/:id" element={<VideoDetail />} />
               <Route path="pipeline" element={<Pipeline />} />
-              <Route path="monitor" element={<Monitor />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="admin" element={<Admin />} />
               <Route path="stories" element={<Stories />} />

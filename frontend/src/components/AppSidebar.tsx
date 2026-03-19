@@ -2,14 +2,13 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, Swords, GitBranch, Activity, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, Newspaper, FileText, Zap, Home } from "lucide-react";
+import { LayoutDashboard, Swords, GitBranch, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, Newspaper, FileText, Zap, Home } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Home", path: "" },
   { icon: Swords, label: "Competitors", path: "/competitors" },
   { icon: GitBranch, label: "Pipeline", path: "/pipeline" },
-  { icon: Activity, label: "Monitor", path: "/monitor" },
   { icon: TrendingUp, label: "Analytics", path: "/analytics" },
   { icon: Sparkles, label: "AI Intelligence", path: "/stories" },
   { icon: Newspaper, label: "Source", path: "/source" },
