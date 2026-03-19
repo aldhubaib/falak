@@ -10,7 +10,7 @@ import { useChannelPath } from "@/hooks/useChannelPath";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
-  RefreshCw, ExternalLink, Pencil, X,
+  RefreshCw, ExternalLink, Pencil, X, Copy, Check,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -129,6 +129,7 @@ function ManualStoryWorkflow({
   const [generatingTags, setGeneratingTags] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [srtCopied, setSrtCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [youtubeInput, setYoutubeInput] = useState(brief.youtubeUrl || "");
 
   const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
@@ -415,15 +416,31 @@ function ManualStoryWorkflow({
       <div className="rounded-xl bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-dim font-medium">Title</span>
-          <button
-            type="button"
-            onClick={generateTitle}
-            disabled={generatingTitle || isPipelineActive || !brief.transcript}
-            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generatingTitle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-            {generatingTitle ? "Generating…" : "AI Generate"}
-          </button>
+          <div className="flex items-center gap-2">
+            {brief.suggestedTitle && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(brief.suggestedTitle!);
+                  setCopiedField("title");
+                  setTimeout(() => setCopiedField(null), 2000);
+                }}
+                className="flex items-center gap-1 text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+              >
+                {copiedField === "title" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+                {copiedField === "title" ? "Copied" : "Copy"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={generateTitle}
+              disabled={generatingTitle || isPipelineActive || !brief.transcript}
+              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingTitle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              {generatingTitle ? "Generating…" : "AI Generate"}
+            </button>
+          </div>
         </div>
         <div className="px-4 py-3">
           <input
@@ -441,15 +458,31 @@ function ManualStoryWorkflow({
       <div className="rounded-xl bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-dim font-medium">Description</span>
-          <button
-            type="button"
-            onClick={generateDescription}
-            disabled={generatingDesc || isPipelineActive || !brief.transcript}
-            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generatingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-            {generatingDesc ? "Generating…" : "AI Generate"}
-          </button>
+          <div className="flex items-center gap-2">
+            {brief.youtubeDescription && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(brief.youtubeDescription!);
+                  setCopiedField("desc");
+                  setTimeout(() => setCopiedField(null), 2000);
+                }}
+                className="flex items-center gap-1 text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+              >
+                {copiedField === "desc" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+                {copiedField === "desc" ? "Copied" : "Copy"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={generateDescription}
+              disabled={generatingDesc || isPipelineActive || !brief.transcript}
+              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              {generatingDesc ? "Generating…" : "AI Generate"}
+            </button>
+          </div>
         </div>
         <div className="px-4 py-3">
           <textarea
@@ -467,15 +500,31 @@ function ManualStoryWorkflow({
       <div className="rounded-xl bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-dim font-medium">Tags</span>
-          <button
-            type="button"
-            onClick={generateTags}
-            disabled={generatingTags || isPipelineActive || !brief.transcript}
-            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generatingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-            {generatingTags ? "Generating…" : "AI Generate"}
-          </button>
+          <div className="flex items-center gap-2">
+            {(brief.youtubeTags || []).length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText((brief.youtubeTags || []).join(", "));
+                  setCopiedField("tags");
+                  setTimeout(() => setCopiedField(null), 2000);
+                }}
+                className="flex items-center gap-1 text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+              >
+                {copiedField === "tags" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+                {copiedField === "tags" ? "Copied" : "Copy"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={generateTags}
+              disabled={generatingTags || isPipelineActive || !brief.transcript}
+              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generatingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              {generatingTags ? "Generating…" : "AI Generate"}
+            </button>
+          </div>
         </div>
         <div className="px-4 py-3">
           <div className="flex flex-wrap gap-1.5 min-h-[32px]">
