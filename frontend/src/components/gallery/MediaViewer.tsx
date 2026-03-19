@@ -53,7 +53,7 @@ export function MediaViewer({ open, items, index, onOpenChange, onIndexChange, o
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[95vw] h-[92vh] p-0 overflow-hidden bg-black border-border">
         {!active ? null : (
-          <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[1fr_300px]">
+          <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[1fr_300px] overflow-hidden">
             {/* Media area */}
             <div className="relative bg-black flex items-center justify-center overflow-hidden">
               {/* Close */}
@@ -107,7 +107,7 @@ export function MediaViewer({ open, items, index, onOpenChange, onIndexChange, o
             </div>
 
             {/* Sidebar */}
-            <div className="bg-background border-l border-border flex flex-col">
+            <div className="bg-background border-l border-border flex flex-col h-full min-h-0 overflow-hidden">
               <div className="px-4 py-3 border-b border-border shrink-0">
                 <div className="text-[10px] text-dim font-mono uppercase tracking-widest">Details</div>
               </div>
