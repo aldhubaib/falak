@@ -127,6 +127,21 @@ router.get('/:id/videos', asyncWrap(async (req, res) => {
   res.json({ videos, total, hasMore: offset + videos.length < total })
 }))
 
+// ── GET /api/channels/:id/videos-not-done — count videos whose pipeline is not yet done
+router.get('/:id/videos-not-done', asyncWrap(async (req, res) => {
+  const channelId = req.params.id
+  const count = await db.video.count({
+    where: {
+      channelId,
+      OR: [
+        { pipelineItem: null },
+        { pipelineItem: { stage: { not: 'done' } } },
+      ],
+    },
+  })
+  res.json({ count })
+}))
+
 // Helper: fetch recent videos from YouTube and create pipeline items for a channel (used on add + manual sync)
 async function importVideosForChannel(channelId) {
   const channel = await db.channel.findUniqueOrThrow({ where: { id: channelId } })

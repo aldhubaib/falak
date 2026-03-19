@@ -5,7 +5,7 @@ import {
   Users, Eye, PlayCircle, TrendingUp, TrendingDown,
   BarChart3, Swords, Sparkles, Zap, ArrowUpRight,
   Activity, Video, Film, ThumbsUp, MessageSquare, Clock,
-  Globe, Loader2, Check,
+  Globe, Loader2, Check, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { COUNTRIES, getCountryName } from "@/data/countries";
@@ -96,6 +96,7 @@ export default function ProfileHome() {
   const [storySummary, setStorySummary] = useState<StorySummary | null>(null);
   const [growth, setGrowth] = useState<GrowthSnapshot[]>([]);
   const [contentMix, setContentMix] = useState<ContentMixEntry | null>(null);
+  const [notDoneCount, setNotDoneCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [nationality, setNationality] = useState("");
   const [savingCountry, setSavingCountry] = useState(false);
@@ -117,18 +118,20 @@ export default function ProfileHome() {
     setLoading(true);
 
     const fetchAll = async () => {
-      const [chRes, vidRes, compRes, storyRes, analyticsRes] = await Promise.allSettled([
+      const [chRes, vidRes, compRes, storyRes, analyticsRes, notDoneRes] = await Promise.allSettled([
         fetch(`/api/channels/${channelId}`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
         fetch(`/api/channels/${channelId}/videos?limit=6`, { credentials: "include" }).then(r => r.ok ? r.json() : { videos: [] }),
         fetch(`/api/channels?parentChannelId=${channelId}&limit=200`, { credentials: "include" }).then(r => r.ok ? r.json() : { channels: [] }),
         fetch(`/api/stories/summary?channelId=${channelId}`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
         fetch(`/api/analytics?channelId=${channelId}&period=30d`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
+        fetch(`/api/channels/${channelId}/videos-not-done`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
       ]);
 
       if (chRes.status === "fulfilled" && chRes.value) setChannel(chRes.value);
       if (vidRes.status === "fulfilled") setRecentVideos(vidRes.value?.videos || []);
       if (compRes.status === "fulfilled") setCompetitorCount(compRes.value?.channels?.length || 0);
       if (storyRes.status === "fulfilled" && storyRes.value) setStorySummary(storyRes.value);
+      if (notDoneRes.status === "fulfilled" && notDoneRes.value) setNotDoneCount(notDoneRes.value.count);
 
       if (analyticsRes.status === "fulfilled" && analyticsRes.value) {
         const data = analyticsRes.value;
@@ -269,6 +272,7 @@ export default function ProfileHome() {
   const quickLinks = [
     { label: "Competitors", path: "/competitors", icon: Swords, count: competitorCount, color: "text-orange-400" },
     { label: "AI Stories", path: "/stories", icon: Sparkles, count: storySummary?.total || 0, color: "text-purple-400" },
+    { label: "Ready to Publish", path: "/pipeline", icon: Send, count: notDoneCount ?? 0, color: "text-rose-400" },
     { label: "Pipeline", path: "/pipeline", icon: Activity, count: undefined, color: "text-blue-400" },
     { label: "Analytics", path: "/analytics", icon: TrendingUp, count: undefined, color: "text-emerald-400" },
   ];
