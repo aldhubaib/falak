@@ -1,6 +1,7 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
+const { fetchChannel } = require('../services/youtube')
 
 // ── MONITOR ────────────────────────────────────────────────────
 const monitor = express.Router()
@@ -147,7 +148,7 @@ profiles.get('/', async (req, res) => {
   try {
     const items = await db.channel.findMany({
       where: { type: 'ours', parentChannelId: null },
-      include: { _count: { select: { stories: true, childChannels: true } } },
+      include: { _count: { select: { stories: true, competitors: true } } },
       orderBy: { createdAt: 'asc' }
     })
     res.json(items)
@@ -158,17 +159,21 @@ profiles.get('/', async (req, res) => {
 
 profiles.post('/', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { youtubeId, handle, nameAr, nameEn, color } = req.body
-    if (!youtubeId && !handle) return res.status(400).json({ error: 'youtubeId or handle required' })
+    const { handle, color } = req.body
+    if (!handle) return res.status(400).json({ error: 'YouTube handle required' })
+
+    const ytData = await fetchChannel(handle)
+
+    const exists = await db.channel.findUnique({ where: { youtubeId: ytData.youtubeId } })
+    if (exists) return res.status(409).json({ error: 'This channel already exists as a profile' })
+
     const channel = await db.channel.create({
       data: {
-        youtubeId: youtubeId || null,
-        handle: handle || null,
-        nameAr: nameAr || null,
-        nameEn: nameEn || null,
-        color: color || null,
+        ...ytData,
+        color: color || '#3b82f6',
         type: 'ours',
         status: 'active',
+        lastFetchedAt: new Date(),
       }
     })
     res.json(channel)
