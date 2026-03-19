@@ -51,7 +51,7 @@ function deriveStep(brief: Record<string, unknown> | undefined, stage: string | 
   const hasVideo = !!brief.videoR2Key;
   const hasTranscript = !!brief.transcript;
   const hasTitle = !!brief.suggestedTitle;
-  const hasTags = brief.suggestedTags && Array.isArray(brief.suggestedTags) && (brief.suggestedTags as unknown[]).length > 0;
+  const hasTags = brief.youtubeTags && Array.isArray(brief.youtubeTags) && (brief.youtubeTags as unknown[]).length > 0;
   const hasYoutubeUrl = !!brief.youtubeUrl;
 
   if (hasYoutubeUrl) return "done";
