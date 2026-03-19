@@ -6,6 +6,21 @@ const { deleteObject, getSignedReadUrl } = require('../services/r2')
 const router = express.Router()
 router.use(requireAuth)
 
+const SIGNED_URL_TTL = 3600
+
+async function signMediaUrls(item) {
+  if (!item) return item
+  const obj = typeof item.toJSON === 'function' ? item.toJSON() : { ...item }
+  if (obj.fileSize != null) obj.fileSize = String(obj.fileSize)
+  if (obj.r2Key) obj.r2Url = await getSignedReadUrl(obj.r2Key, SIGNED_URL_TTL)
+  if (obj.thumbnailR2Key) obj.thumbnailR2Url = await getSignedReadUrl(obj.thumbnailR2Key, SIGNED_URL_TTL)
+  return obj
+}
+
+async function signMediaList(items) {
+  return Promise.all(items.map(signMediaUrls))
+}
+
 function parsePagination(req) {
   const page = Math.max(1, Number.parseInt(String(req.query.page || '1'), 10) || 1)
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(req.query.pageSize || '30'), 10) || 30))
@@ -76,8 +91,10 @@ router.get('/:channelId', async (req, res) => {
       db.galleryMedia.count({ where }),
     ])
 
+    const signedItems = await signMediaList(items)
+
     res.json({
-      items,
+      items: signedItems,
       total,
       page,
       pageSize,
@@ -191,12 +208,17 @@ router.get('/:channelId/albums', async (req, res) => {
     const albums = await db.galleryAlbum.findMany({
       where: { channelId },
       include: {
-        coverMedia: { select: { id: true, r2Url: true, thumbnailR2Url: true, type: true } },
+        coverMedia: { select: { id: true, r2Key: true, r2Url: true, thumbnailR2Key: true, thumbnailR2Url: true, type: true } },
         _count: { select: { media: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
-    res.json(albums)
+    const signedAlbums = await Promise.all(albums.map(async (album) => {
+      const obj = typeof album.toJSON === 'function' ? album.toJSON() : { ...album }
+      if (obj.coverMedia) obj.coverMedia = await signMediaUrls(obj.coverMedia)
+      return obj
+    }))
+    res.json(signedAlbums)
   } catch (e) {
     console.error('[gallery/albums-list]', e)
     res.status(500).json({ error: e.message || 'Failed to list albums' })
@@ -232,7 +254,7 @@ router.get('/:channelId/albums/:albumId', async (req, res) => {
     const album = await db.galleryAlbum.findFirst({
       where: { id: albumId, channelId },
       include: {
-        coverMedia: { select: { id: true, r2Url: true, thumbnailR2Url: true, type: true } },
+        coverMedia: { select: { id: true, r2Key: true, r2Url: true, thumbnailR2Key: true, thumbnailR2Url: true, type: true } },
         media: {
           include: {
             uploadedBy: { select: { id: true, name: true, email: true } },
@@ -243,7 +265,10 @@ router.get('/:channelId/albums/:albumId', async (req, res) => {
       },
     })
     if (!album) return res.status(404).json({ error: 'Album not found' })
-    res.json(album)
+    const result = typeof album.toJSON === 'function' ? album.toJSON() : { ...album }
+    if (result.coverMedia) result.coverMedia = await signMediaUrls(result.coverMedia)
+    result.media = await signMediaList(result.media)
+    res.json(result)
   } catch (e) {
     console.error('[gallery/albums-get]', e)
     res.status(500).json({ error: e.message || 'Failed to get album' })
@@ -344,7 +369,7 @@ router.get('/:channelId/:mediaId', async (req, res) => {
       },
     })
     if (!item) return res.status(404).json({ error: 'Media not found' })
-    res.json(item)
+    res.json(await signMediaUrls(item))
   } catch (e) {
     console.error('[gallery/get-one]', e)
     res.status(500).json({ error: e.message || 'Failed to get media details' })
