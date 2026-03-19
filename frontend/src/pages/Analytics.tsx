@@ -1530,25 +1530,23 @@ export default function Analytics() {
 
   const { universe, channels, topVideos, trend, growth, contentMix, engagementBreakdown, publishingPatterns, performanceDistribution } = data;
 
-  // ── Stats bar derivations
-  const ourChannels = channels.filter(isOurs);
-  const competitorChannels = channels.filter((c) => !isOurs(c));
-
-  const ourTotalSubs = ourChannels.reduce((s, c) => s + parseInt(c.subscribers), 0);
-  const topBySubs = [...channels].sort((a, b) => parseInt(b.subscribers) - parseInt(a.subscribers))[0];
-  const topByViews = [...channels].sort((a, b) => b.periodViews - a.periodViews)[0];
-  const topByEngagement = [...channels].sort((a, b) => b.avgEngagement - a.avgEngagement)[0];
-  const topByUploads = [...channels].sort((a, b) => b.uploadsPerMonth - a.uploadsPerMonth)[0];
-
-  const ourPeriodViews = ourChannels.reduce((s, c) => s + c.periodViews, 0);
-  const ourAvgEngagement =
-    ourChannels.length > 0
-      ? ourChannels.reduce((s, c) => s + c.avgEngagement, 0) / ourChannels.length
-      : 0;
-  const ourUploadsPerMonth =
-    ourChannels.length > 0
-      ? ourChannels.reduce((s, c) => s + c.uploadsPerMonth, 0)
-      : 0;
+  const { ourChannels, competitorChannels, ourTotalSubs, topBySubs, topByViews, topByEngagement, topByUploads, ourPeriodViews, ourAvgEngagement, ourUploadsPerMonth } = useMemo(() => {
+    const ours = channels.filter(isOurs);
+    const comps = channels.filter((c) => !isOurs(c));
+    const sorted = [...channels];
+    return {
+      ourChannels: ours,
+      competitorChannels: comps,
+      ourTotalSubs: ours.reduce((s, c) => s + parseInt(c.subscribers), 0),
+      topBySubs: sorted.sort((a, b) => parseInt(b.subscribers) - parseInt(a.subscribers))[0],
+      topByViews: [...channels].sort((a, b) => b.periodViews - a.periodViews)[0],
+      topByEngagement: [...channels].sort((a, b) => b.avgEngagement - a.avgEngagement)[0],
+      topByUploads: [...channels].sort((a, b) => b.uploadsPerMonth - a.uploadsPerMonth)[0],
+      ourPeriodViews: ours.reduce((s, c) => s + c.periodViews, 0),
+      ourAvgEngagement: ours.length > 0 ? ours.reduce((s, c) => s + c.avgEngagement, 0) / ours.length : 0,
+      ourUploadsPerMonth: ours.length > 0 ? ours.reduce((s, c) => s + c.uploadsPerMonth, 0) : 0,
+    };
+  }, [channels]);
   const ourVideoCount = ourChannels.reduce((s, c) => s + c.videoCount, 0);
   const compVideoCount = competitorChannels.reduce((s, c) => s + c.videoCount, 0);
 

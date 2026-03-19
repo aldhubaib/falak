@@ -20,6 +20,7 @@ if (config.REDIS_URL) {
   queue = new Queue(QUEUE_NAME, config.REDIS_URL, {
     defaultJobOptions: {
       removeOnComplete: 100,
+      removeOnFail: 500,
       attempts: 1,
     },
   })

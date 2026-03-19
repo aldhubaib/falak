@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client')
 const config = require('../config')
-const { serialise } = require('./serialise')
+const logger = require('./logger')
 
 const prisma = new PrismaClient({
   log: config.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
@@ -15,15 +15,13 @@ function appendPoolParams(url) {
   if (!url) return url
   const sep = url.includes('?') ? '&' : '?'
   const params = []
-  if (!url.includes('connection_limit')) params.push('connection_limit=10')
-  if (!url.includes('pool_timeout')) params.push('pool_timeout=30')
+  if (!url.includes('connection_limit')) params.push('connection_limit=20')
+  if (!url.includes('pool_timeout')) params.push('pool_timeout=60')
   return params.length ? `${url}${sep}${params.join('&')}` : url
 }
 
-// Serialise all query results: BigInt → string so JSON responses never leak raw BigInt
-prisma.$use(async (params, next) => {
-  const result = await next(params)
-  return serialise(result)
+prisma.$on?.('error', (e) => {
+  logger.error({ prismaError: e }, 'Prisma client error')
 })
 
 module.exports = prisma

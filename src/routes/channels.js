@@ -146,12 +146,16 @@ async function importVideosForChannel(channelId) {
   if (channel.status === 'paused') throw new Error('Channel is paused. Set to Active to fetch videos.')
   const parentId = channel.parentChannelId || channel.id
   const videos = await fetchRecentVideos(channel.youtubeId, 50, parentId)
-  for (const v of videos) {
-    await db.video.upsert({
-      where: { youtubeId: v.youtubeId },
-      create: { ...v, channelId: channel.id },
-      update: { viewCount: v.viewCount, likeCount: v.likeCount, commentCount: v.commentCount },
-    })
+  const BATCH_SIZE = 25
+  for (let i = 0; i < videos.length; i += BATCH_SIZE) {
+    const batch = videos.slice(i, i + BATCH_SIZE)
+    await db.$transaction(
+      batch.map(v => db.video.upsert({
+        where: { youtubeId: v.youtubeId },
+        create: { ...v, channelId: channel.id },
+        update: { viewCount: v.viewCount, likeCount: v.likeCount, commentCount: v.commentCount },
+      }))
+    )
   }
   const newVideos = await db.video.findMany({
     where: { channelId: channel.id, pipelineItem: null }

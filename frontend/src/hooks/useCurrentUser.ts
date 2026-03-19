@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface CurrentUser {
   id: string;
@@ -7,7 +7,8 @@ export interface CurrentUser {
   avatarUrl: string | null;
 }
 
-const AUTH_ME_REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const AUTH_ME_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+const DEDUP_WINDOW_MS = 5_000;
 
 function fetchCurrentUser(): Promise<CurrentUser | null> {
   return fetch("/api/auth/me", { credentials: "include" })
@@ -27,42 +28,31 @@ function fetchCurrentUser(): Promise<CurrentUser | null> {
     .catch(() => null);
 }
 
-/**
- * Fetches /api/auth/me for current user (Google sign-in name/avatar).
- * - Loads once on mount.
- * - Re-fetches when the tab becomes visible (e.g. user returns to the app or re-logged in elsewhere).
- * - Re-fetches every 10 minutes so profile/avatar updates (e.g. after re-login) are picked up.
- * Note: The backend stores the avatar at login time; to see a new Google photo the user must log in again (or the backend would need to sync from Google).
- */
 export function useCurrentUser(): CurrentUser | null {
   const [user, setUser] = useState<CurrentUser | null>(null);
+  const lastFetchRef = useRef(0);
 
   const refetch = useCallback(() => {
+    const now = Date.now();
+    if (now - lastFetchRef.current < DEDUP_WINDOW_MS) return;
+    lastFetchRef.current = now;
     fetchCurrentUser().then((data) => setUser(data));
   }, []);
 
   useEffect(() => {
     refetch();
-    // After login redirect the cookie can be set slightly after first paint; refetch once so we pick up the new session
     const afterLogin = setTimeout(refetch, 1500);
-    return () => clearTimeout(afterLogin);
-  }, [refetch]);
-
-  useEffect(() => {
     const interval = setInterval(refetch, AUTH_ME_REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [refetch]);
 
-  useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === "visible") refetch();
     };
-    const onFocus = () => refetch();
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("focus", onFocus);
+
     return () => {
+      clearTimeout(afterLogin);
+      clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("focus", onFocus);
     };
   }, [refetch]);
 

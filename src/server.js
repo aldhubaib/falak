@@ -13,6 +13,7 @@ const { requestIdMiddleware } = require('./middleware/requestId')
 
 const db = require('./lib/db')
 const { encrypt } = require('./services/crypto')
+const { bigintJson } = require('./lib/serialise')
 const authRoutes     = require('./routes/auth')
 const channelRoutes  = require('./routes/channels')
 const pipelineRoutes = require('./routes/pipeline')
@@ -57,11 +58,11 @@ app.use('/api/auth', rateLimit({
 
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/auth',      authRoutes)
-app.use('/api/channels',  channelRoutes)
+app.use('/api/channels',  bigintJson, channelRoutes)
 app.use('/api/videos',     require('./routes/videos'))
 app.use('/api/pipeline',  pipelineRoutes)
 app.use('/api/stories',   storyRoutes)
-app.use('/api/analytics', analyticsRoutes)
+app.use('/api/analytics', bigintJson, analyticsRoutes)
 app.use('/api/dialects',  dialectRoutes)
 app.use('/api/monitor',   monitor)
 app.use('/api/settings',  require('./routes/settings'))
@@ -69,11 +70,11 @@ app.use('/api/admin',     admin)
 app.use('/api/profiles',  profiles)
 app.use('/api/brain',     require('./routes/brain'))
 app.use('/api/upload',    require('./routes/upload'))
-app.use('/api/gallery',   require('./routes/gallery'))
+app.use('/api/gallery',   bigintJson, require('./routes/gallery'))
 app.use('/api/article-sources',  require('./routes/articleSources'))
 app.use('/api/article-pipeline', require('./routes/articlePipeline'))
 app.use('/api/alerts',           require('./routes/alerts'))
-app.use('/api/vector-intelligence', require('./routes/vectorIntelligence'))
+app.use('/api/vector-intelligence', bigintJson, require('./routes/vectorIntelligence'))
 
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {
@@ -121,10 +122,11 @@ app.get('/health', async (req, res) => {
   }
   if (config.REDIS_URL) {
     try {
-      const Redis = require('ioredis')
-      const redis = new Redis(config.REDIS_URL)
-      await redis.ping()
-      redis.disconnect()
+      const { getQueue } = require('./queue/pipeline')
+      const q = getQueue()
+      if (q) {
+        await q.client.ping()
+      }
     } catch (_) {
       return res.status(503).json({ ok: false, error: 'Redis unavailable' })
     }
@@ -141,6 +143,11 @@ logger.info({ useViteBuild, staticDir: staticDir.replace(process.cwd(), '.') }, 
 if (process.env.NODE_ENV === 'production' && !useViteBuild) {
   logger.warn('Production has no frontend/dist — SPA may show blank or wrong page. Run: npm run build')
 }
+app.use('/assets', express.static(path.join(staticDir, 'assets'), {
+  index: false,
+  maxAge: '1y',
+  immutable: true,
+}))
 app.use(express.static(staticDir, { index: false }))
 // SPA catch-all — serve index.html for non-API, non-asset GETs so /p/:id/stories etc. load
 app.get('*', (req, res, next) => {

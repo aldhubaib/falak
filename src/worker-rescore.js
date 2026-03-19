@@ -81,10 +81,34 @@ async function runCycleForChannel(channelId) {
   return { ...refreshResult, ...ownResult, ...rescoreResult, learnResult, elapsed }
 }
 
+const RETENTION_DAYS = 90
+
+async function cleanupOldRecords() {
+  const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000)
+  try {
+    const usageResult = await db.apiUsage.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    })
+    if (usageResult.count > 0) {
+      logger.info({ deleted: usageResult.count, table: 'ApiUsage' }, '[retention] old records cleaned')
+    }
+    const snapshotCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+    const snapResult = await db.channelSnapshot.deleteMany({
+      where: { snapshotAt: { lt: snapshotCutoff } },
+    })
+    if (snapResult.count > 0) {
+      logger.info({ deleted: snapResult.count, table: 'ChannelSnapshot' }, '[retention] old snapshots cleaned')
+    }
+  } catch (e) {
+    logger.warn({ error: e.message }, '[retention] cleanup failed')
+  }
+}
+
 async function tick() {
   if (paused) return
 
   try {
+    await cleanupOldRecords()
     const channels = await db.channel.findMany({
       where: { type: 'ours', status: 'active', parentChannelId: null },
       select: { id: true, lastStatsRefreshAt: true, rescoreIntervalHours: true },

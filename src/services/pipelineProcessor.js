@@ -69,24 +69,28 @@ function segmentsToText(transcription) {
 // ── Comments: fetch top 100 comments, upsert Comment records ──
 async function doStageComments(item, video, channel) {
   const comments = await fetchComments(video.youtubeId, 100, channel.id)
-  for (const c of comments) {
-    await db.comment.upsert({
-      where: { youtubeId: c.youtubeId },
-      create: {
-        videoId: video.id,
-        youtubeId: c.youtubeId,
-        text: c.text,
-        authorName: c.authorName,
-        likeCount: c.likeCount,
-        publishedAt: c.publishedAt,
-      },
-      update: {
-        text: c.text,
-        authorName: c.authorName,
-        likeCount: c.likeCount,
-        publishedAt: c.publishedAt,
-      },
-    })
+  const BATCH_SIZE = 25
+  for (let i = 0; i < comments.length; i += BATCH_SIZE) {
+    const batch = comments.slice(i, i + BATCH_SIZE)
+    await db.$transaction(
+      batch.map(c => db.comment.upsert({
+        where: { youtubeId: c.youtubeId },
+        create: {
+          videoId: video.id,
+          youtubeId: c.youtubeId,
+          text: c.text,
+          authorName: c.authorName,
+          likeCount: c.likeCount,
+          publishedAt: c.publishedAt,
+        },
+        update: {
+          text: c.text,
+          authorName: c.authorName,
+          likeCount: c.likeCount,
+          publishedAt: c.publishedAt,
+        },
+      }))
+    )
   }
   return { nextStage: 'analyzing' }
 }
@@ -402,49 +406,65 @@ async function * callAnthropicStream(apiKey, model, messages, { system, maxToken
   }
   if (system) body.system = system
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-  })
+  const STREAM_TIMEOUT_MS = 180_000
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+
+  let res
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    clearTimeout(timeout)
+    trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: err.message })
+    throw err
+  }
 
   if (!res.ok) {
+    clearTimeout(timeout)
     const t = await res.text()
     trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
     throw new Error(`Anthropic API: ${res.status} ${t}`)
   }
 
-  // node-fetch v2 gives a Node stream (no .getReader()); use async iteration
-  let buffer = ''
-  for await (const chunk of res.body) {
-    buffer += (chunk instanceof Buffer ? chunk.toString('utf-8') : String(chunk))
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue
-      const raw = line.slice(6).trim()
-      if (!raw) continue
+  try {
+    let buffer = ''
+    for await (const chunk of res.body) {
+      buffer += (chunk instanceof Buffer ? chunk.toString('utf-8') : String(chunk))
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const raw = line.slice(6).trim()
+        if (!raw) continue
+        try {
+          const obj = JSON.parse(raw)
+          if (obj.type === 'content_block_delta' && obj.delta?.type === 'text_delta' && obj.delta.text) {
+            yield obj.delta.text
+          }
+        } catch (_) {}
+      }
+    }
+    if (buffer.trim().startsWith('data: ')) {
       try {
-        const obj = JSON.parse(raw)
+        const obj = JSON.parse(buffer.slice(6).trim())
         if (obj.type === 'content_block_delta' && obj.delta?.type === 'text_delta' && obj.delta.text) {
           yield obj.delta.text
         }
       } catch (_) {}
     }
+    trackUsage({ channelId, service: 'anthropic', action, tokensUsed: null, status: 'ok' })
+  } finally {
+    clearTimeout(timeout)
   }
-  if (buffer.trim().startsWith('data: ')) {
-    try {
-      const obj = JSON.parse(buffer.slice(6).trim())
-      if (obj.type === 'content_block_delta' && obj.delta?.type === 'text_delta' && obj.delta.text) {
-        yield obj.delta.text
-      }
-    } catch (_) {}
-  }
-  trackUsage({ channelId, service: 'anthropic', action, tokensUsed: null, status: 'ok' })
 }
 
 module.exports = {

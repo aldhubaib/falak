@@ -104,6 +104,8 @@ model Video {
 
   @@index([channelId])
   @@index([publishedAt])
+  @@index([channelId, publishedAt])
+  @@index([channelId, viewCount])
 }
 
 // ─────────────────────────────────────────────
@@ -175,6 +177,8 @@ model Story {
   queryVersion    String?
 
   @@index([channelId, stage])
+  @@index([channelId, compositeScore])
+  @@index([channelId, createdAt])
 }
 
 model StoryLog {

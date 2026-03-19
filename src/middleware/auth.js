@@ -1,15 +1,28 @@
 const jwt = require('jsonwebtoken')
 const config = require('../config')
 const db  = require('../lib/db')
+const { sessionCache } = require('../lib/cache')
 
 async function requireAuth(req, res, next) {
   try {
     const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '')
     if (!token) return res.status(401).json({ error: 'Not authenticated' })
 
-    const payload = jwt.verify(token, config.JWT_SECRET)
+    jwt.verify(token, config.JWT_SECRET)
 
-    // Check session still exists in DB
+    const cached = sessionCache.get(token)
+    if (cached) {
+      if (cached.expiresAt < new Date()) {
+        sessionCache.flush()
+        return res.status(401).json({ error: 'Session expired' })
+      }
+      if (!cached.user.isActive) {
+        return res.status(403).json({ error: 'Account disabled' })
+      }
+      req.user = cached.user
+      return next()
+    }
+
     const session = await db.session.findUnique({
       where: { token },
       include: { user: true },
@@ -21,6 +34,7 @@ async function requireAuth(req, res, next) {
       return res.status(403).json({ error: 'Account disabled' })
     }
 
+    sessionCache.set(token, { expiresAt: session.expiresAt, user: session.user })
     req.user = session.user
     next()
   } catch (e) {

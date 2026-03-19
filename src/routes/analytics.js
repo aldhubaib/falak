@@ -40,25 +40,41 @@ router.get('/', async (req, res) => {
       id: true, nameAr: true, nameEn: true, handle: true, avatarUrl: true,
       type: true, subscribers: true, totalViews: true,
       videoCount: true, uploadCadence: true,
-      videos: {
-        where: { publishedAt: { gte: since }, omitFromAnalytics: { not: true } },
+    },
+  })
+
+  const channelIds = channels.map(c => c.id)
+
+  const videos = channelIds.length > 0
+    ? await db.video.findMany({
+        where: {
+          channelId: { in: channelIds },
+          publishedAt: { gte: since },
+          omitFromAnalytics: { not: true },
+        },
         select: {
-          id: true,
+          id: true, channelId: true,
           viewCount: true, likeCount: true, commentCount: true,
           publishedAt: true, titleAr: true, titleEn: true,
           duration: true, videoType: true,
         },
-      },
-    },
-  })
+      })
+    : []
+
+  const videosByChannel = new Map()
+  for (const v of videos) {
+    if (!videosByChannel.has(v.channelId)) videosByChannel.set(v.channelId, [])
+    videosByChannel.get(v.channelId).push(v)
+  }
 
   const stats = channels.map(ch => {
-    const views     = ch.videos.reduce((s, v) => s + Number(v.viewCount), 0)
-    const likes     = ch.videos.reduce((s, v) => s + Number(v.likeCount), 0)
-    const comments  = ch.videos.reduce((s, v) => s + Number(v.commentCount), 0)
-    const videosCnt = ch.videos.length
+    const chVideos = videosByChannel.get(ch.id) || []
+    const views     = chVideos.reduce((s, v) => s + Number(v.viewCount), 0)
+    const likes     = chVideos.reduce((s, v) => s + Number(v.likeCount), 0)
+    const comments  = chVideos.reduce((s, v) => s + Number(v.commentCount), 0)
+    const videosCnt = chVideos.length
     const engagement = videosCnt && views ? ((likes + comments) / views * 100).toFixed(2) : '0'
-    const uploadsPerMonth = uploadRate(ch.videos, since)
+    const uploadsPerMonth = uploadRate(chVideos, since)
 
     return {
       id:             ch.id,
@@ -67,13 +83,13 @@ router.get('/', async (req, res) => {
       handle:         ch.handle,
       avatarUrl:      ch.avatarUrl,
       type:           ch.type,
-      subscribers:    ch.subscribers.toString(),
-      totalViews:     ch.totalViews.toString(),
+      subscribers:    Number(ch.subscribers).toString(),
+      totalViews:     Number(ch.totalViews).toString(),
       periodViews:    views,
       videoCount:     videosCnt,
       avgEngagement:  parseFloat(engagement),
       uploadsPerMonth,
-      videos:         (ch.videos || []).map(v => ({
+      videos:         chVideos.map(v => ({
         id: v.id,
         viewCount:    Number(v.viewCount),
         likeCount:    Number(v.likeCount),

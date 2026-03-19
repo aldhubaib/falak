@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from "react";
+import { Component, lazy, Suspense, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,25 +8,26 @@ import { GalleryUploadIndicator } from "@/components/GalleryUploadIndicator";
 import { PageError } from "@/components/PageError";
 import { AppLayout } from "@/components/AppLayout";
 import { ChannelLayout } from "@/components/ChannelLayout";
-import Login from "./pages/Login";
-import ProfilePicker from "./pages/ProfilePicker";
-import OurChannels from "./pages/OurChannels";
-import Competitions from "./pages/Competitions";
-import ChannelDetail from "./pages/ChannelDetail";
-import VideoDetail from "./pages/VideoDetail";
-import Pipeline from "./pages/Pipeline";
-import Analytics from "./pages/Analytics";
-import Admin from "./pages/Admin";
-import Settings from "./pages/Settings";
-import Stories from "./pages/Stories";
-import StoryDetail from "./pages/StoryDetail";
-import PublishQueue from "./pages/PublishQueue";
-import ArticlePipeline from "./pages/ArticlePipeline";
-import ArticleDetail from "./pages/ArticleDetail";
-import ProfileHome from "./pages/ProfileHome";
-import Gallery from "./pages/Gallery";
-import AlbumDetail from "./pages/AlbumDetail";
-import NotFound from "./pages/NotFound";
+
+const Login = lazy(() => import("./pages/Login"));
+const ProfilePicker = lazy(() => import("./pages/ProfilePicker"));
+const OurChannels = lazy(() => import("./pages/OurChannels"));
+const Competitions = lazy(() => import("./pages/Competitions"));
+const ChannelDetail = lazy(() => import("./pages/ChannelDetail"));
+const VideoDetail = lazy(() => import("./pages/VideoDetail"));
+const Pipeline = lazy(() => import("./pages/Pipeline"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Stories = lazy(() => import("./pages/Stories"));
+const StoryDetail = lazy(() => import("./pages/StoryDetail"));
+const PublishQueue = lazy(() => import("./pages/PublishQueue"));
+const ArticlePipeline = lazy(() => import("./pages/ArticlePipeline"));
+const ArticleDetail = lazy(() => import("./pages/ArticleDetail"));
+const ProfileHome = lazy(() => import("./pages/ProfileHome"));
+const Gallery = lazy(() => import("./pages/Gallery"));
+const AlbumDetail = lazy(() => import("./pages/AlbumDetail"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,14 @@ class AppErrorBoundary extends Component<
   }
 }
 
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  );
+}
+
 const App = () => (
   <AppErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -69,6 +78,7 @@ const App = () => (
           <Toaster position="top-center" richColors closeButton />
           <UploadIndicator />
           <GalleryUploadIndicator />
+          <Suspense fallback={<PageFallback />}>
           <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProfilePicker />} />
@@ -93,6 +103,7 @@ const App = () => (
           </Route>
           <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

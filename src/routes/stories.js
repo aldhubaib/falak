@@ -106,7 +106,8 @@ router.get('/', async (req, res) => {
       orderBy: [
         { compositeScore: 'desc' },
         { createdAt: 'desc' }
-      ]
+      ],
+      take: 500,
     })
     res.json(stories)
   } catch (e) {
@@ -120,15 +121,21 @@ router.get('/summary', async (req, res) => {
     const { channelId } = req.query
     const where = channelId ? { channelId } : {}
 
-    const all = await db.story.findMany({ where, select: { stage: true, coverageStatus: true } })
+    const [stageCounts, coverageCounts, totalCount] = await Promise.all([
+      db.story.groupBy({ by: ['stage'], where, _count: true }),
+      db.story.groupBy({ by: ['coverageStatus'], where, _count: true }),
+      db.story.count({ where }),
+    ])
+
     const stages = ['suggestion', 'liked', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit']
     const counts = {}
-    for (const s of stages) counts[s] = all.filter(x => x.stage === s).length
+    for (const s of stages) counts[s] = 0
+    for (const row of stageCounts) counts[row.stage] = row._count
 
-    const firstMovers  = all.filter(x => x.coverageStatus === 'first').length
-    const firstMoverPct = all.length ? Math.round(firstMovers / all.length * 100) : 0
+    const firstMovers = coverageCounts.find(r => r.coverageStatus === 'first')?._count || 0
+    const firstMoverPct = totalCount ? Math.round(firstMovers / totalCount * 100) : 0
 
-    res.json({ total: all.length, ...counts, firstMovers, firstMoverPct })
+    res.json({ total: totalCount, ...counts, firstMovers, firstMoverPct })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
@@ -847,22 +854,20 @@ router.post('/re-evaluate', requireRole('owner', 'admin'), async (req, res) => {
 // ── POST /api/stories/recalculate-scores — admin-only batch recalculation
 router.post('/recalculate-scores', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const stories = await db.story.findMany({
-      select: { id: true, relevanceScore: true, viralScore: true, firstMoverScore: true, compositeScore: true }
-    })
-    let fixed = 0
-    for (const s of stories) {
-      const r = s.relevanceScore || 0
-      const v = s.viralScore || 0
-      const f = s.firstMoverScore || 0
-      const raw = r * 0.35 + v * 0.40 + f * 0.25
-      const correct = Math.round(raw / 10 * 10) / 10
-      if (Math.abs(correct - (s.compositeScore || 0)) > 0.01) {
-        await db.story.update({ where: { id: s.id }, data: { compositeScore: correct } })
-        fixed++
-      }
-    }
-    res.json({ fixed, total: stories.length })
+    const result = await db.$executeRaw`
+      UPDATE "Story"
+      SET "compositeScore" = ROUND(
+        (COALESCE("relevanceScore", 0) * 0.35 +
+         COALESCE("viralScore", 0) * 0.40 +
+         COALESCE("firstMoverScore", 0) * 0.25) / 10.0 * 10, 1
+      )
+      WHERE ABS(
+        COALESCE("compositeScore", 0) -
+        ROUND((COALESCE("relevanceScore", 0) * 0.35 + COALESCE("viralScore", 0) * 0.40 + COALESCE("firstMoverScore", 0) * 0.25) / 10.0 * 10, 1)
+      ) > 0.01
+    `
+    const total = await db.story.count()
+    res.json({ fixed: Number(result), total })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

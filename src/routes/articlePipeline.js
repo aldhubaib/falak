@@ -32,76 +32,45 @@ router.get('/', async (req, res) => {
 
     const STAGE_LIMIT = 200
 
-    const [
-      totalCount, reviewCount, failedCount, doneCount,
-      importedCount, contentCount, classifyCount, researchCount, translatedCount, scoreCount,
-      imported, content, classify, research, translated, score,
-      reviewArticles, failedArticles, doneArticles,
-    ] = await Promise.all([
-      db.article.count({ where: { channelId } }),
+    const [stageCounts, reviewCounts, allArticles] = await Promise.all([
+      db.article.groupBy({
+        by: ['stage'],
+        where: { channelId, status: { not: 'review' } },
+        _count: true,
+      }),
       db.article.count({ where: { channelId, status: 'review' } }),
-      db.article.count({ where: { channelId, stage: 'failed' } }),
-      db.article.count({ where: { channelId, stage: 'done' } }),
-      db.article.count({ where: { channelId, stage: 'imported', status: { not: 'review' } } }),
-      db.article.count({ where: { channelId, stage: 'content', status: { not: 'review' } } }),
-      db.article.count({ where: { channelId, stage: 'classify', status: { not: 'review' } } }),
-      db.article.count({ where: { channelId, stage: 'research', status: { not: 'review' } } }),
-      db.article.count({ where: { channelId, stage: 'translated', status: { not: 'review' } } }),
-      db.article.count({ where: { channelId, stage: 'score', status: { not: 'review' } } }),
       db.article.findMany({
-        where: { channelId, stage: 'imported', status: { not: 'review' } },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, stage: 'content', status: { not: 'review' } },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, stage: 'classify', status: { not: 'review' } },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, stage: 'research', status: { not: 'review' } },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, stage: 'translated', status: { not: 'review' } },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, stage: 'score', status: { not: 'review' } },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, status: 'review' },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, stage: 'failed' },
-        select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
-      }),
-      db.article.findMany({
-        where: { channelId, stage: 'done' },
-        select: articleSelect, orderBy: { updatedAt: 'desc' }, take: STAGE_LIMIT,
+        where: { channelId },
+        select: articleSelect,
+        orderBy: { createdAt: 'desc' },
+        take: STAGE_LIMIT * 9,
       }),
     ])
 
+    const stageCountMap = {}
+    for (const row of stageCounts) stageCountMap[row.stage] = row._count
+    const totalCount = Object.values(stageCountMap).reduce((s, c) => s + c, 0) + reviewCounts
+
     const stats = {
       total: totalCount,
-      imported: importedCount,
-      content: contentCount,
-      classify: classifyCount,
-      research: researchCount,
-      translated: translatedCount,
-      score: scoreCount,
-      review: reviewCount,
-      done: doneCount,
-      failed: failedCount,
+      imported: stageCountMap.imported || 0,
+      content: stageCountMap.content || 0,
+      classify: stageCountMap.classify || 0,
+      research: stageCountMap.research || 0,
+      translated: stageCountMap.translated || 0,
+      score: stageCountMap.score || 0,
+      review: reviewCounts,
+      done: stageCountMap.done || 0,
+      failed: stageCountMap.failed || 0,
     }
 
-    const byStage = {
-      imported, content, classify, research, translated, score,
-      review: reviewArticles, failed: failedArticles, done: doneArticles,
+    const byStage = { imported: [], content: [], classify: [], research: [], translated: [], score: [], review: [], failed: [], done: [] }
+    for (const a of allArticles) {
+      if (a.status === 'review') {
+        if (byStage.review.length < STAGE_LIMIT) byStage.review.push(a)
+      } else if (byStage[a.stage] && byStage[a.stage].length < STAGE_LIMIT) {
+        byStage[a.stage].push(a)
+      }
     }
 
     res.json({ stats, byStage, paused: isPaused() })

@@ -2,7 +2,7 @@ const express = require('express')
 const rateLimit = require('express-rate-limit')
 const { z } = require('zod')
 const db = require('../lib/db')
-const { serialise } = require('../lib/serialise')
+const { bigintJson } = require('../lib/serialise')
 const { requireAuth } = require('../middleware/auth')
 const { NotFound } = require('../middleware/errors')
 const { parseBody } = require('../lib/validate')
@@ -11,6 +11,7 @@ const { fetchTranscript } = require('../services/transcript')
 
 const router = express.Router()
 router.use(requireAuth)
+router.use(bigintJson)
 
 const strictRateLimit = rateLimit({ windowMs: 60 * 1000, max: 15, message: { error: { code: 'rate_limit', message: 'Too many requests for this action' } } })
 
@@ -34,7 +35,7 @@ router.get('/:id', async (req, res) => {
     },
   })
   if (!video) throw NotFound('Video not found')
-  res.json(serialise(video))
+  res.json(video)
 })
 
 // ── POST /api/videos/:id/refetch-comments — re-fetch top 100 comments from YouTube and upsert (strict rate limit)
@@ -46,24 +47,28 @@ router.post('/:id/refetch-comments', strictRateLimit, async (req, res) => {
     })
     if (!video || !video.channel) return res.status(404).json({ error: 'Video not found' })
     const comments = await fetchComments(video.youtubeId, 100, video.channel.parentChannelId || video.channel.id)
-    for (const c of comments) {
-      await db.comment.upsert({
-        where: { youtubeId: c.youtubeId },
-        create: {
-          videoId: video.id,
-          youtubeId: c.youtubeId,
-          text: c.text,
-          authorName: c.authorName,
-          likeCount: c.likeCount,
-          publishedAt: c.publishedAt,
-        },
-        update: {
-          text: c.text,
-          authorName: c.authorName,
-          likeCount: c.likeCount,
-          publishedAt: c.publishedAt,
-        },
-      })
+    const BATCH = 25
+    for (let i = 0; i < comments.length; i += BATCH) {
+      const batch = comments.slice(i, i + BATCH)
+      await db.$transaction(
+        batch.map(c => db.comment.upsert({
+          where: { youtubeId: c.youtubeId },
+          create: {
+            videoId: video.id,
+            youtubeId: c.youtubeId,
+            text: c.text,
+            authorName: c.authorName,
+            likeCount: c.likeCount,
+            publishedAt: c.publishedAt,
+          },
+          update: {
+            text: c.text,
+            authorName: c.authorName,
+            likeCount: c.likeCount,
+            publishedAt: c.publishedAt,
+          },
+        }))
+      )
     }
     res.json({ refetched: comments.length })
   } catch (e) {

@@ -71,14 +71,18 @@ async function refreshCompetitionData(channelId) {
       })
 
       const videos = await fetchRecentVideos(channel.youtubeId, 50, channelId)
-      for (const v of videos) {
-        await db.video.upsert({
-          where: { youtubeId: v.youtubeId },
-          create: { ...v, channelId: channel.id },
-          update: { viewCount: v.viewCount, likeCount: v.likeCount, commentCount: v.commentCount },
-        })
-        videosUpdated++
+      const BATCH = 25
+      for (let i = 0; i < videos.length; i += BATCH) {
+        const batch = videos.slice(i, i + BATCH)
+        await db.$transaction(
+          batch.map(v => db.video.upsert({
+            where: { youtubeId: v.youtubeId },
+            create: { ...v, channelId: channel.id },
+            update: { viewCount: v.viewCount, likeCount: v.likeCount, commentCount: v.commentCount },
+          }))
+        )
       }
+      videosUpdated += videos.length
 
       channelsRefreshed++
       logger.info({ channelId: channel.id, videos: videos.length }, '[stats-refresh] channel refreshed')
