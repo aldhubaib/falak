@@ -139,7 +139,7 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
             {queue.map((item) => (
               <div key={item.id} className="rounded-md border border-border p-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs truncate">{item.name}</div>
+                  <div className="text-xs truncate">{item.file.name}</div>
                   <button onClick={() => dismissItem(item.id)} className="text-muted-foreground hover:text-foreground">
                     <X className="w-3.5 h-3.5" />
                   </button>

@@ -2,7 +2,7 @@ const { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMulti
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 const config = require('../config')
 
-const CHUNK_SIZE = 10 * 1024 * 1024 // 10 MB
+const CHUNK_SIZE = 25 * 1024 * 1024 // 25 MB
 
 let _client = null
 
@@ -48,7 +48,7 @@ async function initMultipartUpload(key, contentType) {
 async function getPartPresignedUrls(key, uploadId, totalParts) {
   const client = getClient()
   if (!client) throw new Error('R2 not configured')
-  const urls = []
+  const promises = []
   for (let part = 1; part <= totalParts; part++) {
     const cmd = new UploadPartCommand({
       Bucket: getBucket(),
@@ -56,10 +56,11 @@ async function getPartPresignedUrls(key, uploadId, totalParts) {
       UploadId: uploadId,
       PartNumber: part,
     })
-    const url = await getSignedUrl(client, cmd, { expiresIn: 3600 })
-    urls.push({ partNumber: part, url })
+    promises.push(
+      getSignedUrl(client, cmd, { expiresIn: 3600 }).then(url => ({ partNumber: part, url }))
+    )
   }
-  return urls
+  return Promise.all(promises)
 }
 
 async function completeMultipartUpload(key, uploadId, parts) {

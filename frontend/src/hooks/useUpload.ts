@@ -1,43 +1,36 @@
 import { useSyncExternalStore, useCallback } from "react";
-import {
-  subscribe,
-  getTasks,
-  getTaskByStoryId,
-  getActiveCount,
-  startUpload,
-  abortUpload,
-  removeTask,
-  type UploadTask,
-} from "@/lib/uploadManager";
+import { storyQueue, type UploadTask } from "@/lib/uploadQueue";
+
+export type { UploadTask } from "@/lib/uploadQueue";
 
 function getSnapshot() {
-  return getTasks();
+  return storyQueue.getSnapshot();
 }
 
 export function useUploadTasks(): UploadTask[] {
-  return useSyncExternalStore(subscribe, getSnapshot);
+  return useSyncExternalStore(storyQueue.subscribe, getSnapshot);
 }
 
 export function useStoryUpload(storyId: string | undefined) {
   const tasks = useUploadTasks();
   const task = storyId
-    ? tasks.find((t) => t.storyId === storyId)
+    ? tasks.find((t) => t.metadata.storyId === storyId)
     : undefined;
 
   const upload = useCallback(
-    async (file: File) => {
+    (file: File) => {
       if (!storyId) throw new Error("No story ID");
-      return startUpload(storyId, file);
+      return storyQueue.addFile(file, { storyId });
     },
-    [storyId]
+    [storyId],
   );
 
   const abort = useCallback(() => {
-    if (task) abortUpload(task.id);
+    if (task) storyQueue.cancel(task.id);
   }, [task]);
 
   const dismiss = useCallback(() => {
-    if (task) removeTask(task.id);
+    if (task) storyQueue.dismiss(task.id);
   }, [task]);
 
   return { task, upload, abort, dismiss };

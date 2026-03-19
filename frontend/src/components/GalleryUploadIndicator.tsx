@@ -1,13 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { CheckCircle2, ImageUp, Loader2, XCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import {
-  cancelGalleryUpload,
-  clearFinishedGalleryUploads,
-  dismissGalleryUpload,
-  getGalleryUploadTasks,
-  subscribeGalleryUploads,
-} from "@/lib/galleryUploadManager";
+import { galleryQueue } from "@/lib/uploadQueue";
 
 function formatEta(seconds?: number) {
   if (seconds === undefined) return "Calculating...";
@@ -19,7 +13,7 @@ function formatEta(seconds?: number) {
 }
 
 export function GalleryUploadIndicator() {
-  const tasks = useSyncExternalStore(subscribeGalleryUploads, getGalleryUploadTasks);
+  const tasks = useSyncExternalStore(galleryQueue.subscribe, galleryQueue.getSnapshot);
   const visible = tasks.filter((t) => t.status !== "completed").slice(0, 8);
   const completed = tasks.filter((t) => t.status === "completed").length;
 
@@ -32,7 +26,7 @@ export function GalleryUploadIndicator() {
           <ImageUp className="w-4 h-4" />
           Gallery uploads ({tasks.length})
         </div>
-        <button className="text-xs text-muted-foreground hover:text-foreground" onClick={clearFinishedGalleryUploads}>
+        <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => galleryQueue.clearFinished()}>
           Clear done
         </button>
       </div>
@@ -40,11 +34,11 @@ export function GalleryUploadIndicator() {
         {visible.map((task) => (
           <div key={task.id} className="rounded-md border border-border p-2">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] truncate">{task.name}</div>
+              <div className="text-[11px] truncate">{task.file.name}</div>
               <button
                 onClick={() => {
-                  if (task.status === "uploading" || task.status === "queued") void cancelGalleryUpload(task.id);
-                  else dismissGalleryUpload(task.id);
+                  if (task.status === "uploading" || task.status === "queued") galleryQueue.cancel(task.id);
+                  else galleryQueue.dismiss(task.id);
                 }}
                 className="text-[10px] text-muted-foreground hover:text-foreground"
               >

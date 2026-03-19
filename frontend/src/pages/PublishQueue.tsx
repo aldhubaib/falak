@@ -15,7 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-import { startUpload, subscribe, getTasks } from "@/lib/uploadManager";
+import { storyQueue } from "@/lib/uploadQueue";
 
 type ProcessingStep = "uploading" | "transcribing" | "title" | "description" | "tags" | "done" | "error";
 
@@ -78,7 +78,7 @@ export default function PublishQueue() {
   const [loading, setLoading] = useState(true);
   const processingRef = useRef<Set<string>>(new Set());
 
-  const uploadTasks = useSyncExternalStore(subscribe, getTasks);
+  const uploadTasks = useSyncExternalStore(storyQueue.subscribe, storyQueue.getSnapshot);
 
   const loadExistingStories = useCallback(async () => {
     if (!channelId) return;
@@ -115,7 +115,7 @@ export default function PublishQueue() {
       let changed = false;
       const next = prev.map((item) => {
         if (item.step !== "uploading") return item;
-        const task = uploadTasks.find((t) => t.storyId === item.storyId);
+        const task = uploadTasks.find((t) => t.metadata.storyId === item.storyId);
         if (task?.status === "completed" && !processingRef.current.has(item.storyId)) {
           changed = true;
           processingRef.current.add(item.storyId);
@@ -244,15 +244,7 @@ export default function PublishQueue() {
         };
         setQueue((prev) => [newItem, ...prev]);
 
-        startUpload(story.id, file).catch((err) => {
-          setQueue((prev) =>
-            prev.map((item) =>
-              item.storyId === story.id
-                ? { ...item, step: "error" as ProcessingStep, error: err.message }
-                : item
-            )
-          );
-        });
+        storyQueue.addFile(file, { storyId: story.id });
       } catch (e: any) {
         toast.error(e.message || "Failed to start upload");
       }

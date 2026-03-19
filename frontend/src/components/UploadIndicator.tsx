@@ -1,5 +1,5 @@
 import { useUploadTasks } from "@/hooks/useUpload";
-import { abortUpload, removeTask, type UploadTask } from "@/lib/uploadManager";
+import { storyQueue, type UploadTask } from "@/lib/uploadQueue";
 import { Upload, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 function formatBytes(bytes: number): string {
@@ -36,8 +36,8 @@ function UploadItem({ task }: { task: UploadTask }) {
 
       <button
         onClick={() => {
-          if (isUploading) abortUpload(task.id);
-          else removeTask(task.id);
+          if (isUploading) storyQueue.cancel(task.id);
+          else storyQueue.dismiss(task.id);
         }}
         className="p-0.5 text-dim hover:text-foreground transition-colors shrink-0"
       >

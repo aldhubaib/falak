@@ -5,6 +5,7 @@ const db = require('../lib/db')
 const { v4: uuidv4 } = require('uuid')
 
 const router = express.Router()
+router.use(express.json({ limit: '2mb' }))
 router.use(requireAuth)
 
 function toFiniteNumber(value) {

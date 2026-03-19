@@ -75,7 +75,7 @@ export function VideoUpload({
       notifiedRef.current = true;
       onUploadComplete({
         videoR2Key: task.key,
-        videoR2Url: task.videoUrl || "",
+        videoR2Url: task.resultUrl || "",
         videoFileName: task.file.name,
         videoFileSize: task.file.size,
       });
@@ -304,7 +304,7 @@ export function VideoUpload({
 
   // ── Has video — mirrors VideoDetail header exactly ────────────
   if (hasVideo) {
-    const url = isComplete ? task?.videoUrl : signedUrl;
+    const url = isComplete ? task?.resultUrl : signedUrl;
     const name = isComplete ? task?.file.name : videoFileName;
     const size = isComplete ? task?.file.size : videoFileSize;
     const ext = getExtension(name);

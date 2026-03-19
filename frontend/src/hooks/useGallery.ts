@@ -15,14 +15,7 @@ import {
   updateGalleryAlbum,
   updateGalleryMedia,
 } from "@/lib/gallery-api";
-import {
-  cancelGalleryUpload,
-  clearFinishedGalleryUploads,
-  dismissGalleryUpload,
-  getGalleryUploadTasks,
-  startGalleryUploadBatch,
-  subscribeGalleryUploads,
-} from "@/lib/galleryUploadManager";
+import { galleryQueue } from "@/lib/uploadQueue";
 
 
 export function useGalleryMedia(channelId: string | undefined, filters: GalleryMediaFilters) {
@@ -107,9 +100,11 @@ export function useGalleryActions(channelId: string | undefined) {
   };
 }
 
+const MAX_FILES_PER_BATCH = 100;
+
 export function useMediaUpload(channelId: string | undefined, albumId?: string) {
   const queryClient = useQueryClient();
-  const queue = useSyncExternalStore(subscribeGalleryUploads, getGalleryUploadTasks);
+  const queue = useSyncExternalStore(galleryQueue.subscribe, galleryQueue.getSnapshot);
   const prevCompletedCount = useRef(0);
   const activeCount = queue.filter((item) => item.status === "uploading" || item.status === "queued").length;
 
@@ -124,19 +119,22 @@ export function useMediaUpload(channelId: string | undefined, albumId?: string) 
   }, [channelId, queryClient, queue]);
 
   const uploadFiles = useCallback(
-    async (files: File[]) => {
+    (files: File[]) => {
       if (!channelId) throw new Error("No channel selected");
-      return startGalleryUploadBatch(channelId, files, albumId);
+      const accepted = files.filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+      const limited = accepted.slice(0, MAX_FILES_PER_BATCH);
+      galleryQueue.addFiles(limited, { galleryChannelId: channelId, albumId: albumId || null });
+      return { queued: limited.length, skipped: accepted.length - limited.length };
     },
-    [albumId, channelId]
+    [albumId, channelId],
   );
 
   const dismissItem = useCallback((id: string) => {
-    dismissGalleryUpload(id);
+    galleryQueue.dismiss(id);
   }, []);
 
   const clearFinished = useCallback(() => {
-    clearFinishedGalleryUploads();
+    galleryQueue.clearFinished();
   }, []);
 
   const getDownloadUrl = useCallback(
@@ -144,7 +142,7 @@ export function useMediaUpload(channelId: string | undefined, albumId?: string) 
       if (!channelId) throw new Error("No channel selected");
       return getGalleryDownloadUrl(channelId, mediaId);
     },
-    [channelId]
+    [channelId],
   );
 
   return {
@@ -154,6 +152,6 @@ export function useMediaUpload(channelId: string | undefined, albumId?: string) 
     dismissItem,
     clearFinished,
     getDownloadUrl,
-    abortUpload: cancelGalleryUpload,
+    abortUpload: galleryQueue.cancel,
   };
 }
