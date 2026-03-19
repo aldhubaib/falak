@@ -1,5 +1,13 @@
 # Falak — Cursor Rules
 
+- docs/ARCHITECTURE/ARCHITECTURE.md is the single source of truth for this project.
+- Any time you change prisma/schema.prisma, src/routes/, src/services/,
+  src/worker*.js, src/server.js, railway.json, or package.json —
+  update docs/ARCHITECTURE/ARCHITECTURE.md immediately in the same response.
+- After updating ARCHITECTURE.md always run:
+  ./scripts/sync-docs.sh "reason for change"
+  Do this automatically without asking.
+
 ## Stack Summary
 
 - **App type**: Full-stack YouTube competitive-intelligence platform

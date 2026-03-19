@@ -1,0 +1,33 @@
+---
+name: Update ARCHITECTURE.md on Infrastructure Changes
+globs:
+  - prisma/schema.prisma
+  - src/routes/**/*.js
+  - src/services/**/*.js
+  - src/worker*.js
+  - src/ws-server.js
+  - src/server.js
+  - src/config.js
+  - railway.json
+  - package.json
+  - .env.example
+alwaysApply: false
+---
+
+When you modify any file matched by this rule, you MUST:
+
+1. Update docs/ARCHITECTURE/ARCHITECTURE.md:
+   - prisma/schema.prisma changed → update the Database Models section
+   - src/routes/*.js changed → update the API Endpoints section
+   - src/services/*.js changed → update the External APIs section
+   - src/worker*.js changed → update the Pipeline & Worker Flows section
+   - src/server.js or src/config.js changed → update the Summary section
+   - package.json changed → update the Service/Resource Table
+   - railway.json or .env.example changed → update Environment Variables
+   - Always update the "Last updated" date at the bottom
+   - Never remove existing content, only add or edit
+
+2. After updating ARCHITECTURE.md, immediately run in the terminal:
+   ./scripts/sync-docs.sh "brief description of what changed"
+
+3. Tell me: "✅ ARCHITECTURE.md updated and pushed to GitHub — [what changed]"
