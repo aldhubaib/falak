@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Check, CheckSquare, FolderPlus, Image, Loader2, Plus, RefreshCw,
-  Search, SlidersHorizontal, Trash2, Video, X,
+  Search, SlidersHorizontal, Trash2, UploadCloud, Video, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RowsPhotoAlbum } from "react-photo-album";
@@ -63,7 +63,9 @@ export default function Gallery() {
 
   const { data: albums = [], isLoading: loadingAlbums } = useGalleryAlbums(channelId);
   const { bulkDelete, deleteMedia, createAlbum, addToAlbum } = useGalleryActions(channelId);
-  const { getDownloadUrl } = useMediaUpload(channelId);
+  const { getDownloadUrl, uploadFiles } = useMediaUpload(channelId);
+  const emptyInputRef = useRef<HTMLInputElement | null>(null);
+  const [emptyDrag, setEmptyDrag] = useState(false);
 
   const cursorsRef = useRef<(string | null)[]>([]);
   const allMediaRef = useRef<GalleryMedia[]>([]);
@@ -402,16 +404,55 @@ export default function Gallery() {
                     </span>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-64 text-center">
-                    <Image className="w-10 h-10 text-dim/50 mb-3" />
-                    <div className="text-[13px] text-dim font-mono">No media found</div>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setEmptyDrag(true); }}
+                    onDragLeave={() => setEmptyDrag(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setEmptyDrag(false);
+                      const files = Array.from(e.dataTransfer.files).filter(
+                        (f) => f.type.startsWith("image/") || f.type.startsWith("video/"),
+                      );
+                      if (files.length > 0) void uploadFiles(files);
+                    }}
+                    className={`flex flex-col items-center justify-center py-24 mx-auto max-w-lg rounded-2xl border-2 border-dashed transition-colors cursor-pointer ${
+                      emptyDrag
+                        ? "border-primary bg-primary/5"
+                        : "border-border/60 hover:border-border"
+                    }`}
+                    onClick={() => emptyInputRef.current?.click()}
+                  >
+                    <div className={`rounded-full p-4 mb-4 transition-colors ${emptyDrag ? "bg-primary/10" : "bg-elevated"}`}>
+                      <UploadCloud className={`w-8 h-8 transition-colors ${emptyDrag ? "text-primary" : "text-dim"}`} />
+                    </div>
+                    <div className="text-[14px] font-medium text-foreground">
+                      Drop photos & videos here
+                    </div>
+                    <div className="text-[12px] text-dim mt-1.5">
+                      or click to browse your files
+                    </div>
                     <button
-                      onClick={() => setUploadOpen(true)}
-                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); emptyInputRef.current?.click(); }}
+                      className="mt-5 inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-primary text-primary-foreground text-[12px] font-medium hover:opacity-90 transition-opacity"
                     >
-                      <Plus className="w-3 h-3" />
-                      Upload your first media
+                      <Plus className="w-3.5 h-3.5" />
+                      Choose files
                     </button>
+                    <div className="text-[10px] text-dim/60 mt-3 font-mono">
+                      Supports JPG, PNG, GIF, MP4, MOV and more
+                    </div>
+                    <input
+                      ref={emptyInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = e.target.files ? Array.from(e.target.files) : [];
+                        if (files.length > 0) void uploadFiles(files);
+                        e.currentTarget.value = "";
+                      }}
+                    />
                   </div>
                 )
               }
