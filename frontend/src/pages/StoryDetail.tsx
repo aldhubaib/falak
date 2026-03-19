@@ -97,6 +97,17 @@ const MOCK_STORY: StoryWithLog = {
   log: [],
 } as StoryWithLog;
 
+// ── Auto-processing pipeline steps ──────────────────────────────────
+type PipelineStep = "idle" | "transcribing" | "title" | "description" | "tags" | "done" | "error";
+
+const PIPELINE_STEPS: { key: PipelineStep; label: string }[] = [
+  { key: "transcribing", label: "Transcribing video" },
+  { key: "title",        label: "Generating title" },
+  { key: "description",  label: "Generating description" },
+  { key: "tags",         label: "Generating tags" },
+  { key: "done",         label: "All done" },
+];
+
 // ── Manual Story Workflow ──────────────────────────────────────────
 function ManualStoryWorkflow({
   story,
@@ -119,6 +130,80 @@ function ManualStoryWorkflow({
   const [classifying, setClassifying] = useState(false);
   const [srtCopied, setSrtCopied] = useState(false);
   const [youtubeInput, setYoutubeInput] = useState(brief.youtubeUrl || "");
+
+  const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const pipelineRunningRef = useRef(false);
+
+  const runAutoPipeline = useCallback(async () => {
+    if (pipelineRunningRef.current) return;
+    pipelineRunningRef.current = true;
+    setPipelineError(null);
+
+    try {
+      // Step 1: Transcribe
+      setPipelineStep("transcribing");
+      const transcribeRes = await fetch(`/api/stories/${storyId}/transcribe`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!transcribeRes.ok) {
+        const err = await transcribeRes.json().catch(() => ({ error: "Transcription failed" }));
+        throw new Error(err.error || "Transcription failed");
+      }
+      const transcribeData = await transcribeRes.json();
+      onBriefChange((b) => ({
+        ...b,
+        transcript: transcribeData.transcript,
+        transcriptSegments: transcribeData.segments,
+        subtitlesSRT: transcribeData.srt,
+        script: transcribeData.transcript,
+      }));
+
+      // Step 2: Generate title
+      setPipelineStep("title");
+      const titleRes = await fetch(`/api/stories/${storyId}/generate-title`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (titleRes.ok) {
+        const titleData = await titleRes.json();
+        onBriefChange((b) => ({ ...b, suggestedTitle: titleData.title }));
+      }
+
+      // Step 3: Generate description
+      setPipelineStep("description");
+      const descRes = await fetch(`/api/stories/${storyId}/generate-description`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (descRes.ok) {
+        const descData = await descRes.json();
+        onBriefChange((b) => ({ ...b, youtubeDescription: descData.description }));
+      }
+
+      // Step 4: Generate tags
+      setPipelineStep("tags");
+      const tagsRes = await fetch(`/api/stories/${storyId}/suggest-tags`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (tagsRes.ok) {
+        const tagsData = await tagsRes.json();
+        const tags = tagsData.tags || tagsData.brief?.youtubeTags || [];
+        onBriefChange((b) => ({ ...b, youtubeTags: tags }));
+      }
+
+      setPipelineStep("done");
+      toast.success("Video processed — all metadata generated");
+    } catch (e: any) {
+      setPipelineStep("error");
+      setPipelineError(e.message || "Processing failed");
+      toast.error(e.message || "Processing failed");
+    } finally {
+      pipelineRunningRef.current = false;
+    }
+  }, [storyId, onBriefChange]);
 
   const generateTitle = async () => {
     setGeneratingTitle(true);
@@ -222,6 +307,8 @@ function ManualStoryWorkflow({
   };
 
   const isDone = story.stage === "done";
+  const isPipelineActive = pipelineStep !== "idle" && pipelineStep !== "done" && pipelineStep !== "error";
+  const pipelineStepIndex = PIPELINE_STEPS.findIndex((s) => s.key === pipelineStep);
 
   return (
     <div className="space-y-5">
@@ -236,6 +323,64 @@ function ManualStoryWorkflow({
           </span>
         )}
       </div>
+
+      {/* Auto-processing progress banner */}
+      {isPipelineActive && (
+        <div className="rounded-xl bg-blue/5 border border-blue/20 px-4 py-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-blue" />
+            <span className="text-[13px] font-semibold text-blue">Processing video…</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {PIPELINE_STEPS.slice(0, -1).map((step, i) => {
+              const isActive = step.key === pipelineStep;
+              const isComplete = pipelineStepIndex > i;
+              return (
+                <div key={step.key} className="flex items-center gap-1 flex-1">
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
+                    isActive
+                      ? "bg-blue/15 text-blue"
+                      : isComplete
+                        ? "bg-success/15 text-success"
+                        : "bg-elevated text-dim"
+                  }`}>
+                    {isActive && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                    {isComplete && <span className="text-success">✓</span>}
+                    <span className="truncate">{step.label}</span>
+                  </div>
+                  {i < PIPELINE_STEPS.length - 2 && (
+                    <div className={`h-px flex-1 min-w-2 ${isComplete ? "bg-success/30" : "bg-border"}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {pipelineStep === "done" && (
+        <div className="rounded-xl bg-success/5 border border-success/20 px-4 py-3 flex items-center gap-2">
+          <span className="text-success text-[14px]">✓</span>
+          <span className="text-[13px] font-medium text-success">All metadata generated automatically</span>
+        </div>
+      )}
+
+      {pipelineStep === "error" && (
+        <div className="rounded-xl bg-destructive/5 border border-destructive/20 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-destructive text-[14px]">✕</span>
+            <span className="text-[13px] font-medium text-destructive">Auto-processing failed</span>
+          </div>
+          {pipelineError && <p className="text-[11px] text-destructive/80 ml-5">{pipelineError}</p>}
+          <button
+            type="button"
+            onClick={() => { setPipelineStep("idle"); runAutoPipeline(); }}
+            className="ml-5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Step 1: Upload Video */}
       <VideoUpload
@@ -255,6 +400,7 @@ function ManualStoryWorkflow({
             videoFileName: data.videoFileName,
             videoFileSize: data.videoFileSize,
           }));
+          runAutoPipeline();
         }}
       />
 
@@ -272,7 +418,7 @@ function ManualStoryWorkflow({
           <button
             type="button"
             onClick={generateTitle}
-            disabled={generatingTitle || !brief.transcript}
+            disabled={generatingTitle || isPipelineActive || !brief.transcript}
             className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generatingTitle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
@@ -298,7 +444,7 @@ function ManualStoryWorkflow({
           <button
             type="button"
             onClick={generateDescription}
-            disabled={generatingDesc || !brief.transcript}
+            disabled={generatingDesc || isPipelineActive || !brief.transcript}
             className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generatingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
@@ -324,7 +470,7 @@ function ManualStoryWorkflow({
           <button
             type="button"
             onClick={generateTags}
-            disabled={generatingTags || !brief.transcript}
+            disabled={generatingTags || isPipelineActive || !brief.transcript}
             className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generatingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
@@ -449,7 +595,7 @@ function ManualStoryWorkflow({
           <button
             type="button"
             onClick={() => onStageChange("done")}
-            disabled={saving}
+            disabled={saving || isPipelineActive}
             className="w-full py-3 rounded-xl text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             Mark as Done
