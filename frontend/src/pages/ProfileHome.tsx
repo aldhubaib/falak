@@ -105,6 +105,14 @@ export default function ProfileHome() {
   const [hooksSaved, setHooksSaved] = useState(false);
 
   useEffect(() => {
+    if (channel) {
+      setNationality(channel.nationality ?? "");
+      setHookStart(channel.startHook ?? "");
+      setHookEnd(channel.endHook ?? "");
+    }
+  }, [channel]);
+
+  useEffect(() => {
     if (!channelId) return;
     setLoading(true);
 
@@ -184,14 +192,6 @@ export default function ProfileHome() {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (channel) {
-      setNationality(channel.nationality ?? "");
-      setHookStart(channel.startHook ?? "");
-      setHookEnd(channel.endHook ?? "");
-    }
-  }, [channel]);
 
   const saveCountry = (value: string) => {
     setNationality(value);
