@@ -159,15 +159,20 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
         },
       })
 
-      const mediaId = createdMedia.id
-      generateThumbnail(key, mime).then(async (thumb) => {
-        if (!thumb) return
-        await db.galleryMedia.update({
-          where: { id: mediaId },
-          data: { thumbnailR2Key: thumb.thumbnailR2Key, thumbnailR2Url: thumb.thumbnailR2Url },
-        })
-        console.log(`[media] Thumbnail generated for gallery media ${mediaId}`)
-      }).catch((e) => console.error(`[media] Thumbnail failed for gallery media ${mediaId}:`, e.message))
+      try {
+        const thumb = await generateThumbnail(key, mime)
+        if (thumb) {
+          await db.galleryMedia.update({
+            where: { id: createdMedia.id },
+            data: { thumbnailR2Key: thumb.thumbnailR2Key, thumbnailR2Url: thumb.thumbnailR2Url },
+          })
+          createdMedia.thumbnailR2Key = thumb.thumbnailR2Key
+          createdMedia.thumbnailR2Url = thumb.thumbnailR2Url
+          console.log(`[media] Thumbnail generated for gallery media ${createdMedia.id}`)
+        }
+      } catch (e) {
+        console.error(`[media] Thumbnail failed for gallery media ${createdMedia.id}:`, e.message)
+      }
     }
 
     res.json({ url: publicUrl, key, media: createdMedia })
