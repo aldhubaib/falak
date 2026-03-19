@@ -1,16 +1,6 @@
 import { useState } from "react";
-import { Shield, Mail, Search, Pencil, Trash2, ChevronDown, Key, Eye, AlertTriangle } from "lucide-react";
+import { Shield, Mail, Search, Pencil, Trash2, ChevronDown, Key, Eye } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 type Role = "admin" | "editor" | "viewer";
 
@@ -100,9 +90,6 @@ export default function Admin() {
   const [newNote, setNewNote] = useState("");
   const [newRole, setNewRole] = useState<Role>("editor");
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
-  const [deleteAllChannelsOpen, setDeleteAllChannelsOpen] = useState(false);
-  const [deleteAllChannelsLoading, setDeleteAllChannelsLoading] = useState(false);
-  const [deleteAllChannelsMessage, setDeleteAllChannelsMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const filteredUsers = users.filter(
     (u) =>
@@ -110,22 +97,6 @@ export default function Admin() {
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const handleDeleteAllChannels = async () => {
-    setDeleteAllChannelsLoading(true);
-    setDeleteAllChannelsMessage(null);
-    try {
-      const res = await fetch("/api/channels/all", { method: "DELETE", credentials: "include" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to delete channels");
-      setDeleteAllChannelsMessage({ type: "success", text: `Deleted ${data.deleted ?? 0} channel(s). DB now has 0 channels.` });
-      setDeleteAllChannelsOpen(false);
-    } catch (e) {
-      setDeleteAllChannelsMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to delete channels" });
-    } finally {
-      setDeleteAllChannelsLoading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -318,50 +289,8 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Danger zone: delete all channels */}
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5">
-            <span className="text-[14px] font-semibold text-destructive mb-2 block">Danger zone</span>
-            <p className="text-[12px] text-dim mb-4">
-              Permanently remove every channel from the database. Related videos, pipeline items, and snapshots are also deleted. This cannot be undone.
-            </p>
-            {deleteAllChannelsMessage && (
-              <p className={`text-[12px] mb-3 ${deleteAllChannelsMessage.type === "success" ? "text-success" : "text-destructive"}`}>
-                {deleteAllChannelsMessage.text}
-              </p>
-            )}
-            <button
-              onClick={() => setDeleteAllChannelsOpen(true)}
-              className="px-4 py-2 rounded-full border border-destructive/50 text-destructive text-[13px] font-medium hover:bg-destructive/10 transition-colors"
-            >
-              Delete all channels
-            </button>
-          </div>
         </div>
       </div>
-
-      <AlertDialog open={deleteAllChannelsOpen} onOpenChange={setDeleteAllChannelsOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-destructive" />
-              Delete all channels?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete every channel and all related data (videos, pipeline items, snapshots). You cannot undo this.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteAllChannelsLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleDeleteAllChannels(); }}
-              disabled={deleteAllChannelsLoading}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteAllChannelsLoading ? "Deleting…" : "Delete all"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
