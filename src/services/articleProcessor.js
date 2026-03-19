@@ -180,7 +180,6 @@ async function doStageClassify(article, project) {
       `- contentType: "news" | "investigation" | "feature" | "opinion" | "human_interest" | "crime" | "politics" | "technology" | "other"\n` +
       `- region: the country or city where the main event takes place, or null (in ${targetLang})\n` +
       `- summary: 2-3 sentence summary in ${targetLang}\n` +
-      `- isBreaking: true if the event happened in the last 48 hours\n` +
       `- uniqueAngle: one sentence about what makes this story unique, or null (in ${targetLang})\n\n` +
       `Title: ${title}\n` +
       (existingTags.length ? `Scraper tags: ${existingTags.join(', ')}\n` : '') +
@@ -252,7 +251,6 @@ async function doStageClassify(article, project) {
     region: analysis?.region || null,
     summary: analysis?.summary || null,
     uniqueAngle: analysis?.uniqueAngle || null,
-    isBreaking: !!analysis?.isBreaking,
     inputChars: articleText.length,
     inputTokens: classifyUsage.inputTokens || null,
     outputTokens: classifyUsage.outputTokens || null,
@@ -716,6 +714,13 @@ ${contentAr.slice(0, 15000)}`
 
   const topSimilarity = similarVideos[0]?.similarity
   const competitionPenalty = typeof topSimilarity === 'number' && topSimilarity >= 0.7 ? 0.05 : (topSimilarity >= 0.5 ? 0.02 : 0)
+
+  // Derive isBreaking from publishedAt (used in reasons and story promotion)
+  const hoursSincePublished = art.publishedAt
+    ? (Date.now() - new Date(art.publishedAt).getTime()) / 3600000
+    : 999
+  const isBreaking = hoursSincePublished <= 48
+  analysis.isBreaking = isBreaking
 
   const rawScore = relevance * 0.35 + viralPotential * 0.30 + freshness * 0.35
   const finalScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40 - competitionPenalty)) * 100) / 100
