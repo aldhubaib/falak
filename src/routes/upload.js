@@ -1,7 +1,7 @@
 const express = require('express')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { initMultipartUpload, getPartPresignedUrls, getSpecificPartUrls, completeMultipartUpload, abortMultipartUpload, deleteObject, getChunkSize, getDirectUploadUrl, getPublicUrl, getSignedReadUrl } = require('../services/r2')
-const { generateThumbnail } = require('../services/media')
+const { generateThumbnail, processMedia, extractMetadata } = require('../services/media')
 const db = require('../lib/db')
 const { v4: uuidv4 } = require('uuid')
 
@@ -112,17 +112,26 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
           data: { brief },
         })
 
-        generateThumbnail(key, contentType).then(async (thumb) => {
-          if (!thumb) return
+        processMedia(key, contentType).then(async ({ thumbnail, metadata }) => {
           const latest = await db.story.findUnique({ where: { id: storyId } })
           if (!latest) return
           const latestBrief = (latest.brief && typeof latest.brief === 'object') ? { ...latest.brief } : {}
           if (latestBrief.videoR2Key !== key) return
-          latestBrief.videoThumbnailR2Key = thumb.thumbnailR2Key
-          latestBrief.videoThumbnailR2Url = thumb.thumbnailR2Url
-          await db.story.update({ where: { id: storyId }, data: { brief: latestBrief } })
-          console.log(`[media] Thumbnail generated for story ${storyId}`)
-        }).catch((e) => console.error(`[media] Thumbnail failed for story ${storyId}:`, e.message))
+          let changed = false
+          if (thumbnail) {
+            latestBrief.videoThumbnailR2Key = thumbnail.thumbnailR2Key
+            latestBrief.videoThumbnailR2Url = thumbnail.thumbnailR2Url
+            changed = true
+          }
+          if (metadata) {
+            latestBrief.videoMetadata = metadata
+            changed = true
+          }
+          if (changed) {
+            await db.story.update({ where: { id: storyId }, data: { brief: latestBrief } })
+            console.log(`[media] Processed story ${storyId} — thumb:${!!thumbnail} meta:${!!metadata}`)
+          }
+        }).catch((e) => console.error(`[media] Processing failed for story ${storyId}:`, e.message))
       }
     }
 
@@ -160,18 +169,25 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
       })
 
       try {
-        const thumb = await generateThumbnail(key, mime)
-        if (thumb) {
-          await db.galleryMedia.update({
-            where: { id: createdMedia.id },
-            data: { thumbnailR2Key: thumb.thumbnailR2Key, thumbnailR2Url: thumb.thumbnailR2Url },
-          })
-          createdMedia.thumbnailR2Key = thumb.thumbnailR2Key
-          createdMedia.thumbnailR2Url = thumb.thumbnailR2Url
-          console.log(`[media] Thumbnail generated for gallery media ${createdMedia.id}`)
+        const { thumbnail, metadata } = await processMedia(key, mime)
+        const updateData = {}
+        if (thumbnail) {
+          updateData.thumbnailR2Key = thumbnail.thumbnailR2Key
+          updateData.thumbnailR2Url = thumbnail.thumbnailR2Url
+        }
+        if (metadata) {
+          updateData.metadata = metadata
+          if (metadata.width && !createdMedia.width) updateData.width = metadata.width
+          if (metadata.height && !createdMedia.height) updateData.height = metadata.height
+          if (metadata.duration && !createdMedia.duration) updateData.duration = metadata.duration
+        }
+        if (Object.keys(updateData).length > 0) {
+          await db.galleryMedia.update({ where: { id: createdMedia.id }, data: updateData })
+          Object.assign(createdMedia, updateData)
+          console.log(`[media] Processed gallery media ${createdMedia.id} — thumb:${!!thumbnail} meta:${!!metadata}`)
         }
       } catch (e) {
-        console.error(`[media] Thumbnail failed for gallery media ${createdMedia.id}:`, e.message)
+        console.error(`[media] Processing failed for gallery media ${createdMedia.id}:`, e.message)
       }
     }
 

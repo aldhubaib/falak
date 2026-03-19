@@ -252,6 +252,7 @@ model GalleryMedia {
   r2Url          String
   thumbnailR2Key String?
   thumbnailR2Url String?
+  metadata       Json?
   uploadedById   String
   uploadedBy     User          @relation("GalleryMediaUploadedBy", fields: [uploadedById], references: [id], onDelete: Cascade)
   albumCoverFor  GalleryAlbum[] @relation("GalleryAlbumCover")

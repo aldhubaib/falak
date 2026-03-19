@@ -1,5 +1,47 @@
 export type MediaType = "PHOTO" | "VIDEO";
 
+export interface MediaGps {
+  latitude: number;
+  longitude: number;
+  altitude?: number;
+  direction?: number;
+}
+
+export interface MediaMetadata {
+  // Common
+  width?: number | null;
+  height?: number | null;
+  gps?: MediaGps | null;
+  cameraMake?: string | null;
+  cameraModel?: string | null;
+  software?: string | null;
+
+  // Photo-specific
+  format?: string | null;
+  colorSpace?: string | null;
+  density?: number | null;
+  hasAlpha?: boolean;
+  dateTaken?: string | null;
+  lens?: string | null;
+  aperture?: string | null;
+  shutterSpeed?: string | null;
+  iso?: number | null;
+  focalLength?: string | null;
+  flash?: string | null;
+  orientation?: number | null;
+
+  // Video-specific
+  codec?: string | null;
+  codecLong?: string | null;
+  frameRate?: number | null;
+  bitrate?: number | null;
+  duration?: number | null;
+  audioCodec?: string | null;
+  audioSampleRate?: number | null;
+  audioChannels?: number | null;
+  dateCreated?: string | null;
+}
+
 export interface GalleryMedia {
   id: string;
   channelId: string;
@@ -15,6 +57,7 @@ export interface GalleryMedia {
   r2Url: string;
   thumbnailR2Key: string | null;
   thumbnailR2Url: string | null;
+  metadata: MediaMetadata | null;
   uploadedById: string;
   createdAt: string;
   updatedAt: string;
