@@ -39,6 +39,7 @@ async function transcribeFromR2(r2Key, channelId) {
   const form = new FormData()
   form.append('file', videoBuffer, { filename: `video.${ext}`, contentType })
   form.append('model', 'whisper-1')
+  form.append('language', 'ar')
   form.append('response_format', 'verbose_json')
   form.append('timestamp_granularities[]', 'segment')
 

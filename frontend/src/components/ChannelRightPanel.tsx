@@ -242,50 +242,42 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
         </div>
       </div>
 
-      {/* Country */}
-      <div className="px-4 py-3 border-t border-border">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] text-dim">Country</span>
-        </div>
-        <select
-          value={channel.nationality ?? ""}
-          onChange={(e) => {
-            const value = e.target.value || null;
-            setSavingCountry(true);
-            fetch(`/api/channels/${channel.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-              body: JSON.stringify({ nationality: value }),
-            })
-              .then((r) => {
-                if (!r.ok) throw new Error("Failed to update");
-                toast.success("Country updated");
-                onCountryChange?.();
+      {/* Country — only for competitor channels (ours uses ProfileHome) */}
+      {channel.type !== "ours" && (
+        <div className="px-4 py-3 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-dim">Country</span>
+          </div>
+          <select
+            value={channel.nationality ?? ""}
+            onChange={(e) => {
+              const value = e.target.value || null;
+              setSavingCountry(true);
+              fetch(`/api/channels/${channel.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ nationality: value }),
               })
-              .catch(() => toast.error("Failed to update country"))
-              .finally(() => setSavingCountry(false));
-          }}
-          disabled={savingCountry}
-          className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
-        >
-          <option value="">Select country</option>
-          {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Branded Hooks — only for "ours" channels; saved to DB */}
-      {channel.type === "ours" && (
-        <BrandedHooksSection
-          channelId={channel.id}
-          startHook={channel.startHook ?? ""}
-          endHook={channel.endHook ?? ""}
-          onSaved={onBrandedHooksSaved}
-        />
+                .then((r) => {
+                  if (!r.ok) throw new Error("Failed to update");
+                  toast.success("Country updated");
+                  onCountryChange?.();
+                })
+                .catch(() => toast.error("Failed to update country"))
+                .finally(() => setSavingCountry(false));
+            }}
+            disabled={savingCountry}
+            className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+          >
+            <option value="">Select country</option>
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
 
       {/* Actions */}

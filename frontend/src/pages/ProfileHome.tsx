@@ -5,7 +5,10 @@ import {
   Users, Eye, PlayCircle, TrendingUp, TrendingDown,
   BarChart3, Swords, Sparkles, Zap, ArrowUpRight,
   Activity, Video, Film, ThumbsUp, MessageSquare, Clock,
+  Globe, Loader2, Check,
 } from "lucide-react";
+import { toast } from "sonner";
+import { COUNTRIES, getCountryName } from "@/data/countries";
 import { fmtDate, fmtDateTime, parseDuration } from "@/lib/utils";
 
 function fmtCount(n: number): string {
@@ -36,6 +39,8 @@ interface ChannelData {
   createdAt: string;
   status: string;
   nationality?: string | null;
+  startHook?: string | null;
+  endHook?: string | null;
 }
 
 interface ApiVideo {
@@ -174,6 +179,56 @@ export default function ProfileHome() {
     );
   }
 
+  const [nationality, setNationality] = useState(channel?.nationality ?? "");
+  const [savingCountry, setSavingCountry] = useState(false);
+  const [hookStart, setHookStart] = useState(channel?.startHook ?? "");
+  const [hookEnd, setHookEnd] = useState(channel?.endHook ?? "");
+  const [savingHooks, setSavingHooks] = useState(false);
+  const [hooksSaved, setHooksSaved] = useState(false);
+
+  useEffect(() => {
+    if (channel) {
+      setNationality(channel.nationality ?? "");
+      setHookStart(channel.startHook ?? "");
+      setHookEnd(channel.endHook ?? "");
+    }
+  }, [channel]);
+
+  const saveCountry = (value: string) => {
+    setNationality(value);
+    setSavingCountry(true);
+    fetch(`/api/channels/${channelId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ nationality: value || null }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        toast.success("Country updated");
+      })
+      .catch(() => toast.error("Failed to update country"))
+      .finally(() => setSavingCountry(false));
+  };
+
+  const saveHooks = () => {
+    setSavingHooks(true);
+    fetch(`/api/channels/${channelId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ startHook: hookStart.trim() || null, endHook: hookEnd.trim() || null }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        toast.success("Branded hooks saved");
+        setHooksSaved(true);
+        setTimeout(() => setHooksSaved(false), 2000);
+      })
+      .catch(() => toast.error("Failed to save branded hooks"))
+      .finally(() => setSavingHooks(false));
+  };
+
   const statCards = [
     {
       label: "Subscribers",
@@ -259,12 +314,82 @@ export default function ProfileHome() {
               <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-success/10 text-success">
                 {channel.status === "active" ? "Active" : channel.status}
               </span>
+              {nationality && (
+                <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-blue/10 text-blue">
+                  <Globe className="w-3 h-3" /> {getCountryName(nationality)}
+                </span>
+              )}
               {channel.lastFetchedAt && (
                 <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-elevated text-dim">
                   Synced {fmtDateTime(channel.lastFetchedAt)}
                 </span>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile Settings: Country & Branded Hooks */}
+      <div className="px-6 max-lg:px-4 pb-1">
+        <div className="grid grid-cols-3 max-lg:grid-cols-1 gap-3">
+          {/* Country */}
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex items-center gap-2 mb-2.5">
+              <Globe className="w-3.5 h-3.5 text-dim" />
+              <span className="text-[11px] text-dim font-medium uppercase tracking-wider">Country / Dialect</span>
+            </div>
+            <select
+              value={nationality}
+              onChange={(e) => saveCountry(e.target.value)}
+              disabled={savingCountry}
+              className="w-full px-3 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+            >
+              <option value="">Select country</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-dim mt-1.5">Sets the Arabic dialect for AI-generated content.</p>
+          </div>
+
+          {/* Start Hook */}
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] text-dim font-medium uppercase tracking-wider">Start Hook</span>
+            </div>
+            <input
+              type="text"
+              value={hookStart}
+              onChange={(e) => setHookStart(e.target.value)}
+              placeholder="e.g. أهلاً وسهلاً بكم في قناة..."
+              className="w-full px-3 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+              dir="auto"
+            />
+            <p className="text-[10px] text-dim mt-1.5">Branded intro added to every AI script.</p>
+          </div>
+
+          {/* End Hook */}
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] text-dim font-medium uppercase tracking-wider">End Hook</span>
+              <button
+                onClick={saveHooks}
+                disabled={savingHooks}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {savingHooks ? <Loader2 className="w-3 h-3 animate-spin" /> : hooksSaved ? <Check className="w-3 h-3" /> : null}
+                {savingHooks ? "Saving…" : hooksSaved ? "Saved" : "Save Hooks"}
+              </button>
+            </div>
+            <input
+              type="text"
+              value={hookEnd}
+              onChange={(e) => setHookEnd(e.target.value)}
+              placeholder="e.g. لا تنسوا الاشتراك وتفعيل الجرس..."
+              className="w-full px-3 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+              dir="auto"
+            />
+            <p className="text-[10px] text-dim mt-1.5">Branded outro added to every AI script.</p>
           </div>
         </div>
       </div>
