@@ -164,63 +164,101 @@ async function doStageClassify(article, project) {
   const existingTags = Array.isArray(article.analysis?.tags) ? article.analysis.tags : []
   const category = article.analysis?.category || ''
   const sourceLang = article.language || detectLanguage(articleText)
+  const targetLang = sourceLang === 'ar' ? 'Arabic' : 'English'
 
-  const prompt = `You are a news analyst. Classify this article.\n` +
-    `Read the article and output your analysis in the SAME language as the article.\n` +
-    `Reply in JSON only, no markdown fences, no explanation.\n\n` +
-    `Keys:\n` +
-    `- topic: one short sentence describing what this article is about\n` +
-    `- tags: 4 to 8 tags (noun form, 1-3 words each, reusable across articles)\n` +
-    `- sentiment: "positive" | "negative" | "neutral"\n` +
-    `- contentType: "news" | "investigation" | "feature" | "opinion" | "human_interest" | "crime" | "politics" | "technology" | "other"\n` +
-    `- region: the country or city where the main event takes place, or null\n` +
-    `- viralPotential: 0.0 to 1.0 — how likely this will get views on Arabic YouTube\n` +
-    `- relevance: 0.0 to 1.0 — how relevant is this to Arabic audiences interested in true crime, mysteries, investigations, and untold stories\n` +
-    `- summary: 2-3 sentence summary in the article's language\n` +
-    `- isBreaking: true if the event happened in the last 48 hours\n` +
-    `- uniqueAngle: one sentence about what makes this story unique, or null\n\n` +
-    `Title: ${title}\n` +
-    (existingTags.length ? `Scraper tags: ${existingTags.join(', ')}\n` : '') +
-    (category ? `Category: ${category}\n` : '') +
-    `\nArticle:\n${articleText}`
+  function buildClassifyPrompt({ strictEnglishOnly }) {
+    const strictLine = !wantsArabicOutput && strictEnglishOnly
+      ? `\nSTRICT RULE: You MUST output English ONLY. Do not use Arabic script at all.`
+      : ''
 
-  const raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
-    { role: 'user', content: prompt },
-  ], {
-    maxTokens: 2048,
-    projectId: article.projectId,
-    action: 'article-classify',
-  })
-  const classifyUsage = callAnthropic._lastUsage || {}
+    return `You are a news analyst. Classify this article.\n` +
+      `Read the article and output your analysis in ${targetLang} only.${strictLine}\n` +
+      `Reply in JSON only, no markdown fences, no explanation.\n\n` +
+      `Keys:\n` +
+      `- topic: one short sentence describing what this article is about (in ${targetLang})\n` +
+      `- tags: 4 to 8 tags (noun form, 1-3 words each, reusable across articles, in ${targetLang})\n` +
+      `- sentiment: "positive" | "negative" | "neutral"\n` +
+      `- contentType: "news" | "investigation" | "feature" | "opinion" | "human_interest" | "crime" | "politics" | "technology" | "other"\n` +
+      `- region: the country or city where the main event takes place, or null (in ${targetLang})\n` +
+      `- viralPotential: 0.0 to 1.0 — how likely this will get views\n` +
+      `- relevance: 0.0 to 1.0 — how relevant is this to audiences interested in true crime, mysteries, investigations, and untold stories\n` +
+      `- summary: 2-3 sentence summary in ${targetLang}\n` +
+      `- isBreaking: true if the event happened in the last 48 hours\n` +
+      `- uniqueAngle: one sentence about what makes this story unique, or null (in ${targetLang})\n\n` +
+      `Title: ${title}\n` +
+      (existingTags.length ? `Scraper tags: ${existingTags.join(', ')}\n` : '') +
+      (category ? `Category: ${category}\n` : '') +
+      `\nArticle:\n${articleText}`
+  }
 
-  let analysis
-  try {
-    const trimmed = (raw || '').trim()
-    const start = trimmed.indexOf('{')
-    const end = trimmed.lastIndexOf('}') + 1
-    if (start === -1 || end <= start) throw new Error('No JSON in response')
-    analysis = JSON.parse(trimmed.slice(start, end))
-  } catch (e) {
-    logger.warn({ articleId: article.id, raw: (raw || '').slice(0, 200) }, '[articleProcessor] Failed to parse classification')
-    analysis = { raw: (raw || '').slice(0, 500), parseError: true }
+  const wantsArabicOutput = targetLang === 'Arabic'
+  const hasArabicScript = (s) => typeof s === 'string' && (ARABIC_CHAR_REGEX.test(s) || (s.match(ARABIC_CHAR_REGEX) || []).length > 0)
+
+  let prompt = buildClassifyPrompt({ strictEnglishOnly: false })
+  let raw = ''
+  let classifyUsage = {}
+  let analysis = null
+
+  // One optional retry: if we asked for English but Arabic script appears in key fields.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+      { role: 'user', content: prompt },
+    ], {
+      maxTokens: 2048,
+      projectId: article.projectId,
+      action: 'article-classify',
+    })
+    classifyUsage = callAnthropic._lastUsage || {}
+
+    try {
+      const trimmed = (raw || '').trim()
+      const start = trimmed.indexOf('{')
+      const end = trimmed.lastIndexOf('}') + 1
+      if (start === -1 || end <= start) throw new Error('No JSON in response')
+      analysis = JSON.parse(trimmed.slice(start, end))
+    } catch (e) {
+      logger.warn({ articleId: article.id, raw: (raw || '').slice(0, 200) }, '[articleProcessor] Failed to parse classification')
+      analysis = { raw: (raw || '').slice(0, 500), parseError: true }
+    }
+
+    if (!analysis || analysis.parseError) break
+
+    if (!wantsArabicOutput) {
+      const tagsText = Array.isArray(analysis.tags) ? analysis.tags.join(' ') : ''
+      const violates = [
+        analysis.topic,
+        analysis.summary,
+        analysis.region,
+        analysis.uniqueAngle,
+        tagsText,
+      ].some(hasArabicScript)
+
+      if (violates) {
+        if (attempt === 0) {
+          prompt = buildClassifyPrompt({ strictEnglishOnly: true })
+          continue
+        }
+      }
+    }
+    break
   }
 
   const classifyQuality = evaluateClassifyQuality(analysis)
 
   log.push({
-    step: 'classify', status: analysis.parseError ? 'parse_error' : 'ok',
+    step: 'classify', status: analysis?.parseError ? 'parse_error' : 'ok',
     processor: 'ai', service: 'Anthropic Claude Haiku',
     model: 'claude-haiku-4-5-20251001',
-    topic: analysis.topic || null,
-    tags: analysis.tags || [],
-    sentiment: analysis.sentiment || null,
-    contentType: analysis.contentType || null,
-    region: analysis.region || null,
-    viralPotential: typeof analysis.viralPotential === 'number' ? analysis.viralPotential : null,
-    relevance: typeof analysis.relevance === 'number' ? analysis.relevance : null,
-    summary: analysis.summary || null,
-    uniqueAngle: analysis.uniqueAngle || null,
-    isBreaking: !!analysis.isBreaking,
+    topic: analysis?.topic || null,
+    tags: analysis?.tags || [],
+    sentiment: analysis?.sentiment || null,
+    contentType: analysis?.contentType || null,
+    region: analysis?.region || null,
+    viralPotential: typeof analysis?.viralPotential === 'number' ? analysis.viralPotential : null,
+    relevance: typeof analysis?.relevance === 'number' ? analysis.relevance : null,
+    summary: analysis?.summary || null,
+    uniqueAngle: analysis?.uniqueAngle || null,
+    isBreaking: !!analysis?.isBreaking,
     inputChars: articleText.length,
     inputTokens: classifyUsage.inputTokens || null,
     outputTokens: classifyUsage.outputTokens || null,
