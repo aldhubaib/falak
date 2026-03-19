@@ -59,6 +59,7 @@ router.get('/', async (req, res) => {
           publishedAt: true, titleAr: true, titleEn: true,
           duration: true, videoType: true,
         },
+        take: 50000,
       })
     : []
 

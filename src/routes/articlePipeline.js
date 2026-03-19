@@ -126,14 +126,22 @@ async function getSourcesView(req, res, channelId) {
     orderBy: { createdAt: 'asc' },
   })
 
-  const workflows = await Promise.all(sources.map(async (source) => {
-    const stageCounts = await db.article.groupBy({
-      by: ['stage'],
-      where: { sourceId: source.id },
-      _count: true,
-    })
-    const stats = {}
-    for (const row of stageCounts) stats[row.stage] = row._count
+  const sourceIds = sources.map(s => s.id)
+  const allStageCounts = sourceIds.length > 0
+    ? await db.article.groupBy({
+        by: ['sourceId', 'stage'],
+        where: { sourceId: { in: sourceIds } },
+        _count: true,
+      })
+    : []
+  const stageMap = new Map()
+  for (const row of allStageCounts) {
+    if (!stageMap.has(row.sourceId)) stageMap.set(row.sourceId, {})
+    stageMap.get(row.sourceId)[row.stage] = row._count
+  }
+
+  const workflows = sources.map((source) => {
+    const stats = stageMap.get(source.id) || {}
     const totalArticles = Object.values(stats).reduce((s, c) => s + c, 0)
 
     const keyConnected = hasApiKey(channel, source.type, source)
@@ -154,7 +162,7 @@ async function getSourcesView(req, res, channelId) {
         successRate, totalFetches: log.length,
       },
     }
-  }))
+  })
 
   const globalStats = await db.article.groupBy({ by: ['stage'], where: { channelId }, _count: true })
   const totals = {}
@@ -426,6 +434,7 @@ router.post('/retry-all-failed', requireRole('owner', 'admin', 'editor'), async 
 
 // ── POST /api/article-pipeline/test-run — kick off processing for N articles (returns immediately)
 const _testRuns = new Map()
+const MAX_TEST_RUNS = 50
 
 router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
   try {
@@ -457,6 +466,10 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
       stageAfter: null, currentStage: 'imported', status: 'pending', error: null,
     }))
 
+    if (_testRuns.size >= MAX_TEST_RUNS) {
+      const oldest = _testRuns.keys().next().value
+      _testRuns.delete(oldest)
+    }
     _testRuns.set(runId, { channelId, items, startedAt: Date.now() })
 
     // Process each article through ALL stages until done/failed

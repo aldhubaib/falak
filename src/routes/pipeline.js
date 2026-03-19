@@ -129,7 +129,7 @@ router.post('/resume', requireRole('owner', 'admin'), async (req, res) => {
 // ── POST /api/pipeline/retry-all-failed — resume each from lastStage; enqueue jobs if Redis (strict rate limit; must be before /:id/retry)
 router.post('/retry-all-failed', strictRateLimit, requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const failed = await db.pipelineItem.findMany({ where: { stage: 'failed' } })
+    const failed = await db.pipelineItem.findMany({ where: { stage: 'failed' }, take: 500 })
     const queue = getQueue()
     let retried = 0
     for (const item of failed) {

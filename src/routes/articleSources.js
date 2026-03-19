@@ -50,17 +50,23 @@ router.get('/', async (req, res) => {
       orderBy: { createdAt: 'asc' },
     })
 
-    const withStats = await Promise.all(sources.map(async (s) => {
-      const stageCounts = await db.article.groupBy({
-        by: ['stage'],
-        where: { sourceId: s.id },
-        _count: true,
-      })
-      const stats = {}
-      for (const row of stageCounts) {
-        stats[row.stage] = row._count
-      }
-      return { ...sanitizeSource(s), stats, apifyRuns: s.apifyRuns || [] }
+    const sourceIds = sources.map(s => s.id)
+    const allStageCounts = sourceIds.length > 0
+      ? await db.article.groupBy({
+          by: ['sourceId', 'stage'],
+          where: { sourceId: { in: sourceIds } },
+          _count: true,
+        })
+      : []
+    const statsMap = new Map()
+    for (const row of allStageCounts) {
+      if (!statsMap.has(row.sourceId)) statsMap.set(row.sourceId, {})
+      statsMap.get(row.sourceId)[row.stage] = row._count
+    }
+    const withStats = sources.map(s => ({
+      ...sanitizeSource(s),
+      stats: statsMap.get(s.id) || {},
+      apifyRuns: s.apifyRuns || [],
     }))
 
     res.json(withStats)

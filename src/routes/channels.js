@@ -158,12 +158,23 @@ async function importVideosForChannel(channelId) {
     )
   }
   const newVideos = await db.video.findMany({
-    where: { channelId: channel.id, pipelineItem: null }
+    where: { channelId: channel.id, pipelineItem: null },
+    select: { id: true },
+    take: 500,
   })
   const queue = getQueue()
-  for (const v of newVideos) {
-    const item = await db.pipelineItem.create({ data: { videoId: v.id } })
-    if (queue) await addJob(item.id, 'import')
+  const PIPELINE_BATCH = 25
+  for (let i = 0; i < newVideos.length; i += PIPELINE_BATCH) {
+    const batch = newVideos.slice(i, i + PIPELINE_BATCH)
+    await db.$transaction(
+      batch.map(v => db.pipelineItem.create({ data: { videoId: v.id } }))
+    )
+    if (queue) {
+      for (const v of batch) {
+        const created = await db.pipelineItem.findFirst({ where: { videoId: v.id }, orderBy: { createdAt: 'desc' } })
+        if (created) await addJob(created.id, 'import')
+      }
+    }
   }
   return { added: videos.length }
 }
@@ -248,25 +259,26 @@ router.post('/:id/analyze-all', requireRole('owner', 'admin', 'editor'), async (
   try {
     const channel = await db.channel.findUnique({ where: { id: req.params.id }, select: { id: true } })
     if (!channel) return res.status(404).json({ error: 'Channel not found' })
-    // Find all videos for this channel that haven't been analyzed yet
     const videos = await db.video.findMany({
       where: { channelId: req.params.id },
       select: { id: true },
+      take: 2000,
     })
-    // Create pipeline items for analyzing stage (skip if already exists)
-    let queued = 0
-    for (const video of videos) {
-      const existing = await db.pipelineItem.findFirst({
-        where: { videoId: video.id, stage: 'analyzing', status: { in: ['queued', 'processing'] } },
-      })
-      if (!existing) {
-        await db.pipelineItem.create({
-          data: { videoId: video.id, stage: 'analyzing', status: 'queued' },
-        })
-        queued++
-      }
+    const videoIds = videos.map(v => v.id)
+    const existingItems = await db.pipelineItem.findMany({
+      where: { videoId: { in: videoIds }, stage: 'analyzing', status: { in: ['queued', 'processing'] } },
+      select: { videoId: true },
+    })
+    const existingSet = new Set(existingItems.map(i => i.videoId))
+    const toCreate = videoIds.filter(id => !existingSet.has(id))
+    const BATCH = 25
+    for (let i = 0; i < toCreate.length; i += BATCH) {
+      const batch = toCreate.slice(i, i + BATCH)
+      await db.$transaction(
+        batch.map(videoId => db.pipelineItem.create({ data: { videoId, stage: 'analyzing', status: 'queued' } }))
+      )
     }
-    res.json({ queued, total: videos.length })
+    res.json({ queued: toCreate.length, total: videos.length })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

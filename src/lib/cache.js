@@ -25,6 +25,8 @@ function createCache(ttlMs, maxSize = 500) {
         if (entry) store.delete(key)
         return undefined
       }
+      store.delete(key)
+      store.set(key, entry)
       return entry.value
     },
     set(key, value) {

@@ -11,9 +11,17 @@ const ffprobePath = require('@ffprobe-installer/ffprobe').path
 const { getSignedReadUrl, putObject, getPublicUrl } = require('./r2')
 
 const execFileAsync = promisify(execFile)
+const nodeFetch = require('node-fetch')
 
 const THUMB_WIDTH = 480
 const THUMB_QUALITY = 75
+const MEDIA_FETCH_TIMEOUT_MS = 120_000
+
+function fetchWithTimeout(url, opts = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs || MEDIA_FETCH_TIMEOUT_MS)
+  return nodeFetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
 
 function thumbnailKey(originalKey) {
   const base = originalKey.replace(/\.[^.]+$/, '')
@@ -23,7 +31,7 @@ function thumbnailKey(originalKey) {
 async function generateImageThumbnail(r2Key, inputBuffer) {
   if (!inputBuffer) {
     const signedUrl = await getSignedReadUrl(r2Key, 300)
-    const res = await fetch(signedUrl)
+    const res = await fetchWithTimeout(signedUrl)
     if (!res.ok) throw new Error(`Failed to download image: ${res.status}`)
     inputBuffer = Buffer.from(await res.arrayBuffer())
   }
@@ -46,7 +54,7 @@ async function generateVideoThumbnail(r2Key, videoPath) {
     const ext = (r2Key.split('.').pop() || 'mp4').toLowerCase()
     videoPath = path.join(tmpDir, `input.${ext}`)
     const signedUrl = await getSignedReadUrl(r2Key, 600)
-    const res = await fetch(signedUrl)
+    const res = await fetchWithTimeout(signedUrl)
     if (!res.ok) throw new Error(`Failed to download video: ${res.status}`)
     await pipeline(res.body, fs.createWriteStream(videoPath))
   }
@@ -81,7 +89,7 @@ async function generateVideoThumbnail(r2Key, videoPath) {
 
 async function processImage(r2Key) {
   const signedUrl = await getSignedReadUrl(r2Key, 300)
-  const res = await fetch(signedUrl)
+  const res = await fetchWithTimeout(signedUrl)
   if (!res.ok) throw new Error(`Failed to download image: ${res.status}`)
   const buffer = Buffer.from(await res.arrayBuffer())
 
@@ -99,7 +107,7 @@ async function processVideo(r2Key) {
 
   try {
     const signedUrl = await getSignedReadUrl(r2Key, 600)
-    const res = await fetch(signedUrl)
+    const res = await fetchWithTimeout(signedUrl)
     if (!res.ok) throw new Error(`Failed to download video: ${res.status}`)
     await pipeline(res.body, fs.createWriteStream(videoPath))
 
@@ -250,7 +258,7 @@ async function extractMetadata(r2Key, contentType, opts = {}) {
   if (mime.startsWith('image/')) {
     if (opts.buffer) return extractImageMetadata(opts.buffer)
     const signedUrl = await getSignedReadUrl(r2Key, 300)
-    const res = await fetch(signedUrl)
+    const res = await fetchWithTimeout(signedUrl)
     if (!res.ok) return null
     return extractImageMetadata(Buffer.from(await res.arrayBuffer()))
   }
@@ -265,7 +273,7 @@ async function extractMetadata(r2Key, contentType, opts = {}) {
     const videoPath = path.join(tmpDir, `input.${ext}`)
     try {
       const signedUrl = await getSignedReadUrl(r2Key, 600)
-      const res = await fetch(signedUrl)
+      const res = await fetchWithTimeout(signedUrl)
       if (!res.ok) return null
       await pipeline(res.body, fs.createWriteStream(videoPath))
       return await extractVideoMetadata(videoPath)

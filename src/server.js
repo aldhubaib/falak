@@ -35,7 +35,7 @@ app.use(pinoHttp({ logger, autoLogging: true }))
 app.use(helmet({ contentSecurityPolicy: false })) // CSP off — single HTML app
 app.use(compression())
 app.use(cookieParser())
-app.use(express.json())
+app.use(express.json({ limit: '2mb' }))
 // CORS: allow exact APP_URL; also allow request origin if same host (e.g. Railway URL with/without www)
 app.use(cors({
   origin: (origin, cb) => {
@@ -209,28 +209,43 @@ async function migrateChannelTypes() {
 async function migrateVideoTypes() {
   try {
     const { isYouTubeShort } = require('./services/youtube')
-    // Get all videos classified as 'video' that are ≤ 3 min (candidates for shorts)
-    const videos = await db.video.findMany({
-      where: { videoType: 'video', duration: { not: null } },
-      select: { id: true, youtubeId: true, duration: true },
-    })
-    const candidates = videos.filter(v => {
-      const m = v.duration?.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
-      if (!m) return false
-      const secs = (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0)
-      return secs <= 180
-    })
-    if (candidates.length === 0) return
-    logger.info(`[migrate] Checking ${candidates.length} video(s) for Short classification...`)
-    let fixed = 0
-    for (const v of candidates) {
-      const short = await isYouTubeShort(v.youtubeId)
-      if (short) {
-        await db.video.update({ where: { id: v.id }, data: { videoType: 'short' } })
-        fixed++
+    const BATCH_SIZE = 100
+    let offset = 0
+    let totalFixed = 0
+
+    while (true) {
+      const videos = await db.video.findMany({
+        where: { videoType: 'video', duration: { not: null } },
+        select: { id: true, youtubeId: true, duration: true },
+        take: BATCH_SIZE,
+        skip: offset,
+        orderBy: { id: 'asc' },
+      })
+      if (videos.length === 0) break
+      offset += videos.length
+
+      const candidates = videos.filter(v => {
+        const m = v.duration?.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+        if (!m) return false
+        const secs = (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0)
+        return secs <= 180
+      })
+      if (candidates.length === 0) continue
+
+      logger.info(`[migrate] Checking batch of ${candidates.length} video(s) for Short classification...`)
+      for (const v of candidates) {
+        try {
+          const short = await isYouTubeShort(v.youtubeId)
+          if (short) {
+            await db.video.update({ where: { id: v.id }, data: { videoType: 'short' } })
+            totalFixed++
+          }
+        } catch (_) {}
       }
+
+      if (videos.length < BATCH_SIZE) break
     }
-    if (fixed > 0) logger.info(`[migrate] Re-classified ${fixed} video(s) as 'short' via YouTube URL check`)
+    if (totalFixed > 0) logger.info(`[migrate] Re-classified ${totalFixed} video(s) as 'short' via YouTube URL check`)
   } catch (e) {
     logger.warn('[migrate] Video type migration failed:', e.message)
   }

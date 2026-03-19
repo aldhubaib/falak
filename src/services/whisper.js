@@ -16,6 +16,8 @@ const execFileAsync = promisify(execFile)
 
 const OPENAI_WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions'
 const MAX_WHISPER_BYTES = 24 * 1024 * 1024 // 24 MB safety margin under 25 MB limit
+const R2_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000
+const WHISPER_TIMEOUT_MS = 5 * 60 * 1000
 
 async function transcribeFromR2(r2Key, channelId) {
   if (!r2Key) throw new Error('No video file to transcribe')
@@ -36,7 +38,14 @@ async function transcribeFromR2(r2Key, channelId) {
   try {
     const signedUrl = await getSignedReadUrl(r2Key, 600)
 
-    const videoRes = await fetch(signedUrl)
+    const dlController = new AbortController()
+    const dlTimer = setTimeout(() => dlController.abort(), R2_DOWNLOAD_TIMEOUT_MS)
+    let videoRes
+    try {
+      videoRes = await fetch(signedUrl, { signal: dlController.signal })
+    } finally {
+      clearTimeout(dlTimer)
+    }
     if (!videoRes.ok) throw new Error(`Failed to download video from R2: ${videoRes.status}`)
     await pipeline(videoRes.body, fs.createWriteStream(videoPath))
 
@@ -99,11 +108,19 @@ async function callWhisper(apiKey, filePath, channelId) {
   form.append('response_format', 'verbose_json')
   form.append('timestamp_granularities[]', 'segment')
 
-  const res = await fetch(OPENAI_WHISPER_URL, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, ...form.getHeaders() },
-    body: form,
-  })
+  const whisperController = new AbortController()
+  const whisperTimer = setTimeout(() => whisperController.abort(), WHISPER_TIMEOUT_MS)
+  let res
+  try {
+    res = await fetch(OPENAI_WHISPER_URL, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, ...form.getHeaders() },
+      body: form,
+      signal: whisperController.signal,
+    })
+  } finally {
+    clearTimeout(whisperTimer)
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')

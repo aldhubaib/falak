@@ -244,6 +244,7 @@ router.get('/:channelId/albums', async (req, res) => {
         _count: { select: { media: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     })
     const signedAlbums = await Promise.all(albums.map(async (album) => {
       const obj = typeof album.toJSON === 'function' ? album.toJSON() : { ...album }
@@ -292,6 +293,7 @@ router.get('/:channelId/albums/:albumId', async (req, res) => {
             uploadedBy: { select: { id: true, name: true, email: true } },
           },
           orderBy: { createdAt: 'desc' },
+          take: 500,
         },
         _count: { select: { media: true } },
       },

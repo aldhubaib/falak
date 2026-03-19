@@ -163,13 +163,16 @@ async function fetchDatasetPage(datasetId, token, offset, pageSize) {
  * Fetch ALL items from an Apify dataset, paginating in chunks of PAGE_SIZE.
  * If maxItems is provided and > 0, cap total items fetched.
  */
+const HARD_CAP = 50_000
+
 async function fetchDatasetItemsByDatasetId(datasetId, token, maxItems = 0, defaultLanguage = 'en') {
+  const effectiveMax = maxItems > 0 ? Math.min(maxItems, HARD_CAP) : HARD_CAP
   const allItems = []
   let offset = 0
 
   while (true) {
-    const remaining = maxItems > 0 ? maxItems - allItems.length : PAGE_SIZE
-    const pageSize = maxItems > 0 ? Math.min(PAGE_SIZE, remaining) : PAGE_SIZE
+    const remaining = effectiveMax - allItems.length
+    const pageSize = Math.min(PAGE_SIZE, remaining)
     if (pageSize <= 0) break
 
     const page = await fetchDatasetPage(datasetId, token, offset, pageSize)
@@ -177,7 +180,7 @@ async function fetchDatasetItemsByDatasetId(datasetId, token, maxItems = 0, defa
     offset += page.length
 
     if (page.length < pageSize) break
-    if (maxItems > 0 && allItems.length >= maxItems) break
+    if (allItems.length >= effectiveMax) break
   }
 
   const articles = allItems

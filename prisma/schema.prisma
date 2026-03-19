@@ -45,6 +45,7 @@ model Channel {
   updatedAt       DateTime  @updatedAt
 
   @@index([parentChannelId])
+  @@index([type, status, parentChannelId])
 }
 
 model ChannelSnapshot {

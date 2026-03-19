@@ -36,9 +36,14 @@ async function rescoreActiveStories(channelId) {
     select: { id: true },
   })
   const channelAvgMap = new Map()
-  for (const ch of competitorChannels) {
-    const stats = await getChannelStats(ch.id)
-    channelAvgMap.set(ch.id, stats.avgViews || 1)
+  const CONCURRENCY = 5
+  for (let i = 0; i < competitorChannels.length; i += CONCURRENCY) {
+    const batch = competitorChannels.slice(i, i + CONCURRENCY)
+    const results = await Promise.allSettled(batch.map(ch => getChannelStats(ch.id)))
+    for (let j = 0; j < batch.length; j++) {
+      const r = results[j]
+      channelAvgMap.set(batch[j].id, r.status === 'fulfilled' ? (r.value.avgViews || 1) : 1)
+    }
   }
 
   let evaluated = 0

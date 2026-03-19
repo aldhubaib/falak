@@ -613,7 +613,7 @@ router.get('/:id', async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' } } }
+      include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' }, take: 50 } }
     })
     res.json(story)
   } catch (e) {
@@ -829,7 +829,7 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
     // Return story with log so Edit History shows who changed status
     const withLog = await db.story.findUnique({
       where: { id: story.id },
-      include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' } } }
+      include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' }, take: 50 } }
     })
     res.json(withLog || story)
   } catch (e) {

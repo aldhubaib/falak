@@ -1516,4 +1516,44 @@ Changes applied in the infrastructure audit iteration:
 
 ---
 
+## Section 12 — Scalability & Performance Hardening (2026-03-20, Iteration 2)
+
+Changes applied in the second infrastructure audit iteration:
+
+### Critical Fixes
+- **migrateVideoTypes() unbounded N+1** — `src/server.js` startup migration loaded ALL videos with `videoType='video'` then made one HTTP call per candidate. Now batches in chunks of 100 with `take/skip` pagination and per-item error isolation.
+- **express.json body size** — Added `{ limit: '2mb' }` to prevent DoS via oversized request bodies.
+- **Apify dataset hard cap** — `src/services/apify.js` `fetchDatasetItemsByDatasetId` had no upper limit when `maxItems=0`. Added a 50,000-item hard cap to prevent unbounded fetching.
+- **Fetch timeouts on transcript.js** — Added `AbortController` timeout (30s) to `youtube-transcript.io` API calls.
+- **Fetch timeouts on whisper.js** — Added timeouts: 5 min for R2 video download, 5 min for Whisper API call.
+- **Fetch timeouts on media.js** — Added `fetchWithTimeout` (120s) to all R2 signed URL fetch calls across image/video thumbnail generation, processing, and metadata extraction.
+
+### Query Bounding (LIMIT/take)
+- **brain.js** — `competitorVideos` and `ourVideos` queries now capped at `take: 2000`.
+- **analytics.js** — Video fetch now capped at `take: 50000`.
+- **channels.js importVideosForChannel** — New videos query capped at `take: 500`.
+- **pipeline.js retry-all-failed** — Failed items query capped at `take: 500`.
+- **misc.js retranscribe-all** — Capped at `take: 1000`.
+- **gallery.js albums** — Albums list capped at `take: 200`; album detail media capped at `take: 500`.
+- **stories.js** — Story detail and PATCH log includes capped at `take: 50`.
+
+### N+1 Query Elimination
+- **channels.js analyze-all** — Replaced per-video `findFirst` + `create` loop with batch `findMany` to get existing pipeline items, then `$transaction` batch creates.
+- **channels.js importVideosForChannel** — Replaced per-video `pipelineItem.create` loop with batched `$transaction` in groups of 25.
+- **articleSources.js GET /** — Replaced per-source `article.groupBy` N+1 with a single `groupBy` using `sourceId IN (...)`.
+- **articlePipeline.js getSourcesView** — Same fix: replaced per-source `groupBy` loop with a single batched `groupBy` query.
+- **rescorer.js** — Replaced sequential `getChannelStats` calls with `Promise.allSettled` batches (concurrency 5).
+
+### Memory & Cache
+- **cache.js LRU** — `get()` now moves accessed entries to end of Map, making eviction truly LRU instead of FIFO.
+- **_testRuns cap** — `articlePipeline.js` test-run Map now has a `MAX_TEST_RUNS = 50` limit with oldest-eviction.
+
+### Database Indexes
+- `Channel(type, status, parentChannelId)` — Composite index for the common "ours + active + parent=null" channel queries.
+
+### Frontend
+- **QueryClient staleTime** — Set `defaultOptions.queries.staleTime: 60_000`, `retry: 1`, `refetchOnWindowFocus: false` to reduce redundant API calls across all pages.
+
+---
+
 *Last updated: 2026-03-20*

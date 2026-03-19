@@ -29,7 +29,15 @@ const Gallery = lazy(() => import("./pages/Gallery"));
 const AlbumDetail = lazy(() => import("./pages/AlbumDetail"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 class AppErrorBoundary extends Component<
   { children: ReactNode },

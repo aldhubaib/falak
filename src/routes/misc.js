@@ -111,6 +111,7 @@ admin.post('/retranscribe-all', async (req, res) => {
         transcription: true,
         pipelineItem: { select: { id: true, stage: true } },
       },
+      take: 1000,
     })
 
     // A transcription is "already migrated" if it's valid JSON containing an array.

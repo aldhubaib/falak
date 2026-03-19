@@ -40,6 +40,7 @@ router.get('/', async (req, res) => {
         },
       },
       orderBy: { publishedAt: 'desc' },
+      take: 2000,
     })
 
     // ── 2. Load all done "ours" videos with analysis ──────────────────────────
@@ -65,6 +66,7 @@ router.get('/', async (req, res) => {
         },
       },
       orderBy: { publishedAt: 'desc' },
+      take: 2000,
     })
 
     // ── 3. Build competitor story map: topic → list of competitor videos ──────

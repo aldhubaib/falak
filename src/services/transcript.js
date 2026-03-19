@@ -7,6 +7,7 @@ const { trackUsage } = require('./usageTracker')
 const YT_TRANSCRIPT_IO_URL = 'https://www.youtube-transcript.io/api/transcripts'
 const MAX_RETRIES = 4
 const RETRY_DELAY_MS = 2000
+const FETCH_TIMEOUT_MS = 30_000
 
 /**
  * Fetch transcript via youtube-transcript.io only.
@@ -65,14 +66,22 @@ function sleep(ms) {
  */
 async function fetchFromYoutubeTranscriptIo(videoId, apiToken) {
   const auth = 'Basic ' + apiToken
-  const res = await fetch(YT_TRANSCRIPT_IO_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': auth,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ ids: [videoId] })
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  let res
+  try {
+    res = await fetch(YT_TRANSCRIPT_IO_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': auth,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ ids: [videoId] }),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timer)
+  }
   if (!res.ok) {
     const retryAfter = res.headers.get('Retry-After')
     const retryAfterMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : null
