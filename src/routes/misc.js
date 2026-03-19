@@ -165,7 +165,23 @@ profiles.post('/', requireRole('owner', 'admin'), async (req, res) => {
     const ytData = await fetchChannel(handle)
 
     const exists = await db.channel.findUnique({ where: { youtubeId: ytData.youtubeId } })
-    if (exists) return res.status(409).json({ error: 'This channel already exists as a profile' })
+    if (exists) {
+      if (exists.type === 'ours' && !exists.parentChannelId) {
+        return res.status(409).json({ error: 'This channel is already a profile' })
+      }
+      const promoted = await db.channel.update({
+        where: { id: exists.id },
+        data: {
+          ...ytData,
+          type: 'ours',
+          parentChannelId: null,
+          color: color || exists.color || '#3b82f6',
+          status: 'active',
+          lastFetchedAt: new Date(),
+        }
+      })
+      return res.json(promoted)
+    }
 
     const channel = await db.channel.create({
       data: {
