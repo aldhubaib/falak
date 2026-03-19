@@ -109,10 +109,6 @@ app.get('/api/public/thumbnails', async (req, res) => {
   }
 })
 
-// ── Central error handler (must be after routes) ─────────────
-const { errorHandler } = require('./middleware/errors')
-app.use(errorHandler)
-
 // ── Health check (DB probe; optional Redis when queue enabled) ─
 app.get('/health', async (req, res) => {
   try {
@@ -163,6 +159,10 @@ app.get('*', (req, res, next) => {
 })
 // Explicit 404 for any request that didn't get a response (e.g. missing asset)
 app.use((req, res) => { res.status(404).json({ error: 'Not found' }) })
+
+// Central error handler — after all routes including static/catch-all
+const { errorHandler } = require('./middleware/errors')
+app.use(errorHandler)
 
 // ── Seed API keys from env (e.g. ANTHROPIC_API_KEY on Railway) ──
 async function seedApiKeys() {
@@ -275,11 +275,39 @@ async function main() {
   })
 
   process.on('uncaughtException', (err) => {
-    logger.error(err, '[fatal] Uncaught exception')
+    logger.error(err, '[fatal] Uncaught exception — shutting down')
+    gracefulShutdown(server, 1)
   })
   process.on('unhandledRejection', (reason) => {
     logger.error({ reason }, '[fatal] Unhandled rejection')
   })
+
+  const SHUTDOWN_TIMEOUT_MS = 15_000
+  let shuttingDown = false
+  function gracefulShutdown(srv, exitCode = 0) {
+    if (shuttingDown) return
+    shuttingDown = true
+    logger.info('[shutdown] Closing HTTP server...')
+    srv.close(() => {
+      logger.info('[shutdown] HTTP server closed')
+      const q = (() => { try { return require('./queue/pipeline').getQueue() } catch { return null } })()
+      const closeQueue = q ? q.close() : Promise.resolve()
+      closeQueue
+        .then(() => db.$disconnect())
+        .then(() => {
+          logger.info('[shutdown] Cleanup complete')
+          process.exit(exitCode)
+        })
+        .catch(() => process.exit(exitCode))
+    })
+    setTimeout(() => {
+      logger.warn('[shutdown] Forced exit after timeout')
+      process.exit(exitCode)
+    }, SHUTDOWN_TIMEOUT_MS).unref()
+  }
+
+  process.on('SIGTERM', () => { logger.info('[shutdown] SIGTERM received'); gracefulShutdown(server, 0) })
+  process.on('SIGINT', () => { logger.info('[shutdown] SIGINT received'); gracefulShutdown(server, 0) })
 
   server.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Falak running (HTTP + WebSocket collab)')

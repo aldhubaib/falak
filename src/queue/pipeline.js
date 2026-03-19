@@ -15,6 +15,8 @@ const {
 const QUEUE_NAME = 'falak-pipeline'
 const MAX_RETRIES = 3
 
+const logger = require('../lib/logger')
+
 let queue = null
 if (config.REDIS_URL) {
   queue = new Queue(QUEUE_NAME, config.REDIS_URL, {
@@ -23,6 +25,12 @@ if (config.REDIS_URL) {
       removeOnFail: 500,
       attempts: 1,
     },
+  })
+  queue.on('error', (err) => {
+    logger.error({ err: err.message }, '[bull] queue error')
+  })
+  queue.on('failed', (job, err) => {
+    logger.warn({ jobId: job?.id, err: err.message }, '[bull] job failed')
   })
 }
 
@@ -46,16 +54,16 @@ async function processJob(job) {
     include: {
       video: {
         include: {
-          channel: { include: { project: true } },
+          channel: true,
         },
       },
     },
   })
-  if (!item?.video?.channel?.project) {
+  if (!item?.video?.channel) {
     return
   }
-  const project = item.video.channel.project
-  if (project.status === 'paused') {
+  const channel = item.video.channel
+  if (channel.status === 'paused') {
     return
   }
 
@@ -68,16 +76,16 @@ async function processJob(job) {
     let out
     switch (stage) {
       case 'import':
-        out = await doStageImport(item, item.video, project)
+        out = await doStageImport(item, item.video, channel)
         break
       case 'transcribe':
-        out = await doStageTranscribe(item, item.video, project)
+        out = await doStageTranscribe(item, item.video, channel)
         break
       case 'comments':
-        out = await doStageComments(item, item.video, project)
+        out = await doStageComments(item, item.video, channel)
         break
       case 'analyzing':
-        out = await doStageAnalyzing(item, item.video, project)
+        out = await doStageAnalyzing(item, item.video, channel)
         break
       default:
         return

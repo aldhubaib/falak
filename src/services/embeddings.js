@@ -26,14 +26,22 @@ async function generateEmbedding(text, channelId) {
   const apiKey = decrypt(keyRow.encryptedKey)
   const input = text.slice(0, 8000)
 
-  const res = await fetch(OPENAI_EMBEDDING_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model: DEFAULT_MODEL, input, dimensions: DIMENSIONS }),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30_000)
+  let res
+  try {
+    res = await fetch(OPENAI_EMBEDDING_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model: DEFAULT_MODEL, input, dimensions: DIMENSIONS }),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -77,14 +85,19 @@ function buildEmbeddingText(data) {
  * Store an embedding vector for a Video record using raw SQL (Prisma can't handle vector type).
  */
 async function storeVideoEmbedding(videoId, embedding) {
+  if (!embedding || !Array.isArray(embedding)) {
+    logger.warn({ videoId }, 'storeVideoEmbedding called with invalid embedding')
+    return
+  }
   const vecStr = `[${embedding.join(',')}]`
   await db.$executeRaw`UPDATE "Video" SET embedding = ${vecStr}::vector WHERE id = ${videoId}`
 }
 
-/**
- * Store an embedding vector for a Story record.
- */
 async function storeStoryEmbedding(storyId, embedding) {
+  if (!embedding || !Array.isArray(embedding)) {
+    logger.warn({ storyId }, 'storeStoryEmbedding called with invalid embedding')
+    return
+  }
   const vecStr = `[${embedding.join(',')}]`
   await db.$executeRaw`UPDATE "Story" SET embedding = ${vecStr}::vector WHERE id = ${storyId}`
 }
@@ -127,7 +140,7 @@ async function findSimilarOwnStories(embedding, channelId, excludeStoryId, limit
     WHERE s."channelId" = ${channelId}
       AND s.stage = 'done'
       AND s.embedding IS NOT NULL
-      AND s.id != ${excludeStoryId || ''}
+      AND (${excludeStoryId}::text IS NULL OR s.id != ${excludeStoryId})
     ORDER BY s.embedding <=> ${vecStr}::vector
     LIMIT ${limit}
   `

@@ -24,17 +24,20 @@ export function AppLayout() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => {
-        if (r.status === 401) {
+        if (!cancelled && r.status === 401) {
           const returnTo = encodeURIComponent(location.pathname + location.search);
           navigate(returnTo ? `/login?returnTo=${returnTo}` : "/login", { replace: true });
         }
       })
       .catch(() => {
+        if (cancelled) return;
         const returnTo = encodeURIComponent(location.pathname + location.search);
         navigate(returnTo ? `/login?returnTo=${returnTo}` : "/login", { replace: true });
       });
+    return () => { cancelled = true; };
   }, [navigate, location.pathname, location.search]);
 
   useEffect(() => {

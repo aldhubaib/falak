@@ -157,7 +157,7 @@ async function learnFromOutcomes(channelId) {
 
   // Compute channel baseline from own videos
   const ownVideos = await db.video.findMany({
-    where: { channel: { id: channelId }, viewCount: { gt: 0 } },
+    where: { channelId, viewCount: { gt: 0 } },
     select: { viewCount: true },
     orderBy: { viewCount: 'asc' },
   })

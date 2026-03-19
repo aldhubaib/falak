@@ -1,8 +1,13 @@
 const crypto = require('crypto')
 const config = require('../config')
 
+const logger = require('../lib/logger')
 const ALGORITHM = 'aes-256-gcm'
-const KEY = Buffer.from(config.ENCRYPTION_KEY || 'fallback_key_replace_in_production!', 'utf8').slice(0, 32)
+
+if (!config.ENCRYPTION_KEY) {
+  logger.warn('[crypto] ENCRYPTION_KEY is not set — using insecure fallback. Set ENCRYPTION_KEY in production!')
+}
+const KEY = Buffer.from(config.ENCRYPTION_KEY || 'dev_only_insecure_fallback_key!!', 'utf8').slice(0, 32)
 
 function encrypt(text) {
   const iv = crypto.randomBytes(16)
@@ -14,6 +19,9 @@ function encrypt(text) {
 }
 
 function decrypt(payload) {
+  if (!payload || typeof payload !== 'string' || payload.split(':').length !== 3) {
+    throw new Error('Invalid encrypted payload format')
+  }
   const [ivHex, tagHex, encrypted] = payload.split(':')
   const iv = Buffer.from(ivHex, 'hex')
   const tag = Buffer.from(tagHex, 'hex')

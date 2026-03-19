@@ -4,6 +4,13 @@ const { decrypt } = require('./crypto')
 
 const APIFY_API_BASE = 'https://api.apify.com/v2'
 const PAGE_SIZE = 1000
+const FETCH_TIMEOUT_MS = 60_000
+
+function fetchWithTimeout(url, opts = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
 
 function getApifyToken(source) {
   const encrypted = source?.apiKeyEncrypted
@@ -78,7 +85,7 @@ async function listSuccessfulRuns(actorId, token, limit = 10) {
   const normalizedActorId = normalizeActorId(actorId)
   if (!normalizedActorId) return []
   const url = buildActorRunsListUrl(normalizedActorId, token, limit)
-  const response = await fetch(url, { headers: { Accept: 'application/json' } })
+  const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } })
   if (!response.ok) return []
   const payload = await response.json()
   const items = payload?.data?.items || []
@@ -96,7 +103,7 @@ async function fetchLatestSuccessfulRun(actorId, token) {
   if (!normalizedActorId) {
     throw new Error('Apify source is missing actorId')
   }
-  const response = await fetch(buildLatestRunUrl(normalizedActorId, token), { headers: { Accept: 'application/json' } })
+  const response = await fetchWithTimeout(buildLatestRunUrl(normalizedActorId, token), { headers: { Accept: 'application/json' } })
   if (!response.ok) {
     const body = await response.text()
     throw new Error(`Apify latest run request failed (${response.status}): ${body.slice(0, 300)}`)
@@ -142,7 +149,7 @@ function buildDatasetItemsUrl(datasetId, token, { limit = PAGE_SIZE, offset = 0 
 
 async function fetchDatasetPage(datasetId, token, offset, pageSize) {
   const url = buildDatasetItemsUrl(datasetId, token, { limit: pageSize, offset })
-  const response = await fetch(url, { headers: { Accept: 'application/json' } })
+  const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } })
   if (!response.ok) {
     const body = await response.text()
     throw new Error(`Apify request failed (${response.status}): ${body.slice(0, 300)}`)

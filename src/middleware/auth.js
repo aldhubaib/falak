@@ -13,7 +13,7 @@ async function requireAuth(req, res, next) {
     const cached = sessionCache.get(token)
     if (cached) {
       if (cached.expiresAt < new Date()) {
-        sessionCache.flush()
+        sessionCache.set(token, null)
         return res.status(401).json({ error: 'Session expired' })
       }
       if (!cached.user.isActive) {

@@ -277,7 +277,11 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
   try {
     const { type, startHook, endHook, nationality } = req.body
     const data = {}
-    if (type !== undefined) data.type = type
+    const VALID_TYPES = ['ours', 'competitor']
+    if (type !== undefined) {
+      if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: `type must be one of: ${VALID_TYPES.join(', ')}` })
+      data.type = type
+    }
     if (startHook !== undefined) data.startHook = startHook === '' ? null : startHook
     if (endHook !== undefined) data.endHook = endHook === '' ? null : endHook
     if (nationality !== undefined) data.nationality = nationality === '' ? null : nationality

@@ -4,6 +4,13 @@ const { decrypt } = require('./crypto')
 const { trackUsage } = require('./usageTracker')
 
 const BASE = 'https://www.googleapis.com/youtube/v3'
+const FETCH_TIMEOUT_MS = 30_000
+
+function fetchWithTimeout(url, opts = {}) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs || FETCH_TIMEOUT_MS)
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
 
 // Parse ISO 8601 duration (e.g. "PT1M30S") → total seconds
 function parseDurationSecs(iso) {
@@ -17,10 +24,11 @@ function parseDurationSecs(iso) {
 // YouTube returns 200 for shorts, 303/redirect for regular videos
 async function isYouTubeShort(youtubeId) {
   try {
-    const res = await fetch(`https://www.youtube.com/shorts/${youtubeId}`, {
+    const res = await fetchWithTimeout(`https://www.youtube.com/shorts/${youtubeId}`, {
       method: 'HEAD',
-      redirect: 'manual', // don't follow redirects
+      redirect: 'manual',
       headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeoutMs: 10_000,
     })
     // Shorts return 200; regular videos get redirected (301/303) away from /shorts/
     return res.status === 200
@@ -62,7 +70,7 @@ async function ytFetch(endpoint, params, channelId) {
   url.searchParams.set('key', key)
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
-  const res = await fetch(url.toString())
+  const res = await fetchWithTimeout(url.toString())
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     const msg = err?.error?.message || String(res.status)

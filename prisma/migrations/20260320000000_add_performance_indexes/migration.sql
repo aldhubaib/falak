@@ -16,3 +16,10 @@ CREATE INDEX IF NOT EXISTS "Video_embedding_hnsw_idx"
 CREATE INDEX IF NOT EXISTS "Story_embedding_hnsw_idx"
   ON "Story" USING hnsw (embedding vector_cosine_ops)
   WITH (m = 16, ef_construction = 64);
+
+-- Session indexes for auth lookups and cleanup
+CREATE INDEX IF NOT EXISTS "Session_userId_idx" ON "Session"("userId");
+CREATE INDEX IF NOT EXISTS "Session_expiresAt_idx" ON "Session"("expiresAt");
+
+-- Article.storyId for join queries
+CREATE INDEX IF NOT EXISTS "Article_storyId_idx" ON "Article"("storyId");

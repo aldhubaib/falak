@@ -1481,4 +1481,39 @@ There is **one environment** — production on Railway. Local development uses
 
 ---
 
+## Section 11 — Infrastructure Hardening (2026-03-20)
+
+Changes applied in the infrastructure audit iteration:
+
+### Critical Fixes
+- **Bull queue broken** — `src/queue/pipeline.js` referenced a removed `Project` model. Fixed to use `Channel` directly.
+- **Insecure crypto fallback** — `src/services/crypto.js` used a known fallback key when `ENCRYPTION_KEY` was unset. Now logs a loud warning; `decrypt()` validates payload format.
+- **Graceful shutdown** — `src/server.js` now handles `SIGTERM`/`SIGINT`, drains HTTP connections, closes Bull queue, disconnects Prisma, with a 15s forced-exit timeout.
+- **Fatal error handling** — `uncaughtException` now triggers graceful shutdown instead of leaving the process in a corrupted state.
+- **Session cache invalidation** — `sessionCache.flush()` on one expired token no longer invalidates all cached sessions; only the expired token is evicted.
+
+### Security Fixes
+- **Analytics flush-cache** — Now requires `owner` or `admin` role (was open to any authenticated user).
+- **Brain re-extract** — Now requires `owner` or `admin` role.
+- **Channel type validation** — `PATCH /api/channels/:id` now validates `type` against `['ours', 'competitor']`.
+- **Crypto decrypt** — Validates payload format before attempting decryption.
+
+### Reliability Fixes
+- **Fetch timeouts** — YouTube, Apify, and OpenAI embedding API calls now have `AbortController` timeouts (10–60s).
+- **Bull error handlers** — Added `queue.on('error')` and `queue.on('failed')` handlers to prevent unhandled rejections.
+- **scoreLearner.js** — Fixed wrong Prisma `where` clause (`channel: { id }` → `channelId`).
+- **embeddings.js** — Added null checks on `storeVideoEmbedding`/`storeStoryEmbedding`; fixed `excludeStoryId || ''` to proper SQL NULL handling.
+- **Error handler ordering** — Moved Express error handler after static/catch-all routes so SPA errors are properly formatted.
+- **Analytics route** — Added try/catch wrapper to prevent unhandled promise rejections.
+
+### Database Indexes
+- `Session.userId`, `Session.expiresAt` — For session cleanup queries.
+- `Article.storyId` — For article-to-story join queries.
+
+### Frontend Fixes
+- **useCurrentUser** — Added `cancelledRef` to prevent `setState` after unmount.
+- **AppLayout** — Added `cancelled` flag to auth check fetch to prevent navigation after unmount.
+
+---
+
 *Last updated: 2026-03-20*

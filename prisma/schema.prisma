@@ -277,6 +277,8 @@ model Session {
   createdAt DateTime @default(now())
 
   @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ─────────────────────────────────────────────
@@ -406,6 +408,7 @@ model Article {
   @@index([sourceId, stage])
   @@index([channelId, stage])
   @@index([stage, status])
+  @@index([storyId])
 }
 
 // ─────────────────────────────────────────────

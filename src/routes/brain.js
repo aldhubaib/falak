@@ -1,6 +1,6 @@
 const express = require('express')
 const db = require('../lib/db')
-const { requireAuth } = require('../middleware/auth')
+const { requireAuth, requireRole } = require('../middleware/auth')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -297,7 +297,7 @@ router.get('/', async (req, res) => {
 })
 
 // ── POST /api/brain/re-extract?channelId=xxx
-router.post('/re-extract', async (req, res) => {
+router.post('/re-extract', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { channelId } = req.query
     if (!channelId) return res.status(400).json({ error: 'channelId required' })

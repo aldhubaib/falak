@@ -31,15 +31,19 @@ function fetchCurrentUser(): Promise<CurrentUser | null> {
 export function useCurrentUser(): CurrentUser | null {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const lastFetchRef = useRef(0);
+  const cancelledRef = useRef(false);
 
   const refetch = useCallback(() => {
     const now = Date.now();
     if (now - lastFetchRef.current < DEDUP_WINDOW_MS) return;
     lastFetchRef.current = now;
-    fetchCurrentUser().then((data) => setUser(data));
+    fetchCurrentUser().then((data) => {
+      if (!cancelledRef.current) setUser(data);
+    });
   }, []);
 
   useEffect(() => {
+    cancelledRef.current = false;
     refetch();
     const afterLogin = setTimeout(refetch, 1500);
     const interval = setInterval(refetch, AUTH_ME_REFRESH_INTERVAL_MS);
@@ -50,6 +54,7 @@ export function useCurrentUser(): CurrentUser | null {
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
+      cancelledRef.current = true;
       clearTimeout(afterLogin);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
