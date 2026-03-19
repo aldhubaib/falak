@@ -290,6 +290,30 @@ const SENTIMENT_COLORS: Record<string, string> = {
   positive: "text-success", negative: "text-destructive", neutral: "text-dim",
 };
 
+/** Log step id → display label (matches Kanban column titles exactly). */
+const LOG_STEP_LABELS: Record<string, string> = {
+  imported: "Imported",
+  apify_content: "Apify Content",
+  firecrawl: "Firecrawl",
+  html_fetch: "HTML Fetch",
+  content_source: "Content Source",
+  title_desc: "Title+Desc",
+  classify: "Classified",
+  research_decision: "Decision",
+  firecrawl_search: "Web Search",
+  perplexity_context: "Background",
+  synthesis: "Synthesis",
+  research: "Research Complete",
+  detect_language: "Language",
+  translate_content: "Translate Content",
+  translate_analysis: "Translate Fields",
+  translate_research: "Translate Brief",
+  score_similarity: "Competition Match",
+  score_ai_analysis: "AI Scoring",
+  score: "Final Score",
+  promote: "Story Created",
+};
+
 /* ─── Main Component ─── */
 
 export default function ArticlePipeline() {
@@ -1198,7 +1222,7 @@ function ActiveArticleRow({
               entry.status === "failed" || entry.status === "parse_error" ? "bg-destructive/10 text-destructive" :
               "bg-dim/10 text-dim"
             }`}>
-              {entry.step.replace(/_/g, " ")}
+              {LOG_STEP_LABELS[entry.step] ?? entry.step.replace(/_/g, " ")}
               {entry.chars != null && ` ${entry.chars}`}
             </span>
           ))}
