@@ -155,6 +155,7 @@ interface VectorIntelligenceData {
 interface SubStep {
   id: string;
   label: string;
+  subtitle: string;
   icon: typeof FileText;
   color: string;
   parentStage: string;
@@ -164,125 +165,106 @@ interface SubStep {
 const SUB_STEPS: SubStep[] = [
   // Content sub-steps
   {
-    id: "apify_content", label: "Apify Content", icon: FileText, color: "text-orange",
-    parentStage: "content",
-    filterFn: (a) => {
-      const log = getLogStep(a, "content_source");
-      return log?.source === "apify";
-    },
+    id: "apify_content", label: "Apify Content", subtitle: "Article body from Apify actor",
+    icon: FileText, color: "text-orange", parentStage: "content",
+    filterFn: (a) => { const log = getLogStep(a, "content_source"); return log?.source === "apify"; },
   },
   {
-    id: "firecrawl", label: "Firecrawl", icon: Globe, color: "text-blue",
-    parentStage: "content",
-    filterFn: (a) => {
-      const log = getLogStep(a, "content_source");
-      return log?.source === "firecrawl_or_html" && hasLogStep(a, "firecrawl", "ok");
-    },
+    id: "firecrawl", label: "Firecrawl", subtitle: "Scraped via Firecrawl API",
+    icon: Globe, color: "text-blue", parentStage: "content",
+    filterFn: (a) => { const log = getLogStep(a, "content_source"); return log?.source === "firecrawl_or_html" && hasLogStep(a, "firecrawl", "ok"); },
   },
   {
-    id: "html_fetch", label: "HTML Fetch", icon: Globe, color: "text-purple",
-    parentStage: "content",
-    filterFn: (a) => {
-      const log = getLogStep(a, "content_source");
-      return log?.source === "firecrawl_or_html" && !hasLogStep(a, "firecrawl", "ok");
-    },
+    id: "html_fetch", label: "HTML Fetch", subtitle: "Fallback HTML fetch",
+    icon: Globe, color: "text-purple", parentStage: "content",
+    filterFn: (a) => { const log = getLogStep(a, "content_source"); return log?.source === "firecrawl_or_html" && !hasLogStep(a, "firecrawl", "ok"); },
   },
   {
-    id: "title_desc", label: "Title+Desc", icon: FileText, color: "text-dim",
-    parentStage: "content",
-    filterFn: (a) => {
-      const log = getLogStep(a, "content_source");
-      return log?.source === "title_desc_fallback";
-    },
+    id: "title_desc", label: "Title+Desc", subtitle: "Title and description only",
+    icon: FileText, color: "text-dim", parentStage: "content",
+    filterFn: (a) => { const log = getLogStep(a, "content_source"); return log?.source === "title_desc_fallback"; },
   },
-  // Classify sub-steps (runs on original language)
   {
-    id: "classify_result", label: "Classified", icon: Brain, color: "text-success",
-    parentStage: "classify",
+    id: "classify_result", label: "Classified", subtitle: "Topic, tags, region, sentiment",
+    icon: Brain, color: "text-success", parentStage: "classify",
     filterFn: (a) => hasLogStep(a, "classify"),
   },
-  // Research sub-steps (runs on original language)
   {
-    id: "research_decision", label: "Decision", icon: Target, color: "text-purple",
-    parentStage: "research",
+    id: "research_decision", label: "Decision", subtitle: "Whether research is needed",
+    icon: Target, color: "text-purple", parentStage: "research",
     filterFn: (a) => hasLogStep(a, "research_decision"),
   },
   {
-    id: "firecrawl_search", label: "Web Search", icon: Search, color: "text-blue",
-    parentStage: "research",
+    id: "firecrawl_search", label: "Web Search", subtitle: "Related articles via search",
+    icon: Search, color: "text-blue", parentStage: "research",
     filterFn: (a) => hasLogStep(a, "firecrawl_search", "ok"),
   },
   {
-    id: "perplexity_context", label: "Background", icon: Globe, color: "text-orange",
-    parentStage: "research",
+    id: "perplexity_context", label: "Background", subtitle: "Context from Perplexity",
+    icon: Globe, color: "text-orange", parentStage: "research",
     filterFn: (a) => hasLogStep(a, "perplexity_context", "ok"),
   },
   {
-    id: "synthesis", label: "Synthesis", icon: Brain, color: "text-success",
-    parentStage: "research",
+    id: "synthesis", label: "Synthesis", subtitle: "AI brief (hook, narrative, facts)",
+    icon: Brain, color: "text-success", parentStage: "research",
     filterFn: (a) => hasLogStep(a, "synthesis", "ok"),
   },
   {
-    id: "research", label: "Research Complete", icon: Search, color: "text-success",
-    parentStage: "research",
+    id: "research", label: "Research Complete", subtitle: "Research stage done",
+    icon: Search, color: "text-success", parentStage: "research",
     filterFn: (a) => hasLogStep(a, "research"),
   },
-  // Translated sub-steps (one column per process)
   {
-    id: "lang_detect", label: "Language", icon: Languages, color: "text-purple",
-    parentStage: "translated",
+    id: "lang_detect", label: "Language", subtitle: "Detect source language",
+    icon: Languages, color: "text-purple", parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "detect_language"),
   },
   {
-    id: "translate_content", label: "Translate Content", icon: Languages, color: "text-blue",
-    parentStage: "translated",
+    id: "translate_content", label: "Translate Content", subtitle: "Article text → Arabic",
+    icon: Languages, color: "text-blue", parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "translate_content"),
   },
   {
-    id: "translate_analysis", label: "Translate Fields", icon: Brain, color: "text-blue",
-    parentStage: "translated",
+    id: "translate_analysis", label: "Translate Fields", subtitle: "Classification fields → Arabic",
+    icon: Brain, color: "text-blue", parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "translate_analysis"),
   },
   {
-    id: "translate_research", label: "Translate Brief", icon: Search, color: "text-blue",
-    parentStage: "translated",
+    id: "translate_research", label: "Translate Brief", subtitle: "Research brief → Arabic",
+    icon: Search, color: "text-blue", parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "translate_research"),
   },
-  // Score & Promotion sub-steps (final stage — Arabic AI analysis)
   {
-    id: "score_similarity", label: "Competition Match", icon: Target, color: "text-purple",
-    parentStage: "score",
+    id: "score_similarity", label: "Competition Match", subtitle: "Match vs. existing stories",
+    icon: Target, color: "text-purple", parentStage: "score",
     filterFn: (a) => hasLogStep(a, "score_similarity", "ok"),
   },
   {
-    id: "score_ai_analysis", label: "AI Scoring", icon: Brain, color: "text-orange",
-    parentStage: "score",
+    id: "score_ai_analysis", label: "AI Scoring", subtitle: "Relevance & viral scores",
+    icon: Brain, color: "text-orange", parentStage: "score",
     filterFn: (a) => hasLogStep(a, "score_ai_analysis", "ok"),
   },
   {
-    id: "score", label: "Final Score", icon: Sparkles, color: "text-orange",
-    parentStage: "score",
+    id: "score", label: "Final Score", subtitle: "Composite score",
+    icon: Sparkles, color: "text-orange", parentStage: "score",
     filterFn: (a) => hasLogStep(a, "score"),
   },
   {
-    id: "promote", label: "Story Created", icon: CheckCircle2, color: "text-success",
-    parentStage: "score",
-    filterFn: (a) => {
-      const log = getLogStep(a, "promote");
-      return log?.status === "created";
-    },
+    id: "promote", label: "Story Created", subtitle: "Create or link story",
+    icon: CheckCircle2, color: "text-success", parentStage: "score",
+    filterFn: (a) => { const log = getLogStep(a, "promote"); return log?.status === "created"; },
   },
 ];
 
 const STAGE_DEFS = [
-  { id: "imported", label: "Imported", color: "text-orange", number: 1 },
-  { id: "content", label: "Content", color: "text-blue", number: 2 },
-  { id: "classify", label: "Classify", color: "text-success", number: 3 },
-  { id: "research", label: "Research", color: "text-purple", number: 4 },
-  { id: "translated", label: "Translated", color: "text-blue", number: 5 },
-  { id: "score", label: "Score", color: "text-orange", number: 6 },
-  { id: "review", label: "Review", color: "text-orange", number: 0 },
-  { id: "failed", label: "Failed", color: "text-destructive", number: 0 },
+  { id: "imported", label: "Imported", subtitle: "Queued for ingestion", color: "text-orange", number: 1 },
+  { id: "content", label: "Content", subtitle: "Fetching or processing content", color: "text-blue", number: 2 },
+  { id: "classify", label: "Classify", subtitle: "Running classification", color: "text-success", number: 3 },
+  { id: "research", label: "Research", subtitle: "Gathering context", color: "text-purple", number: 4 },
+  { id: "translated", label: "Translated", subtitle: "Translating to Arabic", color: "text-blue", number: 5 },
+  { id: "score", label: "Score", subtitle: "Scoring & promotion", color: "text-orange", number: 6 },
+  { id: "review", label: "Review", subtitle: "Needs manual review", color: "text-orange", number: 0 },
+  { id: "failed", label: "Failed", subtitle: "Errors after retries", color: "text-destructive", number: 0 },
 ];
 
 function getLog(a: ApiArticle): LogEntry[] {
@@ -786,12 +768,15 @@ function SubStepColumn({
   const Icon = sub.icon;
   return (
     <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
-      <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border">
+      <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border space-y-1">
         <div className="flex items-center gap-2">
           <Icon className={`w-3.5 h-3.5 ${sub.color}`} />
           <span className="text-[12px] font-semibold">{sub.label}</span>
           <span className="text-[11px] text-dim font-mono">({articles.length})</span>
         </div>
+        {sub.subtitle && (
+          <div className="text-[10px] text-dim font-mono leading-tight pl-5.5">{sub.subtitle}</div>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto bg-background">
         {articles.length === 0 ? (
@@ -1079,7 +1064,7 @@ function ScoreBar({ label, value }: { label: string; value?: number }) {
 function StageColumn({
   stage, items, onRefresh, projectId, pp,
 }: {
-  stage: { id: string; number: number; label: string; color: string };
+  stage: { id: string; number: number; label: string; subtitle?: string; color: string };
   items: ApiArticle[];
   onRefresh: () => void;
   projectId: string | undefined;
@@ -1105,7 +1090,7 @@ function StageColumn({
 
   return (
     <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
-      <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border">
+      <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border space-y-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${
@@ -1125,6 +1110,9 @@ function StageColumn({
             </button>
           )}
         </div>
+        {stage.subtitle && (
+          <div className="text-[10px] text-dim font-mono leading-tight pl-7">{stage.subtitle}</div>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto bg-background">
         {items.length === 0 ? (
