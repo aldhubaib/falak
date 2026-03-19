@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import {
-  ArrowLeft,
   Upload,
   Loader2,
   CheckCircle2,
@@ -10,14 +9,24 @@ import {
   Play,
   Mic,
   Type,
-  FileText,
   Tag,
   ExternalLink,
+  Circle,
+  Link2,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { storyQueue } from "@/lib/uploadQueue";
 
-type ProcessingStep = "uploading" | "transcribing" | "title" | "description" | "tags" | "done" | "error";
+type ProcessingStep =
+  | "uploading"
+  | "transcribing"
+  | "title"
+  | "description"
+  | "tags"
+  | "ready"
+  | "done"
+  | "error";
 
 interface QueueItem {
   storyId: string;
@@ -28,16 +37,33 @@ interface QueueItem {
   error?: string;
   brief?: Record<string, unknown>;
   createdAt: string;
+  stage?: string;
 }
 
-const STEP_LABELS: Record<ProcessingStep, { label: string; icon: React.ReactNode; color: string }> = {
-  uploading:    { label: "Uploading",      icon: <Upload className="w-3.5 h-3.5 animate-pulse" />,     color: "text-blue" },
-  transcribing: { label: "Transcribing",   icon: <Mic className="w-3.5 h-3.5 animate-pulse" />,        color: "text-purple" },
-  title:        { label: "Generating Title", icon: <Type className="w-3.5 h-3.5 animate-pulse" />,     color: "text-orange" },
-  description:  { label: "Generating Desc", icon: <FileText className="w-3.5 h-3.5 animate-pulse" />, color: "text-blue" },
-  tags:         { label: "Generating Tags", icon: <Tag className="w-3.5 h-3.5 animate-pulse" />,       color: "text-emerald-400" },
-  done:         { label: "Ready",          icon: <CheckCircle2 className="w-3.5 h-3.5" />,             color: "text-success" },
-  error:        { label: "Error",          icon: <AlertCircle className="w-3.5 h-3.5" />,              color: "text-destructive" },
+function deriveStep(brief: Record<string, unknown> | undefined, stage: string | undefined): ProcessingStep {
+  if (stage === "done") return "done";
+  if (!brief) return "uploading";
+  const hasVideo = !!brief.videoR2Key;
+  const hasTranscript = !!brief.transcript;
+  const hasTitle = !!brief.suggestedTitle;
+  const hasTags = brief.suggestedTags && Array.isArray(brief.suggestedTags) && (brief.suggestedTags as unknown[]).length > 0;
+  const hasYoutubeUrl = !!brief.youtubeUrl;
+
+  if (hasYoutubeUrl) return "done";
+  if (hasVideo && hasTranscript && hasTitle && hasTags) return "ready";
+  if (!hasVideo) return "uploading";
+  return "uploading";
+}
+
+const STEP_META: Record<ProcessingStep, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
+  uploading:    { label: "In Progress",      icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,   color: "text-blue",         bg: "bg-blue/10" },
+  transcribing: { label: "Transcribing",     icon: <Mic className="w-3.5 h-3.5 animate-pulse" />,       color: "text-purple",       bg: "bg-purple/10" },
+  title:        { label: "Generating Title", icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-orange",       bg: "bg-orange/10" },
+  description:  { label: "Generating Desc",  icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-blue",         bg: "bg-blue/10" },
+  tags:         { label: "Generating Tags",  icon: <Tag className="w-3.5 h-3.5 animate-pulse" />,       color: "text-emerald-400",  bg: "bg-emerald-400/10" },
+  ready:        { label: "Ready to Publish", icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
+  done:         { label: "Done",             icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
+  error:        { label: "Error",            icon: <AlertCircle className="w-3.5 h-3.5" />,             color: "text-destructive",  bg: "bg-destructive/10" },
 };
 
 function formatBytes(bytes: number): string {
@@ -66,12 +92,16 @@ const ACCEPTED_TYPES = [
   "video/x-matroska",
 ];
 
+const FILTER_TABS = ["All", "In Progress", "Ready", "Done"] as const;
+type FilterTab = (typeof FILTER_TABS)[number];
+
 export default function PublishQueue() {
   const { channelId } = useParams();
   const channelPath = useChannelPath();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterTab>("All");
 
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [existingStories, setExistingStories] = useState<QueueItem[]>([]);
@@ -93,9 +123,10 @@ export default function PublishQueue() {
           headline: s.headline,
           fileName: s.brief?.videoFileName || "",
           fileSize: s.brief?.videoFileSize || 0,
-          step: (s.stage === "done" ? "done" : s.brief?.videoR2Key ? "done" : "uploading") as ProcessingStep,
+          step: deriveStep(s.brief, s.stage),
           brief: s.brief || {},
           createdAt: s.createdAt,
+          stage: s.stage,
         }));
       setExistingStories(manualStories);
     } catch {
@@ -109,7 +140,6 @@ export default function PublishQueue() {
     loadExistingStories();
   }, [loadExistingStories]);
 
-  // Sync upload task progress into queue items
   useEffect(() => {
     setQueue((prev) => {
       let changed = false;
@@ -142,7 +172,6 @@ export default function PublishQueue() {
     };
 
     try {
-      // Step 1: Transcribe
       updateStep("transcribing");
       const transcribeRes = await fetch(`/api/stories/${storyId}/transcribe`, {
         method: "POST",
@@ -153,7 +182,6 @@ export default function PublishQueue() {
         throw new Error(err.error || "Transcription failed");
       }
 
-      // Step 2: Generate title
       updateStep("title");
       const titleRes = await fetch(`/api/stories/${storyId}/generate-title`, {
         method: "POST",
@@ -165,37 +193,26 @@ export default function PublishQueue() {
       }
       const titleData = await titleRes.json();
 
-      // Update headline in queue
       setQueue((prev) =>
         prev.map((item) =>
           item.storyId === storyId ? { ...item, headline: titleData.title || item.headline } : item
         )
       );
 
-      // Step 3: Generate description
       updateStep("description");
-      const descRes = await fetch(`/api/stories/${storyId}/generate-description`, {
+      await fetch(`/api/stories/${storyId}/generate-description`, {
         method: "POST",
         credentials: "include",
       });
-      // Description generation is best-effort
-      if (!descRes.ok) {
-        console.warn("Description generation failed, continuing...");
-      }
 
-      // Step 4: Generate tags
       updateStep("tags");
-      const tagsRes = await fetch(`/api/stories/${storyId}/suggest-tags`, {
+      await fetch(`/api/stories/${storyId}/suggest-tags`, {
         method: "POST",
         credentials: "include",
       });
-      // Tags generation is best-effort
-      if (!tagsRes.ok) {
-        console.warn("Tags generation failed, continuing...");
-      }
 
-      updateStep("done");
-      toast.success("Video processed successfully");
+      updateStep("ready");
+      toast.success("Video ready to publish");
     } catch (e: any) {
       updateStep("error", e.message || "Processing failed");
       toast.error(e.message || "Processing failed");
@@ -262,9 +279,23 @@ export default function PublishQueue() {
     ...existingStories.filter((es) => !queue.some((q) => q.storyId === es.storyId)),
   ];
 
-  const processingCount = queue.filter(
-    (q) => q.step !== "done" && q.step !== "error"
-  ).length;
+  const inProgressCount = allItems.filter((i) => i.step !== "ready" && i.step !== "done" && i.step !== "error").length;
+  const readyCount = allItems.filter((i) => i.step === "ready").length;
+  const doneCount = allItems.filter((i) => i.step === "done").length;
+
+  const counts: Record<FilterTab, number> = {
+    All: allItems.length,
+    "In Progress": inProgressCount,
+    Ready: readyCount,
+    Done: doneCount,
+  };
+
+  const filtered = allItems.filter((item) => {
+    if (activeFilter === "In Progress") return item.step !== "ready" && item.step !== "done" && item.step !== "error";
+    if (activeFilter === "Ready") return item.step === "ready";
+    if (activeFilter === "Done") return item.step === "done";
+    return true;
+  });
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -280,16 +311,40 @@ export default function PublishQueue() {
           </Link>
           <span className="w-px h-5 bg-border" />
           <h1 className="text-sm font-semibold">Publish Queue</h1>
-          {processingCount > 0 && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue">
-              {processingCount} processing
-            </span>
-          )}
         </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
+        >
+          <Upload className="w-3 h-3" />
+          Upload
+        </button>
       </div>
 
       <div className="flex-1 overflow-auto">
-        <div className="px-6 max-lg:px-4 max-sm:px-3 py-5 pb-16 space-y-5">
+        {/* Stats row */}
+        <div className="px-6 pt-4 max-lg:px-4 mb-4">
+          <div className="flex rounded-xl overflow-hidden border border-border">
+            <div className="px-5 py-4 bg-background border-r border-border min-w-[120px]">
+              <div className="text-2xl font-semibold font-mono tracking-tight">{allItems.length}</div>
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total</div>
+            </div>
+            <div className="flex-1 px-5 py-4 bg-background border-r border-border">
+              <div className="text-2xl font-semibold font-mono tracking-tight text-blue">{inProgressCount}</div>
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">In Progress</div>
+            </div>
+            <div className="flex-1 px-5 py-4 bg-background border-r border-border">
+              <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{readyCount}</div>
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Ready</div>
+            </div>
+            <div className="flex-1 px-5 py-4 bg-background">
+              <div className="text-2xl font-semibold font-mono tracking-tight text-success">{doneCount}</div>
+              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Done</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 max-lg:px-4 max-sm:px-3 pb-16 space-y-4">
           {/* Upload drop zone */}
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -313,10 +368,10 @@ export default function PublishQueue() {
                   {dragOver ? "Drop videos here" : "Upload Videos"}
                 </p>
                 <p className="text-[12px] text-dim mt-1">
-                  Drag & drop multiple videos or click to select. MP4, WebM, MOV, AVI, MKV
+                  Drag & drop or click to select — MP4, WebM, MOV, AVI, MKV
                 </p>
                 <p className="text-[11px] text-dim/60 mt-1">
-                  Each video will be automatically transcribed and have AI-generated title, description, and tags
+                  Each video will be transcribed, then AI generates title, description & tags
                 </p>
               </div>
             </div>
@@ -333,31 +388,55 @@ export default function PublishQueue() {
             }}
           />
 
-          {/* Queue table */}
+          {/* Filter tabs */}
+          <div className="flex items-center gap-1.5">
+            {FILTER_TABS.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveFilter(tab)}
+                className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
+                  activeFilter === tab
+                    ? "bg-surface text-foreground border-border"
+                    : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
+                }`}
+              >
+                {tab} <span className="text-[11px] opacity-60">({counts[tab]})</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Queue list */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-dim" />
+              <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : allItems.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-[13px] text-dim">No videos yet. Upload videos to get started.</p>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Upload className="w-10 h-10 text-dim/30 mb-3" />
+              <p className="text-[13px] text-dim font-mono">
+                {allItems.length === 0 ? "No videos yet" : "No videos in this filter"}
+              </p>
             </div>
           ) : (
             <div className="rounded-xl border border-border overflow-hidden">
-              {/* Table header */}
-              <div className="grid grid-cols-[1fr_120px_100px_140px_80px] max-md:grid-cols-[1fr_100px_100px] gap-0 px-4 py-2.5 bg-elevated/50 border-b border-border text-[10px] text-dim font-mono uppercase tracking-wider">
-                <span>Video</span>
-                <span className="text-center">Size</span>
-                <span className="text-center max-md:hidden">Time</span>
-                <span className="text-center">Status</span>
-                <span className="text-center max-md:hidden">Action</span>
+              {/* Header */}
+              <div className="grid grid-cols-[1fr_100px_100px_160px_70px] max-md:grid-cols-[1fr_100px_70px] gap-0 px-4 py-2.5 bg-background border-b border-border">
+                {["VIDEO", "SIZE", "TIME", "STATUS", ""].map((h, i) => (
+                  <span
+                    key={h || i}
+                    className={`text-[10px] text-dim font-mono uppercase tracking-wider ${
+                      i > 0 ? "text-center" : ""
+                    } ${i === 2 || i === 4 ? "max-md:hidden" : ""}`}
+                  >
+                    {h}
+                  </span>
+                ))}
               </div>
 
-              {/* Table rows */}
-              {allItems.map((item) => {
-                const stepInfo = STEP_LABELS[item.step];
-                const uploadTask = uploadTasks.find((t) => t.storyId === item.storyId);
-                const isProcessing = item.step !== "done" && item.step !== "error";
+              {filtered.map((item) => {
+                const meta = STEP_META[item.step];
+                const uploadTask = uploadTasks.find((t) => t.metadata?.storyId === item.storyId);
+                const isActive = item.step !== "ready" && item.step !== "done" && item.step !== "error";
                 const uploadProgress = item.step === "uploading" && uploadTask?.status === "uploading"
                   ? uploadTask.progress
                   : null;
@@ -365,26 +444,26 @@ export default function PublishQueue() {
                 return (
                   <div
                     key={item.storyId}
-                    className={`grid grid-cols-[1fr_120px_100px_140px_80px] max-md:grid-cols-[1fr_100px_100px] gap-0 px-4 py-3 border-b border-border last:border-b-0 items-center transition-colors ${
-                      item.step === "done"
+                    className={`grid grid-cols-[1fr_100px_100px_160px_70px] max-md:grid-cols-[1fr_100px_70px] gap-0 px-4 py-3 border-b border-border last:border-b-0 items-center transition-colors ${
+                      item.step === "done" || item.step === "ready" || item.step === "error"
                         ? "hover:bg-[#0d0d10] cursor-pointer"
                         : "bg-background"
                     }`}
                     onClick={() => {
-                      if (item.step === "done" || item.step === "error") {
+                      if (item.step === "done" || item.step === "ready" || item.step === "error") {
                         navigate(channelPath(`/story/${item.storyId}`));
                       }
                     }}
                   >
-                    {/* Video name + progress */}
+                    {/* Video */}
                     <div className="min-w-0 pr-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                          isProcessing ? "bg-blue/10" : item.step === "done" ? "bg-success/10" : "bg-destructive/10"
-                        }`}>
-                          {isProcessing ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-blue" />
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${meta.bg}`}>
+                          {isActive ? (
+                            <Loader2 className={`w-3.5 h-3.5 animate-spin ${meta.color}`} />
                           ) : item.step === "done" ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                          ) : item.step === "ready" ? (
                             <Play className="w-3.5 h-3.5 text-success" />
                           ) : (
                             <AlertCircle className="w-3.5 h-3.5 text-destructive" />
@@ -430,14 +509,33 @@ export default function PublishQueue() {
                     </div>
 
                     {/* Status */}
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className={stepInfo.color}>{stepInfo.icon}</span>
-                      <span className={`text-[11px] font-medium ${stepInfo.color}`}>{stepInfo.label}</span>
+                    <div className="flex items-center justify-center">
+                      {item.step === "ready" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 text-success text-[11px] font-medium">
+                          <Circle className="w-2 h-2 fill-current" />
+                          Ready to Publish
+                        </span>
+                      ) : item.step === "done" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 text-success/70 text-[11px] font-medium">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Done
+                        </span>
+                      ) : item.step === "error" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-[11px] font-medium">
+                          <AlertCircle className="w-3 h-3" />
+                          Error
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${meta.color}`}>
+                          {meta.icon}
+                          {meta.label}
+                        </span>
+                      )}
                     </div>
 
                     {/* Action */}
                     <div className="text-center max-md:hidden">
-                      {(item.step === "done" || item.step === "error") && (
+                      {(item.step === "done" || item.step === "ready" || item.step === "error") && (
                         <Link
                           to={channelPath(`/story/${item.storyId}`)}
                           className="inline-flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors no-underline"
