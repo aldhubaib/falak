@@ -115,8 +115,12 @@ async function researchStory(article, project) {
       perplexityCitations = result.citations || []
       log.push({
         step: 'perplexity_context', status: perplexityContext ? 'ok' : 'empty',
+        promptSent: bgPrompt.slice(0, 500),
         chars: (perplexityContext || '').length,
         citations: perplexityCitations.length,
+        inputTokens: result.usage?.prompt_tokens || null,
+        outputTokens: result.usage?.completion_tokens || null,
+        totalTokens: result.usage?.total_tokens || null,
         at: new Date().toISOString(),
       })
     } catch (e) {
@@ -191,12 +195,17 @@ async function researchStory(article, project) {
         projectId: project.id,
         action: 'story-research-synthesis',
       })
+      const synthesisUsage = callAnthropic._lastUsage || {}
 
       researchBrief = parseSynthesisResponse(raw)
       log.push({
         step: 'synthesis', status: researchBrief ? 'ok' : 'parse_error',
         model: 'claude-sonnet-4-6',
         briefKeys: researchBrief ? Object.keys(researchBrief) : [],
+        inputTokens: synthesisUsage.inputTokens || null,
+        outputTokens: synthesisUsage.outputTokens || null,
+        totalTokens: synthesisUsage.totalTokens || null,
+        promptPreview: synthesisPrompt.slice(0, 500),
         at: new Date().toISOString(),
       })
     } catch (e) {

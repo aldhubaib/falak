@@ -192,6 +192,7 @@ async function doStageClassify(article, project) {
     projectId: article.projectId,
     action: 'article-classify',
   })
+  const classifyUsage = callAnthropic._lastUsage || {}
 
   let analysis
   try {
@@ -207,17 +208,24 @@ async function doStageClassify(article, project) {
 
   log.push({
     step: 'classify', status: analysis.parseError ? 'parse_error' : 'ok',
+    model: 'claude-haiku-4-5-20251001',
     topic: analysis.topic || null,
+    topicOriginal: analysis.topicOriginal || null,
     tags: analysis.tags || [],
     sentiment: analysis.sentiment || null,
     contentType: analysis.contentType || null,
     region: analysis.region || null,
+    regionOriginal: analysis.regionOriginal || null,
     summary: analysis.summary || null,
     uniqueAngle: analysis.uniqueAngle || null,
     viralPotential: typeof analysis.viralPotential === 'number' ? analysis.viralPotential : null,
     relevance: typeof analysis.relevance === 'number' ? analysis.relevance : null,
     isBreaking: !!analysis.isBreaking,
     inputChars: articleText.length,
+    inputTokens: classifyUsage.inputTokens || null,
+    outputTokens: classifyUsage.outputTokens || null,
+    totalTokens: classifyUsage.totalTokens || null,
+    promptPreview: prompt.slice(0, 300),
     at: new Date().toISOString(),
   })
 
@@ -330,27 +338,29 @@ async function doStageTranslated(article, project) {
   const apiKey = decrypt(project.anthropicApiKeyEncrypted)
 
   const truncated = text.slice(0, 30000)
+  const translatePrompt = `Translate this news article to Arabic.\n` +
+    `Preserve all names, dates, locations, and facts exactly.\n` +
+    `Keep a journalistic tone. Output the Arabic text only, no commentary.\n\n` +
+    truncated
   const translated = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
-    {
-      role: 'user',
-      content: `Translate this news article to Arabic.\n` +
-        `Preserve all names, dates, locations, and facts exactly.\n` +
-        `Keep a journalistic tone. Output the Arabic text only, no commentary.\n\n` +
-        truncated,
-    },
+    { role: 'user', content: translatePrompt },
   ], {
     maxTokens: 4096,
     projectId: article.projectId,
     action: 'article-translate',
   })
+  const translateUsage = callAnthropic._lastUsage || {}
 
   if (!translated || translated.trim().length < 50) {
     throw new Error('Translation returned empty or too short result')
   }
 
   log.push({
-    step: 'translate', status: 'ok', model: 'haiku',
+    step: 'translate', status: 'ok', model: 'claude-haiku-4-5-20251001',
     inputLang: sourceLang, inputChars: truncated.length, outputChars: translated.trim().length,
+    inputTokens: translateUsage.inputTokens || null,
+    outputTokens: translateUsage.outputTokens || null,
+    totalTokens: translateUsage.totalTokens || null,
     inputPreview: preview(truncated),
     outputPreview: preview(translated.trim()),
   })

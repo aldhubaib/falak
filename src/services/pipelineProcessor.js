@@ -365,10 +365,14 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
     }
 
     const data = await res.json()
-    const tokensUsed = (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+    const usage = data.usage || {}
+    const tokensUsed = (usage.input_tokens || 0) + (usage.output_tokens || 0)
     trackUsage({ projectId, service: 'anthropic', action, tokensUsed, status: 'ok' })
     const block = data.content && data.content[0]
-    return block && block.text ? block.text.trim() : ''
+    const text = block && block.text ? block.text.trim() : ''
+    // Store last usage for callers that need it
+    callAnthropic._lastUsage = { inputTokens: usage.input_tokens || 0, outputTokens: usage.output_tokens || 0, totalTokens: tokensUsed }
+    return text
   }
 }
 
