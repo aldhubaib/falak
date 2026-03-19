@@ -427,7 +427,7 @@ export default function Gallery() {
               <RowsPhotoAlbum
                 photos={[]}
                 targetRowHeight={280}
-                rowConstraints={{ maxPhotos: 5 }}
+                rowConstraints={{ maxPhotos: 5, singleRowMaxHeight: 400 }}
                 spacing={2}
                 render={{
                   extras: (_, { photo }) => {

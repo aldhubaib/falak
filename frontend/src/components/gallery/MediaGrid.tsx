@@ -103,7 +103,7 @@ export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, o
     <RowsPhotoAlbum
       photos={photos}
       targetRowHeight={280}
-      rowConstraints={{ maxPhotos: 5 }}
+      rowConstraints={{ maxPhotos: 5, singleRowMaxHeight: 400 }}
       spacing={2}
       onClick={({ index }) => {
         if (selectionMode) {
