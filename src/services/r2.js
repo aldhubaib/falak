@@ -134,6 +134,27 @@ async function getSignedReadUrl(key, expiresIn = 3600) {
   return getSignedUrl(client, cmd, { expiresIn })
 }
 
+async function putObject(key, buffer, contentType) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured')
+  const cmd = new PutObjectCommand({
+    Bucket: getBucket(),
+    Key: key,
+    Body: buffer,
+    ContentType: contentType,
+  })
+  await client.send(cmd)
+  return getPublicUrl(key)
+}
+
+async function getObjectStream(key) {
+  const client = getClient()
+  if (!client) throw new Error('R2 not configured')
+  const cmd = new GetObjectCommand({ Bucket: getBucket(), Key: key })
+  const res = await client.send(cmd)
+  return res.Body
+}
+
 async function deleteObject(key) {
   const client = getClient()
   if (!client) return
@@ -158,5 +179,7 @@ module.exports = {
   getSpecificPartUrls,
   completeMultipartUpload,
   abortMultipartUpload,
+  putObject,
+  getObjectStream,
   deleteObject,
 }

@@ -1,6 +1,7 @@
 const express = require('express')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { initMultipartUpload, getPartPresignedUrls, getSpecificPartUrls, completeMultipartUpload, abortMultipartUpload, deleteObject, getChunkSize, getDirectUploadUrl, getPublicUrl, getSignedReadUrl } = require('../services/r2')
+const { generateThumbnail } = require('../services/media')
 const db = require('../lib/db')
 const { v4: uuidv4 } = require('uuid')
 
@@ -98,6 +99,7 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
 
         if (brief.videoR2Key && brief.videoR2Key !== key) {
           deleteObject(brief.videoR2Key).catch(() => {})
+          if (brief.videoThumbnailR2Key) deleteObject(brief.videoThumbnailR2Key).catch(() => {})
         }
 
         brief.videoR2Key = key
@@ -109,6 +111,18 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
           where: { id: storyId },
           data: { brief },
         })
+
+        generateThumbnail(key, contentType).then(async (thumb) => {
+          if (!thumb) return
+          const latest = await db.story.findUnique({ where: { id: storyId } })
+          if (!latest) return
+          const latestBrief = (latest.brief && typeof latest.brief === 'object') ? { ...latest.brief } : {}
+          if (latestBrief.videoR2Key !== key) return
+          latestBrief.videoThumbnailR2Key = thumb.thumbnailR2Key
+          latestBrief.videoThumbnailR2Url = thumb.thumbnailR2Url
+          await db.story.update({ where: { id: storyId }, data: { brief: latestBrief } })
+          console.log(`[media] Thumbnail generated for story ${storyId}`)
+        }).catch((e) => console.error(`[media] Thumbnail failed for story ${storyId}:`, e.message))
       }
     }
 
@@ -144,6 +158,16 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
           uploadedById: req.user.id,
         },
       })
+
+      const mediaId = createdMedia.id
+      generateThumbnail(key, mime).then(async (thumb) => {
+        if (!thumb) return
+        await db.galleryMedia.update({
+          where: { id: mediaId },
+          data: { thumbnailR2Key: thumb.thumbnailR2Key, thumbnailR2Url: thumb.thumbnailR2Url },
+        })
+        console.log(`[media] Thumbnail generated for gallery media ${mediaId}`)
+      }).catch((e) => console.error(`[media] Thumbnail failed for gallery media ${mediaId}:`, e.message))
     }
 
     res.json({ url: publicUrl, key, media: createdMedia })

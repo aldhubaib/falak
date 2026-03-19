@@ -389,6 +389,7 @@ function ManualStoryWorkflow({
         videoR2Key={brief.videoR2Key}
         videoFileName={brief.videoFileName}
         videoFileSize={brief.videoFileSize}
+        videoThumbnailR2Url={brief.videoThumbnailR2Url}
         videoFormat={(brief.videoFormat as "short" | "long") || "long"}
         headline={brief.suggestedTitle ?? story.headline ?? ""}
         readOnly={isDone}
@@ -1227,6 +1228,7 @@ export default function StoryDetail() {
                 videoR2Key={brief.videoR2Key}
                 videoFileName={brief.videoFileName}
                 videoFileSize={brief.videoFileSize}
+                videoThumbnailR2Url={brief.videoThumbnailR2Url}
                 videoFormat={(brief.videoFormat as "short" | "long") || "long"}
                 headline={brief.articleTitle ?? story.headline ?? ""}
                 readOnly={activeStage === "done"}

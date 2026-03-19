@@ -19,6 +19,7 @@ interface VideoUploadProps {
   videoR2Key?: string;
   videoFileName?: string;
   videoFileSize?: number;
+  videoThumbnailR2Url?: string;
   videoFormat?: "short" | "long";
   headline?: string;
   readOnly?: boolean;
@@ -58,6 +59,7 @@ export function VideoUpload({
   videoR2Key,
   videoFileName,
   videoFileSize,
+  videoThumbnailR2Url,
   videoFormat = "long",
   headline = "",
   readOnly,
@@ -313,20 +315,28 @@ export function VideoUpload({
       <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
         {/* Thumbnail left — video preview */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
-          {url ? (
+          {(videoThumbnailR2Url || url) ? (
             <div className="block rounded-xl overflow-hidden group relative">
-              <video
-                src={url}
-                className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}
-                muted
-                preload="metadata"
-                onLoadedMetadata={(e) => {
-                  const video = e.currentTarget;
-                  video.currentTime = 1;
-                }}
-              />
+              {videoThumbnailR2Url ? (
+                <img
+                  src={videoThumbnailR2Url}
+                  alt={name || "Video thumbnail"}
+                  className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}
+                />
+              ) : (
+                <video
+                  src={url!}
+                  className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}
+                  muted
+                  preload="metadata"
+                  onLoadedMetadata={(e) => {
+                    const video = e.currentTarget;
+                    video.currentTime = 1;
+                  }}
+                />
+              )}
               <a
-                href={url}
+                href={url || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
