@@ -34,8 +34,10 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Transcription failed" }));
-        toast.error(err.error || "Transcription failed");
+        const err = await res.json().catch(() => null);
+        const msg = err?.error
+          || (res.status === 502 ? "Server timed out — the video may be too large. Try a shorter clip." : `Transcription failed (${res.status})`);
+        toast.error(msg);
         return;
       }
       const data = await res.json();
@@ -132,7 +134,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
         <div className="px-4 pb-4">
           <div className="rounded-lg bg-surface border border-blue/20 px-4 py-6 text-center">
             <Loader2 className="w-6 h-6 text-blue animate-spin mx-auto mb-2" />
-            <p className="text-[12px] text-dim">Transcribing with OpenAI Whisper… This may take a minute.</p>
+            <p className="text-[12px] text-dim">Transcribing with OpenAI Whisper… This may take a few minutes for large videos.</p>
           </div>
         </div>
       )}

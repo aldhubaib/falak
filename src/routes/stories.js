@@ -640,6 +640,7 @@ router.post('/manual', requireRole('owner', 'admin', 'editor'), async (req, res)
 
 // ── POST /api/stories/:id/transcribe — transcribe uploaded video via OpenAI Whisper
 router.post('/:id/transcribe', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  req.setTimeout(600_000) // 10 min — large videos need download + ffmpeg + Whisper
   try {
     const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
