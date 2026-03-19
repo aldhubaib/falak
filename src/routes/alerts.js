@@ -3,13 +3,13 @@ const router = express.Router()
 const db = require('../lib/db')
 const { requireRole } = require('../middleware/auth')
 
-// ── GET /api/alerts?projectId=xxx&unreadOnly=true&limit=50
+// ── GET /api/alerts?channelId=xxx&unreadOnly=true&limit=50
 router.get('/', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, res) => {
   try {
-    const { projectId, unreadOnly, limit = '50' } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId, unreadOnly, limit = '50' } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
-    const where = { projectId }
+    const where = { channelId }
     if (unreadOnly === 'true') where.isRead = false
 
     const alerts = await db.alert.findMany({
@@ -19,7 +19,7 @@ router.get('/', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, r
     })
 
     const unreadCount = await db.alert.count({
-      where: { projectId, isRead: false },
+      where: { channelId, isRead: false },
     })
 
     res.json({ alerts, unreadCount })
@@ -31,15 +31,15 @@ router.get('/', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, r
 // ── POST /api/alerts/mark-read
 router.post('/mark-read', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, res) => {
   try {
-    const { ids, projectId } = req.body
+    const { ids, channelId } = req.body
     if (Array.isArray(ids) && ids.length > 0) {
       await db.alert.updateMany({
         where: { id: { in: ids } },
         data: { isRead: true },
       })
-    } else if (projectId) {
+    } else if (channelId) {
       await db.alert.updateMany({
-        where: { projectId, isRead: false },
+        where: { channelId, isRead: false },
         data: { isRead: true },
       })
     }

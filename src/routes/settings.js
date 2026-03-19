@@ -102,14 +102,15 @@ router.patch('/youtube-keys/:id', requireRole('owner', 'admin'), async (req, res
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// ── Embedding API key (stored on Project for vector intelligence) ──────
+// ── Embedding API key (global via ApiKey table) ──────
 router.post('/embedding-key', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { projectId, key } = req.body
-    if (!projectId || !key) return res.status(400).json({ error: 'projectId and key required' })
-    await db.project.update({
-      where: { id: projectId },
-      data: { embeddingApiKeyEncrypted: encrypt(key) },
+    const { key } = req.body
+    if (!key) return res.status(400).json({ error: 'key required' })
+    await db.apiKey.upsert({
+      where: { service: 'embedding' },
+      create: { service: 'embedding', encryptedKey: encrypt(key), isActive: true },
+      update: { encryptedKey: encrypt(key), isActive: true },
     })
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
@@ -117,36 +118,35 @@ router.post('/embedding-key', requireRole('owner', 'admin'), async (req, res) =>
 
 router.delete('/embedding-key', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { projectId } = req.body
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
-    await db.project.update({
-      where: { id: projectId },
-      data: { embeddingApiKeyEncrypted: null },
+    await db.apiKey.update({
+      where: { service: 'embedding' },
+      data: { encryptedKey: '', isActive: false },
     })
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// ── Check if embedding key is configured for a project ────────
+// ── Check if embedding key is configured ────────
 router.get('/embedding-status', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
-    const project = await db.project.findUnique({
-      where: { id: projectId },
-      select: { embeddingApiKeyEncrypted: true, lastStatsRefreshAt: true, rescoreIntervalHours: true },
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
+    const embeddingKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
+    const channel = await db.channel.findUnique({
+      where: { id: channelId },
+      select: { lastStatsRefreshAt: true, rescoreIntervalHours: true },
     })
     const profile = await db.scoreProfile.findUnique({
-      where: { projectId },
+      where: { channelId },
       select: {
         totalOutcomes: true, totalDecisions: true,
         aiViralAccuracy: true, channelAvgViews: true, lastLearnedAt: true,
       },
     }).catch(() => null)
     res.json({
-      hasEmbeddingKey: !!project?.embeddingApiKeyEncrypted,
-      lastStatsRefreshAt: project?.lastStatsRefreshAt,
-      rescoreIntervalHours: project?.rescoreIntervalHours ?? 24,
+      hasEmbeddingKey: !!embeddingKey?.encryptedKey,
+      lastStatsRefreshAt: channel?.lastStatsRefreshAt,
+      rescoreIntervalHours: channel?.rescoreIntervalHours ?? 24,
       scoreProfile: profile,
     })
   } catch (e) { res.status(500).json({ error: e.message }) }

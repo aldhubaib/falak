@@ -12,17 +12,16 @@ const { fetchTranscript } = require('../services/transcript')
 async function generateScriptForStory(storyId) {
   const story = await db.story.findUniqueOrThrow({
     where: { id: storyId },
-    include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
   })
-  const project = story.project
-  if (!project?.anthropicApiKeyEncrypted) return
+  const apiKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (!apiKeyRow?.encryptedKey) return
   const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
   const articleContent = typeof brief.articleContent === 'string' && brief.articleContent !== '__SCRAPE_FAILED__' && brief.articleContent !== '__YOUTUBE__' ? brief.articleContent : ''
   if (!articleContent || !articleContent.trim()) return
   const channelId = brief.channelId
   if (!channelId) return
   const channel = await db.channel.findFirst({
-    where: { id: channelId, projectId: project.id },
+    where: { id: channelId },
     select: { id: true, startHook: true, endHook: true },
   })
   if (!channel) return
@@ -30,7 +29,7 @@ async function generateScriptForStory(storyId) {
   const isShort = durationMinutes <= 3
   const startHook = (channel.startHook || '').trim()
   const endHook = (channel.endHook || '').trim()
-  const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+  const apiKey = decrypt(apiKeyRow.encryptedKey)
   const durationInstruction = isShort
     ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
     : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
@@ -58,7 +57,7 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
     fullScript = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 8192,
-      projectId: project.id,
+      channelId: story.channelId,
       action: 'Story Generate Script',
     })
   } catch (err) {
@@ -91,12 +90,12 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
   })
 })
 
-// ── GET /api/stories?projectId=xxx&stage=xxx
+// ── GET /api/stories?channelId=xxx&stage=xxx
 router.get('/', async (req, res) => {
   try {
-    const { projectId, stage } = req.query
+    const { channelId, stage } = req.query
     const where = {}
-    if (projectId) where.projectId = projectId
+    if (channelId) where.channelId = channelId
     if (stage)     where.stage = stage
 
     const stories = await db.story.findMany({
@@ -113,11 +112,11 @@ router.get('/', async (req, res) => {
   }
 })
 
-// ── GET /api/stories/summary?projectId=xxx
+// ── GET /api/stories/summary?channelId=xxx
 router.get('/summary', async (req, res) => {
   try {
-    const { projectId } = req.query
-    const where = projectId ? { projectId } : {}
+    const { channelId } = req.query
+    const where = channelId ? { channelId } : {}
 
     const all = await db.story.findMany({ where, select: { stage: true, coverageStatus: true } })
     const stages = ['suggestion', 'liked', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit']
@@ -138,7 +137,6 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { project: { select: { firecrawlApiKeyEncrypted: true } } },
     })
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
 
@@ -166,9 +164,10 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
     }
 
     let result = null
-    if (story.project?.firecrawlApiKeyEncrypted) {
+    const firecrawlKeyRow = await db.apiKey.findUnique({ where: { service: 'firecrawl' } })
+    if (firecrawlKeyRow?.encryptedKey) {
       try {
-        const apiKey = decrypt(story.project.firecrawlApiKeyEncrypted)
+        const apiKey = decrypt(firecrawlKeyRow.encryptedKey)
         result = await scrapeUrl(apiKey, url)
       } catch (_) {
         result = { error: 'Firecrawl key invalid' }
@@ -243,10 +242,9 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
     })
-    const project = story.project
-    if (!project?.anthropicApiKeyEncrypted) {
+    const anthropicKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+    if (!anthropicKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
@@ -261,11 +259,11 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       return res.status(400).json({ error: 'Select a channel in Assign to Channel to generate a script with branded hooks.' })
     }
     const channel = await db.channel.findFirst({
-      where: { id: channelId, projectId: project.id },
+      where: { id: channelId },
       select: { id: true, startHook: true, endHook: true, nationality: true },
     })
     if (!channel) {
-      return res.status(400).json({ error: 'Channel not found or does not belong to this project.' })
+      return res.status(400).json({ error: 'Channel not found.' })
     }
     const durationMinutes = Math.max(0.5, parseFloat(req.body?.durationMinutes) || 3)
     const startHook = (channel.startHook || '').trim()
@@ -276,7 +274,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
       : 'Write the script in Arabic.'
 
-    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+    const apiKey = decrypt(anthropicKeyRow.encryptedKey)
     const isShort = durationMinutes <= 3
     const durationInstruction = isShort
       ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
@@ -316,7 +314,7 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
       for await (const chunk of callAnthropicStream(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
         system,
         maxTokens: 8192,
-        projectId: project.id,
+        channelId: story.channelId,
         action: 'Story Generate Script',
       })) {
         fullScript += chunk
@@ -360,10 +358,9 @@ router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req,
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
     })
-    const project = story.project
-    if (!project?.anthropicApiKeyEncrypted) {
+    const cleanupKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+    if (!cleanupKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys to use Clean up.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
@@ -377,7 +374,7 @@ router.post('/:id/cleanup', requireRole('owner', 'admin', 'editor'), async (req,
     if (!articleContent.trim()) {
       return res.status(400).json({ error: 'No article content to clean. Fetch the article first (e.g. from source URL).' })
     }
-    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+    const apiKey = decrypt(cleanupKeyRow.encryptedKey)
 
     const system = `You are a text editor and translator. The user will give you a raw scraped article.
 Your job:
@@ -393,7 +390,7 @@ Your job:
     const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: trimmedInput }], {
       system,
       maxTokens: 8000,
-      projectId: project.id,
+      channelId: story.channelId,
       action: 'Story Cleanup',
     })
     const cleanedArticle = (raw && typeof raw === 'string') ? raw.trim() : articleContent
@@ -417,10 +414,9 @@ router.post('/:id/fetch-subtitles', requireRole('owner', 'admin', 'editor'), asy
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { project: { select: { id: true, ytTranscriptApiKeyEncrypted: true } } },
     })
-    const project = story.project
-    if (!project?.ytTranscriptApiKeyEncrypted) {
+    const ytTranscriptKeyRow = await db.apiKey.findUnique({ where: { service: 'yt_transcript' } })
+    if (!ytTranscriptKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'YouTube Transcript API key not configured. Add it in Settings → API Keys.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
@@ -441,7 +437,7 @@ router.post('/:id/fetch-subtitles', requireRole('owner', 'admin', 'editor'), asy
       return res.status(400).json({ error: 'Could not extract a YouTube video ID from the URL.' })
     }
 
-    const transcript = await fetchTranscript(videoId, project)
+    const transcript = await fetchTranscript(videoId, ytTranscriptKeyRow)
     if (!transcript || (typeof transcript === 'string' && !transcript.trim())) {
       return res.status(404).json({ error: 'No transcript available for this video.' })
     }
@@ -490,10 +486,9 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
     })
-    const project = story.project
-    if (!project?.anthropicApiKeyEncrypted) {
+    const descKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+    if (!descKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
@@ -509,7 +504,7 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
       return res.status(400).json({ error: 'No script or title available. Generate a script first.' })
     }
 
-    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+    const apiKey = decrypt(descKeyRow.encryptedKey)
 
     const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.
 
@@ -533,7 +528,7 @@ ${sourceUrl ? `Source URL: ${sourceUrl}` : ''}`
     const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 2048,
-      projectId: project.id,
+      channelId: story.channelId,
       action: 'Story Generate Description',
     })
 
@@ -557,10 +552,9 @@ router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async 
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { project: { select: { id: true, anthropicApiKeyEncrypted: true } } },
     })
-    const project = story.project
-    if (!project?.anthropicApiKeyEncrypted) {
+    const tagsKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+    if (!tagsKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
@@ -571,7 +565,7 @@ router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async 
     if (!context) {
       return res.status(400).json({ error: 'Add a headline or generate a script first so the AI can suggest tags.' })
     }
-    const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+    const apiKey = decrypt(tagsKeyRow.encryptedKey)
     const system = `You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.
 
 Rules:
@@ -583,7 +577,7 @@ Rules:
     const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 512,
-      projectId: project.id,
+      channelId: story.channelId,
       action: 'Story Suggest Tags',
     })
     const text = (raw && typeof raw === 'string') ? raw.trim() : ''
@@ -623,11 +617,11 @@ router.get('/:id', async (req, res) => {
 // ── POST /api/stories
 router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, headline, stage, sourceUrl, sourceName, brief } = req.body
-    if (!projectId || !headline) return res.status(400).json({ error: 'projectId and headline required' })
+    const { channelId, headline, stage, sourceUrl, sourceName, brief } = req.body
+    if (!channelId || !headline) return res.status(400).json({ error: 'channelId and headline required' })
 
     const story = await db.story.create({
-      data: { projectId, headline, stage: stage || 'suggestion', sourceUrl, sourceName, brief }
+      data: { channelId, headline, stage: stage || 'suggestion', sourceUrl, sourceName, brief }
     })
     await addLog(story.id, req.user.id, 'created', `Stage: ${story.stage}`)
     res.json(story)
@@ -664,15 +658,14 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
 
       // Refresh article preference profile when user makes a decision
       const feedbackStages = ['liked', 'passed', 'omit', 'scripting', 'filmed', 'publish', 'done']
-      if (feedbackStages.includes(req.body.stage) && story.projectId) {
+      if (feedbackStages.includes(req.body.stage) && story.channelId) {
         try {
           const { refreshPreferenceProfile } = require('../services/articleFeedback')
-          refreshPreferenceProfile(story.projectId).catch(() => {})
+          refreshPreferenceProfile(story.channelId).catch(() => {})
         } catch (_) {}
-        // Also update the self-learning score profile
         try {
           const { learnFromDecisions } = require('../services/scoreLearner')
-          learnFromDecisions(story.projectId).catch(() => {})
+          learnFromDecisions(story.channelId).catch(() => {})
         } catch (_) {}
       }
     }
@@ -690,10 +683,10 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
 // ── POST /api/stories/re-evaluate — full re-evaluation: refresh stats → learn → re-score
 router.post('/re-evaluate', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId query param required' })
-    const { runCycleForProject } = require('../worker-rescore')
-    const result = await runCycleForProject(projectId)
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId query param required' })
+    const { runCycleForChannel } = require('../worker-rescore')
+    const result = await runCycleForChannel(channelId)
     res.json(result)
   } catch (e) {
     console.error('[stories/re-evaluate]', e)

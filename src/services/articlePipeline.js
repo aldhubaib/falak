@@ -229,7 +229,7 @@ async function ingestSource(source, project, { force = false } = {}) {
 
 async function ingestNonApifySource(source, project, { force = false } = {}) {
   const sourceId = source.id
-  const projectId = source.projectId
+  const channelId = source.channelId
   const startTime = Date.now()
 
   if (!force) {
@@ -256,7 +256,7 @@ async function ingestNonApifySource(source, project, { force = false } = {}) {
 
   const searchConfig = source.config?.search || null
   const { passed, gated } = applyKeywordGate(rawArticles, searchConfig)
-  const { inserted, dupes } = await insertArticles(projectId, sourceId, source, passed)
+  const { inserted, dupes } = await insertArticles(channelId, sourceId, source, passed)
 
   const logEntry = { time: new Date().toISOString(), raw: rawArticles.length, gated: gated.length, dupes, inserted, error: null, ms: Date.now() - startTime }
   await appendFetchLog(sourceId, logEntry)
@@ -266,9 +266,9 @@ async function ingestNonApifySource(source, project, { force = false } = {}) {
   return { sourceId, fetched: rawArticles.length, gated: gated.length, dupes, inserted, error: null }
 }
 
-async function ingestApifySourceDirectDataset(source, project, apiKey, { force = false } = {}) {
+async function ingestApifySourceDirectDataset(source, channel, apiKey, { force = false } = {}) {
   const sourceId = source.id
-  const projectId = source.projectId
+  const channelId = source.channelId
   const startTime = Date.now()
 
   if (!force) {
@@ -300,7 +300,7 @@ async function ingestApifySourceDirectDataset(source, project, apiKey, { force =
 
   const searchConfig = source.config?.search || null
   const { passed, gated } = applyKeywordGate(rawArticles, searchConfig)
-  const { inserted, dupes } = await insertArticles(projectId, sourceId, source, passed)
+  const { inserted, dupes } = await insertArticles(channelId, sourceId, source, passed)
 
   const logEntry = { time: new Date().toISOString(), raw: rawArticles.length, gated: gated.length, dupes, inserted, error: null, ms: Date.now() - startTime }
   await appendFetchLog(sourceId, logEntry)
@@ -313,9 +313,9 @@ async function ingestApifySourceDirectDataset(source, project, apiKey, { force =
 /**
  * Apify sources: track runs in DB, import only missing runs (oldest first).
  */
-async function ingestApifySourceWithRunTracking(source, project, { force = false } = {}) {
+async function ingestApifySourceWithRunTracking(source, channel, { force = false } = {}) {
   const sourceId = source.id
-  const projectId = source.projectId
+  const channelId = source.channelId
   const startTime = Date.now()
 
   if (!force) {
@@ -413,7 +413,7 @@ async function ingestApifySourceWithRunTracking(source, project, { force = false
 
     const { articles: rawArticles, rawCount } = result
     const { passed, gated } = applyKeywordGate(rawArticles, searchConfig)
-    const { inserted, dupes } = await insertArticles(projectId, sourceId, source, passed)
+    const { inserted, dupes } = await insertArticles(channelId, sourceId, source, passed)
 
     totalRaw += rawArticles.length
     totalGated += gated.length
@@ -458,7 +458,7 @@ async function ingestApifySourceWithRunTracking(source, project, { force = false
   return { sourceId, fetched: totalRaw, gated: totalGated, dupes: totalDupes, inserted: totalInserted, error: null }
 }
 
-async function insertArticles(projectId, sourceId, source, passed) {
+async function insertArticles(channelId, sourceId, source, passed) {
   let inserted = 0
   let dupes = 0
   const seenInBatch = new Set()
@@ -470,7 +470,7 @@ async function insertArticles(projectId, sourceId, source, passed) {
     try {
       await db.article.create({
         data: {
-          projectId,
+          channelId,
           sourceId,
           url: canonicalUrl,
           title: raw.title || null,
@@ -503,22 +503,22 @@ async function appendFetchLog(sourceId, entry) {
   await db.articleSource.update({ where: { id: sourceId }, data: { fetchLog: log } })
 }
 
-// ── INGEST ALL: run for all active sources in a project ───────────────────
+// ── INGEST ALL: run for all active sources in a channel ───────────────────
 
-async function ingestAll(projectId) {
-  const project = await db.project.findUnique({
-    where: { id: projectId },
+async function ingestAll(channelId) {
+  const channel = await db.channel.findUnique({
+    where: { id: channelId },
     select: { id: true },
   })
-  if (!project) throw new Error('Project not found')
+  if (!channel) throw new Error('Channel not found')
 
   const sources = await db.articleSource.findMany({
-    where: { projectId, isActive: true, type: { in: VALID_SOURCE_TYPES } },
+    where: { channelId, isActive: true, type: { in: VALID_SOURCE_TYPES } },
   })
 
   const results = []
   for (const source of sources) {
-    const result = await ingestSource(source, project)
+    const result = await ingestSource(source, channel)
     results.push({ ...result, label: source.label, type: source.type })
   }
 

@@ -22,14 +22,14 @@ function sanitizeSource(source) {
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024 // 2 MB base64
 
-// ── GET /api/article-sources?projectId=X ──────────────────────────────────
+// ── GET /api/article-sources?channelId=X ──────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     const sources = await db.articleSource.findMany({
-      where: { projectId, type: { in: VALID_SOURCE_TYPES } },
+      where: { channelId, type: { in: VALID_SOURCE_TYPES } },
       include: {
         _count: { select: { articles: true } },
         apifyRuns: {
@@ -72,9 +72,9 @@ router.get('/', async (req, res) => {
 // ── POST /api/article-sources ─────────────────────────────────────────────
 router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, type, label, config, language, apiKey, image } = req.body
-    if (!projectId || !type || !label || !config) {
-      return res.status(400).json({ error: 'projectId, type, label, and config are required' })
+    const { channelId, type, label, config, language, apiKey, image } = req.body
+    if (!channelId || !type || !label || !config) {
+      return res.status(400).json({ error: 'channelId, type, label, and config are required' })
     }
     if (!VALID_SOURCE_TYPES.includes(type)) {
       return res.status(400).json({ error: `Invalid type. Must be one of: ${VALID_SOURCE_TYPES.join(', ')}` })
@@ -92,7 +92,7 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
     // Prevent duplicate actorId/datasetId — same config would import same articles and cause wrong source attribution
     if (type === 'apify_actor' && config?.actorId) {
       const existing = await db.articleSource.findMany({
-        where: { projectId, type: 'apify_actor' },
+        where: { channelId, type: 'apify_actor' },
         select: { label: true, config: true },
       })
       const newActorId = String(config.actorId).trim()
@@ -112,7 +112,7 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
 
     const source = await db.articleSource.create({
       data: {
-        projectId,
+        channelId,
         type,
         label: label.trim(),
         config,
@@ -157,7 +157,7 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
       // Prevent duplicate actorId/datasetId when updating config
       if (nextType === 'apify_actor' && req.body.config?.actorId) {
         const existing = await db.articleSource.findMany({
-          where: { projectId: existing.projectId, type: 'apify_actor', id: { not: req.params.id } },
+          where: { channelId: existing.channelId, type: 'apify_actor', id: { not: req.params.id } },
           select: { label: true, config: true },
         })
         const newActorId = String(req.body.config.actorId).trim()
@@ -201,11 +201,11 @@ router.post('/:id/test', requireRole('owner', 'admin', 'editor'), async (req, re
   try {
     const source = await db.articleSource.findUnique({
       where: { id: req.params.id },
-      include: { project: true },
+      include: { channel: true },
     })
     if (!source) return res.status(404).json({ error: 'Source not found' })
 
-    const articles = await testSourceFetch(source.type, source.config, source.project, source)
+    const articles = await testSourceFetch(source.type, source.config, source.channel, source)
     res.json({ articles, count: articles.length })
   } catch (e) {
     res.status(500).json({ error: e.message })
@@ -220,7 +220,7 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
 
     const source = await db.articleSource.findUnique({
       where: { id: req.params.id },
-      include: { project: true },
+      include: { channel: true },
     })
     if (!source) return res.status(404).json({ error: 'Source not found' })
 
@@ -256,7 +256,7 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
       seenInRun.add(url)
 
       const exists = await db.article.findUnique({
-        where: { projectId_url: { projectId: source.projectId, url } },
+        where: { channelId_url: { channelId: source.channelId, url } },
         select: { id: true },
       })
       if (exists) { dupes++; continue }
@@ -264,7 +264,7 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
       try {
         await db.article.create({
           data: {
-            projectId: source.projectId,
+            channelId: source.channelId,
             sourceId: source.id,
             url,
             title: raw.title || null,
@@ -316,18 +316,18 @@ router.get('/field-schema', async (req, res) => {
 // ── POST /api/article-sources/test-config — dry-run with arbitrary config ─
 router.post('/test-config', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, type, config, apiKey } = req.body
-    if (!projectId || !type || !config) {
-      return res.status(400).json({ error: 'projectId, type, and config required' })
+    const { channelId, type, config, apiKey } = req.body
+    if (!channelId || !type || !config) {
+      return res.status(400).json({ error: 'channelId, type, and config required' })
     }
     const configError = validateConfig(type, config)
     if (configError) return res.status(400).json({ error: configError })
 
-    const project = await db.project.findUnique({ where: { id: projectId } })
-    if (!project) return res.status(404).json({ error: 'Project not found' })
+    const channel = await db.channel.findUnique({ where: { id: channelId } })
+    if (!channel) return res.status(404).json({ error: 'Channel not found' })
 
     const source = type === 'apify_actor' && apiKey ? { apiKeyEncrypted: encrypt(apiKey.trim()) } : null
-    const articles = await testSourceFetch(type, config, project, source)
+    const articles = await testSourceFetch(type, config, channel, source)
     res.json({ articles, count: articles.length })
   } catch (e) {
     res.status(500).json({ error: e.message })

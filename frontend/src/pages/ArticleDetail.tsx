@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
@@ -117,7 +117,7 @@ interface Analysis {
 
 interface ArticleDetail {
   id: string;
-  projectId: string;
+  channelId: string;
   url: string;
   title: string | null;
   description: string | null;
@@ -205,8 +205,8 @@ function extractDomain(url: string): string {
 /* ─── Main Component ─── */
 
 export default function ArticleDetailPage() {
-  const { projectId, id } = useParams();
-  const pp = useProjectPath();
+  const { channelId, id } = useParams();
+  const pp = useChannelPath();
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

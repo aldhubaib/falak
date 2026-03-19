@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
@@ -91,7 +91,7 @@ function mapVideo(v: ApiVideo): Video {
 
 export default function ChannelDetail() {
   const { id } = useParams();
-  const projectPath = useProjectPath();
+  const channelPath = useChannelPath();
   const [channel, setChannel] = useState<ApiChannel | null>(null);
   const [channelVideos, setChannelVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,7 +237,7 @@ export default function ChannelDetail() {
       <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
         <Link
-          to={projectPath("")}
+          to={channelPath("")}
           className="text-sensor hover:text-foreground underline text-[13px]"
         >
           Return to home
@@ -250,7 +250,7 @@ export default function ChannelDetail() {
     <div className="flex flex-col min-h-screen">
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <Link
-          to={projectPath(channelType === "competition" ? "/competitions" : "")}
+          to={channelPath(channelType === "competition" ? "/competitions" : "")}
           className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -349,7 +349,7 @@ export default function ChannelDetail() {
               );
             })()}
 
-            <VideoTable videos={filteredVideos} getVideoHref={(vid) => projectPath(`/video/${vid}`)} />
+            <VideoTable videos={filteredVideos} getVideoHref={(vid) => channelPath(`/video/${vid}`)} />
           </div>
         </div>
 

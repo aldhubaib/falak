@@ -13,15 +13,15 @@ const { getChannelStats } = require('./statsRefresher')
 const ACTIVE_STAGES = ['suggestion', 'liked', 'scripting', 'filmed', 'publish']
 
 /**
- * Re-score all active stories for a project.
+ * Re-score all active stories for a channel.
  * Returns summary of what changed.
  */
-async function rescoreActiveStories(projectId) {
-  const profile = await getOrCreateProfile(projectId)
+async function rescoreActiveStories(channelId) {
+  const profile = await getOrCreateProfile(channelId)
   const confidence = getConfidence(profile)
 
   const stories = await db.story.findMany({
-    where: { projectId, stage: { in: ACTIVE_STAGES } },
+    where: { channelId, stage: { in: ACTIVE_STAGES } },
     select: {
       id: true, headline: true, stage: true, brief: true,
       relevanceScore: true, viralScore: true, firstMoverScore: true,
@@ -32,7 +32,7 @@ async function rescoreActiveStories(projectId) {
 
   // Preload channel avg views for competition ratio calculations
   const competitorChannels = await db.channel.findMany({
-    where: { projectId, type: 'competitor', status: 'active' },
+    where: { parentChannelId: channelId, type: 'competitor', status: 'active' },
     select: { id: true },
   })
   const channelAvgMap = new Map()
@@ -46,7 +46,7 @@ async function rescoreActiveStories(projectId) {
   const alerts = []
 
   for (const story of stories) {
-    const result = await rescoreStory(story, profile, confidence, channelAvgMap, projectId)
+    const result = await rescoreStory(story, profile, confidence, channelAvgMap, channelId)
     evaluated++
 
     if (result.changed) {
@@ -94,7 +94,7 @@ async function rescoreActiveStories(projectId) {
     try {
       await db.alert.create({
         data: {
-          projectId,
+          channelId,
           storyId: alert.storyId,
           type: alert.type,
           title: alert.title,
@@ -104,14 +104,14 @@ async function rescoreActiveStories(projectId) {
     } catch (_) {}
   }
 
-  logger.info({ projectId, evaluated, changed, alerts: alerts.length, confidence }, '[rescorer] re-scored active stories')
+  logger.info({ channelId, evaluated, changed, alerts: alerts.length, confidence }, '[rescorer] re-scored active stories')
   return { evaluated, changed, alerts: alerts.length }
 }
 
 /**
  * Re-score a single story. Returns before/after and whether anything changed.
  */
-async function rescoreStory(story, profile, confidence, channelAvgMap, projectId) {
+async function rescoreStory(story, profile, confidence, channelAvgMap, channelId) {
   const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
   const before = {
     relevanceScore: story.relevanceScore || 0,
@@ -145,7 +145,7 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, projectId
       if (embRow?.[0]?.embedding) {
         const embedding = JSON.parse(embRow[0].embedding)
 
-        const similar = await findSimilarVideos(embedding, projectId, 10)
+        const similar = await findSimilarVideos(embedding, channelId, 10)
         competitionMatches = similar.length
 
         if (similar.length > 0) {
@@ -184,7 +184,7 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, projectId
       const embRow2 = await db.$queryRaw`SELECT embedding::text FROM "Story" WHERE id = ${story.id}`
       const embedding = embRow2?.[0]?.embedding ? JSON.parse(embRow2[0].embedding) : null
       if (!embedding) throw new Error('no embedding')
-      const ownSimilar = await findSimilarOwnStories(embedding, projectId, story.id, 5)
+      const ownSimilar = await findSimilarOwnStories(embedding, channelId, story.id, 5)
       const withViews = ownSimilar.filter(s => {
         const b = (s.brief && typeof s.brief === 'object') ? s.brief : {}
         return b.views > 0

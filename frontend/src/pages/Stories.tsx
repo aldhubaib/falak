@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { ArrowUpRight, Loader2 } from "lucide-react";
 import { PageError } from "@/components/PageError";
 
@@ -98,8 +98,8 @@ function MiniScores({ story }: { story: ApiStory }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Stories() {
-  const { projectId } = useParams();
-  const projectPath = useProjectPath();
+  const { channelId } = useParams();
+  const channelPath = useChannelPath();
   const [stories, setStories] = useState<ApiStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStage, setActiveStage] = useState<Stage | "all">("suggestion");
@@ -115,11 +115,11 @@ export default function Stories() {
 
   const loadStories = useCallback(async () => {
     setLoadError(null);
-    if (!projectId) return;
+    if (!channelId) return;
     try {
       const [storiesRes, summaryRes] = await Promise.all([
-        fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" }),
-        fetch(`/api/stories/summary?projectId=${projectId}`, { credentials: "include" }),
+        fetch(`/api/stories?channelId=${channelId}`, { credentials: "include" }),
+        fetch(`/api/stories/summary?channelId=${channelId}`, { credentials: "include" }),
       ]);
       if (storiesRes.ok) setStories(await storiesRes.json());
       if (summaryRes.ok) setSummary(await summaryRes.json());
@@ -130,7 +130,7 @@ export default function Stories() {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [channelId]);
 
   useEffect(() => {
     loadStories();
@@ -147,8 +147,8 @@ export default function Stories() {
   const [nextRescore, setNextRescore] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!projectId) return;
-    fetch(`/api/vector-intelligence/status?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
+    if (!channelId) return;
+    fetch(`/api/vector-intelligence/status?channelId=${encodeURIComponent(channelId)}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d?.lastStatsRefreshAt) return;
@@ -162,7 +162,7 @@ export default function Stories() {
         setNextRescore(h > 0 ? `${h}h ${m}m` : `${m}m`);
       })
       .catch(() => {});
-  }, [projectId]);
+  }, [channelId]);
 
   const handleFetch = async () => {
     const msg = "Legacy story fetch has been removed. Use Source or Article Pipeline to ingest articles instead.";
@@ -171,10 +171,10 @@ export default function Stories() {
   };
 
   const handleReEvaluate = async () => {
-    if (!projectId || reEvaluating) return;
+    if (!channelId || reEvaluating) return;
     setReEvaluating(true);
     try {
-      const res = await fetch(`/api/stories/re-evaluate?projectId=${encodeURIComponent(projectId)}`, {
+      const res = await fetch(`/api/stories/re-evaluate?channelId=${encodeURIComponent(channelId)}`, {
         method: "POST",
         credentials: "include",
       });
@@ -355,7 +355,7 @@ export default function Stories() {
                   return (
                     <Link
                       key={story.id}
-                      to={projectPath(`/story/${story.id}`)}
+                      to={channelPath(`/story/${story.id}`)}
                       className="block w-full px-4 py-3.5 border-t border-border text-right hover:bg-[#0d0d10] transition-colors group no-underline"
                     >
                       <div className="flex items-start justify-between mb-1.5 gap-2">

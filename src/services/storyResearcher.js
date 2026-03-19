@@ -29,10 +29,15 @@ const SYNTHESIS_MAX_TOKENS = 4096
  * Determine if an article needs deep research.
  * Called after classify (analysis exists) but before translation.
  */
-function needsResearch(article, project) {
-  const hasFirecrawl = !!project.firecrawlApiKeyEncrypted
-  const hasPerplexity = !!project.perplexityApiKeyEncrypted
-  const hasAnthropic = !!project.anthropicApiKeyEncrypted
+async function needsResearch(article) {
+  const [fcKey, pxKey, anKey] = await Promise.all([
+    db.apiKey.findUnique({ where: { service: 'firecrawl' } }),
+    db.apiKey.findUnique({ where: { service: 'perplexity' } }),
+    db.apiKey.findUnique({ where: { service: 'anthropic' } }),
+  ])
+  const hasFirecrawl = !!fcKey?.encryptedKey
+  const hasPerplexity = !!pxKey?.encryptedKey
+  const hasAnthropic = !!anKey?.encryptedKey
 
   if (!hasFirecrawl && !hasPerplexity) {
     return { needed: false, reason: 'No research API keys (Firecrawl/Perplexity) configured' }
@@ -59,7 +64,7 @@ function needsResearch(article, project) {
  * Returns research data to be stored on article.analysis.research and later
  * included in the Story brief when the score stage creates it.
  */
-async function researchStory(article, project) {
+async function researchStory(article, channelId) {
   const log = []
   const analysis = article.analysis || {}
 
@@ -72,11 +77,12 @@ async function researchStory(article, project) {
 
   // ── Step 1: Firecrawl Search (original language) ──
   let firecrawlResults = []
-  if (project.firecrawlApiKeyEncrypted) {
+  const fcKey = await db.apiKey.findUnique({ where: { service: 'firecrawl' } })
+  if (fcKey?.encryptedKey) {
     try {
-      const fcKey = decrypt(project.firecrawlApiKeyEncrypted)
+      const fcApiKey = decrypt(fcKey.encryptedKey)
       const lang = (article.language === 'ar') ? 'ar' : 'en'
-      const result = await searchNews(fcKey, searchQuery, {
+      const result = await searchNews(fcApiKey, searchQuery, {
         limit: FIRECRAWL_RESULT_LIMIT,
         lang,
       })
@@ -104,11 +110,12 @@ async function researchStory(article, project) {
   // ── Step 2: Perplexity Background Context ──
   let perplexityContext = null
   let perplexityCitations = []
-  if (project.perplexityApiKeyEncrypted) {
+  const pxKey = await db.apiKey.findUnique({ where: { service: 'perplexity' } })
+  if (pxKey?.encryptedKey) {
     try {
-      const pxKey = decrypt(project.perplexityApiKeyEncrypted)
+      const pxApiKey = decrypt(pxKey.encryptedKey)
       const bgPrompt = buildBackgroundPrompt(topic, tags, region, analysis.summary)
-      const result = await queryPerplexity(pxKey, bgPrompt, { maxTokens: PERPLEXITY_MAX_TOKENS })
+      const result = await queryPerplexity(pxApiKey, bgPrompt, { maxTokens: PERPLEXITY_MAX_TOKENS })
       perplexityContext = result.text || null
       perplexityCitations = result.citations || []
       const pxQuality = evaluatePerplexityQuality(perplexityContext, perplexityCitations)
@@ -134,9 +141,10 @@ async function researchStory(article, project) {
 
   // ── Step 3: Claude Synthesis ──
   let researchBrief = null
-  if (project.anthropicApiKeyEncrypted) {
+  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (anKey?.encryptedKey) {
     try {
-      const anthropicKey = decrypt(project.anthropicApiKeyEncrypted)
+      const anthropicKey = decrypt(anKey.encryptedKey)
       const synthesisPrompt = buildSynthesisPrompt({
         topic,
         summary: analysis.summary,
@@ -153,7 +161,7 @@ async function researchStory(article, project) {
         { role: 'user', content: synthesisPrompt },
       ], {
         maxTokens: SYNTHESIS_MAX_TOKENS,
-        projectId: project.id,
+        channelId,
         action: 'story-research-synthesis',
       })
       const synthesisUsage = callAnthropic._lastUsage || {}

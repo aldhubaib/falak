@@ -1,28 +1,6 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { encrypt, decrypt } = require('../services/crypto')
-
-function stripProjectKeys(p) {
-  const {
-    youtubeApiKeyEncrypted,
-    anthropicApiKeyEncrypted,
-    perplexityApiKeyEncrypted,
-    ytTranscriptApiKeyEncrypted,
-    firecrawlApiKeyEncrypted,
-    apifyApiKeyEncrypted,
-    ...rest
-  } = p
-  return {
-    ...rest,
-    hasYoutubeKey:      !!youtubeApiKeyEncrypted,
-    hasAnthropicKey:    !!anthropicApiKeyEncrypted,
-    hasPerplexityKey:   !!perplexityApiKeyEncrypted,
-    hasYtTranscriptKey: !!ytTranscriptApiKeyEncrypted,
-    hasFirecrawlKey:    !!firecrawlApiKeyEncrypted,
-    hasApifyKey:        !!apifyApiKeyEncrypted,
-  }
-}
 
 // ── MONITOR ────────────────────────────────────────────────────
 const monitor = express.Router()
@@ -30,8 +8,10 @@ monitor.use(requireAuth)
 
 monitor.get('/', async (req, res) => {
   try {
-    const { projectId } = req.query
-    const where = projectId ? { projectId } : {}
+    const { channelId } = req.query
+    const where = channelId
+      ? { OR: [{ id: channelId }, { parentChannelId: channelId }] }
+      : {}
     const channels = await db.channel.findMany({
       where,
       select: {
@@ -64,7 +44,7 @@ admin.get('/users', async (req, res) => {
       select: {
         id: true, email: true, name: true, avatarUrl: true,
         role: true, note: true, isActive: true,
-        pageAccess: true, projectAccess: true,
+        pageAccess: true, channelAccess: true,
         createdAt: true, updatedAt: true,
       },
       orderBy: { createdAt: 'asc' }
@@ -77,14 +57,14 @@ admin.get('/users', async (req, res) => {
 
 admin.post('/users', async (req, res) => {
   try {
-    const { email, role, note, pageAccess, projectAccess } = req.body
+    const { email, role, note, pageAccess, channelAccess } = req.body
     if (!email) return res.status(400).json({ error: 'email required' })
 
     const existing = await db.user.findUnique({ where: { email } })
     if (existing) return res.status(409).json({ error: 'User already exists' })
 
     const user = await db.user.create({
-      data: { email, role: role || 'viewer', note, pageAccess, projectAccess }
+      data: { email, role: role || 'viewer', note, pageAccess, channelAccess }
     })
     res.json(user)
   } catch (e) {
@@ -98,7 +78,7 @@ admin.patch('/users/:id', async (req, res) => {
     if (req.params.id === req.user.id && req.body.role && req.body.role !== 'owner') {
       return res.status(400).json({ error: 'Cannot change your own role' })
     }
-    const allowed = ['role', 'note', 'isActive', 'pageAccess', 'projectAccess']
+    const allowed = ['role', 'note', 'isActive', 'pageAccess', 'channelAccess']
     const data = {}
     for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k]
 
@@ -159,209 +139,78 @@ admin.post('/retranscribe-all', async (req, res) => {
   }
 })
 
-// ── PROJECTS ───────────────────────────────────────────────────
-const projects = express.Router()
-projects.use(requireAuth)
+// ── PROFILES (replaces projects) ──────────────────────────────
+const profiles = express.Router()
+profiles.use(requireAuth)
 
-projects.get('/', async (req, res) => {
+profiles.get('/', async (req, res) => {
   try {
-    const items = await db.project.findMany({
-      include: { _count: { select: { channels: true, stories: true } } },
+    const items = await db.channel.findMany({
+      where: { type: 'ours', parentChannelId: null },
+      include: { _count: { select: { stories: true, childChannels: true } } },
       orderBy: { createdAt: 'asc' }
     })
-    res.json(items.map(stripProjectKeys))
+    res.json(items)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-projects.post('/', requireRole('owner', 'admin'), async (req, res) => {
+profiles.post('/', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { name, nameAr, color } = req.body
-    if (!name) return res.status(400).json({ error: 'name required' })
-    const project = await db.project.create({ data: { name, nameAr, color } })
-    res.json(project)
+    const { youtubeId, handle, nameAr, nameEn, color } = req.body
+    if (!youtubeId && !handle) return res.status(400).json({ error: 'youtubeId or handle required' })
+    const channel = await db.channel.create({
+      data: {
+        youtubeId: youtubeId || null,
+        handle: handle || null,
+        nameAr: nameAr || null,
+        nameEn: nameEn || null,
+        color: color || null,
+        type: 'ours',
+        status: 'active',
+      }
+    })
+    res.json(channel)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-projects.patch('/:id', requireRole('owner', 'admin'), async (req, res) => {
+profiles.patch('/:id', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { name, nameAr, color, status } = req.body
+    const { nameAr, nameEn, color, status } = req.body
     const data = {}
-    if (name !== undefined) data.name = name
     if (nameAr !== undefined) data.nameAr = nameAr
+    if (nameEn !== undefined) data.nameEn = nameEn
     if (color !== undefined) data.color = color
     if (status !== undefined) data.status = status
-    const project = await db.project.update({ where: { id: req.params.id }, data })
-    res.json(stripProjectKeys(project))
+    const channel = await db.channel.update({ where: { id: req.params.id }, data })
+    res.json(channel)
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-// Returns the first `prefixLen` characters of a decrypted key followed by bullet mask.
-// Never throws — returns null if the value is missing or decryption fails.
-function keyPreview(enc, prefixLen = 16) {
-  if (!enc) return null
+profiles.delete('/:id', requireRole('owner'), async (req, res) => {
   try {
-    const plain = decrypt(enc)
-    return plain.slice(0, prefixLen) + '••••••••'
-  } catch (_) {
-    return null
-  }
-}
-
-const PROJECT_KEY_SELECT = {
-  youtubeApiKeyEncrypted: true,
-  anthropicApiKeyEncrypted: true,
-  perplexityApiKeyEncrypted: true,
-  ytTranscriptApiKeyEncrypted: true,
-  firecrawlApiKeyEncrypted: true,
-  apifyApiKeyEncrypted: true,
-}
-
-// Helper: parse the YouTube key field — supports both single key and JSON array
-function parseYoutubeKeys(raw) {
-  if (!raw) return []
-  try {
-    if (raw.trimStart().startsWith('[')) return JSON.parse(raw)
-  } catch (_) {}
-  // Legacy: single encrypted key — wrap as one entry with no label
-  return [{ label: 'Key 1', enc: raw }]
-}
-
-function buildKeyStatus(project) {
-  const ytKeys = parseYoutubeKeys(project.youtubeApiKeyEncrypted)
-  return {
-    hasYoutubeKey:          ytKeys.length > 0,
-    youtubeKeys:            ytKeys.map(({ label, enc }) => ({ label, preview: keyPreview(enc, 8) })),
-    hasAnthropicKey:        !!project.anthropicApiKeyEncrypted,
-    anthropicKeyPreview:    keyPreview(project.anthropicApiKeyEncrypted, 16),
-    hasPerplexityKey:       !!project.perplexityApiKeyEncrypted,
-    perplexityKeyPreview:   keyPreview(project.perplexityApiKeyEncrypted, 16),
-    hasYtTranscriptKey:     !!project.ytTranscriptApiKeyEncrypted,
-    ytTranscriptKeyPreview: keyPreview(project.ytTranscriptApiKeyEncrypted, 16),
-    hasFirecrawlKey:        !!project.firecrawlApiKeyEncrypted,
-    firecrawlKeyPreview:    keyPreview(project.firecrawlApiKeyEncrypted, 12),
-    hasApifyKey:            !!project.apifyApiKeyEncrypted,
-    apifyKeyPreview:        keyPreview(project.apifyApiKeyEncrypted, 12),
-  }
-}
-
-// GET /api/projects/:id/keys — return project-scoped key presence
-projects.get('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
-  try {
-    const project = await db.project.findUnique({
-      where: { id: req.params.id },
-      select: PROJECT_KEY_SELECT,
-    })
-    if (!project) return res.status(404).json({ error: 'Project not found' })
-    res.json(buildKeyStatus(project))
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-// PATCH /api/projects/:id/keys — save/clear project-scoped keys
-projects.patch('/:id/keys', requireRole('owner', 'admin'), async (req, res) => {
-  try {
-    const { anthropicKey, perplexityKey, ytTranscriptKey, firecrawlKey, apifyKey } = req.body
-    const data = {}
-    if (anthropicKey !== undefined)
-      data.anthropicApiKeyEncrypted = anthropicKey ? encrypt(anthropicKey) : null
-    if (perplexityKey !== undefined)
-      data.perplexityApiKeyEncrypted = perplexityKey ? encrypt(perplexityKey) : null
-    if (ytTranscriptKey !== undefined)
-      data.ytTranscriptApiKeyEncrypted = ytTranscriptKey ? encrypt(ytTranscriptKey) : null
-    if (firecrawlKey !== undefined)
-      data.firecrawlApiKeyEncrypted = firecrawlKey ? encrypt(firecrawlKey) : null
-    if (apifyKey !== undefined)
-      data.apifyApiKeyEncrypted = apifyKey ? encrypt(apifyKey) : null
-
-    const project = await db.project.update({
-      where: { id: req.params.id },
-      data,
-      select: PROJECT_KEY_SELECT,
-    })
-    res.json(buildKeyStatus(project))
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-// POST /api/projects/:id/keys/youtube — add a YouTube Data API v3 key with a label
-projects.post('/:id/keys/youtube', requireRole('owner', 'admin'), async (req, res) => {
-  try {
-    const { key, label } = req.body
-    if (!key) return res.status(400).json({ error: 'key is required' })
-
-    const project = await db.project.findUnique({
-      where: { id: req.params.id },
-      select: { youtubeApiKeyEncrypted: true },
-    })
-    if (!project) return res.status(404).json({ error: 'Project not found' })
-
-    const existing = parseYoutubeKeys(project.youtubeApiKeyEncrypted)
-    existing.push({ label: label || `Key ${existing.length + 1}`, enc: encrypt(key) })
-
-    const updated = await db.project.update({
-      where: { id: req.params.id },
-      data: { youtubeApiKeyEncrypted: JSON.stringify(existing) },
-      select: PROJECT_KEY_SELECT,
-    })
-    res.json(buildKeyStatus(updated))
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-// DELETE /api/projects/:id/keys/youtube/:idx — remove a YouTube key by index
-projects.delete('/:id/keys/youtube/:idx', requireRole('owner', 'admin'), async (req, res) => {
-  try {
-    const idx = parseInt(req.params.idx, 10)
-    const project = await db.project.findUnique({
-      where: { id: req.params.id },
-      select: { youtubeApiKeyEncrypted: true },
-    })
-    if (!project) return res.status(404).json({ error: 'Project not found' })
-
-    const keys = parseYoutubeKeys(project.youtubeApiKeyEncrypted)
-    if (idx < 0 || idx >= keys.length) return res.status(400).json({ error: 'Invalid index' })
-    keys.splice(idx, 1)
-
-    const updated = await db.project.update({
-      where: { id: req.params.id },
-      data: { youtubeApiKeyEncrypted: keys.length > 0 ? JSON.stringify(keys) : null },
-      select: PROJECT_KEY_SELECT,
-    })
-    res.json(buildKeyStatus(updated))
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-projects.delete('/:id', requireRole('owner'), async (req, res) => {
-  try {
-    await db.project.delete({ where: { id: req.params.id } })
+    await db.channel.delete({ where: { id: req.params.id } })
     res.json({ ok: true })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-// GET /api/projects/:id/usage?limit=50&cursor=<lastId>
-// Returns paginated API usage records, newest first.
-projects.get('/:id/usage', requireRole('owner', 'admin'), async (req, res) => {
+// GET /api/profiles/:id/usage?limit=50&cursor=<lastId>
+profiles.get('/:id/usage', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const limit  = Math.min(parseInt(req.query.limit || '50', 10), 100)
-    const cursor = req.query.cursor || null          // ID of the last item from previous page
+    const cursor = req.query.cursor || null
 
     const rows = await db.apiUsage.findMany({
-      where: { projectId: req.params.id },
+      where: { channelId: req.params.id },
       orderBy: { createdAt: 'desc' },
-      take: limit + 1,                               // fetch one extra to detect hasMore
+      take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     })
 
@@ -385,4 +234,4 @@ projects.get('/:id/usage', requireRole('owner', 'admin'), async (req, res) => {
   }
 })
 
-module.exports = { monitor, admin, projects }
+module.exports = { monitor, admin, profiles }

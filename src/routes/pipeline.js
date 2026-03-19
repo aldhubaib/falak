@@ -20,16 +20,16 @@ const MAX_RETRIES = 3
 const pipelineQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(2000).optional().default(1000),
   stage: z.enum(['import', 'transcribe', 'comments', 'analyzing', 'done', 'failed']).optional(),
-  projectId: z.string().optional(),
+  channelId: z.string().optional(),
 })
 const PER_STAGE_CAP = 100
 
-// ── GET /api/pipeline?limit=1000&stage=xxx&projectId=xxx — pipeline state, optional project scope
+// ── GET /api/pipeline?limit=1000&stage=xxx&channelId=xxx — pipeline state, optional channel scope
 router.get('/', async (req, res) => {
-  const { limit, stage, projectId } = parseQuery(req.query, pipelineQuerySchema)
+  const { limit, stage, channelId } = parseQuery(req.query, pipelineQuerySchema)
   const baseWhere = {}
-  if (projectId) {
-    baseWhere.video = { channel: { projectId } }
+  if (channelId) {
+    baseWhere.video = { channel: { OR: [{ id: channelId }, { parentChannelId: channelId }] } }
   }
 
   const itemWhere = { ...baseWhere, ...(stage ? { stage } : {}) }
@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
       _count: true,
     }),
     db.pipelineItem.count({ where: baseWhere }),
-    db.project.count({ where: { status: 'paused' } }),
+    db.channel.count({ where: { status: 'paused' } }),
   ])
 
   const countMap = {}
@@ -100,10 +100,10 @@ router.post('/process', requireRole('owner', 'admin', 'editor'), async (req, res
   }
 })
 
-// ── POST /api/pipeline/pause — pause all active projects
+// ── POST /api/pipeline/pause — pause all active channels
 router.post('/pause', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    await db.project.updateMany({
+    await db.channel.updateMany({
       where: { status: 'active' },
       data: { status: 'paused' },
     })
@@ -113,10 +113,10 @@ router.post('/pause', requireRole('owner', 'admin'), async (req, res) => {
   }
 })
 
-// ── POST /api/pipeline/resume — resume all paused projects
+// ── POST /api/pipeline/resume — resume all paused channels
 router.post('/resume', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    await db.project.updateMany({
+    await db.channel.updateMany({
       where: { status: 'paused' },
       data: { status: 'active' },
     })
@@ -178,15 +178,15 @@ async function processOneItem() {
       include: {
         video: {
           include: {
-            channel: { include: { project: true } },
+            channel: true,
           },
         },
       },
       orderBy: { createdAt: 'asc' },
     })
-    if (!item?.video?.channel?.project) continue
-    const project = item.video.channel.project
-    if (project.status === 'paused') continue
+    if (!item?.video?.channel) continue
+    const channel = item.video.channel
+    if (channel.status === 'paused') continue
 
     await db.pipelineItem.update({
       where: { id: item.id },
@@ -196,10 +196,10 @@ async function processOneItem() {
     const video = item.video
     try {
       let out
-      if (stage === 'import') out = await doStageImport(item, video, project)
-      else if (stage === 'transcribe') out = await doStageTranscribe(item, video, project)
-      else if (stage === 'comments') out = await doStageComments(item, video, project)
-      else if (stage === 'analyzing') out = await doStageAnalyzing(item, video, project)
+      if (stage === 'import') out = await doStageImport(item, video, channel)
+      else if (stage === 'transcribe') out = await doStageTranscribe(item, video, channel)
+      else if (stage === 'comments') out = await doStageComments(item, video, channel)
+      else if (stage === 'analyzing') out = await doStageAnalyzing(item, video, channel)
       else continue
 
       await db.pipelineItem.update({

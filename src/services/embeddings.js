@@ -15,14 +15,15 @@ const DIMENSIONS = 1536
 /**
  * Generate an embedding vector for the given text.
  * @param {string} text
- * @param {object} project - needs embeddingApiKeyEncrypted
+ * @param {string} channelId
  * @returns {number[]} Float array of length 1536
  */
-async function generateEmbedding(text, project) {
-  if (!project.embeddingApiKeyEncrypted) {
-    throw new Error('OpenAI embedding API key not configured for this project.')
+async function generateEmbedding(text, channelId) {
+  const keyRow = await db.apiKey.findUnique({ where: { service: 'embedding' } })
+  if (!keyRow?.encryptedKey) {
+    throw new Error('OpenAI embedding API key not configured. Go to Settings and add it.')
   }
-  const apiKey = decrypt(project.embeddingApiKeyEncrypted)
+  const apiKey = decrypt(keyRow.encryptedKey)
   const input = text.slice(0, 8000)
 
   const res = await fetch(OPENAI_EMBEDDING_URL, {
@@ -37,7 +38,7 @@ async function generateEmbedding(text, project) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     const msg = err?.error?.message || `OpenAI API ${res.status}`
-    trackUsage({ projectId: project.id, service: 'openai-embedding', action: 'embed', status: 'fail', error: msg })
+    trackUsage({ channelId, service: 'openai-embedding', action: 'embed', status: 'fail', error: msg })
     throw new Error(`Embedding failed: ${msg}`)
   }
 
@@ -48,7 +49,7 @@ async function generateEmbedding(text, project) {
   }
 
   trackUsage({
-    projectId: project.id,
+    channelId,
     service: 'openai-embedding',
     action: 'embed',
     tokensUsed: data.usage?.total_tokens,
@@ -93,7 +94,7 @@ async function storeStoryEmbedding(storyId, embedding) {
  * Uses pgvector HNSW index for fast approximate nearest-neighbor search.
  * Returns videos with cosine similarity score, view counts, and channel info.
  */
-async function findSimilarVideos(embedding, projectId, limit = 10) {
+async function findSimilarVideos(embedding, channelId, limit = 10) {
   const vecStr = `[${embedding.join(',')}]`
   return db.$queryRaw`
     SELECT
@@ -103,7 +104,7 @@ async function findSimilarVideos(embedding, projectId, limit = 10) {
       1 - (v.embedding <=> ${vecStr}::vector) as similarity
     FROM "Video" v
     JOIN "Channel" c ON v."channelId" = c.id
-    WHERE c."projectId" = ${projectId}
+    WHERE c."parentChannelId" = ${channelId}
       AND c."type" = 'competitor'
       AND v.embedding IS NOT NULL
       AND v."analysisResult" IS NOT NULL
@@ -116,14 +117,14 @@ async function findSimilarVideos(embedding, projectId, limit = 10) {
  * Find the most similar "done" stories from our own channel.
  * Used to compute ownChannelAffinity (how similar topics performed for us).
  */
-async function findSimilarOwnStories(embedding, projectId, excludeStoryId, limit = 5) {
+async function findSimilarOwnStories(embedding, channelId, excludeStoryId, limit = 5) {
   const vecStr = `[${embedding.join(',')}]`
   return db.$queryRaw`
     SELECT
       s.id, s.headline, s.brief, s."compositeScore", s.stage,
       1 - (s.embedding <=> ${vecStr}::vector) as similarity
     FROM "Story" s
-    WHERE s."projectId" = ${projectId}
+    WHERE s."channelId" = ${channelId}
       AND s.stage = 'done'
       AND s.embedding IS NOT NULL
       AND s.id != ${excludeStoryId || ''}

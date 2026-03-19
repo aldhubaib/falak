@@ -42,7 +42,7 @@ async function pickItems(stage) {
     },
     include: {
       source: {
-        include: { project: true },
+        include: { channel: true },
       },
     },
     orderBy: { createdAt: 'asc' },
@@ -51,9 +51,9 @@ async function pickItems(stage) {
 }
 
 async function processItem(article) {
-  const project = article.source?.project
-  if (!project) return
-  if (project.status === 'paused') return
+  const channel = article.source?.channel
+  if (!channel) return
+  if (channel.status === 'paused') return
 
   await db.article.update({
     where: { id: article.id },
@@ -64,22 +64,22 @@ async function processItem(article) {
     let out
     switch (article.stage) {
       case 'imported':
-        out = await doStageImported(article, project)
+        out = await doStageImported(article, channel)
         break
       case 'content':
-        out = await doStageContent(article, project)
+        out = await doStageContent(article, channel)
         break
       case 'classify':
-        out = await doStageClassify(article, project)
+        out = await doStageClassify(article, channel)
         break
       case 'research':
-        out = await doStageResearch(article, project)
+        out = await doStageResearch(article, channel)
         break
       case 'translated':
-        out = await doStageTranslated(article, project)
+        out = await doStageTranslated(article, channel)
         break
       case 'score':
-        out = await doStageScore(article, project)
+        out = await doStageScore(article, channel)
         break
       default:
         return
@@ -175,19 +175,19 @@ async function pollSources() {
 
   try {
     const { ingestAll } = require('./services/articlePipeline')
-    const projects = await db.project.findMany({
-      where: { status: 'active' },
+    const channels = await db.channel.findMany({
+      where: { type: 'ours', status: 'active', parentChannelId: null },
       select: { id: true },
     })
-    for (const project of projects) {
+    for (const channel of channels) {
       try {
-        const results = await ingestAll(project.id)
+        const results = await ingestAll(channel.id)
         const totalInserted = results.reduce((s, r) => s + (r.inserted || 0), 0)
         if (totalInserted > 0) {
-          logger.info({ projectId: project.id, inserted: totalInserted }, '[article-worker] auto-ingested new articles')
+          logger.info({ channelId: channel.id, inserted: totalInserted }, '[article-worker] auto-ingested new articles')
         }
       } catch (e) {
-        logger.warn({ projectId: project.id, error: e.message }, '[article-worker] auto-ingest failed for project')
+        logger.warn({ channelId: channel.id, error: e.message }, '[article-worker] auto-ingest failed for channel')
       }
     }
   } catch (e) {

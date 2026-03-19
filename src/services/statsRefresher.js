@@ -35,10 +35,10 @@ async function getChannelStats(channelId) {
  * Refresh all competition + own channel data from YouTube.
  * Updates Channel stats, creates ChannelSnapshots, and upserts Video stats.
  */
-async function refreshCompetitionData(projectId) {
+async function refreshCompetitionData(channelId) {
   const channels = await db.channel.findMany({
-    where: { projectId, status: 'active' },
-    select: { id: true, youtubeId: true, projectId: true },
+    where: { OR: [{ id: channelId }, { parentChannelId: channelId }], status: 'active' },
+    select: { id: true, youtubeId: true },
   })
 
   let channelsRefreshed = 0
@@ -46,7 +46,7 @@ async function refreshCompetitionData(projectId) {
 
   for (const channel of channels) {
     try {
-      const ytData = await fetchChannel(channel.youtubeId, projectId)
+      const ytData = await fetchChannel(channel.youtubeId, channelId)
       await db.channel.update({
         where: { id: channel.id },
         data: {
@@ -70,7 +70,7 @@ async function refreshCompetitionData(projectId) {
         },
       })
 
-      const videos = await fetchRecentVideos(channel.youtubeId, 50, projectId)
+      const videos = await fetchRecentVideos(channel.youtubeId, 50, channelId)
       for (const v of videos) {
         await db.video.upsert({
           where: { youtubeId: v.youtubeId },
@@ -84,7 +84,7 @@ async function refreshCompetitionData(projectId) {
       logger.info({ channelId: channel.id, videos: videos.length }, '[stats-refresh] channel refreshed')
     } catch (e) {
       logger.warn({ channelId: channel.id, error: e.message }, '[stats-refresh] channel refresh failed')
-      trackUsage({ projectId, service: 'youtube-data', action: 'stats-refresh', status: 'fail', error: e.message })
+      trackUsage({ channelId, service: 'youtube-data', action: 'stats-refresh', status: 'fail', error: e.message })
     }
 
     if (channels.indexOf(channel) < channels.length - 1) {
@@ -92,21 +92,18 @@ async function refreshCompetitionData(projectId) {
     }
   }
 
-  await db.project.update({
-    where: { id: projectId },
-    data: { lastStatsRefreshAt: new Date() },
-  })
+  await db.channel.update({ where: { id: channelId }, data: { lastStatsRefreshAt: new Date() } })
 
-  logger.info({ projectId, channelsRefreshed, videosUpdated }, '[stats-refresh] competition data refreshed')
+  logger.info({ channelId, channelsRefreshed, videosUpdated }, '[stats-refresh] competition data refreshed')
   return { channelsRefreshed, videosUpdated }
 }
 
 /**
  * Fetch YouTube stats for our own published videos (stories in "done" with a youtubeUrl).
  */
-async function fetchOwnVideoStats(projectId) {
+async function fetchOwnVideoStats(channelId) {
   const doneStories = await db.story.findMany({
-    where: { projectId, stage: 'done' },
+    where: { channelId, stage: 'done' },
     select: { id: true, brief: true },
   })
 
@@ -128,7 +125,7 @@ async function fetchOwnVideoStats(projectId) {
     if (!videoId) continue
 
     try {
-      const meta = await fetchVideoMetadata(videoId, projectId)
+      const meta = await fetchVideoMetadata(videoId, channelId)
       const newBrief = {
         ...brief,
         views: Number(meta.viewCount),
@@ -148,7 +145,7 @@ async function fetchOwnVideoStats(projectId) {
     await sleep(500)
   }
 
-  logger.info({ projectId, updated }, '[stats-refresh] own video stats refreshed')
+  logger.info({ channelId, updated }, '[stats-refresh] own video stats refreshed')
   return { ownVideosUpdated: updated }
 }
 

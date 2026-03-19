@@ -6,7 +6,7 @@ import { Menu } from "lucide-react";
 const DESKTOP_BREAKPOINT = 1024;
 
 export function AppLayout() {
-  const { projectId } = useParams();
+  const { channelId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -61,7 +61,7 @@ export function AppLayout() {
           onMouseLeave={() => setHovered(false)}
         >
           <AppSidebar
-            projectId={projectId ?? ""}
+            channelId={channelId ?? ""}
             collapsed={!expanded}
             pinned={pinned}
             onTogglePin={() => setPinned(!pinned)}
@@ -104,7 +104,7 @@ export function AppLayout() {
             drawerOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <AppSidebar projectId={projectId ?? ""} isMobile onClose={() => setDrawerOpen(false)} />
+          <AppSidebar channelId={channelId ?? ""} isMobile onClose={() => setDrawerOpen(false)} />
         </div>
       )}
 

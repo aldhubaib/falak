@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { RotateCw, Pause, Play, Circle, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -50,7 +50,7 @@ const STAGE_DEFS: { id: string; number: number; label: string; color: string }[]
 ];
 
 export default function Pipeline() {
-  const { projectId } = useParams();
+  const { channelId } = useParams();
   const [data, setData] = useState<PipelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
@@ -58,8 +58,8 @@ export default function Pipeline() {
   const [countdown, setCountdown] = useState(30);
 
   const fetchPipeline = useCallback(() => {
-    const url = projectId
-      ? `/api/pipeline?limit=2000&projectId=${encodeURIComponent(projectId)}`
+    const url = channelId
+      ? `/api/pipeline?limit=2000&channelId=${encodeURIComponent(channelId)}`
       : "/api/pipeline?limit=2000";
     fetch(url, { credentials: "include" })
       .then((r) => {
@@ -72,7 +72,7 @@ export default function Pipeline() {
       })
       .catch(() => toast.error("Failed to load pipeline data"))
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [channelId]);
 
   useEffect(() => {
     fetchPipeline();
@@ -298,7 +298,7 @@ function PipelineItemRow({
   isFailed: boolean;
   onRetry: () => void;
 }) {
-  const projectPath = useProjectPath();
+  const channelPath = useChannelPath();
   const [retrying, setRetrying] = useState(false);
   const video = item.video;
   const channel = video?.channel;
@@ -318,7 +318,7 @@ function PipelineItemRow({
   };
 
   const Wrapper = video?.id ? Link : "div";
-  const wrapperProps = video?.id ? { to: projectPath(`/video/${video.id}`) } : {};
+  const wrapperProps = video?.id ? { to: channelPath(`/video/${video.id}`) } : {};
 
   return (
     <Wrapper

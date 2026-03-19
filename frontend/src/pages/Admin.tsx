@@ -42,7 +42,7 @@ const initialUsers: AllowedUser[] = [
     initials: "AA",
     email: "a@falak.io",
     role: "admin",
-    note: "Project owner",
+    note: "Channel owner",
     addedBy: "Added by system",
     addedDate: "1/1/2026",
     color: "bg-blue",
@@ -146,8 +146,8 @@ export default function Admin() {
           <div className="rounded-xl bg-blue/5 border border-blue/15 px-5 py-4 flex items-start gap-3.5">
             <Shield className="w-5 h-5 text-blue shrink-0 mt-0.5" />
             <p className="text-[13px] text-sensor leading-relaxed">
-              The <strong className="text-foreground">project owner</strong> always has full access and cannot be removed. Users not on this list will see an{" "}
-              <strong className="text-foreground">"Access Denied"</strong> page after login. You can control which pages and projects each user can access.
+              The <strong className="text-foreground">channel owner</strong> always has full access and cannot be removed. Users not on this list will see an{" "}
+              <strong className="text-foreground">"Access Denied"</strong> page after login. You can control which pages and channels each user can access.
             </p>
           </div>
 

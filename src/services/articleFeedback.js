@@ -2,7 +2,7 @@
  * Article Feedback Service
  *
  * Learns from user decisions on stories (liked, passed, omit) to build a
- * preference profile per project. The profile is used by articleProcessor
+ * preference profile per channel. The profile is used by articleProcessor
  * to bias future article scores toward what the user actually wants.
  *
  * The profile is stored in a simple JSON structure, recalculated on demand.
@@ -16,22 +16,22 @@ const CACHE_TTL_MS = 5 * 60 * 1000
 /**
  * Get cached preference profile, or build fresh if stale.
  */
-async function getPreferenceProfile(projectId) {
-  const cached = PROFILE_CACHE.get(projectId)
+async function getPreferenceProfile(channelId) {
+  const cached = PROFILE_CACHE.get(channelId)
   if (cached && Date.now() - cached.builtAt < CACHE_TTL_MS) {
     return cached.profile
   }
-  const profile = await buildPreferenceProfile(projectId)
-  PROFILE_CACHE.set(projectId, { profile, builtAt: Date.now() })
+  const profile = await buildPreferenceProfile(channelId)
+  PROFILE_CACHE.set(channelId, { profile, builtAt: Date.now() })
   return profile
 }
 
 /**
  * Force rebuild the preference profile (called after story stage changes).
  */
-async function refreshPreferenceProfile(projectId) {
-  const profile = await buildPreferenceProfile(projectId)
-  PROFILE_CACHE.set(projectId, { profile, builtAt: Date.now() })
+async function refreshPreferenceProfile(channelId) {
+  const profile = await buildPreferenceProfile(channelId)
+  PROFILE_CACHE.set(channelId, { profile, builtAt: Date.now() })
   return profile
 }
 
@@ -41,10 +41,10 @@ async function refreshPreferenceProfile(projectId) {
  * Positive signals: stories in 'liked', 'scripting', 'filmed', 'publish', 'done'
  * Negative signals: stories in 'passed', 'omit'
  */
-async function buildPreferenceProfile(projectId) {
+async function buildPreferenceProfile(channelId) {
   const stories = await db.story.findMany({
     where: {
-      projectId,
+      channelId,
       stage: { in: ['liked', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit'] },
       brief: { not: null },
     },

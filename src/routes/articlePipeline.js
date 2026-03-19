@@ -8,14 +8,14 @@ router.use(requireAuth)
 
 const PIPELINE_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
 
-// ── GET /api/article-pipeline?projectId=X — Kanban view data ──────────────
+// ── GET /api/article-pipeline?channelId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
   try {
-    const { projectId, view } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId, view } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     if (view === 'sources') {
-      return getSourcesView(req, res, projectId)
+      return getSourcesView(req, res, channelId)
     }
 
     const { isPaused } = require('../worker-articles')
@@ -38,50 +38,50 @@ router.get('/', async (req, res) => {
       imported, content, classify, research, translated, score,
       reviewArticles, failedArticles, doneArticles,
     ] = await Promise.all([
-      db.article.count({ where: { projectId } }),
-      db.article.count({ where: { projectId, status: 'review' } }),
-      db.article.count({ where: { projectId, stage: 'failed' } }),
-      db.article.count({ where: { projectId, stage: 'done' } }),
-      db.article.count({ where: { projectId, stage: 'imported', status: { not: 'review' } } }),
-      db.article.count({ where: { projectId, stage: 'content', status: { not: 'review' } } }),
-      db.article.count({ where: { projectId, stage: 'classify', status: { not: 'review' } } }),
-      db.article.count({ where: { projectId, stage: 'research', status: { not: 'review' } } }),
-      db.article.count({ where: { projectId, stage: 'translated', status: { not: 'review' } } }),
-      db.article.count({ where: { projectId, stage: 'score', status: { not: 'review' } } }),
+      db.article.count({ where: { channelId } }),
+      db.article.count({ where: { channelId, status: 'review' } }),
+      db.article.count({ where: { channelId, stage: 'failed' } }),
+      db.article.count({ where: { channelId, stage: 'done' } }),
+      db.article.count({ where: { channelId, stage: 'imported', status: { not: 'review' } } }),
+      db.article.count({ where: { channelId, stage: 'content', status: { not: 'review' } } }),
+      db.article.count({ where: { channelId, stage: 'classify', status: { not: 'review' } } }),
+      db.article.count({ where: { channelId, stage: 'research', status: { not: 'review' } } }),
+      db.article.count({ where: { channelId, stage: 'translated', status: { not: 'review' } } }),
+      db.article.count({ where: { channelId, stage: 'score', status: { not: 'review' } } }),
       db.article.findMany({
-        where: { projectId, stage: 'imported', status: { not: 'review' } },
+        where: { channelId, stage: 'imported', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'content', status: { not: 'review' } },
+        where: { channelId, stage: 'content', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'classify', status: { not: 'review' } },
+        where: { channelId, stage: 'classify', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'research', status: { not: 'review' } },
+        where: { channelId, stage: 'research', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'translated', status: { not: 'review' } },
+        where: { channelId, stage: 'translated', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'score', status: { not: 'review' } },
+        where: { channelId, stage: 'score', status: { not: 'review' } },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, status: 'review' },
+        where: { channelId, status: 'review' },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'failed' },
+        where: { channelId, stage: 'failed' },
         select: articleSelect, orderBy: { createdAt: 'desc' }, take: STAGE_LIMIT,
       }),
       db.article.findMany({
-        where: { projectId, stage: 'done' },
+        where: { channelId, stage: 'done' },
         select: articleSelect, orderBy: { updatedAt: 'desc' }, take: STAGE_LIMIT,
       }),
     ])
@@ -110,14 +110,14 @@ router.get('/', async (req, res) => {
   }
 })
 
-// ── GET /api/article-pipeline/firecrawl-example?projectId=X — one article where Firecrawl succeeded
+// ── GET /api/article-pipeline/firecrawl-example?channelId=X — one article where Firecrawl succeeded
 router.get('/firecrawl-example', async (req, res) => {
   try {
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     const articles = await db.article.findMany({
-      where: { projectId, processingLog: { not: null } },
+      where: { channelId, processingLog: { not: null } },
       select: { id: true, url: true, title: true, stage: true, processingLog: true },
       orderBy: { updatedAt: 'desc' },
       take: 1000,
@@ -129,7 +129,7 @@ router.get('/firecrawl-example', async (req, res) => {
     })
 
     if (!found) {
-      return res.json({ found: false, message: 'No articles where Firecrawl succeeded in this project.' })
+      return res.json({ found: false, message: 'No articles where Firecrawl succeeded for this channel.' })
     }
 
     const firecrawlLog = found.processingLog.find((e) => e.step === 'firecrawl')
@@ -148,12 +148,12 @@ router.get('/firecrawl-example', async (req, res) => {
   }
 })
 
-async function getSourcesView(req, res, projectId) {
-  const project = await db.project.findUnique({ where: { id: projectId } })
-  if (!project) return res.status(404).json({ error: 'Project not found' })
+async function getSourcesView(req, res, channelId) {
+  const channel = await db.channel.findUnique({ where: { id: channelId } })
+  if (!channel) return res.status(404).json({ error: 'Channel not found' })
 
   const sources = await db.articleSource.findMany({
-    where: { projectId, type: { in: VALID_SOURCE_TYPES } },
+    where: { channelId, type: { in: VALID_SOURCE_TYPES } },
     orderBy: { createdAt: 'asc' },
   })
 
@@ -167,7 +167,7 @@ async function getSourcesView(req, res, projectId) {
     for (const row of stageCounts) stats[row.stage] = row._count
     const totalArticles = Object.values(stats).reduce((s, c) => s + c, 0)
 
-    const keyConnected = hasApiKey(project, source.type, source)
+    const keyConnected = hasApiKey(channel, source.type, source)
     const budget = checkBudget(source)
     const cooldown = checkCooldown(source)
 
@@ -187,7 +187,7 @@ async function getSourcesView(req, res, projectId) {
     }
   }))
 
-  const globalStats = await db.article.groupBy({ by: ['stage'], where: { projectId }, _count: true })
+  const globalStats = await db.article.groupBy({ by: ['stage'], where: { channelId }, _count: true })
   const totals = {}
   for (const row of globalStats) totals[row.stage] = row._count
 
@@ -210,7 +210,7 @@ router.get('/:id/detail', async (req, res) => {
 
     res.json({
       id: article.id,
-      projectId: article.projectId,
+      channelId: article.channelId,
       url: article.url,
       title: article.title,
       description: article.description,
@@ -271,25 +271,25 @@ router.get('/:sourceId/articles', async (req, res) => {
 // ── POST /api/article-pipeline/ingest ─────────────────────────────────────
 router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, sourceId, force } = req.body
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId, sourceId, force } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     if (sourceId) {
       const source = await db.articleSource.findUnique({
         where: { id: sourceId },
-        include: { project: true },
+        include: { channel: true },
       })
       if (!source) return res.status(404).json({ error: 'Source not found' })
-      if (source.projectId !== projectId) return res.status(403).json({ error: 'Source does not belong to project' })
+      if (source.channelId !== channelId) return res.status(403).json({ error: 'Source does not belong to channel' })
       if (!VALID_SOURCE_TYPES.includes(source.type)) {
         return res.status(400).json({ error: `Unsupported legacy source type: ${source.type}` })
       }
 
-      const result = await ingestSource(source, source.project, { force: !!force })
+      const result = await ingestSource(source, source.channel, { force: !!force })
       return res.json({ results: [{ ...result, label: source.label, type: source.type }] })
     }
 
-    const results = await ingestAll(projectId)
+    const results = await ingestAll(channelId)
     res.json({ results })
   } catch (e) {
     res.status(500).json({ error: e.message })
@@ -360,15 +360,15 @@ router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req,
 // Bulk re-queue all non-running articles in a given stage (clears errors & retries)
 router.post('/restart-stage', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId, stage } = req.body
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId, stage } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
     const VALID_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
     if (!VALID_STAGES.includes(stage)) {
       return res.status(400).json({ error: `Invalid stage "${stage}"` })
     }
 
     const result = await db.article.updateMany({
-      where: { projectId, stage, status: { not: 'running' } },
+      where: { channelId, stage, status: { not: 'running' } },
       data: { status: 'queued', error: null, retries: 0 },
     })
     res.json({ restarted: result.count, stage })
@@ -442,11 +442,11 @@ router.patch('/:id/content', requireRole('owner', 'admin', 'editor'), async (req
 // ── POST /api/article-pipeline/retry-all-failed ───────────────────────────
 router.post('/retry-all-failed', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const { projectId } = req.body
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     const result = await db.article.updateMany({
-      where: { projectId, stage: 'failed' },
+      where: { channelId, stage: 'failed' },
       data: { stage: 'imported', status: 'queued', error: null, retries: 0 },
     })
     res.json({ retried: result.count })
@@ -460,19 +460,19 @@ const _testRuns = new Map()
 
 router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const { projectId, limit = 5 } = req.body
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId, limit = 5 } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     const cap = Math.min(Math.max(1, Number(limit) || 5), 20)
 
     const articles = await db.article.findMany({
       where: {
-        projectId,
+        channelId,
         stage: 'imported',
         status: 'queued',
         retries: { lt: 3 },
       },
-      include: { source: { include: { project: true } } },
+      include: { source: { include: { channel: true } } },
       orderBy: { createdAt: 'asc' },
       take: cap,
     })
@@ -488,7 +488,7 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
       stageAfter: null, currentStage: 'imported', status: 'pending', error: null,
     }))
 
-    _testRuns.set(runId, { projectId, items, startedAt: Date.now() })
+    _testRuns.set(runId, { channelId, items, startedAt: Date.now() })
 
     // Process each article through ALL stages until done/failed
     const { processItem } = require('../worker-articles')
@@ -501,7 +501,7 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
             loops++
             const fresh = await db.article.findUnique({
               where: { id: item.id },
-              include: { source: { include: { project: true } } },
+              include: { source: { include: { channel: true } } },
             })
             if (!fresh || DONE_STAGES.has(fresh.stage) || fresh.status === 'review') break
             item.currentStage = fresh.stage

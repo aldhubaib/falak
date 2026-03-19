@@ -110,7 +110,7 @@ function mapService(api: string): { name: string; icon: "ai" | "data" | "search"
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Settings() {
-  const { projectId } = useParams();
+  const { channelId } = useParams();
 
   // Which services have a key set (from GET /api/settings)
   const [keyStatus, setKeyStatus] = useState<Record<string, boolean>>({});
@@ -146,10 +146,10 @@ export default function Settings() {
   const usageScrollRef = useRef<HTMLDivElement>(null);
 
   const fetchUsagePage = useCallback(async (cursor: string | null, replace: boolean) => {
-    if (!projectId || usageLoading) return;
+    if (!channelId || usageLoading) return;
     setUsageLoading(true);
     try {
-      const url = `/api/projects/${projectId}/usage?limit=50${cursor ? `&cursor=${cursor}` : ""}`;
+      const url = `/api/profiles/${channelId}/usage?limit=50${cursor ? `&cursor=${cursor}` : ""}`;
       const r = await fetch(url, { credentials: "include" });
       const data = await r.json();
       const rows: { id: string; ts: string; api: string; action: string; tokens: number | null; status: string }[] =
@@ -174,13 +174,13 @@ export default function Settings() {
       setUsageLoading(false);
       setUsageInitialLoaded(true);
     }
-  }, [projectId, usageLoading]);
+  }, [channelId, usageLoading]);
 
   // Initial load
   useEffect(() => {
-    if (projectId) fetchUsagePage(null, true);
+    if (channelId) fetchUsagePage(null, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [channelId]);
 
   // Infinite scroll: when user hits bottom of the 500px container, load next page
   useEffect(() => {
@@ -209,10 +209,10 @@ export default function Settings() {
       .catch(() => {});
   }, []);
 
-  // Merge project-scoped key status when projectId is set
+  // Merge channel-scoped key status when channelId is set
   useEffect(() => {
-    if (!projectId) return;
-    fetch(`/api/projects/${projectId}/keys`, { credentials: "include" })
+    if (!channelId) return;
+    fetch(`/api/profiles/${channelId}/keys`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: Record<string, boolean> | null) => {
         if (!d) return;
@@ -223,7 +223,7 @@ export default function Settings() {
       })
       .catch(() => {});
     // Fetch embedding intelligence status
-    fetch(`/api/settings/embedding-status?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
+    fetch(`/api/settings/embedding-status?channelId=${encodeURIComponent(channelId)}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
@@ -235,7 +235,7 @@ export default function Settings() {
         });
       })
       .catch(() => {});
-  }, [projectId]);
+  }, [channelId]);
 
   // Save single key (project-scoped for services with bodyField, else global /api/settings/keys)
   const handleSave = (service: string, name: string) => {
@@ -244,8 +244,8 @@ export default function Settings() {
     setSaving((p) => ({ ...p, [service]: true }));
 
     const def = KEY_DEFS.find((d) => d.service === service);
-    if (def?.projectScoped && def.bodyField && projectId) {
-      fetch(`/api/projects/${projectId}/keys`, {
+    if (def?.projectScoped && def.bodyField && channelId) {
+      fetch(`/api/profiles/${channelId}/keys`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [def.bodyField]: val }),
@@ -281,8 +281,8 @@ export default function Settings() {
     setClearing((p) => ({ ...p, [service]: true }));
 
     const def = KEY_DEFS.find((d) => d.service === service);
-    if (def?.projectScoped && def.bodyField && projectId) {
-      fetch(`/api/projects/${projectId}/keys`, {
+    if (def?.projectScoped && def.bodyField && channelId) {
+      fetch(`/api/profiles/${channelId}/keys`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [def.bodyField]: null }),
@@ -312,12 +312,12 @@ export default function Settings() {
   // Save embedding key (project-scoped)
   const handleSaveEmbeddingKey = () => {
     const val = embeddingKeyInput.trim();
-    if (!val || !projectId) { toast.error("Please enter your OpenAI API key"); return; }
+    if (!val || !channelId) { toast.error("Please enter your OpenAI API key"); return; }
     setEmbeddingKeySaving(true);
     fetch("/api/settings/embedding-key", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, key: val }),
+      body: JSON.stringify({ channelId, key: val }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(() => {
@@ -331,12 +331,12 @@ export default function Settings() {
   };
 
   const handleClearEmbeddingKey = () => {
-    if (!projectId) return;
+    if (!channelId) return;
     setEmbeddingKeyClearing(true);
     fetch("/api/settings/embedding-key", {
       method: "DELETE", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId }),
+      body: JSON.stringify({ channelId }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(() => {

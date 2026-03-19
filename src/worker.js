@@ -31,7 +31,7 @@ async function pickItems(stage) {
     include: {
       video: {
         include: {
-          channel: { include: { project: true } },
+          channel: true,
         },
       },
     },
@@ -42,9 +42,9 @@ async function pickItems(stage) {
 
 async function processItem(item) {
   const { video } = item
-  if (!video?.channel?.project) return
-  const project = video.channel.project
-  if (project.status === 'paused') return
+  if (!video?.channel) return
+  const channel = video.channel
+  if (channel.status === 'paused') return
 
   await db.pipelineItem.update({
     where: { id: item.id },
@@ -55,16 +55,16 @@ async function processItem(item) {
     let out
     switch (item.stage) {
       case 'import':
-        out = await doStageImport(item, video, project)
+        out = await doStageImport(item, video, channel)
         break
       case 'transcribe':
-        out = await doStageTranscribe(item, video, project)
+        out = await doStageTranscribe(item, video, channel)
         break
       case 'comments':
-        out = await doStageComments(item, video, project)
+        out = await doStageComments(item, video, channel)
         break
       case 'analyzing':
-        out = await doStageAnalyzing(item, video, project)
+        out = await doStageAnalyzing(item, video, channel)
         break
       default:
         return

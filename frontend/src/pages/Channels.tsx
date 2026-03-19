@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { Link, useParams } from "react-router-dom";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { DeleteChannelModal } from "@/components/DeleteChannelModal";
 import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle, ChevronDown } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -21,7 +21,7 @@ interface ApiChannel {
   totalViews: string;
   videoCount: number;
   lastFetchedAt: string | null;
-  projectId: string;
+  parentChannelId?: string | null;
   nationality?: string | null;
 }
 
@@ -66,19 +66,22 @@ function mapApiChannelToUi(api: ApiChannel): Channel {
 }
 
 export default function Channels() {
-  const projectPath = useProjectPath();
+  const { channelId } = useParams();
+  const channelPath = useChannelPath();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState("");
   const [inputError, setInputError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>("ours");
-  const [projectId, setProjectId] = useState<string | null>(null);
   const [nationality, setNationality] = useState<string>("");
 
   const fetchChannels = () => {
     setLoading(true);
-    fetch("/api/channels", { credentials: "include" })
+    const url = channelId
+      ? `/api/channels?parentChannelId=${encodeURIComponent(channelId)}`
+      : "/api/channels";
+    fetch(url, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Unauthorized"))))
       .then((data: { channels: ApiChannel[] }) => {
         setChannels((data.channels || []).map(mapApiChannelToUi));
@@ -89,13 +92,7 @@ export default function Channels() {
 
   useEffect(() => {
     fetchChannels();
-    fetch("/api/projects", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: { id: string }[]) => {
-        if (list?.length) setProjectId(list[0].id);
-      })
-      .catch(() => {});
-  }, []);
+  }, [channelId]);
 
   const handleAdd = () => {
     const val = inputValue.trim();
@@ -103,8 +100,8 @@ export default function Channels() {
       setInputError("Please enter a channel URL, handle, or ID");
       return;
     }
-    if (!projectId) {
-      setInputError("No project selected. Create a project first.");
+    if (!channelId) {
+      setInputError("No channel selected.");
       return;
     }
     const exists = channels.some(
@@ -121,7 +118,7 @@ export default function Channels() {
       credentials: "include",
       body: JSON.stringify({
         input: val,
-        projectId,
+        parentChannelId: channelId,
         type: filter === "ours" ? "ours" : "competitor",
         ...(nationality ? { nationality: nationality } : {}),
       }),
@@ -264,7 +261,7 @@ export default function Channels() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <Link
-                      to={projectPath(`/channel/${ch.id}`)}
+                      to={channelPath(`/channel/${ch.id}`)}
                       className="flex items-center gap-1.5 mb-0.5 link group no-underline"
                     >
                       <span className="text-[13px] font-medium truncate" dir="rtl">

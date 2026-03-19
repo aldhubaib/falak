@@ -8,60 +8,41 @@ datasource db {
 }
 
 // ─────────────────────────────────────────────
-// PROJECTS
-// ─────────────────────────────────────────────
-model Project {
-  id                          String    @id @default(cuid())
-  name                        String
-  nameAr                      String?
-  color                       String    @default("#3b82f6")
-  status                      String    @default("active")
-  youtubeApiKeyEncrypted      String?   @db.Text
-  anthropicApiKeyEncrypted    String?   @db.Text
-  perplexityApiKeyEncrypted   String?   @db.Text
-  ytTranscriptApiKeyEncrypted String?   @db.Text
-  firecrawlApiKeyEncrypted    String?   @db.Text
-  apifyApiKeyEncrypted        String?   @db.Text
-  embeddingApiKeyEncrypted    String?   @db.Text
-  lastStatsRefreshAt          DateTime?
-  rescoreIntervalHours        Int?      @default(24)
-  channels                    Channel[]
-  stories                     Story[]
-  articleSources              ArticleSource[]
-  scoreProfile                ScoreProfile?
-  alerts                      Alert[]
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
-}
-
-// ─────────────────────────────────────────────
-// CHANNELS
+// CHANNELS (top-level entity — each "ours" channel is a profile)
 // ─────────────────────────────────────────────
 model Channel {
-  id            String    @id @default(cuid())
-  projectId     String
-  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  youtubeId     String    @unique
-  handle        String
-  nameAr        String
-  nameEn        String?
-  type          String    @default("competitor")
-  avatarUrl     String?
-  status        String    @default("active")
-  subscribers   BigInt    @default(0)
-  totalViews    BigInt    @default(0)
-  videoCount    Int       @default(0)
-  uploadCadence Float?
-  lastFetchedAt DateTime?
-  startHook     String?   // Branded start hook (ours only)
-  endHook       String?   // Branded end hook (ours only)
-  nationality   String?   // Country code or name for channel profile
-  videos        Video[]
-  snapshots     ChannelSnapshot[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  parentChannelId String?
+  parentChannel   Channel?  @relation("ChannelCompetitors", fields: [parentChannelId], references: [id], onDelete: Cascade)
+  competitors     Channel[] @relation("ChannelCompetitors")
+  youtubeId       String    @unique
+  handle          String
+  nameAr          String
+  nameEn          String?
+  type            String    @default("ours")
+  avatarUrl       String?
+  status          String    @default("active")
+  subscribers     BigInt    @default(0)
+  totalViews      BigInt    @default(0)
+  videoCount      Int       @default(0)
+  uploadCadence   Float?
+  lastFetchedAt   DateTime?
+  startHook       String?
+  endHook         String?
+  nationality     String?
+  color           String    @default("#3b82f6")
+  lastStatsRefreshAt  DateTime?
+  rescoreIntervalHours Int?  @default(24)
+  videos          Video[]
+  snapshots       ChannelSnapshot[]
+  stories         Story[]
+  articleSources  ArticleSource[]
+  scoreProfile    ScoreProfile?
+  alerts          Alert[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  @@index([projectId])
+  @@index([parentChannelId])
 }
 
 model ChannelSnapshot {
@@ -80,15 +61,13 @@ model ChannelSnapshot {
 // ─────────────────────────────────────────────
 // DIALECTS (per country, per AI engine)
 // ─────────────────────────────────────────────
-// Links country code to dialect labels (name, short, long) for a given AI engine.
-// Channel.nationality (country code) → look up Dialect by countryCode + engine.
 model Dialect {
   id          String   @id @default(cuid())
-  countryCode String   // ISO 3166-1 alpha-2, or MSA for Modern Standard Arabic
-  engine      String   @default("claude") // e.g. claude, openai — allows engine-specific labels later
-  name        String   // e.g. الكويت
-  short       String   // e.g. اللهجة الكويتية
-  long        String   // e.g. Kuwaiti dialect (اللهجة الكويتية)
+  countryCode String
+  engine      String   @default("claude")
+  name        String
+  short       String
+  long        String
 
   @@unique([countryCode, engine])
   @@index([engine])
@@ -110,11 +89,11 @@ model Video {
   likeCount     BigInt        @default(0)
   commentCount  BigInt        @default(0)
   duration      String?
-  videoType     String    @default("video")  // 'video' | 'short'
+  videoType     String    @default("video")
   thumbnailUrl  String?
   transcription String?       @db.Text
-  analysisResult Json?       // AI analysis: Part A (classify) + Part B (insights)
-  omitFromAnalytics Boolean   @default(false)  // when true, excluded from Analytics page stats
+  analysisResult Json?
+  omitFromAnalytics Boolean   @default(false)
   embedding     Unsupported("vector(1536)")?
   pipelineItem  PipelineItem?
   comments      Comment[]
@@ -136,8 +115,8 @@ model PipelineItem {
   status     String    @default("queued")
   retries    Int       @default(0)
   error      String?
-  result     Json?     // AI analysis output (summary, topics, etc.)
-  lastStage  String?   // stage at which we started (used on retry to resume from here)
+  result     Json?
+  lastStage  String?
   startedAt  DateTime?
   finishedAt DateTime?
   createdAt  DateTime  @default(now())
@@ -169,8 +148,8 @@ model Comment {
 // ─────────────────────────────────────────────
 model Story {
   id              String     @id @default(cuid())
-  projectId       String
-  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  channelId       String
+  channel         Channel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
   headline        String
   stage           String     @default("suggestion")
   coverageStatus  String?
@@ -192,7 +171,7 @@ model Story {
   updatedAt       DateTime   @updatedAt
   queryVersion    String?
 
-  @@index([projectId, stage])
+  @@index([channelId, stage])
 }
 
 model StoryLog {
@@ -221,7 +200,7 @@ model User {
   note          String?
   isActive      Boolean    @default(true)
   pageAccess    Json?
-  projectAccess Json?
+  channelAccess Json?
   storyLogs     StoryLog[]
   sessions      Session[]
   createdAt     DateTime   @default(now())
@@ -240,7 +219,7 @@ model Session {
 }
 
 // ─────────────────────────────────────────────
-// API KEYS (encrypted at rest)
+// API KEYS (encrypted at rest — global, shared across all profiles)
 // ─────────────────────────────────────────────
 model ApiKey {
   id           String    @id @default(cuid())
@@ -261,19 +240,18 @@ model ApiKey {
 // ─────────────────────────────────────────────
 model ApiUsage {
   id         String   @id @default(cuid())
-  projectId  String
-  service    String   // 'anthropic' | 'youtube-data' | 'yttranscript' | 'perplexity'
-  action     String?  // e.g. 'analysis-classify', 'transcribe', 'videos', etc.
+  channelId  String
+  service    String
+  action     String?
   tokensUsed Int?
-  status     String   @default("ok")  // 'ok' | 'fail'
+  status     String   @default("ok")
   error      String?  @db.Text
   createdAt  DateTime @default(now())
 
-  @@index([projectId, createdAt(sort: Desc)])
+  @@index([channelId, createdAt(sort: Desc)])
   @@index([service])
 }
 
-// Multiple YouTube API keys (quota rotation: when one runs out, use next)
 model YoutubeApiKey {
   id           String    @id @default(cuid())
   label        String    @default("Key 1")
@@ -293,36 +271,36 @@ model YoutubeApiKey {
 // ─────────────────────────────────────────────
 model ArticleSource {
   id           String    @id @default(cuid())
-  projectId    String
-  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  type         String    // rss | apify_actor
+  channelId    String
+  channel      Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  type         String
   label        String
-  config       Json      // source config + optional search filters + source budget
+  config       Json
   image        String?   @db.Text
   apiKeyEncrypted String? @db.Text
   lastImportedRunId String?
   isActive     Boolean   @default(true)
   language     String    @default("en")
   lastPolledAt DateTime?
-  fetchLog     Json?     // array of { time, raw, gated, dupes, inserted, error }
+  fetchLog     Json?
   articles     Article[]
   apifyRuns    ApifyRun[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  @@index([projectId])
+  @@index([channelId])
 }
 
 model ApifyRun {
   id         String        @id @default(cuid())
   sourceId   String
   source     ArticleSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  runId      String        // Apify run ID
+  runId      String
   datasetId  String?
   startedAt  DateTime?
   finishedAt DateTime?
   itemCount  Int?
-  status     String        // 'imported' | 'skipped_empty' | 'failed'
+  status     String
   importedAt DateTime?
   createdAt  DateTime      @default(now())
 
@@ -332,7 +310,7 @@ model ApifyRun {
 
 model Article {
   id             String        @id @default(cuid())
-  projectId      String
+  channelId      String
   sourceId       String
   source         ArticleSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   url            String
@@ -363,9 +341,9 @@ model Article {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  @@unique([projectId, url])
+  @@unique([channelId, url])
   @@index([sourceId, stage])
-  @@index([projectId, stage])
+  @@index([channelId, stage])
   @@index([stage, status])
 }
 
@@ -374,12 +352,12 @@ model Article {
 // ─────────────────────────────────────────────
 model ScoreProfile {
   id                    String    @id @default(cuid())
-  projectId             String    @unique
-  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  weightAdjustments     Json?     // learned weight deltas from base
-  tagSignals            Json?     // { "tag": signalStrength } learned from outcomes
-  contentTypeSignals    Json?     // { "investigation": +0.12, "opinion": -0.08 }
-  regionSignals         Json?     // { "مصر": +0.05 }
+  channelId             String    @unique
+  channel               Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  weightAdjustments     Json?
+  tagSignals            Json?
+  contentTypeSignals    Json?
+  regionSignals         Json?
   aiViralAccuracy       Float     @default(1.0)
   aiRelevanceAccuracy   Float     @default(1.0)
   channelAvgViews       BigInt    @default(0)
@@ -396,16 +374,16 @@ model ScoreProfile {
 // ─────────────────────────────────────────────
 model Alert {
   id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   storyId   String?
   videoId   String?
-  type      String   // 'competitor_published' | 'score_change' | 'trending_topic'
+  type      String
   title     String
   detail    Json?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  @@index([projectId, isRead])
-  @@index([projectId, createdAt(sort: Desc)])
+  @@index([channelId, isRead])
+  @@index([channelId, createdAt(sort: Desc)])
 }

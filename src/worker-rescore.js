@@ -24,54 +24,54 @@ let paused = false
 function isPaused() { return paused }
 function setPaused(v) { paused = !!v }
 
-function shouldRescore(project) {
-  const intervalMs = (project.rescoreIntervalHours || DEFAULT_RESCORE_HOURS) * 60 * 60 * 1000
-  const lastRefresh = project.lastStatsRefreshAt
+function shouldRescore(channel) {
+  const intervalMs = (channel.rescoreIntervalHours || DEFAULT_RESCORE_HOURS) * 60 * 60 * 1000
+  const lastRefresh = channel.lastStatsRefreshAt
   if (!lastRefresh) return true
   return Date.now() - new Date(lastRefresh).getTime() > intervalMs
 }
 
-async function runCycleForProject(projectId) {
+async function runCycleForChannel(channelId) {
   const startTime = Date.now()
-  logger.info({ projectId }, '[rescore-worker] starting cycle')
+  logger.info({ channelId }, '[rescore-worker] starting cycle')
 
   // Step 1: Refresh competition data
   let refreshResult = { channelsRefreshed: 0, videosUpdated: 0 }
   try {
-    refreshResult = await refreshCompetitionData(projectId)
+    refreshResult = await refreshCompetitionData(channelId)
   } catch (e) {
-    logger.error({ projectId, error: e.message }, '[rescore-worker] competition refresh failed')
+    logger.error({ channelId, error: e.message }, '[rescore-worker] competition refresh failed')
   }
 
   // Step 2: Fetch own video stats
   let ownResult = { ownVideosUpdated: 0 }
   try {
-    ownResult = await fetchOwnVideoStats(projectId)
+    ownResult = await fetchOwnVideoStats(channelId)
   } catch (e) {
-    logger.error({ projectId, error: e.message }, '[rescore-worker] own video stats failed')
+    logger.error({ channelId, error: e.message }, '[rescore-worker] own video stats failed')
   }
 
   // Step 3: Self-learning
   let learnResult = {}
   try {
-    const decisions = await learnFromDecisions(projectId)
-    const outcomes = await learnFromOutcomes(projectId)
+    const decisions = await learnFromDecisions(channelId)
+    const outcomes = await learnFromOutcomes(channelId)
     learnResult = { decisions, outcomes }
   } catch (e) {
-    logger.error({ projectId, error: e.message }, '[rescore-worker] learning failed')
+    logger.error({ channelId, error: e.message }, '[rescore-worker] learning failed')
   }
 
   // Step 4: Re-score active stories
   let rescoreResult = { evaluated: 0, changed: 0, alerts: 0 }
   try {
-    rescoreResult = await rescoreActiveStories(projectId)
+    rescoreResult = await rescoreActiveStories(channelId)
   } catch (e) {
-    logger.error({ projectId, error: e.message }, '[rescore-worker] rescore failed')
+    logger.error({ channelId, error: e.message }, '[rescore-worker] rescore failed')
   }
 
   const elapsed = Date.now() - startTime
   logger.info({
-    projectId,
+    channelId,
     elapsed,
     ...refreshResult,
     ...ownResult,
@@ -85,17 +85,17 @@ async function tick() {
   if (paused) return
 
   try {
-    const projects = await db.project.findMany({
-      where: { status: 'active' },
+    const channels = await db.channel.findMany({
+      where: { type: 'ours', status: 'active', parentChannelId: null },
       select: { id: true, lastStatsRefreshAt: true, rescoreIntervalHours: true },
     })
 
-    for (const project of projects) {
-      if (shouldRescore(project)) {
+    for (const channel of channels) {
+      if (shouldRescore(channel)) {
         try {
-          await runCycleForProject(project.id)
+          await runCycleForChannel(channel.id)
         } catch (e) {
-          logger.error({ projectId: project.id, error: e.message }, '[rescore-worker] project cycle failed')
+          logger.error({ channelId: channel.id, error: e.message }, '[rescore-worker] channel cycle failed')
         }
       }
     }
@@ -116,4 +116,4 @@ async function runPollingWorker() {
   }
 }
 
-module.exports = { tick, runPollingWorker, runCycleForProject, isPaused, setPaused }
+module.exports = { tick, runPollingWorker, runCycleForChannel, isPaused, setPaused }

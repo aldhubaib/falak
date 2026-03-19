@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   Star, Circle, CheckCircle, XCircle, ChevronDown, ArrowUpRight,
   Loader2, RotateCw, TrendingUp, TrendingDown, BarChart3, Layers,
@@ -172,13 +172,13 @@ function ChannelAvatar({
   channelId?: string;
   size?: "sm" | "md";
 }) {
-  const projectPath = useProjectPath();
+  const channelPath = useChannelPath();
   const px = size === "sm" ? "w-5 h-5" : "w-7 h-7";
   const textPx = size === "sm" ? "text-[8px]" : "text-[10px]";
 
   const Wrapper = channelId ? Link : "div";
   const wrapperProps = channelId
-    ? { to: projectPath(`/channel/${channelId}`), onClick: (e: React.MouseEvent) => e.stopPropagation() }
+    ? { to: channelPath(`/channel/${channelId}`), onClick: (e: React.MouseEvent) => e.stopPropagation() }
     : {};
 
   return (
@@ -1450,8 +1450,8 @@ function buildInsights(
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Analytics() {
-  const { projectId } = useParams();
-  const projectPath = useProjectPath();
+  const { channelId } = useParams();
+  const channelPath = useChannelPath();
 
   const [period, setPeriod] = useState("12m");
   const [fieldTab, setFieldTab] = useState<FieldTab>("Engagement");
@@ -1462,10 +1462,10 @@ export default function Analytics() {
 
   const fetchData = useCallback(
     async (p: string) => {
-      if (!projectId) return;
+      if (!channelId) return;
       setLoading(true);
       try {
-        const r = await fetch(`/api/analytics?projectId=${projectId}&period=${p}`, {
+        const r = await fetch(`/api/analytics?channelId=${channelId}&period=${p}`, {
           credentials: "include",
         });
         if (!r.ok) throw new Error("Failed");
@@ -1477,7 +1477,7 @@ export default function Analytics() {
         setLoading(false);
       }
     },
-    [projectId]
+    [channelId]
   );
 
   useEffect(() => {
@@ -1489,7 +1489,7 @@ export default function Analytics() {
   };
 
   const handleRefresh = async () => {
-    if (!projectId || flushing) return;
+    if (!channelId || flushing) return;
     setFlushing(true);
     try {
       await fetch("/api/analytics/flush-cache", { method: "POST", credentials: "include" });
@@ -1971,7 +1971,7 @@ export default function Analytics() {
               topVideos.map((v) => (
                 <Link
                   key={v.id}
-                  to={projectPath(`/video/${v.id}`)}
+                  to={channelPath(`/video/${v.id}`)}
                   className="group flex items-center gap-5 px-5 py-3.5 border-t border-border hover:bg-surface/30 transition-colors cursor-pointer no-underline"
                 >
                   <span className="text-[12px] text-dim font-mono w-6 text-right shrink-0">

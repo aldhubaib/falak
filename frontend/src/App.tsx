@@ -6,8 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { UploadIndicator } from "@/components/UploadIndicator";
 import { PageError } from "@/components/PageError";
 import { AppLayout } from "@/components/AppLayout";
-import { ProjectLayout, ProjectRootRedirect } from "@/components/ProjectLayout";
+import { ChannelLayout } from "@/components/ChannelLayout";
 import Login from "./pages/Login";
+import ProfilePicker from "./pages/ProfilePicker";
 import OurChannels from "./pages/OurChannels";
 import Competitions from "./pages/Competitions";
 import ChannelDetail from "./pages/ChannelDetail";
@@ -67,11 +68,11 @@ const App = () => (
           <UploadIndicator />
           <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProjectRootRedirect />} />
-          <Route path="/p/:projectId" element={<ProjectLayout />}>
+          <Route path="/" element={<ProfilePicker />} />
+          <Route path="/c/:channelId" element={<ChannelLayout />}>
             <Route element={<AppLayout />}>
-              <Route index element={<OurChannels />} />
-              <Route path="competitions" element={<Competitions />} />
+              <Route index element={<Competitions />} />
+              <Route path="competitors" element={<Competitions />} />
               <Route path="channel/:id" element={<ChannelDetail />} />
               <Route path="video/:id" element={<VideoDetail />} />
               <Route path="pipeline" element={<Pipeline />} />

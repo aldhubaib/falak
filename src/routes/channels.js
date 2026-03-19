@@ -13,13 +13,13 @@ router.use(requireAuth)
 
 const createChannelBodySchema = z.object({
   input: z.string().min(1, 'input is required'),
-  projectId: z.string().min(1, 'projectId is required'),
+  parentChannelId: z.string().min(1, 'parentChannelId is required'),
   type: z.string().optional(),
   nationality: z.string().optional(),
 })
 
 const listChannelsQuerySchema = z.object({
-  projectId: z.string().optional(),
+  parentChannelId: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional().default(50),
   cursor: z.string().optional(),
 })
@@ -43,10 +43,10 @@ async function getChannelStats (channelId) {
   return { avgViews, engagement: engagementRounded }
 }
 
-// ── GET /api/channels?projectId=xxx&limit=50&cursor=xxx
+// ── GET /api/channels?parentChannelId=xxx&limit=50&cursor=xxx
 router.get('/', asyncWrap(async (req, res) => {
-  const { projectId, limit, cursor } = parseQuery(req.query, listChannelsQuerySchema)
-  const where = projectId ? { projectId } : {}
+  const { parentChannelId, limit, cursor } = parseQuery(req.query, listChannelsQuerySchema)
+  const where = parentChannelId ? { parentChannelId } : {}
   const take = limit + 1
   const channels = await db.channel.findMany({
     where,
@@ -57,7 +57,7 @@ router.get('/', asyncWrap(async (req, res) => {
       id: true, youtubeId: true, handle: true, nameAr: true, nameEn: true,
       type: true, avatarUrl: true, status: true, subscribers: true,
       totalViews: true, videoCount: true, uploadCadence: true,
-      lastFetchedAt: true, projectId: true, createdAt: true, nationality: true,
+      lastFetchedAt: true, parentChannelId: true, createdAt: true, nationality: true,
     }
   })
   const hasMore = channels.length > limit
@@ -75,7 +75,7 @@ router.get('/:id', asyncWrap(async (req, res) => {
       id: true, youtubeId: true, handle: true, nameAr: true, nameEn: true,
       type: true, avatarUrl: true, status: true, subscribers: true,
       totalViews: true, videoCount: true, uploadCadence: true,
-      lastFetchedAt: true, projectId: true, createdAt: true,
+      lastFetchedAt: true, parentChannelId: true, createdAt: true,
       startHook: true, endHook: true, nationality: true,
     }
   })
@@ -129,9 +129,10 @@ router.get('/:id/videos', asyncWrap(async (req, res) => {
 
 // Helper: fetch recent videos from YouTube and create pipeline items for a channel (used on add + manual sync)
 async function importVideosForChannel(channelId) {
-  const channel = await db.channel.findUniqueOrThrow({ where: { id: channelId }, include: { project: true } })
-  if (channel.project && channel.project.status === 'paused') throw new Error('Project is paused. Set to Active to fetch videos.')
-  const videos = await fetchRecentVideos(channel.youtubeId, 50, channel.projectId)
+  const channel = await db.channel.findUniqueOrThrow({ where: { id: channelId } })
+  if (channel.status === 'paused') throw new Error('Channel is paused. Set to Active to fetch videos.')
+  const parentId = channel.parentChannelId || channel.id
+  const videos = await fetchRecentVideos(channel.youtubeId, 50, parentId)
   for (const v of videos) {
     await db.video.upsert({
       where: { youtubeId: v.youtubeId },
@@ -152,13 +153,14 @@ async function importVideosForChannel(channelId) {
 
 // ── POST /api/channels — add a new channel (and auto-import videos into pipeline)
 router.post('/', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
-  const { input, type, projectId, nationality } = parseBody(req.body, createChannelBodySchema)
+  const { input, type, parentChannelId, nationality } = parseBody(req.body, createChannelBodySchema)
 
-  const project = await db.project.findUnique({ where: { id: projectId } })
-  if (!project) throw NotFound('Project not found')
-  if (project.status === 'paused') throw Forbidden('Project is paused. Set to Active to add channels.')
+  const parentChannel = await db.channel.findUnique({ where: { id: parentChannelId } })
+  if (!parentChannel) throw NotFound('Parent channel not found')
+  if (parentChannel.type !== 'ours') throw Forbidden('Parent channel must be type "ours"')
+  if (parentChannel.status === 'paused') throw Forbidden('Parent channel is paused. Set to Active to add channels.')
 
-  const ytData = await fetchChannel(input, projectId)
+  const ytData = await fetchChannel(input, parentChannelId)
 
   // Check for duplicate
   const exists = await db.channel.findUnique({ where: { youtubeId: ytData.youtubeId } })
@@ -168,7 +170,7 @@ router.post('/', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, 
     data: {
       ...ytData,
       type: type || 'competitor',
-      projectId,
+      parentChannelId,
       lastFetchedAt: new Date(),
       ...(nationality ? { nationality: nationality.trim() || null } : {}),
     }
@@ -187,9 +189,10 @@ router.post('/', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, 
 // ── POST /api/channels/:id/refresh — re-fetch from YouTube; snapshot created here when channel data changes
 router.post('/:id/refresh', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const channel = await db.channel.findUniqueOrThrow({ where: { id: req.params.id }, include: { project: true } })
-    if (channel.project && channel.project.status === 'paused') return res.status(403).json({ error: 'Project is paused. Set to Active to sync.' })
-    const ytData = await fetchChannel(channel.youtubeId, channel.projectId)
+    const channel = await db.channel.findUniqueOrThrow({ where: { id: req.params.id } })
+    if (channel.status === 'paused') return res.status(403).json({ error: 'Channel is paused. Set to Active to sync.' })
+    const parentId = channel.parentChannelId || channel.id
+    const ytData = await fetchChannel(channel.youtubeId, parentId)
     const updated = await db.channel.update({
       where: { id: channel.id },
       data: { ...ytData, lastFetchedAt: new Date() }
@@ -218,7 +221,7 @@ router.post('/:id/fetch-videos', requireRole('owner', 'admin', 'editor'), async 
     res.json({ added, message: `Fetched ${added} videos` })
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Channel not found' })
-    if (e.message && e.message.includes('paused')) return res.status(403).json({ error: 'Project is paused. Set to Active to fetch videos.' })
+    if (e.message && e.message.includes('paused')) return res.status(403).json({ error: 'Channel is paused. Set to Active to fetch videos.' })
     res.status(500).json({ error: e.message })
   }
 })

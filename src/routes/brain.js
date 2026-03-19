@@ -5,26 +5,26 @@ const { requireAuth } = require('../middleware/auth')
 const router = express.Router()
 router.use(requireAuth)
 
-// ── GET /api/brain?projectId=xxx
+// ── GET /api/brain?channelId=xxx
 // Returns:
 //   competitorStories  – topics covered by competitor channels (taken)
 //   untouchedStories   – topics found in competitor videos NOT yet covered by our channels
 //   publishedVideos    – our published videos tagged gap_win | late
-//   competitorChannels – competitor channels in this project
+//   competitorChannels – competitor channels for this profile
 //   competitorActivity – story count per competitor channel
 //   autoSearchQuery    – dynamic search prompt (Firecrawl + Claude)
 router.get('/', async (req, res) => {
   let debugStage = 'init'
   try {
     debugStage = 'read-query'
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     // ── 1. Load all done competitor videos with analysis ──────────────────────
     debugStage = 'query-competitor-videos'
     const competitorVideos = await db.video.findMany({
       where: {
-        channel: { projectId, type: 'competitor' },
+        channel: { parentChannelId: channelId, type: 'competitor' },
         analysisResult: { not: null },
         pipelineItem: { is: { stage: 'done', status: 'done' } },
       },
@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
     debugStage = 'query-our-videos'
     const ourVideos = await db.video.findMany({
       where: {
-        channel: { projectId, type: 'ours' },
+        channel: { id: channelId },
         analysisResult: { not: null },
         pipelineItem: { is: { stage: 'done', status: 'done' } },
       },
@@ -214,7 +214,7 @@ router.get('/', async (req, res) => {
     // ── 7. Competitor channels list ───────────────────────────────────────────
     debugStage = 'query-competitor-channels'
     const competitorChannelsRaw = await db.channel.findMany({
-      where: { projectId, type: 'competitor' },
+      where: { parentChannelId: channelId, type: 'competitor' },
       select: { id: true, nameAr: true, nameEn: true, handle: true, avatarUrl: true },
       orderBy: { subscribers: 'desc' },
     })
@@ -296,18 +296,15 @@ router.get('/', async (req, res) => {
   }
 })
 
-// ── POST /api/brain/re-extract?projectId=xxx
-// Trigger a re-extraction by clearing the analysis result cache;
-// actual re-analysis is queued via pipeline. For now returns a notice.
+// ── POST /api/brain/re-extract?channelId=xxx
 router.post('/re-extract', async (req, res) => {
   try {
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
-    // Count competitor videos that are done and have analysis
     const count = await db.video.count({
       where: {
-        channel: { projectId, type: 'competitor' },
+        channel: { parentChannelId: channelId, type: 'competitor' },
         analysisResult: { not: null },
         pipelineItem: { is: { stage: 'done', status: 'done' } },
       },

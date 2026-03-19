@@ -1,6 +1,6 @@
 /**
  * Pipeline stage processors. Used by the worker and by POST /api/pipeline/process.
- * Each function receives { item, video, project } and either advances the item or throws.
+ * Each function receives { item, video, channel } and either advances the item or throws.
  */
 const fetch = require('node-fetch')
 const db = require('../lib/db')
@@ -17,8 +17,8 @@ const ANTHROPIC_INTER_CALL_DELAY_MS = 2_000
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 // ── Import: fetch video metadata from YouTube Data API, save to Video ──
-async function doStageImport(item, video, project) {
-  const meta = await fetchVideoMetadata(video.youtubeId, project.id)
+async function doStageImport(item, video, channel) {
+  const meta = await fetchVideoMetadata(video.youtubeId, channel.id)
   await db.video.update({
     where: { id: video.id },
     data: {
@@ -37,8 +37,8 @@ async function doStageImport(item, video, project) {
 }
 
 // ── Transcribe: fetch transcript segments, save to Video.transcription as JSON ──
-async function doStageTranscribe(item, video, project) {
-  const result = await fetchTranscript(video.youtubeId, project)
+async function doStageTranscribe(item, video, channel) {
+  const result = await fetchTranscript(video.youtubeId, channel.id)
   // Store segments as JSON string so the frontend can render timestamps.
   // Fall back to storing plain text for the rare case where no segment data is available.
   let transcription = null
@@ -67,8 +67,8 @@ function segmentsToText(transcription) {
 }
 
 // ── Comments: fetch top 100 comments, upsert Comment records ──
-async function doStageComments(item, video, project) {
-  const comments = await fetchComments(video.youtubeId, 100, project.id)
+async function doStageComments(item, video, channel) {
+  const comments = await fetchComments(video.youtubeId, 100, channel.id)
   for (const c of comments) {
     await db.comment.upsert({
       where: { youtubeId: c.youtubeId },
@@ -93,11 +93,12 @@ async function doStageComments(item, video, project) {
 
 // ── Analyzing: Part A (Haiku) classify + Part B (Sonnet) insights, save to Video.analysisResult ──
 // Part C (Haiku): batch sentiment classification for every comment ──────────────────────────────
-async function doStageAnalyzing(item, video, project) {
-  if (!project?.anthropicApiKeyEncrypted) {
-    throw new Error('Anthropic API key not configured for this project. Go to Settings and add it.')
+async function doStageAnalyzing(item, video, channel) {
+  const keyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (!keyRow?.encryptedKey) {
+    throw new Error('Anthropic API key not configured. Go to Settings and add it.')
   }
-  const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+  const apiKey = decrypt(keyRow.encryptedKey)
 
   // segmentsToText handles both JSON-segments and legacy plain-string transcriptions.
   const transcript = segmentsToText(video.transcription).slice(0, 50000)
@@ -122,7 +123,7 @@ Keys:
 - tags: generate 4 to 8 tags in Arabic only that describe this video. Rules: Arabic only (no English), each tag is 1 to 3 words maximum, descriptive of genre/theme/subject/format, noun form (no verbs, no sentences), short and reusable. Examples: جريمة حقيقية، غموض، تحقيق، شخصية مشهورة، تاريخ، اختفاء، أدلة جنائية
 Transcript:\n${transcript.slice(0, 15000)}`,
     },
-  ], { projectId: project.id, action: 'analysis-classify' })
+  ], { channelId: channel.id, action: 'analysis-classify' })
 
   await sleep(ANTHROPIC_INTER_CALL_DELAY_MS)
 
@@ -135,7 +136,7 @@ Keys: summary (2-3 sentences, what the video is about), audienceReaction (what c
 Transcript (excerpt):\n${transcript.slice(0, 20000)}
 Comments (sample):\n${commentsSample}`,
     },
-  ], { projectId: project.id, action: 'analysis-insights' })
+  ], { channelId: channel.id, action: 'analysis-insights' })
 
   await sleep(ANTHROPIC_INTER_CALL_DELAY_MS)
 
@@ -157,7 +158,7 @@ Comments (sample):\n${commentsSample}`,
   // Failure is non-fatal — leaves sentiments null, Signal 1 scores 0.5 (neutral).
   if (comments.length > 0) {
     try {
-      await classifyCommentSentiments(apiKey, comments, project.id)
+      await classifyCommentSentiments(apiKey, comments, channel.id)
     } catch (e) {
       console.error(`[pipeline] sentiment classification failed for video ${video.id}:`, e.message)
     }
@@ -170,7 +171,7 @@ Comments (sample):\n${commentsSample}`,
   })
 
   // 4-signal weighted sentiment scoring — overrides the AI's raw sentiment guess.
-  partAJson.sentiment = await scoreVideoSentiment(apiKey, video, classifiedComments, partAJson.contentType, project.id)
+  partAJson.sentiment = await scoreVideoSentiment(apiKey, video, classifiedComments, partAJson.contentType, channel.id)
 
   const analysisResult = {
     partA: partAJson,
@@ -184,7 +185,8 @@ Comments (sample):\n${commentsSample}`,
   })
 
   // Generate vector embedding for similarity search (non-blocking, fail-open)
-  if (project.embeddingApiKeyEncrypted) {
+  const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
+  if (embKey?.encryptedKey) {
     try {
       const { generateEmbedding, buildEmbeddingText, storeVideoEmbedding } = require('./embeddings')
       const text = buildEmbeddingText({
@@ -195,7 +197,7 @@ Comments (sample):\n${commentsSample}`,
         region: partAJson.location,
       })
       if (text.length > 10) {
-        const emb = await generateEmbedding(text, project)
+        const emb = await generateEmbedding(text, channel.id)
         await storeVideoEmbedding(video.id, emb)
       }
     } catch (e) {
@@ -211,7 +213,7 @@ Comments (sample):\n${commentsSample}`,
 // Signal 2 (0.3): like-to-view ratio
 // Signal 3 (0.2): content format engagement potential
 // Signal 4 (0.1): hook strength (separate Haiku call)
-async function scoreVideoSentiment(apiKey, video, classifiedComments, contentType, projectId) {
+async function scoreVideoSentiment(apiKey, video, classifiedComments, contentType, channelId) {
   try {
     // Signal 1 — Comments (weight 0.4)
     let s1 = 0.5   // neutral default when no comments
@@ -252,7 +254,7 @@ async function scoreVideoSentiment(apiKey, video, classifiedComments, contentTyp
           {
             system: 'You are a content analyst. Reply with only one word: strong or weak.',
             maxTokens: 10,
-            projectId,
+            channelId,
             action: 'hook-scoring',
           }
         )
@@ -277,7 +279,7 @@ async function scoreVideoSentiment(apiKey, video, classifiedComments, contentTyp
 // Send all comments in one prompt and update each record with the returned sentiment.
 const VALID_SENTIMENTS = new Set(['positive', 'negative', 'question', 'neutral'])
 
-async function classifyCommentSentiments(apiKey, comments, projectId) {
+async function classifyCommentSentiments(apiKey, comments, channelId) {
   const payload = comments.map(c => ({ id: c.id, text: (c.text || '').slice(0, 300) }))
   const raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
     {
@@ -288,7 +290,7 @@ Example: [{"id":"abc","sentiment":"positive"}]
 Comments:
 ${JSON.stringify(payload)}`,
     },
-  ], { projectId, action: 'comment-sentiment' })
+  ], { channelId, action: 'comment-sentiment' })
 
   const results = parseJsonArrayFromResponse(raw)
   if (!Array.isArray(results)) throw new Error('Sentiment response was not an array')
@@ -317,7 +319,7 @@ function parseJsonArrayFromResponse(text) {
   return JSON.parse(trimmed.slice(start, end))
 }
 
-async function callAnthropic(apiKey, model, messages, { system, maxTokens, projectId, action } = {}) {
+async function callAnthropic(apiKey, model, messages, { system, maxTokens, channelId, action } = {}) {
   const body = {
     model,
     max_tokens: maxTokens || MAX_ANTHROPIC_TOKENS,
@@ -343,7 +345,7 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
     } catch (e) {
       clearTimeout(timeout)
       if (e.name === 'AbortError') {
-        trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: 'timeout' })
+        trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: 'timeout' })
         throw new Error(`Anthropic API: request timed out after ${ANTHROPIC_TIMEOUT_MS / 1000}s`)
       }
       throw e
@@ -351,7 +353,7 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
     clearTimeout(timeout)
 
     if (res.status === 429) {
-      trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: '429' })
+      trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: '429' })
       if (attempt < ANTHROPIC_RETRY_DELAYS_MS.length) {
         // Honour the Retry-After header if present, else use our schedule
         const retryAfter = res.headers.get('retry-after')
@@ -367,14 +369,14 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
 
     if (!res.ok) {
       const t = await res.text()
-      trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
+      trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
       throw new Error(`Anthropic API: ${res.status} ${t}`)
     }
 
     const data = await res.json()
     const usage = data.usage || {}
     const tokensUsed = (usage.input_tokens || 0) + (usage.output_tokens || 0)
-    trackUsage({ projectId, service: 'anthropic', action, tokensUsed, status: 'ok' })
+    trackUsage({ channelId, service: 'anthropic', action, tokensUsed, status: 'ok' })
     const block = data.content && data.content[0]
     const text = block && block.text ? block.text.trim() : ''
     // Store last usage for callers that need it
@@ -388,10 +390,10 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, proje
  * @param {string} apiKey
  * @param {string} model
  * @param {Array<{role: string, content: string}>} messages
- * @param {{ system?: string, maxTokens?: number, projectId?: string, action?: string }} opts
+ * @param {{ system?: string, maxTokens?: number, channelId?: string, action?: string }} opts
  * @yields {string} text delta
  */
-async function * callAnthropicStream(apiKey, model, messages, { system, maxTokens, projectId, action } = {}) {
+async function * callAnthropicStream(apiKey, model, messages, { system, maxTokens, channelId, action } = {}) {
   const body = {
     model,
     max_tokens: maxTokens || MAX_ANTHROPIC_TOKENS,
@@ -412,7 +414,7 @@ async function * callAnthropicStream(apiKey, model, messages, { system, maxToken
 
   if (!res.ok) {
     const t = await res.text()
-    trackUsage({ projectId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
+    trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
     throw new Error(`Anthropic API: ${res.status} ${t}`)
   }
 
@@ -442,7 +444,7 @@ async function * callAnthropicStream(apiKey, model, messages, { system, maxToken
       }
     } catch (_) {}
   }
-  trackUsage({ projectId, service: 'anthropic', action, tokensUsed: null, status: 'ok' })
+  trackUsage({ channelId, service: 'anthropic', action, tokensUsed: null, status: 'ok' })
 }
 
 module.exports = {

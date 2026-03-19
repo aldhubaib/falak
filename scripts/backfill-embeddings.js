@@ -5,7 +5,7 @@
  *
  * Usage: node scripts/backfill-embeddings.js
  *
- * Requires: OPENAI embedding key configured on the project (embeddingApiKeyEncrypted).
+ * Requires: OpenAI embedding key configured in global Settings (ApiKey table).
  */
 try { require('dotenv').config() } catch (_) {}
 const db = require('../src/lib/db')
@@ -16,16 +16,15 @@ const DELAY_MS = 500
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
-async function backfillVideos(project) {
+async function backfillVideos(channel) {
   const videos = await db.video.findMany({
     where: {
-      channel: { projectId: project.id },
+      channel: { OR: [{ id: channel.id }, { parentChannelId: channel.id }] },
       analysisResult: { not: null },
     },
     select: { id: true, analysisResult: true },
   })
 
-  // Filter to those without embedding
   const withoutEmbedding = []
   for (const v of videos) {
     const check = await db.$queryRaw`SELECT embedding IS NULL as missing FROM "Video" WHERE id = ${v.id}`
@@ -49,7 +48,7 @@ async function backfillVideos(project) {
           region: ar.partA?.location,
         })
         if (text.length > 10) {
-          const emb = await generateEmbedding(text, project)
+          const emb = await generateEmbedding(text, channel.id)
           await storeVideoEmbedding(v.id, emb)
           done++
         }
@@ -65,9 +64,9 @@ async function backfillVideos(project) {
   return { done, failed }
 }
 
-async function backfillStories(project) {
+async function backfillStories(channel) {
   const stories = await db.story.findMany({
-    where: { projectId: project.id },
+    where: { channelId: channel.id },
     select: { id: true, brief: true },
   })
 
@@ -95,7 +94,7 @@ async function backfillStories(project) {
           uniqueAngle: brief.uniqueAngle,
         })
         if (text.length > 10) {
-          const emb = await generateEmbedding(text, project)
+          const emb = await generateEmbedding(text, channel.id)
           await storeStoryEmbedding(s.id, emb)
           done++
         }
@@ -112,20 +111,26 @@ async function backfillStories(project) {
 }
 
 async function main() {
-  const projects = await db.project.findMany({
-    where: { status: 'active', embeddingApiKeyEncrypted: { not: null } },
-    select: { id: true, name: true, embeddingApiKeyEncrypted: true },
-  })
-
-  if (projects.length === 0) {
-    console.log('No projects with embedding API key configured. Add one in Settings first.')
+  const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
+  if (!embKey?.encryptedKey) {
+    console.log('No embedding API key configured. Add one in Settings first.')
     process.exit(0)
   }
 
-  for (const project of projects) {
-    console.log(`\n=== Project: ${project.name} (${project.id}) ===`)
-    const videoResult = await backfillVideos(project)
-    const storyResult = await backfillStories(project)
+  const channels = await db.channel.findMany({
+    where: { type: 'ours', status: 'active', parentChannelId: null },
+    select: { id: true, nameAr: true },
+  })
+
+  if (channels.length === 0) {
+    console.log('No active channel profiles found.')
+    process.exit(0)
+  }
+
+  for (const channel of channels) {
+    console.log(`\n=== Channel: ${channel.nameAr} (${channel.id}) ===`)
+    const videoResult = await backfillVideos(channel)
+    const storyResult = await backfillStories(channel)
     console.log(`\nDone: ${videoResult.done} videos, ${storyResult.done} stories embedded`)
     if (videoResult.failed || storyResult.failed) {
       console.log(`Failed: ${videoResult.failed} videos, ${storyResult.failed} stories`)

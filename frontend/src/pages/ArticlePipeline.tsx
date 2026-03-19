@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { fmtDateTime } from "@/lib/utils";
 import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
@@ -278,8 +278,8 @@ const LOG_STEP_LABELS: Record<string, string> = {
 /* ─── Main Component ─── */
 
 export default function ArticlePipeline() {
-  const { projectId } = useParams();
-  const pp = useProjectPath();
+  const { channelId } = useParams();
+  const pp = useChannelPath();
   const [data, setData] = useState<PipelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
@@ -291,13 +291,13 @@ export default function ArticlePipeline() {
   const [countdown, setCountdown] = useState(30);
 
   const fetchPipeline = useCallback(() => {
-    if (!projectId) return;
-    fetch(`/api/article-pipeline?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
+    if (!channelId) return;
+    fetch(`/api/article-pipeline?channelId=${encodeURIComponent(channelId)}`, { credentials: "include" })
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d: PipelineData) => { setData(d); setPaused(d.paused); })
       .catch(() => toast.error("Failed to load article pipeline"))
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [channelId]);
 
   useEffect(() => { fetchPipeline(); }, [fetchPipeline]);
   useEffect(() => {
@@ -316,12 +316,12 @@ export default function ArticlePipeline() {
   };
 
   const handleRetryAll = () => {
-    if (!projectId) return;
+    if (!channelId) return;
     setRetryingAll(true);
     fetch("/api/article-pipeline/retry-all-failed", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId }),
+      body: JSON.stringify({ channelId }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { retried: number }) => { toast.success(`Retrying ${d.retried} failed`); fetchPipeline(); })
@@ -330,12 +330,12 @@ export default function ArticlePipeline() {
   };
 
   const handleFetchAll = () => {
-    if (!projectId) return;
+    if (!channelId) return;
     setFetchingAll(true);
     fetch("/api/article-pipeline/ingest", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId }),
+      body: JSON.stringify({ channelId }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { results: { label: string; inserted: number; fetched: number }[] }) => {
@@ -349,7 +349,7 @@ export default function ArticlePipeline() {
   };
 
   const handleTestRun = () => {
-    if (!projectId || testRunning) return;
+    if (!channelId || testRunning) return;
     setTestRunning(true);
     setTestResults(null);
     setTestProgress("Starting…");
@@ -357,7 +357,7 @@ export default function ArticlePipeline() {
     fetch("/api/article-pipeline/test-run", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, limit: 1 }),
+      body: JSON.stringify({ channelId, limit: 1 }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { runId: string | null; total: number; articles: { id: string; title: string | null; stageBefore: string }[] }) => {
@@ -564,7 +564,7 @@ export default function ArticlePipeline() {
             <SectionHeader icon={getFlowDef("imported")!.icon} title={getFlowDef("imported")!.name} subtitle={getFlowDef("imported")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[0]} items={data?.byStage.imported ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[0]} items={data?.byStage.imported ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
 
@@ -573,12 +573,12 @@ export default function ArticlePipeline() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "content").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
               {(data?.byStage.content ?? []).length > 0 && (
                 <div className="mt-3">
-                  <StageColumn stage={STAGE_DEFS[1]} items={data?.byStage.content ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[1]} items={data?.byStage.content ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 </div>
               )}
             </div>
@@ -588,10 +588,10 @@ export default function ArticlePipeline() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "classify").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.classify ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[2]} items={data?.byStage.classify ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[2]} items={data?.byStage.classify ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
@@ -601,12 +601,12 @@ export default function ArticlePipeline() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "research" && ["research_decision", "firecrawl_search", "perplexity_context"].includes(s.id)).map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
               {(data?.byStage.research ?? []).length > 0 && (
                 <div className="mt-3">
-                  <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 </div>
               )}
             </div>
@@ -616,7 +616,7 @@ export default function ArticlePipeline() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "research" && ["synthesis", "research"].includes(s.id)).map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
             </div>
@@ -626,10 +626,10 @@ export default function ArticlePipeline() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "translated").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.translated ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
@@ -639,10 +639,10 @@ export default function ArticlePipeline() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "score" && ["score_similarity", "score_ai_analysis", "score"].includes(s.id)).map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.score ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
@@ -652,7 +652,7 @@ export default function ArticlePipeline() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "score" && s.id === "promote").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
             </div>
@@ -661,8 +661,8 @@ export default function ArticlePipeline() {
             <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review and failed articles" />
             <div className="px-6 max-lg:px-4 pb-8">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
-                <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
           </>
@@ -699,9 +699,9 @@ function StatBox({ label, value, color, sub, last }: { label: string; value: num
 /* ─── Sub-Step Column (completed articles grouped by how they were processed) ─── */
 
 function SubStepColumn({
-  sub, articles, onRefresh, projectId, pp,
+  sub, articles, onRefresh, channelId, pp,
 }: {
-  sub: SubStep; articles: ApiArticle[]; onRefresh: () => void; projectId: string | undefined; pp: (path: string) => string;
+  sub: SubStep; articles: ApiArticle[]; onRefresh: () => void; channelId: string | undefined; pp: (path: string) => string;
 }) {
   const Icon = sub.icon;
   return (
@@ -1000,12 +1000,12 @@ function ScoreBar({ label, value }: { label: string; value?: number }) {
 /* ─── Stage Column (active processing items) ─── */
 
 function StageColumn({
-  stage, items, onRefresh, projectId, pp,
+  stage, items, onRefresh, channelId, pp,
 }: {
   stage: { id: string; number: number; label: string; subtitle?: string; color: string };
   items: ApiArticle[];
   onRefresh: () => void;
-  projectId: string | undefined;
+  channelId: string | undefined;
   pp: (path: string) => string;
 }) {
   const isFailed = stage.id === "failed";
@@ -1014,12 +1014,12 @@ function StageColumn({
   const [retryingAll, setRetryingAll] = useState(false);
 
   const handleRetryAll = () => {
-    if (!projectId) return;
+    if (!channelId) return;
     setRetryingAll(true);
     fetch("/api/article-pipeline/retry-all-failed", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId }),
+      body: JSON.stringify({ channelId }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(() => { toast.success("Retrying"); onRefresh(); })
@@ -1028,12 +1028,12 @@ function StageColumn({
   };
 
   const handleRestartStage = () => {
-    if (!projectId) return;
+    if (!channelId) return;
     setRetryingAll(true);
     fetch("/api/article-pipeline/restart-stage", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, stage: stage.id }),
+      body: JSON.stringify({ channelId, stage: stage.id }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { restarted: number }) => { toast.success(`Restarted ${d.restarted} articles`); onRefresh(); })

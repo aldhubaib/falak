@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { Circle, Pause, Play, RotateCw, Search, ChevronDown, ArrowUpRight } from "lucide-react";
 import { fmtDateTime } from "@/lib/utils";
 import { toast } from "sonner";
@@ -139,8 +139,8 @@ const filterTabs = ["All", "Active", "Regular", "Slow", "Inactive"];
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Monitor() {
-  const { projectId } = useParams();
-  const projectPath = useProjectPath();
+  const { channelId } = useParams();
+  const channelPath = useChannelPath();
 
   const [rows, setRows] = useState<MonitorRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,8 +150,8 @@ export default function Monitor() {
   const [search, setSearch] = useState("");
 
   const fetchData = useCallback(() => {
-    const url = projectId
-      ? `/api/monitor?projectId=${encodeURIComponent(projectId)}`
+    const url = channelId
+      ? `/api/monitor?channelId=${encodeURIComponent(channelId)}`
       : "/api/monitor";
     fetch(url, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
@@ -161,7 +161,7 @@ export default function Monitor() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [channelId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -414,7 +414,7 @@ export default function Monitor() {
                     {filtered.map((ch) => (
                       <Link
                         key={ch.id}
-                        to={projectPath(`/channel/${ch.id}`)}
+                        to={channelPath(`/channel/${ch.id}`)}
                         className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center no-underline"
                       >
                         <div className="flex items-center gap-2.5">
@@ -446,7 +446,7 @@ export default function Monitor() {
                     {filtered.map((ch) => (
                       <Link
                         key={ch.id}
-                        to={projectPath(`/channel/${ch.id}`)}
+                        to={channelPath(`/channel/${ch.id}`)}
                         className="block rounded-xl bg-background p-4 cursor-pointer active:bg-[#0d0d10] transition-colors no-underline"
                       >
                         <div className="flex items-center gap-3 mb-3">

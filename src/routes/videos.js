@@ -42,10 +42,10 @@ router.post('/:id/refetch-comments', strictRateLimit, async (req, res) => {
   try {
     const video = await db.video.findUnique({
       where: { id: req.params.id },
-      include: { channel: { select: { projectId: true } } },
+      include: { channel: { select: { id: true, parentChannelId: true } } },
     })
     if (!video || !video.channel) return res.status(404).json({ error: 'Video not found' })
-    const comments = await fetchComments(video.youtubeId, 100, video.channel.projectId)
+    const comments = await fetchComments(video.youtubeId, 100, video.channel.parentChannelId || video.channel.id)
     for (const c of comments) {
       await db.comment.upsert({
         where: { youtubeId: c.youtubeId },
@@ -76,10 +76,11 @@ router.post('/:id/refetch-transcript', strictRateLimit, async (req, res) => {
   try {
     const video = await db.video.findUnique({
       where: { id: req.params.id },
-      include: { channel: { include: { project: true } } },
+      include: { channel: true },
     })
     if (!video) return res.status(404).json({ error: 'Video not found' })
-    const text = await fetchTranscript(video.youtubeId, video.channel?.project)
+    const ytTranscriptKey = await db.apiKey.findUnique({ where: { service: 'yt_transcript' } })
+    const text = await fetchTranscript(video.youtubeId, ytTranscriptKey)
     await db.video.update({
       where: { id: video.id },
       data: { transcription: text || null },

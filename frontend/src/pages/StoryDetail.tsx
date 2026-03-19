@@ -6,7 +6,7 @@ import {
   extractScriptBlocks,
   buildScriptBlocksJSON,
 } from "@/data/editorInitialValue";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
@@ -97,9 +97,9 @@ const MOCK_STORY: StoryWithLog = {
 } as StoryWithLog;
 
 export default function StoryDetail() {
-  const { id, projectId } = useParams<{ id: string; projectId: string }>();
+  const { id, channelId } = useParams<{ id: string; channelId: string }>();
   const navigate = useNavigate();
-  const projectPath = useProjectPath();
+  const channelPath = useChannelPath();
   const currentUser = useCurrentUser();
 
   const collaborationWsUrl = useMemo(
@@ -121,17 +121,17 @@ export default function StoryDetail() {
     [brief.scriptTiptap, brief.script]
   );
 
-  // Refs for redirect (avoid effect re-running when navigate/projectPath identity changes)
+  // Refs for redirect (avoid effect re-running when navigate/channelPath identity changes)
   const navigateRef = useRef(navigate);
-  const projectPathRef = useRef(projectPath);
+  const channelPathRef = useRef(channelPath);
   navigateRef.current = navigate;
-  projectPathRef.current = projectPath;
+  channelPathRef.current = channelPath;
 
   // Load "ours" channels for the channel selector modal
   useEffect(() => {
-    if (!projectId) return;
+    if (!channelId) return;
     let cancelled = false;
-    fetch(`/api/channels?projectId=${projectId}`, { credentials: "include" })
+    fetch(`/api/channels?channelId=${channelId}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed to load channels"))))
       .then((data: { channels: ApiChannel[] }) => {
         if (cancelled) return;
@@ -142,7 +142,7 @@ export default function StoryDetail() {
         if (!cancelled) setOurChannels([]);
       });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [channelId]);
 
   // Load story (and brief) on mount so Yoopta content persists after refresh
   useEffect(() => {
@@ -171,7 +171,7 @@ export default function StoryDetail() {
         if (err.message === "Story not found") {
           setStory(null);
           setBrief({});
-          navigateRef.current(projectPathRef.current("/stories"), { replace: true });
+          navigateRef.current(channelPathRef.current("/stories"), { replace: true });
           return;
         }
         if (attempt < MAX_RETRIES) {
@@ -323,9 +323,9 @@ export default function StoryDetail() {
 
   // Load all stories for prev/next navigation, grouped by stage then newest-first within each stage
   useEffect(() => {
-    if (!projectId || !story) return;
+    if (!channelId || !story) return;
     let cancelled = false;
-    fetch(`/api/stories?projectId=${projectId}`, { credentials: "include" })
+    fetch(`/api/stories?channelId=${channelId}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then((list: { id: string; stage: string; createdAt: string }[]) => {
         if (cancelled) return;
@@ -343,7 +343,7 @@ export default function StoryDetail() {
         if (!cancelled) setStageStories([]);
       });
     return () => { cancelled = true; };
-  }, [projectId, story?.id]);
+  }, [channelId, story?.id]);
 
   // Original Story: always expanded by default on page load
   useEffect(() => {
@@ -484,7 +484,7 @@ export default function StoryDetail() {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
-          <Link to={projectPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
+          <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>
           </Link>
@@ -499,7 +499,7 @@ export default function StoryDetail() {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
-          <Link to={projectPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
+          <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>
           </Link>
@@ -520,7 +520,7 @@ export default function StoryDetail() {
           nextStageKey={nextStageKey}
           nextStageLabel={nextStageLabel}
           saving={saving}
-          onBack={() => navigate(projectPath("/stories"))}
+          onBack={() => navigate(channelPath("/stories"))}
           onMoveToNextStage={() => nextStageKey && moveToStage(nextStageKey)}
           onPass={() => moveToStage("passed")}
           onRestart={() => moveToStage("suggestion")}
@@ -530,8 +530,8 @@ export default function StoryDetail() {
           prevNext={showStageNav ? {
             currentIndex: withinStageIndex >= 0 ? withinStageIndex + 1 : stageIndex + 1,
             total: sameStageStories.length > 0 ? sameStageStories.length : stageStories.length,
-            onPrev: () => prevStory && navigate(projectPath(`/story/${(prevStory as { id: string }).id}`)),
-            onNext: () => nextStory && navigate(projectPath(`/story/${(nextStory as { id: string }).id}`)),
+            onPrev: () => prevStory && navigate(channelPath(`/story/${(prevStory as { id: string }).id}`)),
+            onNext: () => nextStory && navigate(channelPath(`/story/${(nextStory as { id: string }).id}`)),
             hasPrev: !!prevStory,
             hasNext: !!nextStory,
           } : undefined}

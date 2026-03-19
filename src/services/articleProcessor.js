@@ -94,9 +94,10 @@ async function doStageContent(article, project) {
   }
 
   let fetchedText = null
-  if (project.firecrawlApiKeyEncrypted) {
+  const fcKey = await db.apiKey.findUnique({ where: { service: 'firecrawl' } })
+  if (fcKey?.encryptedKey) {
     try {
-      const apiKey = decrypt(project.firecrawlApiKeyEncrypted)
+      const apiKey = decrypt(fcKey.encryptedKey)
       const result = await scrapeUrl(apiKey, article.url)
       if (result.text) {
         fetchedText = preClean(result.text)
@@ -153,11 +154,12 @@ async function doStageContent(article, project) {
 // Classifies in the article's ORIGINAL language. Arabic translation happens later.
 
 async function doStageClassify(article, project) {
-  if (!project.anthropicApiKeyEncrypted) {
+  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (!anKey?.encryptedKey) {
     throw new Error('Anthropic API key not configured. Go to Settings to add it.')
   }
   const log = getLog(article)
-  const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+  const apiKey = decrypt(anKey.encryptedKey)
 
   const articleText = (article.contentClean || article.content || '').slice(0, 20000)
   const title = article.title || ''
@@ -201,7 +203,7 @@ async function doStageClassify(article, project) {
       { role: 'user', content: prompt },
     ], {
       maxTokens: 2048,
-      projectId: article.projectId,
+      channelId: article.channelId,
       action: 'article-classify',
     })
     classifyUsage = callAnthropic._lastUsage || {}
@@ -281,7 +283,7 @@ async function doStageResearch(article, project) {
 
   const freshArticle = await db.article.findUnique({ where: { id: article.id } })
   const currentAnalysis = freshArticle?.analysis || article.analysis
-  const decision = needsResearch({ ...article, analysis: currentAnalysis }, project)
+  const decision = await needsResearch({ ...article, analysis: currentAnalysis })
 
   log.push({
     step: 'research_decision', processor: 'server', service: 'Local decision logic',
@@ -299,9 +301,9 @@ async function doStageResearch(article, project) {
   try {
     const fullArticle = await db.article.findUnique({
       where: { id: article.id },
-      include: { source: { include: { project: true } } },
+      include: { source: { include: { channel: true } } },
     })
-    const result = await researchStory(fullArticle || article, project)
+    const result = await researchStory(fullArticle || article, article.channelId)
 
     for (const entry of result.log) {
       log.push(entry)
@@ -381,10 +383,11 @@ async function doStageTranslated(article, project) {
     return { nextStage: 'score' }
   }
 
-  if (!project.anthropicApiKeyEncrypted) {
+  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (!anKey?.encryptedKey) {
     throw new Error('Anthropic API key not configured. Go to Settings to add it.')
   }
-  const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+  const apiKey = decrypt(anKey.encryptedKey)
 
   // ── Step A: Translate article content ──
   const truncated = text.slice(0, 30000)
@@ -397,7 +400,7 @@ async function doStageTranslated(article, project) {
     { role: 'user', content: contentPrompt },
   ], {
     maxTokens: 4096,
-    projectId: article.projectId,
+    channelId: article.channelId,
     action: 'article-translate-content',
   })
   const contentUsage = callAnthropic._lastUsage || {}
@@ -448,7 +451,7 @@ async function doStageTranslated(article, project) {
       { role: 'user', content: analysisPrompt },
     ], {
       maxTokens: 1024,
-      projectId: article.projectId,
+      channelId: article.channelId,
       action: 'article-translate-analysis',
     })
     const analysisUsage = callAnthropic._lastUsage || {}
@@ -486,7 +489,7 @@ async function doStageTranslated(article, project) {
         { role: 'user', content: researchPrompt },
       ], {
         maxTokens: 4096,
-        projectId: article.projectId,
+        channelId: article.channelId,
         action: 'article-translate-research',
       })
       const researchUsage = callAnthropic._lastUsage || {}
@@ -584,7 +587,8 @@ async function doStageScore(article, project) {
   let sentiment = 'neutral'
 
   // ── Sub-step A: score_similarity (Arabic vs Arabic) ──
-  if (project.embeddingApiKeyEncrypted) {
+  const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
+  if (embKey?.encryptedKey) {
     try {
       const { generateEmbedding, buildEmbeddingText, findSimilarVideos } = require('./embeddings')
       const embData = {
@@ -597,8 +601,8 @@ async function doStageScore(article, project) {
       }
       const embText = buildEmbeddingText(embData)
       if (embText.length > 10) {
-        scoreEmbedding = await generateEmbedding(embText, project)
-        const raw = await findSimilarVideos(scoreEmbedding, project.id, 5)
+        scoreEmbedding = await generateEmbedding(embText, article.channelId)
+        const raw = await findSimilarVideos(scoreEmbedding, article.channelId, 5)
         similarVideos = (raw || []).map(v => ({
           title: v.titleAr || '',
           views: v.viewCount || 0,
@@ -629,9 +633,10 @@ async function doStageScore(article, project) {
 
   // ── Sub-step B: score_ai_analysis (AI scoring on Arabic text) ──
   const contentAr = art.contentAr || ''
-  if (project.anthropicApiKeyEncrypted && contentAr.trim().length > 50) {
+  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (anKey?.encryptedKey && contentAr.trim().length > 50) {
     try {
-      const apiKey = decrypt(project.anthropicApiKeyEncrypted)
+      const apiKey = decrypt(anKey.encryptedKey)
       const competitionContext = similarVideos.length > 0
         ? '\n\nCompetition (similar Arabic videos already in DB):\n' +
           similarVideos.map(v => `- "${v.title}" (similarity: ${v.similarity})`).join('\n')
@@ -651,7 +656,7 @@ ${contentAr.slice(0, 15000)}`
         { role: 'user', content: scoringPrompt },
       ], {
         maxTokens: 512,
-        projectId: article.projectId,
+        channelId: article.channelId,
         action: 'article-score-ai',
       })
       const usage = callAnthropic._lastUsage || {}
@@ -706,7 +711,7 @@ ${contentAr.slice(0, 15000)}`
   let preferenceBias = 0
   try {
     const { getPreferenceProfile } = require('./articleFeedback')
-    const profile = await getPreferenceProfile(article.projectId)
+    const profile = await getPreferenceProfile(article.channelId)
     if (profile) {
       preferenceBias = calculatePreferenceBias(analysis, profile)
     }
@@ -831,7 +836,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
   if (!headline.trim()) return null
 
   const existing = await db.story.findFirst({
-    where: { projectId: article.projectId, headline: headline.trim() },
+    where: { channelId: article.channelId, headline: headline.trim() },
     select: { id: true },
   })
   if (existing) {
@@ -876,7 +881,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
 
   const story = await db.story.create({
     data: {
-      projectId: article.projectId,
+      channelId: article.channelId,
       headline: headline.trim(),
       stage: 'suggestion',
       sourceUrl: article.url,
@@ -900,11 +905,8 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
       const { storeStoryEmbedding } = require('./embeddings')
       await storeStoryEmbedding(story.id, scoreEmbedding)
     } else {
-      const proj = await db.project.findUnique({
-        where: { id: article.projectId },
-        select: { id: true, embeddingApiKeyEncrypted: true },
-      })
-      if (proj?.embeddingApiKeyEncrypted) {
+      const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
+      if (embKey?.encryptedKey) {
         const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
         const text = buildEmbeddingText({
           topic: analysis.topicAr || analysis.topic,
@@ -915,7 +917,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
           uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle,
         })
         if (text.length > 10) {
-          const emb = await generateEmbedding(text, proj)
+          const emb = await generateEmbedding(text, article.channelId)
           await storeStoryEmbedding(story.id, emb)
         }
       }

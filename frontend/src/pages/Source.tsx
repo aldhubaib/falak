@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Source() {
-  const { projectId } = useParams();
+  const { channelId } = useParams();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -19,7 +19,7 @@ export default function Source() {
 
       <div className="flex-1 overflow-auto">
         <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
-          <ArticleSourcesSection projectId={projectId!} />
+          <ArticleSourcesSection channelId={channelId!} />
         </div>
       </div>
     </div>
@@ -68,7 +68,7 @@ const SOURCE_TYPES = [
 
 // ── Main section ──────────────────────────────────────────────────────────
 
-function ArticleSourcesSection({ projectId }: { projectId: string }) {
+function ArticleSourcesSection({ channelId }: { channelId: string }) {
   const [sources, setSources] = useState<ArticleSourceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -77,12 +77,12 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
   const [testResults, setTestResults] = useState<{ url: string; title: string }[] | null>(null);
 
   const fetchSources = useCallback(() => {
-    fetch(`/api/article-sources?projectId=${projectId}`, { credentials: "include" })
+    fetch(`/api/article-sources?channelId=${channelId}`, { credentials: "include" })
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setSources(Array.isArray(data) ? data : []))
       .catch(() => setSources([]))
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [channelId]);
 
   useEffect(() => { fetchSources(); }, [fetchSources]);
 
@@ -112,7 +112,7 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
     fetch("/api/article-pipeline/ingest", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, sourceId: id }),
+      body: JSON.stringify({ channelId, sourceId: id }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
       .then((d) => {
@@ -209,7 +209,7 @@ function ArticleSourcesSection({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <AddSourceDialog projectId={projectId} open={addOpen} onClose={() => setAddOpen(false)} onCreated={fetchSources} />
+      <AddSourceDialog channelId={channelId} open={addOpen} onClose={() => setAddOpen(false)} onCreated={fetchSources} />
       {editSource && (
         <EditSourceDialog source={editSource} open={!!editSource} onClose={() => setEditSource(null)} onUpdated={fetchSources} />
       )}
@@ -546,7 +546,7 @@ function SourceCard({
 
 // ── Add Source Dialog ──────────────────────────────────────────────────────
 
-function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: string; open: boolean; onClose: () => void; onCreated: () => void }) {
+function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: string; open: boolean; onClose: () => void; onCreated: () => void }) {
   const [type, setType] = useState("rss");
   const [label, setLabel] = useState("");
   const [config, setConfig] = useState<Record<string, string>>({});
@@ -588,7 +588,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
     fetch("/api/article-sources/test-config", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, type, config: buildConfig(), ...(type === "apify_actor" ? { apiKey } : {}) }),
+      body: JSON.stringify({ channelId, type, config: buildConfig(), ...(type === "apify_actor" ? { apiKey } : {}) }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
       .then((d) => { setTestResults(d.articles || []); toast.success(`${d.count} articles found`); })
@@ -602,7 +602,7 @@ function AddSourceDialog({ projectId, open, onClose, onCreated }: { projectId: s
     fetch("/api/article-sources", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, type, label: finalLabel, config: buildConfig(), image, ...(type === "apify_actor" ? { apiKey } : {}) }),
+      body: JSON.stringify({ channelId, type, label: finalLabel, config: buildConfig(), image, ...(type === "apify_actor" ? { apiKey } : {}) }),
     })
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
       .then(() => { toast.success("Source created"); onCreated(); onClose(); setLabel(""); setConfig({}); setApiKey(""); setImage(null); setTestResults(null); })

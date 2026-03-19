@@ -7,17 +7,17 @@ router.use(requireAuth)
 
 router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, res) => {
   try {
-    const { projectId } = req.query
-    if (!projectId) return res.status(400).json({ error: 'projectId required' })
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
-    const project = await db.project.findUnique({
-      where: { id: projectId },
+    const channel = await db.channel.findUnique({
+      where: { id: channelId },
       select: {
-        embeddingApiKeyEncrypted: true,
         lastStatsRefreshAt: true,
         rescoreIntervalHours: true,
       },
     })
+    const embeddingKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
 
     const [
       totalVideos,
@@ -28,19 +28,19 @@ router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (
       unreadAlertCount,
       scoreProfile,
     ] = await Promise.all([
-      db.video.count({ where: { channel: { projectId } } }),
-      db.$queryRaw`SELECT count(*)::int as c FROM "Video" v JOIN "Channel" ch ON v."channelId" = ch.id WHERE ch."projectId" = ${projectId} AND v.embedding IS NOT NULL`,
-      db.story.count({ where: { projectId } }),
-      db.$queryRaw`SELECT count(*)::int as c FROM "Story" WHERE "projectId" = ${projectId} AND embedding IS NOT NULL`,
+      db.video.count({ where: { channel: { OR: [{ id: channelId }, { parentChannelId: channelId }] } } }),
+      db.$queryRaw`SELECT count(*)::int as c FROM "Video" v JOIN "Channel" ch ON v."channelId" = ch.id WHERE (ch.id = ${channelId} OR ch."parentChannelId" = ${channelId}) AND v.embedding IS NOT NULL`,
+      db.story.count({ where: { channelId } }),
+      db.$queryRaw`SELECT count(*)::int as c FROM "Story" WHERE "channelId" = ${channelId} AND embedding IS NOT NULL`,
       db.alert.findMany({
-        where: { projectId },
+        where: { channelId },
         orderBy: { createdAt: 'desc' },
         take: 20,
         select: { id: true, type: true, title: true, detail: true, storyId: true, isRead: true, createdAt: true },
       }),
-      db.alert.count({ where: { projectId, isRead: false } }),
+      db.alert.count({ where: { channelId, isRead: false } }),
       db.scoreProfile.findUnique({
-        where: { projectId },
+        where: { channelId },
         select: {
           totalOutcomes: true,
           totalDecisions: true,
@@ -58,7 +58,7 @@ router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (
     const rescored = await db.$queryRaw`
       SELECT count(*)::int as total,
              count(*) FILTER (WHERE "rescoreLog" IS NOT NULL AND jsonb_array_length("rescoreLog"::jsonb) > 0)::int as rescored
-      FROM "Story" WHERE "projectId" = ${projectId}
+      FROM "Story" WHERE "channelId" = ${channelId}
     `
 
     const recentRescores = await db.$queryRaw`
@@ -67,7 +67,7 @@ router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (
         s."lastRescoredAt",
         (s."rescoreLog"::jsonb->-1) as "latestEntry"
       FROM "Story" s
-      WHERE s."projectId" = ${projectId}
+      WHERE s."channelId" = ${channelId}
         AND s."rescoreLog" IS NOT NULL
         AND jsonb_array_length(s."rescoreLog"::jsonb) > 0
       ORDER BY s."lastRescoredAt" DESC NULLS LAST
@@ -81,7 +81,7 @@ router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (
         (s."rescoreLog"::jsonb->-1->'factors'->>'freshness')::float as freshness,
         s."compositeScore"
       FROM "Story" s
-      WHERE s."projectId" = ${projectId}
+      WHERE s."channelId" = ${channelId}
         AND s."rescoreLog" IS NOT NULL
         AND jsonb_array_length(s."rescoreLog"::jsonb) > 0
         AND s.stage NOT IN ('done', 'omit')
@@ -90,9 +90,9 @@ router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (
     `
 
     res.json({
-      hasEmbeddingKey: !!project?.embeddingApiKeyEncrypted,
-      lastStatsRefreshAt: project?.lastStatsRefreshAt,
-      rescoreIntervalHours: project?.rescoreIntervalHours ?? 24,
+      hasEmbeddingKey: !!embeddingKey?.encryptedKey,
+      lastStatsRefreshAt: channel?.lastStatsRefreshAt,
+      rescoreIntervalHours: channel?.rescoreIntervalHours ?? 24,
       embeddings: {
         videos: { total: totalVideos, embedded: videosWithEmbedding?.[0]?.c ?? 0 },
         stories: { total: totalStories, embedded: storiesWithEmbedding?.[0]?.c ?? 0 },

@@ -1,4 +1,5 @@
 const fetch = require('node-fetch')
+const db = require('../lib/db')
 const { decrypt } = require('./crypto')
 const { transcriptCache } = require('../lib/cache')
 const { trackUsage } = require('./usageTracker')
@@ -9,15 +10,15 @@ const RETRY_DELAY_MS = 2000
 
 /**
  * Fetch transcript via youtube-transcript.io only.
- * Requires project.ytTranscriptApiKeyEncrypted — no global fallback.
+ * Uses the global yt-transcript API key from the ApiKey table.
  * @param {string} youtubeVideoId - YouTube video ID (11 chars)
- * @param {object} project - Project object (must contain ytTranscriptApiKeyEncrypted)
+ * @param {string} channelId - Channel ID for usage tracking
  * @returns {Promise<Array|string|''>}
  *   - Array of {text, start, duration} segments when the API returns segment-level data
  *   - Plain string when only raw transcript text is available (fallback)
  *   - Empty string '' when the video has no transcript
  */
-async function fetchTranscript(youtubeVideoId, project) {
+async function fetchTranscript(youtubeVideoId, channelId) {
   if (!youtubeVideoId || youtubeVideoId.length < 11) {
     throw new Error('Invalid YouTube video ID')
   }
@@ -25,17 +26,18 @@ async function fetchTranscript(youtubeVideoId, project) {
   const cached = transcriptCache.get(id)
   if (cached !== undefined) return cached
 
-  if (!project?.ytTranscriptApiKeyEncrypted) {
-    throw new Error('YouTube Transcript API key not configured for this project. Go to Settings and add it.')
+  const keyRow = await db.apiKey.findUnique({ where: { service: 'yt-transcript' } })
+  if (!keyRow?.encryptedKey) {
+    throw new Error('YouTube Transcript API key not configured. Go to Settings and add it.')
   }
-  const token = decrypt(project.ytTranscriptApiKeyEncrypted)
+  const token = decrypt(keyRow.encryptedKey)
   let lastErr
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const text = await fetchFromYoutubeTranscriptIo(id, token)
       const result = text !== null ? text : ''
       transcriptCache.set(id, result)
-      trackUsage({ projectId: project.id, service: 'yttranscript', action: 'transcribe', status: 'ok' })
+      trackUsage({ channelId, service: 'yttranscript', action: 'transcribe', status: 'ok' })
       return result
     } catch (e) {
       lastErr = e
@@ -45,12 +47,11 @@ async function fetchTranscript(youtubeVideoId, project) {
         await sleep(waitMs)
         continue
       }
-      // Final failure — track before re-throwing
-      trackUsage({ projectId: project.id, service: 'yttranscript', action: 'transcribe', status: 'fail', error: e.message })
+      trackUsage({ channelId, service: 'yttranscript', action: 'transcribe', status: 'fail', error: e.message })
       throw e
     }
   }
-  trackUsage({ projectId: project.id, service: 'yttranscript', action: 'transcribe', status: 'fail', error: lastErr?.message })
+  trackUsage({ channelId, service: 'yttranscript', action: 'transcribe', status: 'fail', error: lastErr?.message })
   throw lastErr
 }
 
@@ -75,7 +76,6 @@ async function fetchFromYoutubeTranscriptIo(videoId, apiToken) {
   if (!res.ok) {
     const retryAfter = res.headers.get('Retry-After')
     const retryAfterMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : null
-    // Always read the body so we can log it and include it in the error message.
     let body = ''
     try { body = (await res.text()).slice(0, 500) } catch (_) {}
     console.error(`[transcript] youtube-transcript.io ${res.status} for ${videoId}:`, body || '(empty body)')

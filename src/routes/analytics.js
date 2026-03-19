@@ -9,7 +9,7 @@ const router = express.Router()
 router.use(requireAuth)
 
 const analyticsQuerySchema = z.object({
-  projectId: z.string().optional(),
+  channelId: z.string().optional(),
   period: z.enum(['30d', '90d', '12m']).optional().default('12m'),
 })
 
@@ -19,10 +19,10 @@ router.post('/flush-cache', async (req, res) => {
   res.json({ ok: true, message: 'Analytics cache cleared' })
 })
 
-// ── GET /api/analytics?projectId=xxx&period=30d|90d|12m (cached 5 min, Cache-Control)
+// ── GET /api/analytics?channelId=xxx&period=30d|90d|12m (cached 5 min, Cache-Control)
 router.get('/', async (req, res) => {
-  const { projectId, period } = parseQuery(req.query, analyticsQuerySchema)
-  const cacheKey = `analytics:${projectId || 'all'}:${period}`
+  const { channelId, period } = parseQuery(req.query, analyticsQuerySchema)
+  const cacheKey = `analytics:${channelId || 'all'}:${period}`
   const cached = analyticsCache.get(cacheKey)
   if (cached !== undefined) {
     res.set('Cache-Control', 'private, max-age=300')
@@ -30,7 +30,9 @@ router.get('/', async (req, res) => {
   }
 
   const since = periodToDate(period)
-  const channelWhere = projectId ? { projectId } : {}
+  const channelWhere = channelId
+    ? { OR: [{ id: channelId }, { parentChannelId: channelId }] }
+    : {}
 
   const channels = await db.channel.findMany({
     where: channelWhere,

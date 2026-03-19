@@ -1,13 +1,12 @@
-import { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutGrid, Swords, GitBranch, Circle, TrendingUp, Sparkles, Settings, ChevronDown, Check, Pencil, Plus, Activity, Pin, PinOff, ImagePlus, X, Newspaper, FileText, Zap } from "lucide-react";
+import { Swords, GitBranch, Activity, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, Newspaper, FileText, Zap, Home } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
-  { icon: LayoutGrid, label: "Our Channels", path: "" },
-  { icon: Swords, label: "Competitions", path: "/competitions" },
+  { icon: Swords, label: "Competitors", path: "" },
   { icon: GitBranch, label: "Pipeline", path: "/pipeline" },
   { icon: Activity, label: "Monitor", path: "/monitor" },
   { icon: TrendingUp, label: "Analytics", path: "/analytics" },
@@ -22,16 +21,16 @@ const adminItems = [
   { icon: Circle, label: "Admin", path: "/admin" },
 ];
 
-/** Shape from GET /api/projects */
-interface ApiProject {
+interface ChannelInfo {
   id: string;
-  name: string;
-  nameAr?: string | null;
-  color?: string;
+  handle: string;
+  nameAr: string | null;
+  nameEn: string | null;
+  avatarUrl: string | null;
 }
 
 interface AppSidebarProps {
-  projectId: string;
+  channelId: string;
   onClose?: () => void;
   isMobile?: boolean;
   collapsed?: boolean;
@@ -39,150 +38,94 @@ interface AppSidebarProps {
   onTogglePin?: () => void;
 }
 
-export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pinned = false, onTogglePin }: AppSidebarProps) {
+export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pinned = false, onTogglePin }: AppSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentUser = useCurrentUser();
-  const base = `/p/${projectId}`;
-  const [projects, setProjects] = useState<ApiProject[]>([]);
-  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const base = `/c/${channelId}`;
+  const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editHookStart, setEditHookStart] = useState("");
-  const [editHookEnd, setEditHookEnd] = useState("");
-  const [editImage, setEditImage] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [newHookStart, setNewHookStart] = useState("");
-  const [newHookEnd, setNewHookEnd] = useState("");
-  const [newImage, setNewImage] = useState<string | null>(null);
-  const [projectName, setProjectName] = useState("");
-  const [projectHookStart, setProjectHookStart] = useState("");
-  const [projectHookEnd, setProjectHookEnd] = useState("");
-  const [projectImage, setProjectImage] = useState<string | null>(null);
-  const editFileRef = useRef<HTMLInputElement>(null);
-  const newFileRef = useRef<HTMLInputElement>(null);
-  const switcherRef = useRef<HTMLDivElement>(null);
 
-  // Fetch projects and sync current project display name
   useEffect(() => {
-    fetch("/api/projects", { credentials: "include" })
+    if (!channelId) return;
+    fetch("/api/profiles", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
-      .then((list: ApiProject[]) => {
-        const arr = Array.isArray(list) ? list : [];
-        setProjects(arr);
-        const current = arr.find((p) => p.id === projectId);
-        if (current) {
-          setProjectName(current.name);
-          setProjectHookStart("");
-          setProjectHookEnd("");
-          setProjectImage(null);
-        }
+      .then((list: ChannelInfo[]) => {
+        const current = Array.isArray(list) ? list.find((p) => p.id === channelId) : null;
+        if (current) setChannelInfo(current);
       })
-      .catch(() => setProjects([]));
-  }, [projectId]);
+      .catch(() => {});
+  }, [channelId]);
 
   const isActive = (path: string) => {
-    if (path === "" || path === "/") return location.pathname === base;
+    if (path === "" || path === "/") return location.pathname === base || location.pathname === base + "/";
     return location.pathname === `${base}${path}` || location.pathname.startsWith(`${base}${path}/`);
   };
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
-        setSwitcherOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const sidebarWidth = collapsed ? "w-[56px] min-w-[56px]" : "w-[220px] min-w-[220px]";
+  const displayName = channelInfo?.nameAr || channelInfo?.nameEn || channelInfo?.handle || "Channel";
 
   return (
     <div className={`flex flex-col bg-[#080808] transition-all duration-200 ${isMobile ? "h-full" : `${sidebarWidth} h-screen sticky top-0 overflow-y-auto`}`}>
-      {/* Brand / Project Switcher */}
-      <div className="relative px-3 h-12 flex items-center justify-between shrink-0" ref={switcherRef}>
+      {/* Channel header + home button */}
+      <div className="relative px-3 h-12 flex items-center justify-between shrink-0">
         {!collapsed ? (
-          <button
-            onClick={() => setSwitcherOpen(!switcherOpen)}
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity min-w-0"
-          >
-            <span className="font-semibold text-[13px] text-foreground truncate">{projectName || "Project"}</span>
-            <ChevronDown className={`w-3 h-3 text-dim shrink-0 transition-transform ${switcherOpen ? "rotate-180" : ""}`} />
-          </button>
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            {channelInfo?.avatarUrl ? (
+              <img src={channelInfo.avatarUrl} alt={displayName} className="w-7 h-7 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-semibold text-primary shrink-0">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="font-semibold text-[13px] text-foreground truncate">{displayName}</span>
+          </div>
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={() => setSwitcherOpen(!switcherOpen)}
-                className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-semibold text-primary mx-auto"
-              >
-                {(projectName && projectName.charAt(0).toUpperCase()) || "P"}
-              </button>
+              <div className="mx-auto">
+                {channelInfo?.avatarUrl ? (
+                  <img src={channelInfo.avatarUrl} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-semibold text-primary">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
             </TooltipTrigger>
-            <TooltipContent side="right">{projectName || "Project"}</TooltipContent>
+            <TooltipContent side="right">{displayName}</TooltipContent>
           </Tooltip>
         )}
 
-        {/* Pin toggle (desktop, expanded only) */}
-        {!isMobile && !collapsed && onTogglePin && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onTogglePin}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-                  pinned ? "text-blue hover:bg-elevated/60" : "text-dim hover:bg-elevated/60 hover:text-sensor"
-                }`}
-              >
-                {pinned ? <Pin className="w-3.5 h-3.5" strokeWidth={1.5} /> : <PinOff className="w-3.5 h-3.5" strokeWidth={1.5} />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">{pinned ? "Unpin sidebar" : "Pin sidebar"}</TooltipContent>
-          </Tooltip>
-        )}
-
-        {/* Dropdown */}
-        {switcherOpen && !collapsed && (
-          <div className="absolute top-full left-2 right-2 mt-1 bg-background border border-border rounded-xl shadow-lg z-50 overflow-hidden">
-            <div className="px-3 py-2 text-[10px] font-medium text-dim uppercase tracking-wider">Projects</div>
-            {projects.length === 0 ? (
-              <div className="px-3 py-2 text-[12px] text-dim">No projects</div>
-            ) : (
-              projects.map((project) => {
-                const isCurrent = project.id === projectId;
-                return (
-                  <Link
-                    key={project.id}
-                    to={`/p/${project.id}`}
-                    onClick={() => setSwitcherOpen(false)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] hover:bg-elevated/60 transition-colors no-underline"
+        {/* Pin toggle + Home (desktop, expanded only) */}
+        {!isMobile && !collapsed && (
+          <div className="flex items-center gap-0.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => navigate("/")}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:bg-elevated/60 hover:text-sensor transition-colors"
+                >
+                  <Home className="w-3.5 h-3.5" strokeWidth={1.5} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Back to profiles</TooltipContent>
+            </Tooltip>
+            {onTogglePin && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onTogglePin}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                      pinned ? "text-blue hover:bg-elevated/60" : "text-dim hover:bg-elevated/60 hover:text-sensor"
+                    }`}
                   >
-                    <span className={`flex-1 text-left truncate ${isCurrent ? "text-foreground font-medium" : "text-dim"}`}>
-                      {project.name}
-                    </span>
-                    {isCurrent && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-                  </Link>
-                );
-              })
+                    {pinned ? <Pin className="w-3.5 h-3.5" strokeWidth={1.5} /> : <PinOff className="w-3.5 h-3.5" strokeWidth={1.5} />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{pinned ? "Unpin sidebar" : "Pin sidebar"}</TooltipContent>
+              </Tooltip>
             )}
-            <div className="border-t border-border mt-1.5 pt-1.5">
-              <button
-                onClick={() => { setSwitcherOpen(false); setEditName(projectName); setEditHookStart(projectHookStart); setEditHookEnd(projectHookEnd); setEditImage(projectImage); setEditOpen(true); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] text-dim hover:text-sensor hover:bg-elevated/60 transition-colors"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>Edit project</span>
-              </button>
-              <button
-                onClick={() => { setSwitcherOpen(false); setNewName(""); setNewHookStart(""); setNewHookEnd(""); setNewOpen(true); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-[13px] text-dim hover:text-sensor hover:bg-elevated/60 transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>New project</span>
-              </button>
-            </div>
-            <div className="pb-1.5" />
           </div>
         )}
       </div>
@@ -307,120 +250,11 @@ export function AppSidebar({ projectId, onClose, isMobile, collapsed = false, pi
                 try {
                   await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
                 } catch (_) {}
-                // Full-page redirect so the browser applies the cleared cookie before any new request
                 window.location.href = "/login";
               }}
               className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity"
             >
               Sign out
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit project dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-background border-border">
-          <DialogHeader>
-            <DialogTitle className="text-[15px]">Edit project</DialogTitle>
-            <DialogDescription className="text-[12px] text-dim">
-              Update project name.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 mt-1">
-            {/* Image upload */}
-            <div>
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Project image</label>
-              <input type="file" accept="image/*" ref={editFileRef} className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) { const reader = new FileReader(); reader.onload = (ev) => setEditImage(ev.target?.result as string); reader.readAsDataURL(file); }
-              }} />
-              {editImage ? (
-                <div className="relative w-16 h-16">
-                  <img src={editImage} alt="Project" className="w-16 h-16 rounded-xl object-cover border border-border" />
-                  <button onClick={() => setEditImage(null)} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => editFileRef.current?.click()} className="w-16 h-16 rounded-xl border border-dashed border-border bg-surface flex items-center justify-center text-dim hover:text-sensor hover:border-foreground/20 transition-colors">
-                  <ImagePlus className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-            <div>
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Project name</label>
-              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40" placeholder="Project name" autoFocus />
-            </div>
-          </div>
-          <div className="flex gap-2 mt-3">
-            <button onClick={() => setEditOpen(false)} className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">Cancel</button>
-            <button
-              onClick={() => {
-                setProjectName(editName.trim() || projectName);
-                setProjectHookStart(editHookStart);
-                setProjectHookEnd(editHookEnd);
-                setProjectImage(editImage);
-                setEditOpen(false);
-              }}
-              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-blue text-blue-foreground hover:opacity-90 transition-opacity"
-            >
-              Save
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* New project dialog */}
-      <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-background border-border">
-          <DialogHeader>
-            <DialogTitle className="text-[15px]">New project</DialogTitle>
-            <DialogDescription className="text-[12px] text-dim">
-              Create a new project.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 mt-1">
-            {/* Image upload */}
-            <div>
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Project image</label>
-              <input type="file" accept="image/*" ref={newFileRef} className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) { const reader = new FileReader(); reader.onload = (ev) => setNewImage(ev.target?.result as string); reader.readAsDataURL(file); }
-              }} />
-              {newImage ? (
-                <div className="relative w-16 h-16">
-                  <img src={newImage} alt="Project" className="w-16 h-16 rounded-xl object-cover border border-border" />
-                  <button onClick={() => setNewImage(null)} className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => newFileRef.current?.click()} className="w-16 h-16 rounded-xl border border-dashed border-border bg-surface flex items-center justify-center text-dim hover:text-sensor hover:border-foreground/20 transition-colors">
-                  <ImagePlus className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-            <div>
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Project name</label>
-              <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40" placeholder="Project name" autoFocus />
-            </div>
-          </div>
-          <div className="flex gap-2 mt-3">
-            <button onClick={() => setNewOpen(false)} className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">Cancel</button>
-            <button
-              onClick={() => {
-                if (newName.trim()) {
-                  setProjectName(newName.trim());
-                  setProjectHookStart(newHookStart);
-                  setProjectHookEnd(newHookEnd);
-                  setProjectImage(newImage);
-                }
-                setNewOpen(false);
-              }}
-              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-blue text-blue-foreground hover:opacity-90 transition-opacity"
-            >
-              Create
             </button>
           </div>
         </DialogContent>

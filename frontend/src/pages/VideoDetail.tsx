@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import type { Video } from "@/data/mock";
 import { VideoRightPanel } from "@/components/VideoRightPanel";
@@ -62,7 +62,7 @@ function formatOffset(seconds: number): string {
 export default function VideoDetail() {
   const { id } = useParams();
   
-  const projectPath = useProjectPath();
+  const channelPath = useChannelPath();
   const [video, setVideo] = useState<Video | null>(null);
   const [channel, setChannel] = useState<{ id: string; name: string; handle: string; avatarUrl: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -214,7 +214,7 @@ export default function VideoDetail() {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
-        <Link to={projectPath("")} className="text-sensor hover:text-foreground underline text-[13px]">
+        <Link to={channelPath("")} className="text-sensor hover:text-foreground underline text-[13px]">
           Return to home
         </Link>
       </div>
@@ -234,7 +234,7 @@ export default function VideoDetail() {
       {/* Top bar */}
       <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <Link
-          to={projectPath(`/channel/${channel.id}`)}
+          to={channelPath(`/channel/${channel.id}`)}
           className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />

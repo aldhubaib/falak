@@ -11,6 +11,7 @@
     "build": "prisma generate && (cd frontend && npm install && npm run build)",
     "build:server": "prisma generate",
     "delete-all-channels": "node scripts/delete-all-channels.js",
+    "delete-all-stories": "node scripts/delete-all-stories.js",
     "db:seed": "node prisma/seed.js"
   },
   "prisma": {

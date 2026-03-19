@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useProjectPath } from "@/hooks/useProjectPath";
+import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   RotateCw, Loader2, Zap, TrendingUp, Bell, Search, Activity,
   Target, Brain, Database, BarChart3, Shield, ArrowRight,
@@ -53,21 +53,21 @@ interface VectorIntelligenceData {
 /* ─── Main Component ─── */
 
 export default function VectorIntelligence() {
-  const { projectId } = useParams();
-  const pp = useProjectPath();
+  const { channelId } = useParams();
+  const pp = useChannelPath();
   const [data, setData] = useState<VectorIntelligenceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [reEvaluating, setReEvaluating] = useState(false);
   const [countdown, setCountdown] = useState(60);
 
   const fetchData = useCallback(() => {
-    if (!projectId) return;
-    fetch(`/api/vector-intelligence/status?projectId=${encodeURIComponent(projectId)}`, { credentials: "include" })
+    if (!channelId) return;
+    fetch(`/api/vector-intelligence/status?channelId=${encodeURIComponent(channelId)}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d) setData(d); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [channelId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -80,9 +80,9 @@ export default function VectorIntelligence() {
   }, [fetchData]);
 
   const handleReEvaluate = () => {
-    if (!projectId) return;
+    if (!channelId) return;
     setReEvaluating(true);
-    fetch(`/api/stories/re-evaluate?projectId=${encodeURIComponent(projectId)}`, {
+    fetch(`/api/stories/re-evaluate?channelId=${encodeURIComponent(channelId)}`, {
       method: "POST", credentials: "include",
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))

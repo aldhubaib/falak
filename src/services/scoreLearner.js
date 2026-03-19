@@ -1,6 +1,6 @@
 /**
  * Self-learning score profile: learns from user decisions and actual YouTube outcomes.
- * Builds a per-project ScoreProfile that evolves over time.
+ * Builds a per-channel ScoreProfile that evolves over time.
  *
  * Two learning signals:
  *   1. Decisions: which stories did the user like/pass/omit?
@@ -21,13 +21,13 @@ function median(arr) {
 }
 
 /**
- * Get or create the score profile for a project.
+ * Get or create the score profile for a channel.
  */
-async function getOrCreateProfile(projectId) {
-  let profile = await db.scoreProfile.findUnique({ where: { projectId } })
+async function getOrCreateProfile(channelId) {
+  let profile = await db.scoreProfile.findUnique({ where: { channelId } })
   if (!profile) {
     profile = await db.scoreProfile.create({
-      data: { id: require('crypto').randomUUID(), projectId, updatedAt: new Date() },
+      data: { id: require('crypto').randomUUID(), channelId, updatedAt: new Date() },
     })
   }
   return profile
@@ -37,15 +37,15 @@ async function getOrCreateProfile(projectId) {
  * Learn from user decisions (liked/passed/omit story stage transitions).
  * Builds tagSignals, contentTypeSignals, regionSignals from what the user chose.
  */
-async function learnFromDecisions(projectId) {
-  const profile = await getOrCreateProfile(projectId)
+async function learnFromDecisions(channelId) {
+  const profile = await getOrCreateProfile(channelId)
 
   const positiveStages = ['liked', 'scripting', 'filmed', 'publish', 'done']
   const negativeStages = ['passed', 'omit']
 
   const stories = await db.story.findMany({
     where: {
-      projectId,
+      channelId,
       stage: { in: [...positiveStages, ...negativeStages] },
     },
     select: { id: true, stage: true, brief: true },
@@ -108,7 +108,7 @@ async function learnFromDecisions(projectId) {
   }
 
   await db.scoreProfile.update({
-    where: { projectId },
+    where: { channelId },
     data: {
       tagSignals: blendSignals(profile.tagSignals, newTagSignals),
       contentTypeSignals: blendSignals(profile.contentTypeSignals, newCtSignals),
@@ -120,7 +120,7 @@ async function learnFromDecisions(projectId) {
   })
 
   logger.info({
-    projectId,
+    channelId,
     totalDecisions,
     tagSignals: Object.keys(newTagSignals).length,
     ctSignals: Object.keys(newCtSignals).length,
@@ -134,11 +134,11 @@ async function learnFromDecisions(projectId) {
  * Learn from YouTube outcomes: how did our published stories actually perform?
  * Adjusts AI accuracy multipliers and updates channel performance baselines.
  */
-async function learnFromOutcomes(projectId) {
-  const profile = await getOrCreateProfile(projectId)
+async function learnFromOutcomes(channelId) {
+  const profile = await getOrCreateProfile(channelId)
 
   const doneStories = await db.story.findMany({
-    where: { projectId, stage: 'done' },
+    where: { channelId, stage: 'done' },
     select: {
       id: true, brief: true,
       relevanceScore: true, viralScore: true, firstMoverScore: true,
@@ -157,7 +157,7 @@ async function learnFromOutcomes(projectId) {
 
   // Compute channel baseline from own videos
   const ownVideos = await db.video.findMany({
-    where: { channel: { projectId, type: 'ours' }, viewCount: { gt: 0 } },
+    where: { channel: { id: channelId }, viewCount: { gt: 0 } },
     select: { viewCount: true },
     orderBy: { viewCount: 'asc' },
   })
@@ -222,7 +222,7 @@ async function learnFromOutcomes(projectId) {
   }
 
   await db.scoreProfile.update({
-    where: { projectId },
+    where: { channelId },
     data: {
       aiViralAccuracy,
       channelAvgViews,
@@ -235,7 +235,7 @@ async function learnFromOutcomes(projectId) {
   })
 
   logger.info({
-    projectId,
+    channelId,
     totalOutcomes: withStats.length,
     aiViralAccuracy,
     channelAvgViews: Number(channelAvgViews),
