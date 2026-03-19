@@ -45,12 +45,12 @@ function toFiniteNumber(value) {
 }
 
 // GET /api/gallery/:channelId
+// Supports both page-based (?page=&pageSize=) and cursor-based (?cursor=&limit=) pagination.
 router.get('/:channelId', async (req, res) => {
   try {
     const { channelId } = req.params
     if (!(await ensureChannel(channelId))) return res.status(404).json({ error: 'Channel not found' })
 
-    const { page, pageSize, skip } = parsePagination(req)
     const type = normalizeMediaType(req.query.type)
     const albumId = req.query.albumId ? String(req.query.albumId) : null
     const q = req.query.q ? String(req.query.q).trim() : ''
@@ -76,6 +76,38 @@ router.get('/:channelId', async (req, res) => {
       : sortBy === 'fileSize'
       ? { fileSize: sortOrder }
       : { createdAt: sortOrder }
+
+    const useCursor = Boolean(req.query.cursor || req.query.limit)
+
+    if (useCursor) {
+      const limit = Math.min(200, Math.max(1, Number.parseInt(String(req.query.limit || '80'), 10) || 80))
+      const cursor = req.query.cursor ? String(req.query.cursor) : null
+
+      const [rows, total] = await Promise.all([
+        db.galleryMedia.findMany({
+          where,
+          include: {
+            album: { select: { id: true, name: true } },
+            uploadedBy: { select: { id: true, name: true, email: true } },
+          },
+          orderBy,
+          take: limit + 1,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        }),
+        db.galleryMedia.count({ where }),
+      ])
+
+      const hasMore = rows.length > limit
+      const items = hasMore ? rows.slice(0, limit) : rows
+      const nextCursor = items.length > 0 ? items[items.length - 1].id : null
+
+      const signedItems = await signMediaList(items)
+
+      return res.json({ items: signedItems, total, nextCursor, hasMore })
+    }
+
+    // Legacy page-based pagination
+    const { page, pageSize, skip } = parsePagination(req)
 
     const [items, total] = await Promise.all([
       db.galleryMedia.findMany({

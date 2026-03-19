@@ -1,22 +1,28 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  Check, CheckSquare, FolderPlus, Image, Plus, RefreshCw,
+  Check, CheckSquare, FolderPlus, Image, Loader2, Plus, RefreshCw,
   Search, SlidersHorizontal, Trash2, Video, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { RowsPhotoAlbum } from "react-photo-album";
+import InfiniteScroll from "react-photo-album/scroll";
+import "react-photo-album/rows.css";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UploadZone } from "@/components/gallery/UploadZone";
-import { MediaGrid } from "@/components/gallery/MediaGrid";
 import { MediaViewer } from "@/components/gallery/MediaViewer";
 import { AlbumCard } from "@/components/gallery/AlbumCard";
+import { MediaOverlay, mediaToPhoto, type GalleryPhoto } from "@/components/gallery/MediaGrid";
 import {
   useGalleryActions,
   useGalleryAlbums,
-  useGalleryMedia,
   useMediaUpload,
 } from "@/hooks/useGallery";
-import type { GalleryMediaFilters } from "@/lib/gallery-api";
+import {
+  fetchGalleryMediaCursor,
+  type GalleryMedia,
+  type GalleryMediaCursorFilters,
+} from "@/lib/gallery-api";
 
 const TABS = ["media", "albums"] as const;
 type Tab = (typeof TABS)[number];
@@ -27,11 +33,13 @@ const TYPE_FILTERS = [
   { value: "VIDEO" as const, label: "Videos", icon: Video },
 ];
 
-const SORT_OPTIONS: { value: GalleryMediaFilters["sortBy"]; label: string }[] = [
+const SORT_OPTIONS: { value: GalleryMediaCursorFilters["sortBy"]; label: string }[] = [
   { value: "createdAt", label: "Date" },
   { value: "fileName", label: "Name" },
   { value: "fileSize", label: "Size" },
 ];
+
+const BATCH_SIZE = 80;
 
 export default function Gallery() {
   const { channelId = "" } = useParams();
@@ -39,40 +47,75 @@ export default function Gallery() {
   const [activeTab, setActiveTab] = useState<Tab>("media");
   const [type, setType] = useState<"all" | "PHOTO" | "VIDEO">("all");
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<GalleryMediaFilters["sortBy"]>("createdAt");
-  const [sortOrder, setSortOrder] = useState<GalleryMediaFilters["sortOrder"]>("desc");
-  const [page, setPage] = useState(1);
-  const pageSize = 60;
+  const [sortBy, setSortBy] = useState<GalleryMediaCursorFilters["sortBy"]>("createdAt");
+  const [sortOrder, setSortOrder] = useState<GalleryMediaCursorFilters["sortOrder"]>("desc");
+  const [resetKey, setResetKey] = useState(0);
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [viewerItems, setViewerItems] = useState<GalleryMedia[]>([]);
   const [viewerIndex, setViewerIndex] = useState(-1);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [createAlbumOpen, setCreateAlbumOpen] = useState(false);
   const [albumName, setAlbumName] = useState("");
   const [showSort, setShowSort] = useState(false);
+  const [total, setTotal] = useState(0);
 
-  const {
-    data: mediaData,
-    isLoading: loadingMedia,
-    refetch: refetchMedia,
-  } = useGalleryMedia(channelId, {
-    page,
-    pageSize,
-    type,
-    q: search.trim() || undefined,
-    sortBy,
-    sortOrder,
-  });
   const { data: albums = [], isLoading: loadingAlbums } = useGalleryAlbums(channelId);
   const { bulkDelete, deleteMedia, createAlbum, addToAlbum } = useGalleryActions(channelId);
   const { getDownloadUrl } = useMediaUpload(channelId);
 
-  const mediaItems = mediaData?.items || [];
-  const total = mediaData?.total ?? 0;
-  const totalPages = mediaData?.totalPages ?? 1;
-  const photoCount = useMemo(() => mediaItems.filter((m) => m.type === "PHOTO").length, [mediaItems]);
-  const videoCount = useMemo(() => mediaItems.filter((m) => m.type === "VIDEO").length, [mediaItems]);
+  const cursorsRef = useRef<(string | null)[]>([]);
+  const allMediaRef = useRef<GalleryMedia[]>([]);
+  const doneRef = useRef(false);
+
+  const scrollKey = `${channelId}-${type}-${search.trim()}-${sortBy}-${sortOrder}-${resetKey}`;
+
+  const resetScroll = useCallback(() => {
+    cursorsRef.current = [];
+    allMediaRef.current = [];
+    doneRef.current = false;
+    setTotal(0);
+    setResetKey((k) => k + 1);
+  }, []);
+
+  const fetchPhotos = useCallback(
+    async (index: number) => {
+      if (!channelId) return null;
+      if (doneRef.current) return null;
+
+      try {
+        const cursor = index === 0 ? null : cursorsRef.current[index - 1];
+        const response = await fetchGalleryMediaCursor(channelId, {
+          cursor,
+          limit: BATCH_SIZE,
+          type: type !== "all" ? type : undefined,
+          q: search.trim() || undefined,
+          sortBy,
+          sortOrder,
+        });
+
+        setTotal(response.total);
+
+        if (response.items.length === 0) return null;
+
+        cursorsRef.current[index] = response.nextCursor;
+
+        if (index === 0) {
+          allMediaRef.current = response.items;
+        } else {
+          allMediaRef.current = [...allMediaRef.current, ...response.items];
+        }
+
+        if (!response.hasMore) doneRef.current = true;
+
+        return response.items.map(mediaToPhoto);
+      } catch {
+        return null;
+      }
+    },
+    [channelId, type, search, sortBy, sortOrder],
+  );
 
   const toggleSelect = useCallback((mediaId: string, selected: boolean) => {
     setSelectedIds((prev) => {
@@ -84,8 +127,8 @@ export default function Gallery() {
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedIds(mediaItems.map((m) => m.id));
-  }, [mediaItems]);
+    setSelectedIds(allMediaRef.current.map((m) => m.id));
+  }, []);
 
   const exitSelection = useCallback(() => {
     setSelectionMode(false);
@@ -107,6 +150,7 @@ export default function Gallery() {
       await bulkDelete.mutateAsync(selectedIds);
       toast.success(`Deleted ${selectedIds.length} item(s)`);
       setSelectedIds([]);
+      resetScroll();
     } catch (e: any) {
       toast.error(e?.message || "Failed to delete");
     }
@@ -131,6 +175,23 @@ export default function Gallery() {
     }
   };
 
+  const handlePhotoClick = useCallback(
+    ({ photos, index }: { photos: GalleryPhoto[]; index: number }) => {
+      if (selectionMode) {
+        const photo = photos[index] as GalleryPhoto | undefined;
+        if (photo?.media) {
+          const id = photo.media.id;
+          toggleSelect(id, !selectedIds.includes(id));
+        }
+      } else {
+        const items = photos.map((p) => (p as GalleryPhoto).media);
+        setViewerItems(items);
+        setViewerIndex(index);
+      }
+    },
+    [selectionMode, selectedIds, toggleSelect],
+  );
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Tab bar */}
@@ -152,7 +213,7 @@ export default function Gallery() {
 
         <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={() => void refetchMedia()}
+            onClick={resetScroll}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
           >
             <RefreshCw className="w-3 h-3" />
@@ -169,21 +230,13 @@ export default function Gallery() {
       </div>
 
       {activeTab === "media" && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1">
           {/* Stats row */}
           <div className="px-6 pt-4 max-lg:px-4 mb-4">
             <div className="flex rounded-xl overflow-hidden border border-border">
-              <div className="px-5 py-4 bg-background border-r border-border min-w-[120px]">
-                <div className="text-2xl font-semibold font-mono tracking-tight">{total}</div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total</div>
-              </div>
               <div className="flex-1 px-5 py-4 bg-background border-r border-border">
-                <div className="text-2xl font-semibold font-mono tracking-tight text-blue">{photoCount}</div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Photos</div>
-              </div>
-              <div className="flex-1 px-5 py-4 bg-background border-r border-border">
-                <div className="text-2xl font-semibold font-mono tracking-tight text-purple">{videoCount}</div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Videos</div>
+                <div className="text-2xl font-semibold font-mono tracking-tight">{total.toLocaleString()}</div>
+                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total Media</div>
               </div>
               <div className="flex-1 px-5 py-4 bg-background">
                 <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{albums.length}</div>
@@ -200,7 +253,12 @@ export default function Gallery() {
                 {TYPE_FILTERS.map((f) => (
                   <button
                     key={f.value}
-                    onClick={() => { setType(f.value); setPage(1); }}
+                    onClick={() => {
+                      setType(f.value);
+                      cursorsRef.current = [];
+                      allMediaRef.current = [];
+                      doneRef.current = false;
+                    }}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
                       type === f.value ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
                     }`}
@@ -234,7 +292,9 @@ export default function Gallery() {
                             setSortBy(opt.value);
                             setSortOrder("desc");
                           }
-                          setPage(1);
+                          cursorsRef.current = [];
+                          allMediaRef.current = [];
+                          doneRef.current = false;
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[12px] transition-colors ${
                           sortBy === opt.value ? "bg-surface text-foreground" : "text-dim hover:text-sensor hover:bg-surface/50"
@@ -286,7 +346,12 @@ export default function Gallery() {
                 type="text"
                 placeholder="Search media..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  cursorsRef.current = [];
+                  allMediaRef.current = [];
+                  doneRef.current = false;
+                }}
                 className="pl-8 pr-3 py-1.5 text-[12px] bg-transparent border border-border/50 rounded-full text-sensor placeholder:text-dim focus:outline-none focus:border-border w-[200px] max-sm:w-full"
               />
             </div>
@@ -318,58 +383,88 @@ export default function Gallery() {
             </div>
           )}
 
-          {/* Grid */}
+          {/* Justified grid with infinite scroll */}
           <div className="px-6 pb-6 max-lg:px-4">
-            {loadingMedia ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : mediaItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-center">
-                <Image className="w-10 h-10 text-dim/50 mb-3" />
-                <div className="text-[13px] text-dim font-mono">No media found</div>
-                <button
-                  onClick={() => setUploadOpen(true)}
-                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
-                >
-                  <Plus className="w-3 h-3" />
-                  Upload your first media
-                </button>
-              </div>
-            ) : (
-              <>
-                <MediaGrid
-                  items={mediaItems}
-                  selectedIds={selectedIds}
-                  selectionMode={selectionMode}
-                  onToggleSelect={toggleSelect}
-                  onOpen={(index) => setViewerIndex(index)}
-                />
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 mt-6">
-                    <button
-                      disabled={page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="px-3 py-1.5 text-[12px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors disabled:opacity-30"
-                    >
-                      Previous
-                    </button>
+            <InfiniteScroll
+              key={scrollKey}
+              fetch={fetchPhotos}
+              retries={2}
+              loading={
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 text-dim animate-spin" />
+                </div>
+              }
+              finished={
+                total > 0 ? (
+                  <div className="text-center py-6">
                     <span className="text-[11px] text-dim font-mono">
-                      {page} / {totalPages}
+                      All {total.toLocaleString()} items loaded
                     </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <Image className="w-10 h-10 text-dim/50 mb-3" />
+                    <div className="text-[13px] text-dim font-mono">No media found</div>
                     <button
-                      disabled={page >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      className="px-3 py-1.5 text-[12px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors disabled:opacity-30"
+                      onClick={() => setUploadOpen(true)}
+                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
                     >
-                      Next
+                      <Plus className="w-3 h-3" />
+                      Upload your first media
                     </button>
                   </div>
-                )}
-              </>
-            )}
+                )
+              }
+              error={
+                <div className="text-center py-8">
+                  <span className="text-[12px] text-destructive font-mono">
+                    Failed to load media
+                  </span>
+                </div>
+              }
+              onClick={handlePhotoClick as any}
+            >
+              <RowsPhotoAlbum
+                photos={[]}
+                targetRowHeight={220}
+                rowConstraints={{ maxPhotos: 6 }}
+                spacing={4}
+                render={{
+                  extras: (_, { photo }) => {
+                    const gp = photo as GalleryPhoto;
+                    return (
+                      <MediaOverlay
+                        media={gp.media}
+                        selected={selectedIds.includes(gp.media.id)}
+                        selectionMode={selectionMode}
+                      />
+                    );
+                  },
+                  image: (props, { photo }) => {
+                    const gp = photo as GalleryPhoto;
+                    if (gp.media.type === "VIDEO" && !gp.media.thumbnailR2Url) {
+                      return (
+                        <video
+                          src={gp.media.r2Url}
+                          preload="metadata"
+                          muted
+                          className={props.className}
+                          style={props.style}
+                        />
+                      );
+                    }
+                    return <img {...props} />;
+                  },
+                }}
+                componentsProps={{
+                  button: {
+                    className:
+                      "group relative rounded-xl overflow-hidden transition-all hover:ring-1 hover:ring-border",
+                  },
+                  image: { loading: "lazy", decoding: "async" },
+                }}
+              />
+            </InfiniteScroll>
           </div>
         </div>
       )}
@@ -419,7 +514,7 @@ export default function Gallery() {
       {/* Media Viewer */}
       <MediaViewer
         open={viewerIndex >= 0}
-        items={mediaItems}
+        items={viewerItems}
         index={viewerIndex}
         onOpenChange={(open) => {
           if (!open) setViewerIndex(-1);
@@ -431,6 +526,7 @@ export default function Gallery() {
             await deleteMedia.mutateAsync(media.id);
             toast.success("Media deleted");
             setViewerIndex(-1);
+            resetScroll();
           } catch (e: any) {
             toast.error(e?.message || "Failed to delete media");
           }

@@ -85,9 +85,26 @@ export interface GalleryMediaListResponse {
   totalPages: number;
 }
 
+export interface GalleryMediaCursorResponse {
+  items: GalleryMedia[];
+  total: number;
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export interface GalleryMediaFilters {
   page?: number;
   pageSize?: number;
+  type?: "all" | MediaType;
+  albumId?: string;
+  q?: string;
+  sortBy?: "createdAt" | "fileName" | "fileSize";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface GalleryMediaCursorFilters {
+  cursor?: string | null;
+  limit?: number;
   type?: "all" | MediaType;
   albumId?: string;
   q?: string;
@@ -119,6 +136,18 @@ export async function listGalleryMedia(channelId: string, filters: GalleryMediaF
   if (filters.sortOrder) params.set("sortOrder", filters.sortOrder);
   const query = params.toString();
   return request<GalleryMediaListResponse>(`/api/gallery/${channelId}${query ? `?${query}` : ""}`);
+}
+
+export async function fetchGalleryMediaCursor(channelId: string, filters: GalleryMediaCursorFilters = {}) {
+  const params = new URLSearchParams();
+  params.set("limit", String(filters.limit ?? 80));
+  if (filters.cursor) params.set("cursor", filters.cursor);
+  if (filters.type && filters.type !== "all") params.set("type", filters.type);
+  if (filters.albumId) params.set("albumId", filters.albumId);
+  if (filters.q) params.set("q", filters.q);
+  if (filters.sortBy) params.set("sortBy", filters.sortBy);
+  if (filters.sortOrder) params.set("sortOrder", filters.sortOrder);
+  return request<GalleryMediaCursorResponse>(`/api/gallery/${channelId}?${params.toString()}`);
 }
 
 export async function getGalleryMedia(channelId: string, mediaId: string) {
