@@ -24,6 +24,7 @@ import StoryDetail from "./pages/StoryDetail";
 import ArticlePipeline from "./pages/ArticlePipeline";
 import ArticleDetail from "./pages/ArticleDetail";
 import VectorIntelligence from "./pages/VectorIntelligence";
+import ProfileHome from "./pages/ProfileHome";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -71,7 +72,7 @@ const App = () => (
           <Route path="/" element={<ProfilePicker />} />
           <Route path="/c/:channelId" element={<ChannelLayout />}>
             <Route element={<AppLayout />}>
-              <Route index element={<Competitions />} />
+              <Route index element={<ProfileHome />} />
               <Route path="competitors" element={<Competitions />} />
               <Route path="channel/:id" element={<ChannelDetail />} />
               <Route path="video/:id" element={<VideoDetail />} />
