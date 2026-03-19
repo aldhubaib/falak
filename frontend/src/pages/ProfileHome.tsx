@@ -436,7 +436,7 @@ export default function ProfileHome() {
               const Icon = ql.icon;
               return (
                 <Link
-                  key={ql.path}
+                  key={ql.label}
                   to={channelPath(ql.path)}
                   className="flex items-center gap-2.5 p-3 rounded-lg border border-border/50 hover:border-border hover:bg-elevated/40 transition-all no-underline group"
                 >
