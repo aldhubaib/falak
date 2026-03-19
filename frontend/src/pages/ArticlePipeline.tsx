@@ -658,17 +658,13 @@ export default function ArticlePipeline() {
             </div>
 
             {/* ── REVIEW + FAILED ── */}
-            {((data?.byStage.review ?? []).length > 0 || (data?.byStage.failed ?? []).length > 0) && (
-              <>
-                <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review and failed articles" />
-                <div className="px-6 max-lg:px-4 pb-8">
-                  <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
-                    <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
-                    <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
-                  </div>
-                </div>
-              </>
-            )}
+            <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review and failed articles" />
+            <div className="px-6 max-lg:px-4 pb-8">
+              <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
+                <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+              </div>
+            </div>
           </>
         )}
       </div>

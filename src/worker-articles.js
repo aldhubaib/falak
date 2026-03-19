@@ -145,10 +145,17 @@ async function rescueStuckItems() {
   const cutoff = new Date(Date.now() - STUCK_TIMEOUT_MS)
   const result = await db.article.updateMany({
     where: { status: 'running', startedAt: { lt: cutoff } },
-    data: { status: 'queued', error: 'Rescued: was stuck as running for >10 min' },
+    data: { status: 'queued', retries: { increment: 1 }, error: 'Rescued: was stuck as running for >10 min' },
   })
   if (result.count > 0) {
     logger.warn({ count: result.count }, '[article-worker] rescued stuck articles back to queued')
+  }
+  const failed = await db.article.updateMany({
+    where: { status: 'queued', retries: { gte: MAX_RETRIES } },
+    data: { stage: 'failed', status: 'failed' },
+  })
+  if (failed.count > 0) {
+    logger.warn({ count: failed.count }, '[article-worker] articles exceeded max retries → failed')
   }
 }
 
