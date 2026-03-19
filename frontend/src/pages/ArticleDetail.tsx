@@ -463,15 +463,18 @@ function LogStepCard({
   label,
   icon: Icon,
   children,
+  skippedReason,
 }: {
   entry: LogEntry | null;
   stepId: string;
   label: string;
   icon: typeof FileText;
   children: React.ReactNode;
+  skippedReason?: string;
 }) {
+  const skipped = !entry && skippedReason;
   return (
-    <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+    <div className={`px-3 py-2.5 rounded-lg border space-y-2 ${skipped ? "bg-surface/20 border-border/50 opacity-60" : "bg-surface/50 border-border"}`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="w-3.5 h-3.5 text-dim" />}
@@ -479,12 +482,14 @@ function LogStepCard({
           {entry?.processor && <ProcessorBadge type={entry.processor} />}
           {entry?.service && <span className="text-[9px] font-mono text-dim">{entry.service}</span>}
           {entry?.status && <StatusBadge status={entry.status} />}
+          {skipped && <span className="text-[9px] font-mono text-dim px-1.5 py-0.5 rounded bg-muted">skipped</span>}
         </div>
         {entry && (entry.inputTokens != null || entry.outputTokens != null) && (
           <TokensBadge entry={entry} />
         )}
       </div>
-      {children && <div className="text-[12px] text-dim leading-relaxed">{children}</div>}
+      {skipped && <div className="text-[11px] text-dim">{skippedReason}</div>}
+      {!skipped && children && <div className="text-[12px] text-dim leading-relaxed">{children}</div>}
     </div>
   );
 }
@@ -726,7 +731,15 @@ function ContentDetail({ article, log }: { article: ArticleDetail; log: LogEntry
             </>
           );
         }
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon}>{body}</LogStepCard>;
+        let skippedReason: string | undefined;
+        if (!entry) {
+          if ((stepId === "firecrawl" || stepId === "html_fetch") && apifySufficient) {
+            skippedReason = "Apify content was sufficient";
+          } else if (stepId === "html_fetch" && log.find((e) => e.step === "firecrawl")?.status === "ok") {
+            skippedReason = "Firecrawl content was sufficient";
+          }
+        }
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
       <div className="text-[10px] font-mono text-dim uppercase tracking-wider pt-2">Content Comparison</div>
       <ContentComparison
@@ -969,7 +982,11 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
             </>
           );
         }
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon}>{body}</LogStepCard>;
+        let skippedReason: string | undefined;
+        if (!entry && stepId === "score_similarity") {
+          skippedReason = similarityLog?.reason ?? "No embedding key";
+        }
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
 
       {article.rankReason && (
@@ -1071,7 +1088,12 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
             </>
           );
         }
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon}>{body}</LogStepCard>;
+        let skippedReason: string | undefined;
+        if (!entry && stepId !== "research_decision" && stepId !== "research") {
+          const decision = log.find((e) => e.step === "research_decision");
+          if (decision && !decision.needed) skippedReason = "Research not needed";
+        }
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
 
       {/* ── Suggested Hook ── */}
