@@ -1,0 +1,13 @@
+---
+description: Project-wide defaults for Falak
+alwaysApply: true
+---
+
+# Falak Project Rule
+
+- Work within this repository only and keep changes scoped to the request.
+- Do not revert or rewrite unrelated local changes.
+- Prefer small, focused edits and verify with relevant checks before finishing.
+- When committing, stage only files related to the requested task.
+- `push` means push the current branch to `main` in `aldhubaib/falak`.
+- If a push target is unclear, ask before pushing.
