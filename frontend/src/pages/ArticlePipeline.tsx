@@ -1218,8 +1218,9 @@ function ActiveArticleRow({
         <div className="flex items-center gap-1 mb-1 overflow-hidden">
           {recentSteps.map((entry, i) => (
             <span key={i} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono ${
-              entry.status === "ok" || entry.status === "skipped" ? "bg-success/10 text-success" :
-              entry.status === "failed" || entry.status === "parse_error" ? "bg-destructive/10 text-destructive" :
+              entry.status === "ok" || entry.status === "created" || entry.status === "linked" ? "bg-success/10 text-success" :
+              entry.status === "skipped" || entry.status === "failed" || entry.status === "parse_error" ? "bg-destructive/10 text-destructive" :
+              entry.status === "review" || entry.status === "partial" ? "bg-orange/10 text-orange" :
               "bg-dim/10 text-dim"
             }`}>
               {LOG_STEP_LABELS[entry.step] ?? entry.step.replace(/_/g, " ")}

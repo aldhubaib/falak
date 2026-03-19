@@ -594,15 +594,23 @@ function ContentComparison({ left, right, leftLabel, rightLabel, leftDir, rightD
   );
 }
 
-/* ─── Status badge ─── */
+/* ─── Status badge (color-coded to match pipeline semantics) ─── */
+
+const STATUS_BADGE_COLORS: Record<string, string> = {
+  ok: "bg-success/10 text-success",
+  created: "bg-success/10 text-success",
+  linked: "bg-success/10 text-success",
+  skipped: "bg-destructive/10 text-destructive",
+  failed: "bg-destructive/10 text-destructive",
+  parse_error: "bg-destructive/10 text-destructive",
+  review: "bg-orange/10 text-orange",
+  partial: "bg-orange/10 text-orange",
+  empty: "bg-dim/10 text-dim",
+};
 
 function StatusBadge({ status, label }: { status?: string; label?: string }) {
   const text = label || status || "unknown";
-  const color =
-    status === "ok" || status === "skipped" ? "bg-success/10 text-success" :
-    status === "failed" || status === "parse_error" ? "bg-destructive/10 text-destructive" :
-    status === "review" ? "bg-orange/10 text-orange" :
-    "bg-dim/10 text-dim";
+  const color = (status && STATUS_BADGE_COLORS[status]) || "bg-dim/10 text-dim";
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${color}`}>
