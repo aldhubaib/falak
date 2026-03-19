@@ -14,6 +14,9 @@ import {
   Circle,
   Link2,
   ArrowLeft,
+  RotateCw,
+  Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { storyQueue } from "@/lib/uploadQueue";
@@ -26,7 +29,8 @@ type ProcessingStep =
   | "tags"
   | "ready"
   | "done"
-  | "error";
+  | "error"
+  | "stalled";
 
 interface QueueItem {
   storyId: string;
@@ -52,11 +56,14 @@ function deriveStep(brief: Record<string, unknown> | undefined, stage: string | 
   if (hasYoutubeUrl) return "done";
   if (hasVideo && hasTranscript && hasTitle && hasTags) return "ready";
   if (!hasVideo) return "uploading";
-  return "uploading";
+  if (!hasTranscript) return "transcribing";
+  if (!hasTitle) return "title";
+  if (!hasTags) return "tags";
+  return "ready";
 }
 
 const STEP_META: Record<ProcessingStep, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
-  uploading:    { label: "In Progress",      icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,   color: "text-blue",         bg: "bg-blue/10" },
+  uploading:    { label: "Uploading",        icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,   color: "text-blue",         bg: "bg-blue/10" },
   transcribing: { label: "Transcribing",     icon: <Mic className="w-3.5 h-3.5 animate-pulse" />,       color: "text-purple",       bg: "bg-purple/10" },
   title:        { label: "Generating Title", icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-orange",       bg: "bg-orange/10" },
   description:  { label: "Generating Desc",  icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-blue",         bg: "bg-blue/10" },
@@ -64,6 +71,7 @@ const STEP_META: Record<ProcessingStep, { label: string; icon: React.ReactNode; 
   ready:        { label: "Ready to Publish", icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
   done:         { label: "Done",             icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
   error:        { label: "Error",            icon: <AlertCircle className="w-3.5 h-3.5" />,             color: "text-destructive",  bg: "bg-destructive/10" },
+  stalled:      { label: "Upload Stalled",   icon: <AlertCircle className="w-3.5 h-3.5" />,             color: "text-orange",       bg: "bg-orange/10" },
 };
 
 function formatBytes(bytes: number): string {
@@ -92,7 +100,7 @@ const ACCEPTED_TYPES = [
   "video/x-matroska",
 ];
 
-const FILTER_TABS = ["All", "In Progress", "Ready", "Done"] as const;
+const FILTER_TABS = ["All", "In Progress", "Stalled", "Ready", "Done"] as const;
 type FilterTab = (typeof FILTER_TABS)[number];
 
 export default function PublishQueue() {
@@ -118,16 +126,19 @@ export default function PublishQueue() {
       const stories = await res.json();
       const manualStories = stories
         .filter((s: any) => s.origin === "manual")
-        .map((s: any) => ({
-          storyId: s.id,
-          headline: s.headline,
-          fileName: s.brief?.videoFileName || "",
-          fileSize: s.brief?.videoFileSize || 0,
-          step: deriveStep(s.brief, s.stage),
-          brief: s.brief || {},
-          createdAt: s.createdAt,
-          stage: s.stage,
-        }));
+        .map((s: any) => {
+          const step = deriveStep(s.brief, s.stage);
+          return {
+            storyId: s.id,
+            headline: s.headline,
+            fileName: s.brief?.videoFileName || "",
+            fileSize: s.brief?.videoFileSize || 0,
+            step: step === "uploading" ? "stalled" as ProcessingStep : step,
+            brief: s.brief || {},
+            createdAt: s.createdAt,
+            stage: s.stage,
+          };
+        });
       setExistingStories(manualStories);
     } catch {
       // silent
@@ -274,24 +285,78 @@ export default function PublishQueue() {
     if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
   };
 
+  const [reuploadStoryId, setReuploadStoryId] = useState<string | null>(null);
+  const reuploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleReupload = (storyId: string) => {
+    setReuploadStoryId(storyId);
+    setTimeout(() => reuploadInputRef.current?.click(), 0);
+  };
+
+  const handleReuploadFile = (file: File) => {
+    if (!reuploadStoryId) return;
+    const existing = allItems.find((s) => s.storyId === reuploadStoryId);
+    if (existing) {
+      const updatedItem: QueueItem = {
+        ...existing,
+        step: "uploading",
+        fileName: file.name,
+        fileSize: file.size,
+        error: undefined,
+      };
+      setQueue((prev) => [updatedItem, ...prev.filter((q) => q.storyId !== reuploadStoryId)]);
+      storyQueue.addFile(file, { storyId: reuploadStoryId });
+    }
+    setReuploadStoryId(null);
+  };
+
+  const handleCancelUpload = (storyId: string) => {
+    const task = uploadTasks.find((t) => t.metadata?.storyId === storyId);
+    if (task) storyQueue.cancel(task.id);
+    setQueue((prev) =>
+      prev.map((item) =>
+        item.storyId === storyId ? { ...item, step: "stalled" as ProcessingStep, error: "Upload cancelled" } : item
+      )
+    );
+  };
+
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const handleDeleteStory = async (storyId: string) => {
+    setDeletingIds((prev) => new Set(prev).add(storyId));
+    try {
+      const res = await fetch(`/api/stories/${storyId}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setExistingStories((prev) => prev.filter((s) => s.storyId !== storyId));
+      setQueue((prev) => prev.filter((q) => q.storyId !== storyId));
+      toast.success("Story deleted");
+    } catch {
+      toast.error("Failed to delete story");
+    } finally {
+      setDeletingIds((prev) => { const next = new Set(prev); next.delete(storyId); return next; });
+    }
+  };
+
   const allItems = [
     ...queue,
     ...existingStories.filter((es) => !queue.some((q) => q.storyId === es.storyId)),
   ];
 
-  const inProgressCount = allItems.filter((i) => i.step !== "ready" && i.step !== "done" && i.step !== "error").length;
+  const stalledCount = allItems.filter((i) => i.step === "stalled").length;
+  const inProgressCount = allItems.filter((i) => i.step !== "ready" && i.step !== "done" && i.step !== "error" && i.step !== "stalled").length;
   const readyCount = allItems.filter((i) => i.step === "ready").length;
   const doneCount = allItems.filter((i) => i.step === "done").length;
 
   const counts: Record<FilterTab, number> = {
     All: allItems.length,
     "In Progress": inProgressCount,
+    Stalled: stalledCount,
     Ready: readyCount,
     Done: doneCount,
   };
 
   const filtered = allItems.filter((item) => {
-    if (activeFilter === "In Progress") return item.step !== "ready" && item.step !== "done" && item.step !== "error";
+    if (activeFilter === "In Progress") return item.step !== "ready" && item.step !== "done" && item.step !== "error" && item.step !== "stalled";
+    if (activeFilter === "Stalled") return item.step === "stalled";
     if (activeFilter === "Ready") return item.step === "ready";
     if (activeFilter === "Done") return item.step === "done";
     return true;
@@ -333,6 +398,12 @@ export default function PublishQueue() {
               <div className="text-2xl font-semibold font-mono tracking-tight text-blue">{inProgressCount}</div>
               <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">In Progress</div>
             </div>
+            {stalledCount > 0 && (
+              <div className="flex-1 px-5 py-4 bg-background border-r border-border">
+                <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{stalledCount}</div>
+                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Stalled</div>
+              </div>
+            )}
             <div className="flex-1 px-5 py-4 bg-background border-r border-border">
               <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{readyCount}</div>
               <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Ready</div>
@@ -387,6 +458,17 @@ export default function PublishQueue() {
               e.target.value = "";
             }}
           />
+          <input
+            ref={reuploadInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleReuploadFile(file);
+              e.target.value = "";
+            }}
+          />
 
           {/* Filter tabs */}
           <div className="flex items-center gap-1.5">
@@ -420,13 +502,13 @@ export default function PublishQueue() {
           ) : (
             <div className="rounded-xl border border-border overflow-hidden">
               {/* Header */}
-              <div className="grid grid-cols-[1fr_100px_100px_160px_70px] max-md:grid-cols-[1fr_100px_70px] gap-0 px-4 py-2.5 bg-background border-b border-border">
+              <div className="grid grid-cols-[1fr_100px_100px_160px_100px] max-md:grid-cols-[1fr_100px_100px] gap-0 px-4 py-2.5 bg-background border-b border-border">
                 {["VIDEO", "SIZE", "TIME", "STATUS", ""].map((h, i) => (
                   <span
                     key={h || i}
                     className={`text-[10px] text-dim font-mono uppercase tracking-wider ${
                       i > 0 ? "text-center" : ""
-                    } ${i === 2 || i === 4 ? "max-md:hidden" : ""}`}
+                    } ${(i === 2 || i === 3) ? "max-md:hidden" : ""} ${i === 4 ? "text-end" : ""}`}
                   >
                     {h}
                   </span>
@@ -436,30 +518,35 @@ export default function PublishQueue() {
               {filtered.map((item) => {
                 const meta = STEP_META[item.step];
                 const uploadTask = uploadTasks.find((t) => t.metadata?.storyId === item.storyId);
-                const isActive = item.step !== "ready" && item.step !== "done" && item.step !== "error";
+                const isProcessing = ["uploading", "transcribing", "title", "description", "tags"].includes(item.step);
+                const isStalled = item.step === "stalled";
+                const isActionable = item.step === "done" || item.step === "ready" || item.step === "error";
                 const uploadProgress = item.step === "uploading" && uploadTask?.status === "uploading"
                   ? uploadTask.progress
                   : null;
+                const isDeleting = deletingIds.has(item.storyId);
 
                 return (
                   <div
                     key={item.storyId}
-                    className={`grid grid-cols-[1fr_100px_100px_160px_70px] max-md:grid-cols-[1fr_100px_70px] gap-0 px-4 py-3 border-b border-border last:border-b-0 items-center transition-colors ${
-                      item.step === "done" || item.step === "ready" || item.step === "error"
+                    className={`group grid grid-cols-[1fr_100px_100px_160px_100px] max-md:grid-cols-[1fr_100px_100px] gap-0 px-4 py-3 border-b border-border last:border-b-0 items-center transition-colors ${
+                      isActionable
                         ? "hover:bg-[#0d0d10] cursor-pointer"
+                        : isStalled
+                        ? "bg-orange/[0.02]"
                         : "bg-background"
-                    }`}
+                    } ${isDeleting ? "opacity-50 pointer-events-none" : ""}`}
                     onClick={() => {
-                      if (item.step === "done" || item.step === "ready" || item.step === "error") {
-                        navigate(channelPath(`/story/${item.storyId}`));
-                      }
+                      if (isActionable) navigate(channelPath(`/story/${item.storyId}`));
                     }}
                   >
                     {/* Video */}
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2.5">
                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${meta.bg}`}>
-                          {isActive ? (
+                          {isStalled ? (
+                            <AlertCircle className="w-3.5 h-3.5 text-orange" />
+                          ) : isProcessing ? (
                             <Loader2 className={`w-3.5 h-3.5 animate-spin ${meta.color}`} />
                           ) : item.step === "done" ? (
                             <CheckCircle2 className="w-3.5 h-3.5 text-success" />
@@ -486,8 +573,18 @@ export default function PublishQueue() {
                               style={{ width: `${uploadProgress}%` }}
                             />
                           </div>
-                          <span className="text-[9px] font-mono text-dim mt-0.5 block">{Math.round(uploadProgress)}%</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[9px] font-mono text-dim">{Math.round(uploadProgress)}%</span>
+                            {uploadTask?.etaSeconds != null && uploadTask.etaSeconds > 0 && (
+                              <span className="text-[9px] font-mono text-dim">~{uploadTask.etaSeconds}s left</span>
+                            )}
+                          </div>
                         </div>
+                      )}
+                      {isStalled && (
+                        <p className="text-[10px] text-orange/80 ml-9 mt-1">
+                          Upload never completed — re-upload the file or delete this story
+                        </p>
                       )}
                       {item.error && (
                         <p className="text-[10px] text-destructive ml-9 mt-1 truncate" title={item.error}>{item.error}</p>
@@ -509,11 +606,11 @@ export default function PublishQueue() {
                     </div>
 
                     {/* Status */}
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center max-md:hidden">
                       {item.step === "ready" ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 text-success text-[11px] font-medium">
                           <Circle className="w-2 h-2 fill-current" />
-                          Ready to Publish
+                          Ready
                         </span>
                       ) : item.step === "done" ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 text-success/70 text-[11px] font-medium">
@@ -525,6 +622,11 @@ export default function PublishQueue() {
                           <AlertCircle className="w-3 h-3" />
                           Error
                         </span>
+                      ) : isStalled ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange/10 text-orange text-[11px] font-medium">
+                          <AlertCircle className="w-3 h-3" />
+                          Stalled
+                        </span>
                       ) : (
                         <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${meta.color}`}>
                           {meta.icon}
@@ -534,8 +636,51 @@ export default function PublishQueue() {
                     </div>
 
                     {/* Action */}
-                    <div className="text-center max-md:hidden">
-                      {(item.step === "done" || item.step === "ready" || item.step === "error") && (
+                    <div className="flex items-center justify-end gap-1">
+                      {isStalled && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReupload(item.storyId); }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-blue hover:bg-blue/10 transition-colors"
+                          >
+                            <RotateCw className="w-3 h-3" />
+                            Re-upload
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteStory(item.storyId); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
+                      {item.step === "error" && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleReupload(item.storyId); }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-blue hover:bg-blue/10 transition-colors"
+                          >
+                            <RotateCw className="w-3 h-3" />
+                            Retry
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteStory(item.storyId); }}
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
+                      {item.step === "uploading" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCancelUpload(item.storyId); }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-dim hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <X className="w-3 h-3" />
+                          Cancel
+                        </button>
+                      )}
+                      {isActionable && (
                         <Link
                           to={channelPath(`/story/${item.storyId}`)}
                           className="inline-flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors no-underline"
