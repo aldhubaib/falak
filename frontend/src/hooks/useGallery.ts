@@ -102,6 +102,41 @@ export function useGalleryActions(channelId: string | undefined) {
 
 const MAX_FILES_PER_BATCH = 100;
 
+function extractDimensions(file: File): Promise<{ width?: number; height?: number; duration?: number }> {
+  return new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const img = new Image();
+      img.onload = () => {
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        resolve({});
+      };
+      img.src = URL.createObjectURL(file);
+    } else if (file.type.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        resolve({
+          width: video.videoWidth || undefined,
+          height: video.videoHeight || undefined,
+          duration: Number.isFinite(video.duration) ? Math.round(video.duration * 100) / 100 : undefined,
+        });
+        URL.revokeObjectURL(video.src);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        resolve({});
+      };
+      video.src = URL.createObjectURL(file);
+    } else {
+      resolve({});
+    }
+  });
+}
+
 export function useMediaUpload(channelId: string | undefined, albumId?: string) {
   const queryClient = useQueryClient();
   const queue = useSyncExternalStore(galleryQueue.subscribe, galleryQueue.getSnapshot);
@@ -119,11 +154,23 @@ export function useMediaUpload(channelId: string | undefined, albumId?: string) 
   }, [channelId, queryClient, queue]);
 
   const uploadFiles = useCallback(
-    (files: File[]) => {
+    async (files: File[]) => {
       if (!channelId) throw new Error("No channel selected");
       const accepted = files.filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
       const limited = accepted.slice(0, MAX_FILES_PER_BATCH);
-      galleryQueue.addFiles(limited, { galleryChannelId: channelId, albumId: albumId || null });
+
+      const dims = await Promise.all(limited.map(extractDimensions));
+      for (let i = 0; i < limited.length; i++) {
+        const d = dims[i];
+        galleryQueue.addFile(limited[i], {
+          galleryChannelId: channelId,
+          albumId: albumId || null,
+          ...(d.width ? { width: d.width } : {}),
+          ...(d.height ? { height: d.height } : {}),
+          ...(d.duration ? { duration: d.duration } : {}),
+        });
+      }
+
       return { queued: limited.length, skipped: accepted.length - limited.length };
     },
     [albumId, channelId],

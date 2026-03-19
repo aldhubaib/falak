@@ -15,10 +15,13 @@ interface MediaGridProps {
 }
 
 export function mediaToPhoto(item: GalleryMedia): GalleryPhoto {
+  const w = item.width || item.metadata?.width || null;
+  const h = item.height || item.metadata?.height || null;
+
   return {
     src: item.thumbnailR2Url || item.r2Url,
-    width: item.width || 400,
-    height: item.height || 400,
+    width: w || (item.type === "VIDEO" ? 9 : 4),
+    height: h || (item.type === "VIDEO" ? 16 : 4),
     key: item.id,
     media: item,
   };
