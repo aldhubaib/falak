@@ -1,16 +1,13 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  abortUpload,
   addMediaToAlbum,
   bulkDeleteGalleryMedia,
-  completeGalleryUpload,
   createGalleryAlbum,
   deleteGalleryAlbum,
   deleteGalleryMedia,
   getGalleryAlbum,
   getGalleryDownloadUrl,
-  initGalleryUpload,
   listGalleryAlbums,
   listGalleryMedia,
   removeMediaFromAlbum,
@@ -18,8 +15,15 @@ import {
   updateGalleryAlbum,
   updateGalleryMedia,
 } from "@/lib/gallery-api";
+import {
+  cancelGalleryUpload,
+  clearFinishedGalleryUploads,
+  dismissGalleryUpload,
+  getGalleryUploadTasks,
+  startGalleryUploadBatch,
+  subscribeGalleryUploads,
+} from "@/lib/galleryUploadManager";
 
-const MAX_CONCURRENT = 3;
 
 export function useGalleryMedia(channelId: string | undefined, filters: GalleryMediaFilters) {
   return useQuery({
@@ -103,99 +107,36 @@ export function useGalleryActions(channelId: string | undefined) {
   };
 }
 
-export interface UploadQueueItem {
-  id: string;
-  name: string;
-  progress: number;
-  status: "queued" | "uploading" | "completed" | "failed" | "aborted";
-  error?: string;
-}
-
 export function useMediaUpload(channelId: string | undefined, albumId?: string) {
   const queryClient = useQueryClient();
-  const [queue, setQueue] = useState<UploadQueueItem[]>([]);
+  const queue = useSyncExternalStore(subscribeGalleryUploads, getGalleryUploadTasks);
+  const prevCompletedCount = useRef(0);
+  const activeCount = queue.filter((item) => item.status === "uploading" || item.status === "queued").length;
 
-  const activeCount = useMemo(
-    () => queue.filter((item) => item.status === "uploading" || item.status === "queued").length,
-    [queue]
-  );
-
-  const setItem = useCallback((id: string, patch: Partial<UploadQueueItem>) => {
-    setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
-  }, []);
+  useEffect(() => {
+    const completedCount = queue.filter((item) => item.status === "completed").length;
+    if (completedCount > prevCompletedCount.current && channelId) {
+      void queryClient.invalidateQueries({ queryKey: ["gallery-media", channelId] });
+      void queryClient.invalidateQueries({ queryKey: ["gallery-albums", channelId] });
+      void queryClient.invalidateQueries({ queryKey: ["gallery-album", channelId] });
+    }
+    prevCompletedCount.current = completedCount;
+  }, [channelId, queryClient, queue]);
 
   const uploadFiles = useCallback(
     async (files: File[]) => {
       if (!channelId) throw new Error("No channel selected");
-      const entries = files.map((file) => ({
-        id: `gallery_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        name: file.name,
-        progress: 0,
-        status: "queued" as const,
-        file,
-      }));
-      setQueue((prev) => [...entries.map(({ file: _f, ...rest }) => rest), ...prev]);
-
-      const executeOne = async (entry: (typeof entries)[number]) => {
-        const { id, file } = entry;
-        try {
-          setItem(id, { status: "uploading", progress: 1 });
-          const init = await initGalleryUpload({
-            fileName: file.name,
-            fileSize: file.size,
-            contentType: file.type || "application/octet-stream",
-            galleryChannelId: channelId,
-          });
-
-          const parts: Array<{ partNumber: number; etag: string }> = [];
-          for (let i = 0; i < init.presignedUrls.length; i += MAX_CONCURRENT) {
-            const batch = init.presignedUrls.slice(i, i + MAX_CONCURRENT);
-            await Promise.all(
-              batch.map(async (partInfo) => {
-                const start = (partInfo.partNumber - 1) * init.chunkSize;
-                const end = Math.min(start + init.chunkSize, file.size);
-                const chunk = file.slice(start, end);
-                const response = await fetch(partInfo.url, { method: "PUT", body: chunk });
-                if (!response.ok) throw new Error(`Upload failed on part ${partInfo.partNumber}`);
-                const etag = response.headers.get("ETag") || `"part-${partInfo.partNumber}"`;
-                parts.push({ partNumber: partInfo.partNumber, etag });
-                const uploaded = parts.length;
-                const progress = Math.round((uploaded / init.totalParts) * 95);
-                setItem(id, { progress: Math.max(progress, 5) });
-              })
-            );
-          }
-
-          parts.sort((a, b) => a.partNumber - b.partNumber);
-          await completeGalleryUpload({
-            uploadId: init.uploadId,
-            key: init.key,
-            parts,
-            galleryChannelId: channelId,
-            albumId: albumId || null,
-            fileName: file.name,
-            fileSize: file.size,
-            contentType: file.type || "application/octet-stream",
-          });
-          setItem(id, { progress: 100, status: "completed" });
-        } catch (e: any) {
-          setItem(id, { status: "failed", error: e?.message || "Upload failed" });
-        }
-      };
-
-      await Promise.all(entries.map((entry) => executeOne(entry)));
-      await queryClient.invalidateQueries({ queryKey: ["gallery-media", channelId] });
-      await queryClient.invalidateQueries({ queryKey: ["gallery-albums", channelId] });
+      return startGalleryUploadBatch(channelId, files, albumId);
     },
-    [albumId, channelId, queryClient, setItem]
+    [albumId, channelId]
   );
 
   const dismissItem = useCallback((id: string) => {
-    setQueue((prev) => prev.filter((item) => item.id !== id));
+    dismissGalleryUpload(id);
   }, []);
 
   const clearFinished = useCallback(() => {
-    setQueue((prev) => prev.filter((item) => item.status === "uploading" || item.status === "queued"));
+    clearFinishedGalleryUploads();
   }, []);
 
   const getDownloadUrl = useCallback(
@@ -213,6 +154,6 @@ export function useMediaUpload(channelId: string | undefined, albumId?: string) 
     dismissItem,
     clearFinished,
     getDownloadUrl,
-    abortUpload,
+    abortUpload: cancelGalleryUpload,
   };
 }

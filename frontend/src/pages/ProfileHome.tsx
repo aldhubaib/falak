@@ -97,6 +97,12 @@ export default function ProfileHome() {
   const [growth, setGrowth] = useState<GrowthSnapshot[]>([]);
   const [contentMix, setContentMix] = useState<ContentMixEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nationality, setNationality] = useState("");
+  const [savingCountry, setSavingCountry] = useState(false);
+  const [hookStart, setHookStart] = useState("");
+  const [hookEnd, setHookEnd] = useState("");
+  const [savingHooks, setSavingHooks] = useState(false);
+  const [hooksSaved, setHooksSaved] = useState(false);
 
   useEffect(() => {
     if (!channelId) return;
@@ -178,13 +184,6 @@ export default function ProfileHome() {
       </div>
     );
   }
-
-  const [nationality, setNationality] = useState(channel?.nationality ?? "");
-  const [savingCountry, setSavingCountry] = useState(false);
-  const [hookStart, setHookStart] = useState(channel?.startHook ?? "");
-  const [hookEnd, setHookEnd] = useState(channel?.endHook ?? "");
-  const [savingHooks, setSavingHooks] = useState(false);
-  const [hooksSaved, setHooksSaved] = useState(false);
 
   useEffect(() => {
     if (channel) {

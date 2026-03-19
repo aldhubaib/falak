@@ -15,6 +15,15 @@ interface PreviewItem {
   url: string;
 }
 
+function formatEta(seconds?: number) {
+  if (seconds === undefined) return "Calculating...";
+  if (seconds <= 0) return "Done";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins === 0) return `${secs}s left`;
+  return `${mins}m ${secs}s left`;
+}
+
 async function createImageThumb(file: File): Promise<string> {
   return URL.createObjectURL(file);
 }
@@ -64,7 +73,10 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
         })
       );
       setPreviews((prev) => [...thumbs.filter(Boolean) as PreviewItem[], ...prev].slice(0, 20));
-      await uploadFiles(accepted);
+      const result = await uploadFiles(accepted);
+      if (result?.skipped && result.skipped > 0) {
+        alert(`Only 100 files can be queued at once. ${result.skipped} file(s) were skipped.`);
+      }
     },
     [uploadFiles]
   );
@@ -88,7 +100,7 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
       >
         <UploadCloud className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
         <div className="text-sm font-medium">Drop photos/videos here</div>
-        <div className="text-xs text-muted-foreground mt-1">Supports multiple files</div>
+        <div className="text-xs text-muted-foreground mt-1">Supports multiple files (up to 100 at once)</div>
         <Button className="mt-3" size="sm" onClick={() => inputRef.current?.click()}>
           Choose files
         </Button>
@@ -133,7 +145,10 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
                   </button>
                 </div>
                 <Progress className="mt-2 h-2" value={item.progress} />
-                <div className="text-[11px] mt-1 text-muted-foreground">{item.status}{item.error ? ` - ${item.error}` : ""}</div>
+                <div className="text-[11px] mt-1 text-muted-foreground flex items-center justify-between gap-2">
+                  <span>{item.status}{item.error ? ` - ${item.error}` : ""}</span>
+                  <span>{formatEta(item.etaSeconds)}</span>
+                </div>
               </div>
             ))}
           </div>

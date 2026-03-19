@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UploadIndicator } from "@/components/UploadIndicator";
+import { GalleryUploadIndicator } from "@/components/GalleryUploadIndicator";
 import { PageError } from "@/components/PageError";
 import { AppLayout } from "@/components/AppLayout";
 import { ChannelLayout } from "@/components/ChannelLayout";
@@ -69,6 +70,7 @@ const App = () => (
         <BrowserRouter>
           <Toaster position="top-center" richColors closeButton />
           <UploadIndicator />
+          <GalleryUploadIndicator />
           <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProfilePicker />} />
