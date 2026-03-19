@@ -4,7 +4,7 @@ const db = require('../lib/db')
 const { requireRole } = require('../middleware/auth')
 
 // ── GET /api/alerts?projectId=xxx&unreadOnly=true&limit=50
-router.get('/', requireRole('viewer'), async (req, res) => {
+router.get('/', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, res) => {
   try {
     const { projectId, unreadOnly, limit = '50' } = req.query
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
@@ -29,7 +29,7 @@ router.get('/', requireRole('viewer'), async (req, res) => {
 })
 
 // ── POST /api/alerts/mark-read
-router.post('/mark-read', requireRole('viewer'), async (req, res) => {
+router.post('/mark-read', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, res) => {
   try {
     const { ids, projectId } = req.body
     if (Array.isArray(ids) && ids.length > 0) {

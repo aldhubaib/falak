@@ -5,7 +5,7 @@ const { requireAuth, requireRole } = require('../middleware/auth')
 
 router.use(requireAuth)
 
-router.get('/status', requireRole('viewer'), async (req, res) => {
+router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, res) => {
   try {
     const { projectId } = req.query
     if (!projectId) return res.status(400).json({ error: 'projectId required' })
