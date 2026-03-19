@@ -155,24 +155,14 @@ interface TimelineStage {
   bgColor: string;
 }
 
-const IMPORTED_STAGE: TimelineStage = {
-  id: "imported",
-  label: "Imported",
-  icon: FileText,
-  color: "text-orange",
-  bgColor: "bg-orange",
-};
-
-const TIMELINE_STAGES: TimelineStage[] = [
-  IMPORTED_STAGE,
-  ...FLOW_DEFS.map((f) => ({
-    id: f.id,
-    label: f.name,
-    icon: f.icon,
-    color: f.color,
-    bgColor: f.bgColor,
-  })),
-];
+/** Timeline uses the 8 flow definitions (Imported, Content, Classify, Research, Synthesis, Translation, Score, Promote). */
+const TIMELINE_STAGES: TimelineStage[] = FLOW_DEFS.map((f) => ({
+  id: f.id,
+  label: f.name,
+  icon: f.icon,
+  color: f.color,
+  bgColor: f.bgColor,
+}));
 
 const STAGE_ORDER = ["imported", "content", "classify", "research", "translated", "score", "done"];
 
@@ -333,9 +323,13 @@ export default function ArticleDetailPage() {
           {/* Timeline */}
           <div className="relative">
             {TIMELINE_STAGES.map((stage, i) => {
-              const mappedStage = stage.id === "scoring" ? "score" : stage.id;
-              const reached = isDone || currentStageIdx >= stageIndex(mappedStage);
-              const isActive = !isDone && !isFailed && article.stage === mappedStage;
+              const mappedStage = stage.id === "promote" ? null : stage.id === "synthesis" ? "research" : stage.id;
+              const hasPromoteLog = log.some((e) => e.step === "promote");
+              const reached =
+                stage.id === "promote"
+                  ? isDone || (article.stage === "score" && hasPromoteLog)
+                  : isDone || (mappedStage != null && currentStageIdx >= stageIndex(mappedStage));
+              const isActive = !isDone && !isFailed && mappedStage != null && article.stage === mappedStage;
 
               return (
                 <TimelineStep
@@ -416,12 +410,9 @@ function TimelineStep({
             {stage.id === "classify" && <AiAnalysisDetail article={article} log={log} />}
             {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
             {stage.id === "translated" && <TranslatedDetail article={article} log={log} />}
-            {stage.id === "scoring" && (
-              <>
-                <ScoringDetail article={article} log={log} />
-                <PromoteDetail article={article} log={log} pp={pp} />
-              </>
-            )}
+            {stage.id === "synthesis" && <SynthesisDetail article={article} log={log} />}
+            {stage.id === "score" && <ScoringDetail article={article} log={log} />}
+            {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
           </div>
         )}
       </div>
@@ -435,9 +426,11 @@ const STEP_MAP: Record<string, string[]> = {
   imported: ["imported"],
   content: ["apify_content", "firecrawl", "html_fetch", "content_source"],
   classify: ["classify"],
-  research: ["research_decision", "firecrawl_search", "perplexity_context", "synthesis", "research"],
+  research: ["research_decision", "firecrawl_search", "perplexity_context"],
+  synthesis: ["synthesis", "research"],
   translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
-  scoring: ["score_similarity", "score_ai_analysis", "score", "promote"],
+  score: ["score_similarity", "score_ai_analysis", "score"],
+  promote: ["promote"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
@@ -957,7 +950,7 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
   const competitionPenalty = scoreLog?.competitionPenalty ?? 0;
   const finalScore = scoreLog?.finalScore ?? 0;
 
-  const steps = STEP_MAP.scoring;
+  const steps = STEP_MAP.score;
 
   return (
     <div className="p-4 space-y-4">
@@ -1027,6 +1020,132 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
               <span key={i} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-mono">
                 {reason}
               </span>
+            ))}
+          </div>
+        </ResultCard>
+      )}
+    </div>
+  );
+}
+
+/* ─── Synthesis Detail (AI synthesis → Research complete + structured brief) ─── */
+
+function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
+  const research = (article.analysis as Analysis | null)?.research;
+  const brief = research?.brief;
+  const steps = STEP_MAP.synthesis;
+
+  return (
+    <div className="p-4 space-y-4">
+      {steps.map((stepId) => {
+        const entry = log.find((e) => e.step === stepId);
+        const { label, icon } = STEP_DISPLAY[stepId] || { label: stepId, icon: Search };
+        let body: React.ReactNode = null;
+        if (stepId === "synthesis" && entry) {
+          body = (
+            <>
+              {(entry as any).briefKeys?.length > 0 && <span>{(entry as any).briefKeys.length} sections</span>}
+              {entry.promptSent && <div className="mt-1"><ExpandableText label="prompt" text={entry.promptSent} maxLen={400} /></div>}
+              {entry.rawResponse && <div className="mt-1"><ExpandableText label="response" text={entry.rawResponse} maxLen={400} /></div>}
+            </>
+          );
+        } else if (stepId === "research" && entry) {
+          body = (
+            <>
+              {entry.status && <span>{entry.status === "ok" ? "Research complete" : entry.status === "partial" ? "Partially researched" : entry.status}</span>}
+              {(entry.narrativeStrength != null || brief?.narrativeStrength != null) && (
+                <span className="ml-2 font-semibold text-success">Narrative: {(brief?.narrativeStrength ?? entry.narrativeStrength ?? 0)}/10</span>
+              )}
+            </>
+          );
+        }
+        const decision = log.find((e) => e.step === "research_decision");
+        const skippedReason = !entry && decision && !decision.needed ? "Research not needed" : undefined;
+        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
+      })}
+
+      {brief?.suggestedHook && (
+        <ResultCard label="Video Hook" icon={Sparkles}>
+          <div className="text-[14px] text-foreground font-medium leading-relaxed" dir="auto">"{brief.suggestedHook}"</div>
+        </ResultCard>
+      )}
+      {(brief?.whatHappened || brief?.howItHappened || brief?.whatWasTheResult) && (
+        <ResultCard label="Core Narrative" icon={FileText}>
+          <div className="space-y-3">
+            {brief?.whatHappened && (
+              <div>
+                <div className="text-[10px] font-mono text-blue uppercase tracking-wider mb-1.5">What happened?</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatHappened}</div>
+              </div>
+            )}
+            {brief?.howItHappened && (
+              <div>
+                <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">How did it happen?</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.howItHappened}</div>
+              </div>
+            )}
+            {brief?.whatWasTheResult && (
+              <div>
+                <div className="text-[10px] font-mono text-success uppercase tracking-wider mb-1.5">What was the result?</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatWasTheResult}</div>
+              </div>
+            )}
+          </div>
+        </ResultCard>
+      )}
+      {brief?.keyFacts && brief.keyFacts.length > 0 && (
+        <ResultCard label="Key Facts" icon={ListOrdered}>
+          <div className="space-y-1.5">
+            {brief.keyFacts.map((fact, i) => (
+              <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+                <span className="text-[10px] font-mono text-purple font-bold mt-0.5 shrink-0">{i + 1}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{fact}</span>
+              </div>
+            ))}
+          </div>
+        </ResultCard>
+      )}
+      {brief?.timeline && brief.timeline.length > 0 && (
+        <ResultCard label="Timeline" icon={ListOrdered}>
+          <div className="space-y-1">
+            {brief.timeline.map((entry, i) => (
+              <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+                <span className="text-[11px] font-mono text-blue shrink-0 w-24">{entry.date}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{entry.event}</span>
+              </div>
+            ))}
+          </div>
+        </ResultCard>
+      )}
+      {brief?.mainCharacters && brief.mainCharacters.length > 0 && (
+        <ResultCard label="Key People" icon={Users}>
+          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
+            {brief.mainCharacters.map((person, i) => (
+              <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+                <div className="text-[12px] font-semibold text-foreground" dir="auto">{person.name}</div>
+                <div className="text-[11px] text-dim mt-0.5" dir="auto">{person.role}</div>
+              </div>
+            ))}
+          </div>
+        </ResultCard>
+      )}
+      {brief?.competitionInsight && (
+        <ResultCard label="Competition Insight" icon={Target}>
+          <div className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{brief.competitionInsight}</div>
+        </ResultCard>
+      )}
+      {brief?.sources && brief.sources.length > 0 && (
+        <ResultCard label="Sources" icon={Link2}>
+          <div className="flex flex-wrap gap-1.5">
+            {brief.sources.map((s, i) => (
+              s.url ? (
+                <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
+                  className="px-2 py-1 rounded bg-blue/10 text-blue text-[10px] font-mono hover:bg-blue/20 transition-colors">
+                  {s.title || s.url}
+                </a>
+              ) : (
+                <span key={i} className="px-2 py-1 rounded bg-dim/10 text-dim text-[10px] font-mono">{s.title}</span>
+              )
             ))}
           </div>
         </ResultCard>

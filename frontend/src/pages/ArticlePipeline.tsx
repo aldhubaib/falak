@@ -372,10 +372,11 @@ export default function ArticlePipeline() {
     return () => clearInterval(tick);
   }, [fetchPipeline]);
 
-  const handlePause = () => {
-    fetch("/api/article-pipeline/pause", { method: "POST", credentials: "include" })
-      .then((r) => { if (!r.ok) throw new Error(); setPaused(true); toast.success("Paused — restart app to resume"); })
-      .catch(() => toast.error("Failed to pause"));
+  const handlePauseResume = () => {
+    const endpoint = paused ? "/api/article-pipeline/resume" : "/api/article-pipeline/pause";
+    fetch(endpoint, { method: "POST", credentials: "include" })
+      .then((r) => { if (!r.ok) throw new Error(); setPaused(!paused); toast.success(paused ? "Resumed" : "Paused"); })
+      .catch(() => toast.error("Failed"));
   };
 
   const handleRetryAll = () => {
@@ -490,15 +491,15 @@ export default function ArticlePipeline() {
             <Circle className="w-2 h-2 fill-current" />
             {paused ? "Paused" : `Running · ${countdown}s`}
           </span>
-          <button
-            onClick={handlePause}
-            disabled={paused}
-            title={paused ? "Restart the application to resume processing" : "Pause article pipeline"}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-dim">
-            <Pause className="w-3 h-3" />
-            {paused ? "Paused" : "Pause"}
+          <button onClick={handlePauseResume}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
+            {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+            {paused ? "Resume" : "Pause"}
           </button>
-          <button onClick={handleTestRun} disabled={testRunning}
+          <button
+            onClick={handleTestRun}
+            disabled={testRunning}
+            title={paused ? "Run test on 5 articles (works even when pipeline is paused)" : "Run test on 5 articles"}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple/30 bg-purple/10 text-[11px] text-purple font-medium hover:bg-purple/20 transition-colors disabled:opacity-50">
             {testRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
             {testRunning ? (testProgress || "Running…") : "Test 5"}
@@ -626,11 +627,18 @@ export default function ArticlePipeline() {
               </div>
             )}
 
-            {/* ── 1. CONTENT FLOW ── */}
+            {/* ── 1. IMPORTED ── */}
+            <SectionHeader icon={getFlowDef("imported")!.icon} title={getFlowDef("imported")!.name} subtitle={getFlowDef("imported")!.subtitle} />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
+                <StageColumn stage={STAGE_DEFS[0]} items={data?.byStage.imported ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+              </div>
+            </div>
+
+            {/* ── 2. CONTENT ── */}
             <SectionHeader icon={getFlowDef("content")!.icon} title={getFlowDef("content")!.name} subtitle={getFlowDef("content")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[0]} items={data?.byStage.imported ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 {SUB_STEPS.filter(s => s.parentStage === "content").map((sub) => (
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
@@ -642,7 +650,7 @@ export default function ArticlePipeline() {
               )}
             </div>
 
-            {/* ── 2. CLASSIFICATION ── */}
+            {/* ── 3. CLASSIFY ── */}
             <SectionHeader icon={getFlowDef("classify")!.icon} title={getFlowDef("classify")!.name} subtitle={getFlowDef("classify")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
@@ -655,11 +663,11 @@ export default function ArticlePipeline() {
               </div>
             </div>
 
-            {/* ── 3. RESEARCH FLOW ── */}
+            {/* ── 4. RESEARCH ── */}
             <SectionHeader icon={getFlowDef("research")!.icon} title={getFlowDef("research")!.name} subtitle={getFlowDef("research")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "research").map((sub) => (
+              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "research" && ["research_decision", "firecrawl_search", "perplexity_context"].includes(s.id)).map((sub) => (
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
               </div>
@@ -670,7 +678,17 @@ export default function ArticlePipeline() {
               )}
             </div>
 
-            {/* ── 4. TRANSLATION ── */}
+            {/* ── 5. SYNTHESIS ── */}
+            <SectionHeader icon={getFlowDef("synthesis")!.icon} title={getFlowDef("synthesis")!.name} subtitle={getFlowDef("synthesis")!.subtitle} />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "research" && ["synthesis", "research"].includes(s.id)).map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                ))}
+              </div>
+            </div>
+
+            {/* ── 6. TRANSLATION ── */}
             <SectionHeader icon={getFlowDef("translated")!.icon} title={getFlowDef("translated")!.name} subtitle={getFlowDef("translated")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
@@ -683,16 +701,26 @@ export default function ArticlePipeline() {
               </div>
             </div>
 
-            {/* ── 5. SCORE AND PROMOTION ── */}
-            <SectionHeader icon={getFlowDef("scoring")!.icon} title={getFlowDef("scoring")!.name} subtitle={getFlowDef("scoring")!.subtitle} />
+            {/* ── 7. SCORE ── */}
+            <SectionHeader icon={getFlowDef("score")!.icon} title={getFlowDef("score")!.name} subtitle={getFlowDef("score")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "score").map((sub) => (
+              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "score" && ["score_similarity", "score_ai_analysis", "score"].includes(s.id)).map((sub) => (
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 ))}
                 {(data?.byStage.score ?? []).length > 0 && (
                   <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
                 )}
+              </div>
+            </div>
+
+            {/* ── 8. PROMOTE ── */}
+            <SectionHeader icon={getFlowDef("promote")!.icon} title={getFlowDef("promote")!.name} subtitle={getFlowDef("promote")!.subtitle} />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "score" && s.id === "promote").map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} projectId={projectId} pp={pp} />
+                ))}
               </div>
             </div>
 
