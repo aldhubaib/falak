@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
+import SourceTab from "./Source";
+import VectorIntelligenceTab from "./VectorIntelligence";
 import { fmtDateTime } from "@/lib/utils";
 import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
@@ -275,9 +277,60 @@ const LOG_STEP_LABELS: Record<string, string> = {
   promote: "Story Created",
 };
 
+/* ─── Tabs ─── */
+
+const TABS = ["pipeline", "sources", "intelligence"] as const;
+type Tab = (typeof TABS)[number];
+
+const TAB_LABELS: Record<Tab, string> = {
+  pipeline: "Pipeline",
+  sources: "Sources",
+  intelligence: "Intelligence",
+};
+
 /* ─── Main Component ─── */
 
 export default function ArticlePipeline() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get("tab");
+  const activeTab: Tab = TABS.includes(rawTab as Tab) ? (rawTab as Tab) : "pipeline";
+
+  const setTab = (tab: Tab) => {
+    setSearchParams(tab === "pipeline" ? {} : { tab }, { replace: true });
+  };
+
+  if (activeTab === "sources") return <ArticlePipelineShell activeTab={activeTab} setTab={setTab}><SourceTab /></ArticlePipelineShell>;
+  if (activeTab === "intelligence") return <ArticlePipelineShell activeTab={activeTab} setTab={setTab}><VectorIntelligenceTab /></ArticlePipelineShell>;
+  return <ArticlePipelineShell activeTab={activeTab} setTab={setTab}><PipelineTabContent /></ArticlePipelineShell>;
+}
+
+function ArticlePipelineShell({ activeTab, setTab, children }: { activeTab: Tab; setTab: (t: Tab) => void; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <div className="h-12 flex items-center gap-0 px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+        {TABS.map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setTab(tab)}
+            className={`relative h-full px-4 text-[13px] font-medium transition-colors ${
+              activeTab === tab
+                ? "text-foreground"
+                : "text-dim hover:text-sensor"
+            }`}
+          >
+            {TAB_LABELS[tab]}
+            {activeTab === tab && (
+              <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-foreground rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function PipelineTabContent() {
   const { channelId } = useParams();
   const pp = useChannelPath();
   const [data, setData] = useState<PipelineData | null>(null);
@@ -416,10 +469,9 @@ export default function ArticlePipeline() {
   const totalArticles = data?.stats.total ?? 0;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Top bar */}
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
-        <h1 className="text-[13px] font-medium text-foreground">Article Pipeline</h1>
+    <>
+      {/* Actions bar */}
+      <div className="h-10 flex items-center justify-end px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
         <div className="flex items-center gap-2">
           <button onClick={handlePauseResume}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
@@ -668,7 +720,7 @@ export default function ArticlePipeline() {
           </>
         )}
       </div>
-    </div>
+    </>
   );
 }
 

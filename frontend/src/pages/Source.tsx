@@ -10,17 +10,9 @@ export default function Source() {
   const { channelId } = useParams();
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold">Sources</h1>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
-          <ArticleSourcesSection channelId={channelId!} />
-        </div>
+    <div className="flex-1 overflow-auto">
+      <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
+        <ArticleSourcesSection channelId={channelId!} />
       </div>
     </div>
   );

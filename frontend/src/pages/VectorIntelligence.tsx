@@ -96,37 +96,27 @@ export default function VectorIntelligence() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
-          <h1 className="text-[13px] font-medium text-foreground">Vector Intelligence</h1>
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (!data?.hasEmbeddingKey) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
-          <h1 className="text-[13px] font-medium text-foreground">Vector Intelligence</h1>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="rounded-xl border border-border bg-background p-8 text-center max-w-md">
-            <div className="w-12 h-12 rounded-full bg-purple/10 flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-6 h-6 text-purple" />
-            </div>
-            <h2 className="text-[15px] font-semibold text-foreground mb-2">Vector Intelligence Not Configured</h2>
-            <p className="text-[12px] text-dim mb-1">Semantic similarity, competition matching, and self-learning scores require an OpenAI embedding API key.</p>
-            <p className="text-[11px] text-dim font-mono mb-4">text-embedding-3-small · 1536 dimensions · pgvector HNSW</p>
-            <Link to={pp("/settings")}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple text-white text-[12px] font-semibold hover:bg-purple/90 transition-colors no-underline">
-              <Settings className="w-3.5 h-3.5" />
-              Configure in Settings
-            </Link>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="rounded-xl border border-border bg-background p-8 text-center max-w-md">
+          <div className="w-12 h-12 rounded-full bg-purple/10 flex items-center justify-center mx-auto mb-4">
+            <Zap className="w-6 h-6 text-purple" />
           </div>
+          <h2 className="text-[15px] font-semibold text-foreground mb-2">Vector Intelligence Not Configured</h2>
+          <p className="text-[12px] text-dim mb-1">Semantic similarity, competition matching, and self-learning scores require an OpenAI embedding API key.</p>
+          <p className="text-[11px] text-dim font-mono mb-4">text-embedding-3-small · 1536 dimensions · pgvector HNSW</p>
+          <Link to={pp("/settings")}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple text-white text-[12px] font-semibold hover:bg-purple/90 transition-colors no-underline">
+            <Settings className="w-3.5 h-3.5" />
+            Configure in Settings
+          </Link>
         </div>
       </div>
     );
@@ -146,13 +136,10 @@ export default function VectorIntelligence() {
   const nextRescoreIn = nextRescoreAt ? Math.max(0, nextRescoreAt.getTime() - Date.now()) : null;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* ─── Top bar ─── */}
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-[13px] font-medium text-foreground">Vector Intelligence</h1>
-          <span className="text-[10px] text-dim font-mono">text-embedding-3-small · 1536d · pgvector HNSW</span>
-        </div>
+    <>
+      {/* Actions bar */}
+      <div className="h-10 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+        <span className="text-[10px] text-dim font-mono">text-embedding-3-small · 1536d · pgvector HNSW</span>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-success/15 text-success">
             <Circle className="w-2 h-2 fill-current" />
@@ -575,7 +562,7 @@ export default function VectorIntelligence() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

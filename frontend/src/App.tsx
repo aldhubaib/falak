@@ -18,13 +18,11 @@ import Pipeline from "./pages/Pipeline";
 import Analytics from "./pages/Analytics";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
-import Source from "./pages/Source";
 import Stories from "./pages/Stories";
 import StoryDetail from "./pages/StoryDetail";
 import PublishQueue from "./pages/PublishQueue";
 import ArticlePipeline from "./pages/ArticlePipeline";
 import ArticleDetail from "./pages/ArticleDetail";
-import VectorIntelligence from "./pages/VectorIntelligence";
 import ProfileHome from "./pages/ProfileHome";
 import Gallery from "./pages/Gallery";
 import AlbumDetail from "./pages/AlbumDetail";
@@ -86,10 +84,8 @@ const App = () => (
               <Route path="stories" element={<Stories />} />
               <Route path="story/:id" element={<StoryDetail />} />
               <Route path="publish" element={<PublishQueue />} />
-              <Route path="source" element={<Source />} />
               <Route path="article-pipeline" element={<ArticlePipeline />} />
               <Route path="article/:id" element={<ArticleDetail />} />
-              <Route path="vector-intelligence" element={<VectorIntelligence />} />
               <Route path="gallery" element={<Gallery />} />
               <Route path="gallery/album/:albumId" element={<AlbumDetail />} />
               <Route path="settings" element={<Settings />} />
