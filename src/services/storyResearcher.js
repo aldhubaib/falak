@@ -85,22 +85,24 @@ async function researchStory(article, project) {
         lang,
       })
       if (result.error) {
-        log.push({ step: 'firecrawl_search', status: 'failed', error: result.error, query: searchQuery, at: new Date().toISOString() })
+        log.push({ step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API', status: 'failed', error: result.error, query: searchQuery, at: new Date().toISOString() })
       } else {
         firecrawlResults = result.results || []
         log.push({
-          step: 'firecrawl_search', status: 'ok',
+          step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API',
+          status: 'ok',
           query: searchQuery,
           resultsCount: firecrawlResults.length,
           titles: firecrawlResults.map(r => r.title).filter(Boolean),
+          snippets: firecrawlResults.map(r => (r.snippet || '').slice(0, 200)).filter(Boolean),
           at: new Date().toISOString(),
         })
       }
     } catch (e) {
-      log.push({ step: 'firecrawl_search', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API', status: 'failed', error: e.message, at: new Date().toISOString() })
     }
   } else {
-    log.push({ step: 'firecrawl_search', status: 'skipped', reason: 'No Firecrawl key', at: new Date().toISOString() })
+    log.push({ step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API', status: 'skipped', reason: 'No Firecrawl key', at: new Date().toISOString() })
   }
 
   // ── Step 2: Perplexity Background Context ──
@@ -113,21 +115,25 @@ async function researchStory(article, project) {
       const result = await queryPerplexity(pxKey, bgPrompt, { maxTokens: PERPLEXITY_MAX_TOKENS })
       perplexityContext = result.text || null
       perplexityCitations = result.citations || []
+      const pxQuality = evaluatePerplexityQuality(perplexityContext, perplexityCitations)
       log.push({
-        step: 'perplexity_context', status: perplexityContext ? 'ok' : 'empty',
-        promptSent: bgPrompt.slice(0, 500),
+        step: 'perplexity_context', processor: 'ai', service: 'Perplexity Sonar',
+        status: perplexityContext ? 'ok' : 'empty',
+        promptSent: bgPrompt.slice(0, 1500),
+        rawResponse: (perplexityContext || '').slice(0, 1500),
         chars: (perplexityContext || '').length,
         citations: perplexityCitations.length,
         inputTokens: result.usage?.prompt_tokens || null,
         outputTokens: result.usage?.completion_tokens || null,
         totalTokens: result.usage?.total_tokens || null,
+        quality: pxQuality,
         at: new Date().toISOString(),
       })
     } catch (e) {
-      log.push({ step: 'perplexity_context', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'perplexity_context', processor: 'ai', service: 'Perplexity Sonar', status: 'failed', error: e.message, at: new Date().toISOString() })
     }
   } else {
-    log.push({ step: 'perplexity_context', status: 'skipped', reason: 'No Perplexity key', at: new Date().toISOString() })
+    log.push({ step: 'perplexity_context', processor: 'ai', service: 'Perplexity Sonar', status: 'skipped', reason: 'No Perplexity key', at: new Date().toISOString() })
   }
 
   // ── Step 3: DB Similarity (find related competition videos) ──
@@ -154,19 +160,22 @@ async function researchStory(article, project) {
           type: v.videoType || '',
         }))
         log.push({
-          step: 'db_similarity', status: 'ok',
+          step: 'db_similarity',
+          processor: 'api', service: 'OpenAI Embeddings + pgvector',
+          status: 'ok',
+          embeddingInputChars: embText.length,
           matchCount: similarVideos.length,
           topMatch: similarVideos[0]?.title || null,
           at: new Date().toISOString(),
         })
       } else {
-        log.push({ step: 'db_similarity', status: 'skipped', reason: 'Not enough text for embedding', at: new Date().toISOString() })
+        log.push({ step: 'db_similarity', processor: 'server', service: 'Local check', status: 'skipped', reason: 'Not enough text for embedding', at: new Date().toISOString() })
       }
     } catch (e) {
-      log.push({ step: 'db_similarity', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'db_similarity', processor: 'api', service: 'OpenAI Embeddings + pgvector', status: 'failed', error: e.message, at: new Date().toISOString() })
     }
   } else {
-    log.push({ step: 'db_similarity', status: 'skipped', reason: 'No embedding key', at: new Date().toISOString() })
+    log.push({ step: 'db_similarity', processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key', at: new Date().toISOString() })
   }
 
   // ── Step 4: Claude Synthesis ──
@@ -198,18 +207,22 @@ async function researchStory(article, project) {
       const synthesisUsage = callAnthropic._lastUsage || {}
 
       researchBrief = parseSynthesisResponse(raw)
+      const synthQuality = evaluateSynthesisQuality(researchBrief)
       log.push({
-        step: 'synthesis', status: researchBrief ? 'ok' : 'parse_error',
+        step: 'synthesis', processor: 'ai', service: 'Anthropic Claude Sonnet',
+        status: researchBrief ? 'ok' : 'parse_error',
         model: 'claude-sonnet-4-6',
         briefKeys: researchBrief ? Object.keys(researchBrief) : [],
         inputTokens: synthesisUsage.inputTokens || null,
         outputTokens: synthesisUsage.outputTokens || null,
         totalTokens: synthesisUsage.totalTokens || null,
-        promptPreview: synthesisPrompt.slice(0, 500),
+        promptSent: synthesisPrompt.slice(0, 1500),
+        rawResponse: (raw || '').slice(0, 1500),
+        quality: synthQuality,
         at: new Date().toISOString(),
       })
     } catch (e) {
-      log.push({ step: 'synthesis', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'synthesis', processor: 'ai', service: 'Anthropic Claude Sonnet', status: 'failed', error: e.message, at: new Date().toISOString() })
     }
   }
 
@@ -322,6 +335,32 @@ function parseSynthesisResponse(raw) {
     logger.warn({ error: e.message, snippet: (raw || '').slice(0, 200) }, '[storyResearcher] Failed to parse synthesis')
     return null
   }
+}
+
+// ── Quality evaluators ──
+
+function evaluatePerplexityQuality(text, citations) {
+  const issues = []
+  const chars = (text || '').length
+  if (!text || chars < 100) issues.push('Response too short')
+  if (!citations || citations.length === 0) issues.push('No citations provided')
+  if (chars < 500) issues.push('Brief response (< 500 chars)')
+  const score = Math.max(0, 10 - issues.length * 3)
+  return { score, chars, citationCount: (citations || []).length, issues: issues.length ? issues : null }
+}
+
+function evaluateSynthesisQuality(brief) {
+  if (!brief) return { score: 0, issues: ['Failed to parse synthesis response'] }
+  const issues = []
+  const expectedKeys = ['whatHappened', 'howItHappened', 'whatWasTheResult', 'keyFacts', 'timeline', 'mainCharacters', 'suggestedHook', 'narrativeStrength']
+  const filledKeys = expectedKeys.filter(k => brief[k] != null && brief[k] !== '' && !(Array.isArray(brief[k]) && brief[k].length === 0)).length
+  if (filledKeys < 5) issues.push(`Only ${filledKeys}/8 key sections filled`)
+  if (!brief.whatHappened) issues.push('Missing core: whatHappened')
+  if (!brief.suggestedHook) issues.push('Missing suggestedHook')
+  if (!Array.isArray(brief.keyFacts) || brief.keyFacts.length < 2) issues.push('Too few key facts')
+  if (typeof brief.narrativeStrength === 'number' && brief.narrativeStrength < 4) issues.push(`Low narrative strength (${brief.narrativeStrength}/10)`)
+  const score = Math.max(0, 10 - issues.length * 2)
+  return { score, filled: filledKeys, total: expectedKeys.length, narrativeStrength: brief.narrativeStrength || null, issues: issues.length ? issues : null }
 }
 
 module.exports = { needsResearch, researchStory }

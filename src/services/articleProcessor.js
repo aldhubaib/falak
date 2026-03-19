@@ -79,12 +79,13 @@ async function doStageContent(article, project) {
   const cleanedContent = stripHtml(rawContent).trim()
 
   log.push({
-    step: 'apify_content', chars: cleanedContent.length, threshold: MIN_CONTENT_LENGTH,
+    step: 'apify_content', processor: 'server', service: 'Local (check Apify data)',
+    chars: cleanedContent.length, threshold: MIN_CONTENT_LENGTH,
     at: new Date().toISOString(), contentPreview: preview(cleanedContent),
   })
 
   if (cleanedContent.length >= MIN_CONTENT_LENGTH) {
-    log.push({ step: 'content_source', source: 'apify', chars: cleanedContent.length, status: 'ok' })
+    log.push({ step: 'content_source', processor: 'server', source: 'apify', chars: cleanedContent.length, status: 'ok' })
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: cleanedContent, processingLog: log },
@@ -99,15 +100,15 @@ async function doStageContent(article, project) {
       const result = await scrapeUrl(apiKey, article.url)
       if (result.text) {
         fetchedText = preClean(result.text)
-        log.push({ step: 'firecrawl', status: 'ok', chars: fetchedText.length })
+        log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'ok', chars: fetchedText.length })
       } else {
-        log.push({ step: 'firecrawl', status: 'failed', error: result.error || 'No text returned' })
+        log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'failed', error: result.error || 'No text returned' })
       }
     } catch (e) {
-      log.push({ step: 'firecrawl', status: 'failed', error: e.message })
+      log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'failed', error: e.message })
     }
   } else {
-    log.push({ step: 'firecrawl', status: 'skipped', reason: 'No API key' })
+    log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'skipped', reason: 'No API key' })
   }
 
   if (!fetchedText) {
@@ -115,17 +116,17 @@ async function doStageContent(article, project) {
       const result = await fetchArticleText(article.url)
       if (result.text) {
         fetchedText = result.text
-        log.push({ step: 'html_fetch', status: 'ok', chars: fetchedText.length })
+        log.push({ step: 'html_fetch', processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'ok', chars: fetchedText.length })
       } else {
-        log.push({ step: 'html_fetch', status: 'failed', error: result.error || 'No text extracted' })
+        log.push({ step: 'html_fetch', processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'failed', error: result.error || 'No text extracted' })
       }
     } catch (e) {
-      log.push({ step: 'html_fetch', status: 'failed', error: e.message })
+      log.push({ step: 'html_fetch', processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'failed', error: e.message })
     }
   }
 
   if (fetchedText && fetchedText.length >= MIN_CONTENT_LENGTH) {
-    log.push({ step: 'content_source', source: 'firecrawl_or_html', chars: fetchedText.length, status: 'ok' })
+    log.push({ step: 'content_source', processor: 'server', source: 'firecrawl_or_html', chars: fetchedText.length, status: 'ok' })
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: fetchedText, processingLog: log },
@@ -135,7 +136,7 @@ async function doStageContent(article, project) {
 
   const fallbackText = [article.title, article.description, cleanedContent].filter(Boolean).join('\n\n').trim()
   if (fallbackText.length >= 100) {
-    log.push({ step: 'content_source', source: 'title_desc_fallback', chars: fallbackText.length, status: 'ok' })
+    log.push({ step: 'content_source', processor: 'server', source: 'title_desc_fallback', chars: fallbackText.length, status: 'ok' })
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: fallbackText, processingLog: log },
@@ -143,7 +144,7 @@ async function doStageContent(article, project) {
     return { nextStage: 'classify' }
   }
 
-  log.push({ step: 'content_source', source: 'none', status: 'review', reason: 'No usable content found' })
+  log.push({ step: 'content_source', processor: 'server', source: 'none', status: 'review', reason: 'No usable content found' })
   await saveLog(article.id, log)
   return { nextStage: 'content', reviewStatus: 'review', reviewReason: 'No usable content found' }
 }
@@ -206,8 +207,11 @@ async function doStageClassify(article, project) {
     analysis = { raw: (raw || '').slice(0, 500), parseError: true }
   }
 
+  const classifyQuality = evaluateClassifyQuality(analysis)
+
   log.push({
     step: 'classify', status: analysis.parseError ? 'parse_error' : 'ok',
+    processor: 'ai', service: 'Anthropic Claude Haiku',
     model: 'claude-haiku-4-5-20251001',
     topic: analysis.topic || null,
     topicOriginal: analysis.topicOriginal || null,
@@ -225,7 +229,9 @@ async function doStageClassify(article, project) {
     inputTokens: classifyUsage.inputTokens || null,
     outputTokens: classifyUsage.outputTokens || null,
     totalTokens: classifyUsage.totalTokens || null,
-    promptPreview: prompt.slice(0, 300),
+    promptSent: prompt.slice(0, 1500),
+    rawResponse: (raw || '').slice(0, 1500),
+    quality: classifyQuality,
     at: new Date().toISOString(),
   })
 
@@ -252,7 +258,7 @@ async function doStageResearch(article, project) {
   const decision = needsResearch({ ...article, analysis: currentAnalysis }, project)
 
   log.push({
-    step: 'research_decision',
+    step: 'research_decision', processor: 'server', service: 'Local decision logic',
     needed: decision.needed,
     reason: decision.reason,
     at: new Date().toISOString(),
@@ -321,10 +327,10 @@ async function doStageTranslated(article, project) {
   }
 
   const sourceLang = article.language || detectLanguage(text)
-  log.push({ step: 'detect_language', detected: sourceLang, at: new Date().toISOString() })
+  log.push({ step: 'detect_language', processor: 'server', service: 'Local regex detection', detected: sourceLang, at: new Date().toISOString() })
 
   if (sourceLang === 'ar') {
-    log.push({ step: 'translate', status: 'skipped', reason: 'Already Arabic' })
+    log.push({ step: 'translate', processor: 'server', status: 'skipped', reason: 'Already Arabic' })
     await db.article.update({
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', processingLog: log },
@@ -355,14 +361,19 @@ async function doStageTranslated(article, project) {
     throw new Error('Translation returned empty or too short result')
   }
 
+  const translationQuality = evaluateTranslationQuality(truncated.length, translated.trim().length, translated.trim())
+
   log.push({
-    step: 'translate', status: 'ok', model: 'claude-haiku-4-5-20251001',
+    step: 'translate', status: 'ok',
+    processor: 'ai', service: 'Anthropic Claude Haiku',
+    model: 'claude-haiku-4-5-20251001',
     inputLang: sourceLang, inputChars: truncated.length, outputChars: translated.trim().length,
     inputTokens: translateUsage.inputTokens || null,
     outputTokens: translateUsage.outputTokens || null,
     totalTokens: translateUsage.totalTokens || null,
-    inputPreview: preview(truncated),
-    outputPreview: preview(translated.trim()),
+    promptSent: translatePrompt.slice(0, 1500),
+    rawResponse: translated.trim().slice(0, 1500),
+    quality: translationQuality,
   })
 
   await db.article.update({
@@ -414,7 +425,8 @@ async function doStageScore(article, project) {
   const rankScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40)) * 100) / 100
 
   log.push({
-    step: 'score', relevance, viralPotential, freshness: Math.round(freshness * 100) / 100,
+    step: 'score', processor: 'server', service: 'Local math formula (no 3rd party)',
+    relevance, viralPotential, freshness: Math.round(freshness * 100) / 100,
     preferenceBias: Math.round(preferenceBias * 100) / 100,
     rankScore,
   })
@@ -441,15 +453,45 @@ async function doStageScore(article, project) {
     const promoted = await promoteToStory(
       freshArticle || article, analysis, relevance, viralPotential, rankScore
     )
-    log.push({ step: 'promote', status: promoted ? 'created' : 'linked', storyId: promoted || null })
+    log.push({ step: 'promote', processor: 'server', service: 'Database write (no 3rd party)', status: promoted ? 'created' : 'linked', storyId: promoted || null })
     await saveLog(article.id, log)
   } catch (e) {
-    log.push({ step: 'promote', status: 'failed', error: e.message })
+    log.push({ step: 'promote', processor: 'server', service: 'Database write', status: 'failed', error: e.message })
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Story promotion failed (non-fatal)')
   }
 
   return { nextStage: 'done' }
+}
+
+// ── Quality evaluators ───────────────────────────────────────────────────────
+
+function evaluateClassifyQuality(analysis) {
+  if (!analysis || analysis.parseError) return { score: 0, issues: ['Failed to parse AI response'] }
+  const issues = []
+  const expectedKeys = ['topic', 'topicOriginal', 'tags', 'sentiment', 'contentType', 'region', 'viralPotential', 'relevance', 'summary', 'uniqueAngle']
+  const filledKeys = expectedKeys.filter(k => analysis[k] != null && analysis[k] !== '').length
+  if (filledKeys < 7) issues.push(`Only ${filledKeys}/10 fields filled`)
+  if (!Array.isArray(analysis.tags) || analysis.tags.length < 3) issues.push('Too few tags (< 3)')
+  if (typeof analysis.viralPotential === 'number' && (analysis.viralPotential < 0 || analysis.viralPotential > 1)) issues.push('viralPotential out of range')
+  if (typeof analysis.relevance === 'number' && (analysis.relevance < 0 || analysis.relevance > 1)) issues.push('relevance out of range')
+  if (!analysis.topicOriginal) issues.push('Missing topicOriginal (needed for search)')
+  if (!analysis.summary) issues.push('Missing summary')
+  const score = Math.max(0, 10 - issues.length * 2)
+  return { score, filled: filledKeys, total: expectedKeys.length, issues: issues.length ? issues : null }
+}
+
+function evaluateTranslationQuality(inputChars, outputChars, outputText) {
+  const issues = []
+  const ratio = outputChars / Math.max(inputChars, 1)
+  if (ratio < 0.3) issues.push(`Output too short (ratio ${ratio.toFixed(2)})`)
+  if (ratio > 3.0) issues.push(`Output suspiciously long (ratio ${ratio.toFixed(2)})`)
+  if (outputChars < 100) issues.push('Output very short (< 100 chars)')
+  const arabicChars = (outputText || '').match(ARABIC_CHAR_REGEX)
+  const arabicRatio = arabicChars ? arabicChars.length / Math.max(outputChars, 1) : 0
+  if (arabicRatio < 0.3) issues.push(`Low Arabic content (${Math.round(arabicRatio * 100)}%)`)
+  const score = Math.max(0, 10 - issues.length * 3)
+  return { score, ratio: Math.round(ratio * 100) / 100, arabicRatio: Math.round(arabicRatio * 100) / 100, issues: issues.length ? issues : null }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

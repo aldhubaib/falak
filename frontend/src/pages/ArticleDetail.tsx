@@ -3,16 +3,30 @@ import { useParams, Link } from "react-router-dom";
 import { useProjectPath } from "@/hooks/useProjectPath";
 import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
-  Sparkles, CheckCircle2, AlertTriangle, Clock, ChevronDown, ChevronRight,
-  Copy, Check, Search, Target,
+  Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
+  Copy, Check, Search, Target, Server, Cpu,
 } from "lucide-react";
 import { toast } from "sonner";
 
 /* ─── Types ─── */
 
+interface QualityEval {
+  score: number;
+  issues?: string[] | null;
+  filled?: number;
+  total?: number;
+  ratio?: number;
+  arabicRatio?: number;
+  chars?: number;
+  citationCount?: number;
+  narrativeStrength?: number | null;
+}
+
 interface LogEntry {
   step: string;
   status?: string;
+  processor?: "ai" | "api" | "server";
+  service?: string;
   source?: string;
   chars?: number;
   threshold?: number;
@@ -40,6 +54,7 @@ interface LogEntry {
   needed?: boolean;
   resultsCount?: number;
   titles?: string[];
+  snippets?: string[];
   citations?: number;
   briefKeys?: string[];
   narrativeStrength?: number;
@@ -47,11 +62,14 @@ interface LogEntry {
   query?: string;
   matchCount?: number;
   topMatch?: string | null;
+  embeddingInputChars?: number;
   inputTokens?: number | null;
   outputTokens?: number | null;
   totalTokens?: number | null;
-  promptPreview?: string;
   promptSent?: string;
+  rawResponse?: string;
+  contentPreview?: string;
+  quality?: QualityEval;
 }
 
 interface Analysis {
@@ -494,6 +512,99 @@ function StatusBadge({ status, label }: { status?: string; label?: string }) {
   );
 }
 
+function ProcessorBadge({ type }: { type: "ai" | "server" | "api" }) {
+  if (type === "ai") return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple/10 text-purple text-[9px] font-mono font-bold uppercase">
+      <Cpu className="w-2.5 h-2.5" />AI
+    </span>
+  );
+  if (type === "api") return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue/10 text-blue text-[9px] font-mono font-bold uppercase">
+      <Globe className="w-2.5 h-2.5" />API
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-dim/10 text-dim text-[9px] font-mono font-bold uppercase">
+      <Server className="w-2.5 h-2.5" />Server
+    </span>
+  );
+}
+
+function TokensBadge({ entry }: { entry?: LogEntry | null }) {
+  if (!entry?.totalTokens) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface border border-border text-[10px] font-mono text-dim">
+      <span>↑{entry.inputTokens?.toLocaleString()}</span>
+      <span>↓{entry.outputTokens?.toLocaleString()}</span>
+      <span className="text-foreground font-semibold">Σ{entry.totalTokens.toLocaleString()}</span>
+    </span>
+  );
+}
+
+function ExpandableText({ label, text, maxLen }: { label: string; text: string; maxLen?: number }) {
+  const [open, setOpen] = useState(false);
+  const isTruncated = maxLen && text.length >= maxLen - 2;
+  return (
+    <div>
+      <button onClick={() => setOpen(!open)}
+        className="text-[10px] font-mono text-blue hover:text-blue/80 transition-colors flex items-center gap-1">
+        {open ? "▾ Hide" : "▸ Show"} {label}
+      </button>
+      {open && (
+        <div className="mt-1.5 px-3 py-2 rounded-lg bg-surface/50 border border-border text-[11px] font-mono text-dim whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto break-all">
+          {text}
+          {isTruncated && <span className="text-blue">…(truncated)</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QualityBadge({ quality }: { quality?: QualityEval | null }) {
+  if (!quality) return null;
+  const s = quality.score;
+  const color = s >= 8 ? "bg-success/10 text-success" : s >= 5 ? "bg-orange/10 text-orange" : "bg-destructive/10 text-destructive";
+  const label = s >= 8 ? "Good" : s >= 5 ? "Fair" : "Poor";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold ${color}`}>
+          Quality: {label} ({s}/10)
+        </span>
+        {quality.filled != null && quality.total != null && (
+          <span className="text-[10px] font-mono text-dim">{quality.filled}/{quality.total} fields</span>
+        )}
+      </div>
+      {quality.issues && quality.issues.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {quality.issues.map((issue, i) => (
+            <span key={i} className="px-1.5 py-0.5 rounded bg-destructive/5 text-destructive text-[9px] font-mono">
+              {issue}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StepHeader({ entry, label, icon: Icon }: { entry: LogEntry; label: string; icon?: typeof FileText }) {
+  return (
+    <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="w-3.5 h-3.5 text-dim" />}
+        <span className="text-[11px] font-semibold">{label}</span>
+        {entry.processor && <ProcessorBadge type={entry.processor} />}
+        {entry.service && <span className="text-[9px] font-mono text-dim">{entry.service}</span>}
+        {entry.status && <StatusBadge status={entry.status} />}
+      </div>
+      <div className="flex items-center gap-2">
+        <TokensBadge entry={entry} />
+      </div>
+    </div>
+  );
+}
+
 /* ─── Stage detail components ─── */
 
 function ImportedDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
@@ -501,8 +612,12 @@ function ImportedDetail({ article, log }: { article: ArticleDetail; log: LogEntr
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono">
+      <div className="flex items-center gap-2">
+        <ProcessorBadge type="api" />
+        <span className="text-[9px] font-mono text-dim">Apify Scraper</span>
         {importedLog && <StatusBadge status={importedLog.status} label="Imported" />}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono">
         {article.source && (
           <span className="text-dim">
             Source: <span className="text-foreground">{article.source.label}</span> ({article.source.type})
@@ -546,54 +661,63 @@ function ContentDetail({ article, log }: { article: ArticleDetail; log: LogEntry
 
   return (
     <div className="p-4 space-y-4">
-      {/* Service attempts */}
       <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Service Attempts</div>
       <div className="space-y-2">
         {/* Apify check */}
-        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
-          <div className="flex items-center gap-2">
-            <FileText className="w-3.5 h-3.5 text-orange" />
-            <span className="text-[12px] font-medium">Apify Content</span>
-          </div>
-          <div className="flex items-center gap-2 text-[11px] font-mono">
-            {apifyLog && (
-              <>
-                <span className="text-dim">{apifyLog.chars?.toLocaleString()} chars</span>
-                <span className="text-dim">/ {apifyLog.threshold?.toLocaleString()} needed</span>
-                <StatusBadge status={apifySufficient ? "ok" : "failed"} label={apifySufficient ? "Sufficient" : "Too short"} />
-              </>
-            )}
+        <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-orange" />
+              <span className="text-[11px] font-semibold">Check Apify Data</span>
+              <ProcessorBadge type="server" />
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-mono">
+              {apifyLog && (
+                <>
+                  <span className="text-dim">{apifyLog.chars?.toLocaleString()} chars / {apifyLog.threshold?.toLocaleString()} needed</span>
+                  <StatusBadge status={apifySufficient ? "ok" : "failed"} label={apifySufficient ? "Sufficient" : "Too short"} />
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Firecrawl */}
         {firecrawlLog && (
-          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
-            <div className="flex items-center gap-2">
-              <Globe className="w-3.5 h-3.5 text-blue" />
-              <span className="text-[12px] font-medium">Firecrawl</span>
+          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="w-3.5 h-3.5 text-blue" />
+                <span className="text-[11px] font-semibold">Firecrawl Scrape</span>
+                <ProcessorBadge type={firecrawlLog.processor || "api"} />
+                <span className="text-[9px] font-mono text-dim">{firecrawlLog.service || "Firecrawl"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-mono">
+                {firecrawlLog.chars != null && <span className="text-dim">{firecrawlLog.chars.toLocaleString()} chars</span>}
+                <StatusBadge status={firecrawlLog.status} />
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-[11px] font-mono">
-              {firecrawlLog.chars != null && <span className="text-dim">{firecrawlLog.chars.toLocaleString()} chars</span>}
-              {firecrawlLog.reason && <span className="text-dim">{firecrawlLog.reason}</span>}
-              {firecrawlLog.error && <span className="text-destructive/70 truncate max-w-[200px]">{firecrawlLog.error}</span>}
-              <StatusBadge status={firecrawlLog.status} />
-            </div>
+            {firecrawlLog.error && <div className="text-[10px] font-mono text-destructive/70">{firecrawlLog.error}</div>}
+            {firecrawlLog.reason && <div className="text-[10px] font-mono text-dim">{firecrawlLog.reason}</div>}
           </div>
         )}
 
         {/* HTML Fetch */}
         {htmlLog && (
-          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface/50 border border-border">
-            <div className="flex items-center gap-2">
-              <Globe className="w-3.5 h-3.5 text-purple" />
-              <span className="text-[12px] font-medium">HTML Fetch</span>
+          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="w-3.5 h-3.5 text-purple" />
+                <span className="text-[11px] font-semibold">HTML Fetch</span>
+                <ProcessorBadge type={htmlLog.processor || "server"} />
+                <span className="text-[9px] font-mono text-dim">{htmlLog.service || "Direct HTTP"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] font-mono">
+                {htmlLog.chars != null && <span className="text-dim">{htmlLog.chars.toLocaleString()} chars</span>}
+                <StatusBadge status={htmlLog.status} />
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-[11px] font-mono">
-              {htmlLog.chars != null && <span className="text-dim">{htmlLog.chars.toLocaleString()} chars</span>}
-              {htmlLog.error && <span className="text-destructive/70 truncate max-w-[200px]">{htmlLog.error}</span>}
-              <StatusBadge status={htmlLog.status} />
-            </div>
+            {htmlLog.error && <div className="text-[10px] font-mono text-destructive/70">{htmlLog.error}</div>}
           </div>
         )}
       </div>
@@ -634,47 +758,58 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
     <div className="p-4 space-y-4">
       {/* Language detection */}
       {detectLog && (
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-          <Languages className="w-4 h-4 text-purple" />
-          <span className="text-[12px] font-medium">Language Detected:</span>
-          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-            detectLog.detected === "ar" ? "bg-success/15 text-success" : "bg-blue/15 text-blue"
-          }`}>
-            {(detectLog.detected || "unknown").toUpperCase()}
-          </span>
+        <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1">
+          <div className="flex items-center gap-2">
+            <Languages className="w-3.5 h-3.5 text-purple" />
+            <span className="text-[11px] font-semibold">Language Detection</span>
+            <ProcessorBadge type={detectLog.processor || "server"} />
+            <span className="text-[9px] font-mono text-dim">{detectLog.service || "Local regex"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-mono">Result:</span>
+            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+              detectLog.detected === "ar" ? "bg-success/15 text-success" : "bg-blue/15 text-blue"
+            }`}>
+              {(detectLog.detected || "unknown").toUpperCase()}
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Translation status */}
+      {/* Translation */}
       {translateLog && (
-        <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] font-medium">Translation</span>
-              <StatusBadge status={translateLog.status} label={
-                translateLog.status === "skipped" ? "Skipped (already Arabic)" :
-                translateLog.status === "ok" ? "Translated" : translateLog.status
-              } />
-            </div>
-            {translateLog.model && (
-              <span className="text-[10px] font-mono text-blue">{translateLog.model}</span>
-            )}
-          </div>
+        <div className="space-y-3">
+          <StepHeader entry={translateLog} label={
+            translateLog.status === "skipped" ? "Translation (Skipped)" : "Translation"
+          } icon={Languages} />
+
+          {/* Quality */}
+          {translateLog.quality && <QualityBadge quality={translateLog.quality} />}
+
           {translateLog.status === "ok" && (
-            <div className="flex items-center justify-between mt-2">
+            <>
               <div className="flex items-center gap-4 text-[11px] font-mono text-dim">
                 <span>Input: {translateLog.inputChars?.toLocaleString()} chars ({translateLog.inputLang?.toUpperCase()})</span>
                 <span>→</span>
                 <span>Output: {translateLog.outputChars?.toLocaleString()} chars (AR)</span>
               </div>
-              {translateLog.totalTokens && (
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-dim">
-                  <span>↑{translateLog.inputTokens?.toLocaleString()}</span>
-                  <span>↓{translateLog.outputTokens?.toLocaleString()}</span>
-                  <span className="text-foreground font-semibold">Σ{translateLog.totalTokens.toLocaleString()}</span>
+
+              {/* Before AI: what was sent */}
+              {translateLog.promptSent && (
+                <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1.5">
+                  <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Sent to AI</div>
+                  <ExpandableText label="full prompt" text={translateLog.promptSent} maxLen={1500} />
                 </div>
               )}
-            </div>
+
+              {/* After AI: what came back */}
+              {translateLog.rawResponse && (
+                <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1.5">
+                  <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">AI Response</div>
+                  <ExpandableText label="translated text" text={translateLog.rawResponse} maxLen={1500} />
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -707,59 +842,42 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
 function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
   const classifyLog = log.find((e) => e.step === "classify");
   const analysis = article.analysis;
-  const [showPrompt, setShowPrompt] = useState(false);
 
   if (!analysis) {
-    return (
-      <div className="p-4 text-[12px] text-dim font-mono">No classification data yet.</div>
-    );
+    return <div className="p-4 text-[12px] text-dim font-mono">No classification data yet.</div>;
   }
 
   if (analysis.parseError) {
     return (
       <div className="p-4 space-y-3">
         <StatusBadge status="failed" label="Parse Error" />
-        {analysis.raw && (
-          <ContentBlock label="Raw AI Response (failed to parse)" content={analysis.raw} />
-        )}
+        {analysis.raw && <ContentBlock label="Raw AI Response (failed to parse)" content={analysis.raw} />}
       </div>
     );
   }
 
   return (
     <div className="p-4 space-y-4">
-      {/* Status + model + tokens */}
-      {classifyLog && (
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2 text-[11px] font-mono">
-            <StatusBadge status={classifyLog.status} label={classifyLog.status === "ok" ? "Classified" : classifyLog.status} />
-            <span className="text-dim">via {classifyLog.model || "Claude Haiku"}</span>
-          </div>
-          {classifyLog.totalTokens && (
-            <div className="flex items-center gap-3 text-[10px] font-mono text-dim">
-              <span>↑ {classifyLog.inputTokens?.toLocaleString()} tokens</span>
-              <span>↓ {classifyLog.outputTokens?.toLocaleString()} tokens</span>
-              <span className="text-foreground font-semibold">Σ {classifyLog.totalTokens.toLocaleString()}</span>
-            </div>
-          )}
+      {/* Header: processor + model + tokens */}
+      {classifyLog && <StepHeader entry={classifyLog} label="Classification" icon={Brain} />}
+
+      {/* Quality evaluation */}
+      {classifyLog?.quality && <QualityBadge quality={classifyLog.quality} />}
+
+      {/* Before AI: what was sent */}
+      {classifyLog?.promptSent && (
+        <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1.5">
+          <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Sent to AI</div>
+          <div className="text-[10px] font-mono text-dim">{classifyLog.inputChars?.toLocaleString()} chars article text → Claude Haiku</div>
+          <ExpandableText label="full prompt" text={classifyLog.promptSent} maxLen={1500} />
         </div>
       )}
 
-      {/* Prompt preview toggle */}
-      {classifyLog?.promptPreview && (
-        <div>
-          <button
-            onClick={() => setShowPrompt(!showPrompt)}
-            className="text-[10px] font-mono text-blue hover:text-blue/80 transition-colors flex items-center gap-1"
-          >
-            {showPrompt ? "▾ Hide" : "▸ Show"} prompt sent to AI
-          </button>
-          {showPrompt && (
-            <div className="mt-2 px-3 py-2 rounded-lg bg-surface/50 border border-border text-[11px] font-mono text-dim whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-              {classifyLog.promptPreview}
-              {classifyLog.promptPreview.length >= 298 && <span className="text-blue">…(truncated)</span>}
-            </div>
-          )}
+      {/* After AI: what came back */}
+      {classifyLog?.rawResponse && (
+        <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1.5">
+          <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">AI Response</div>
+          <ExpandableText label="raw response" text={classifyLog.rawResponse} maxLen={1500} />
         </div>
       )}
 
@@ -796,9 +914,7 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
           <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Tags</div>
           <div className="flex flex-wrap gap-1.5" dir="rtl">
             {analysis.tags.map((tag, i) => (
-              <span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-mono">
-                {tag}
-              </span>
+              <span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-mono">{tag}</span>
             ))}
           </div>
         </div>
@@ -828,9 +944,6 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
         <InfoCard label="Breaking" value={analysis.isBreaking ? "Yes" : "No"} color={
           analysis.isBreaking ? "text-orange" : "text-dim"
         } />
-        {classifyLog?.inputChars && (
-          <InfoCard label="Input Size" value={`${classifyLog.inputChars.toLocaleString()} chars`} />
-        )}
       </div>
 
       {/* Unique angle */}
@@ -866,7 +979,7 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
 
   return (
     <div className="p-4 space-y-4">
-      {/* Formula breakdown */}
+      <StepHeader entry={scoreLog} label="Scoring" icon={Sparkles} />
       <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Score Breakdown</div>
       <div className="space-y-2">
         <ScoreRow label="Relevance" value={relevance} weight={0.35} result={relevance * 0.35} />
@@ -917,14 +1030,12 @@ function PromoteDetail({ article, log, pp }: { article: ArticleDetail; log: LogE
 
   return (
     <div className="p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <StatusBadge status={promoteLog.status} label={
-          promoteLog.status === "created" ? "Story Created" :
-          promoteLog.status === "linked" ? "Linked to Existing" :
-          promoteLog.status === "skipped" ? "Skipped" :
-          promoteLog.status === "failed" ? "Failed" : promoteLog.status
-        } />
-      </div>
+      <StepHeader entry={promoteLog} label={
+        promoteLog.status === "created" ? "Story Created" :
+        promoteLog.status === "linked" ? "Linked to Existing" :
+        promoteLog.status === "skipped" ? "Skipped" :
+        promoteLog.status === "failed" ? "Failed" : "Promotion"
+      } icon={CheckCircle2} />
 
       {promoteLog.status === "created" && article.storyId && (
         <Link to={pp(`/story/${article.storyId}`)}
@@ -970,8 +1081,6 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
   const synthLog = log.find(e => e.step === "synthesis");
   const research = (article.analysis as Analysis | null)?.research;
   const brief = research?.brief;
-  const [showSynthPrompt, setShowSynthPrompt] = useState(false);
-  const [showPxPrompt, setShowPxPrompt] = useState(false);
 
   if (!decisionLog) {
     return <div className="p-4 text-[12px] text-dim font-mono">No research data yet.</div>;
@@ -980,27 +1089,17 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
   if (!decisionLog.needed) {
     return (
       <div className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <StatusBadge status="skipped" label="Skipped" />
-          <span className="text-[12px] text-dim">{decisionLog.reason}</span>
-        </div>
+        <StepHeader entry={decisionLog} label="Research Decision" icon={Search} />
+        <div className="text-[12px] text-dim">{decisionLog.reason}</div>
       </div>
     );
   }
 
-  const TokenBadge = ({ entry }: { entry?: LogEntry | null }) => {
-    if (!entry?.totalTokens) return null;
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-dim">
-        <span>↑{entry.inputTokens?.toLocaleString()}</span>
-        <span>↓{entry.outputTokens?.toLocaleString()}</span>
-        <span className="text-foreground font-semibold">Σ{entry.totalTokens.toLocaleString()}</span>
-      </span>
-    );
-  };
-
   return (
     <div className="p-4 space-y-5">
+      {/* Decision */}
+      <StepHeader entry={decisionLog} label="Research Decision" icon={Search} />
+
       {/* ── Narrative Strength banner ── */}
       {researchLog && (
         <div className={`px-4 py-3 rounded-lg border-2 ${
@@ -1026,115 +1125,88 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
       )}
 
       {/* ── Service Call Log ── */}
-      <div className="space-y-2">
-        <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Service Calls</div>
+      <div className="space-y-3">
+        <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Service Calls (step by step)</div>
 
-        {/* Firecrawl */}
+        {/* 1. Firecrawl Web Search */}
         {fcLog && (
-          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-blue" />
-                <span className="text-[11px] font-semibold">Firecrawl Web Search</span>
-                <StatusBadge status={fcLog.status} label={fcLog.status} />
-              </div>
-              {fcLog.resultsCount != null && (
-                <span className="text-[10px] font-mono text-dim">{fcLog.resultsCount} results</span>
-              )}
-            </div>
+          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+            <StepHeader entry={fcLog} label="Web Search" icon={Search} />
             {fcLog.query && (
-              <div className="px-2.5 py-2 rounded bg-blue/5 border border-blue/15">
-                <div className="text-[10px] font-mono text-blue mb-0.5">Search query sent:</div>
+              <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1">
+                <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Query sent to Firecrawl</div>
                 <div className="text-[12px] text-foreground font-mono leading-relaxed break-all">{fcLog.query}</div>
               </div>
             )}
             {fcLog.titles && fcLog.titles.length > 0 && (
-              <div className="text-[10px] font-mono text-dim">
-                Results: {fcLog.titles.map((t, i) => <span key={i} className="text-foreground/70">{i > 0 ? " · " : ""}{t}</span>)}
+              <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1">
+                <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">Results ({fcLog.resultsCount})</div>
+                {fcLog.titles.map((t, i) => (
+                  <div key={i} className="text-[11px] font-mono text-foreground/80">{i + 1}. {t}</div>
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {/* Perplexity */}
+        {/* 2. Perplexity Background */}
         {pxLog && (
-          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Brain className="w-3.5 h-3.5 text-purple" />
-                <span className="text-[11px] font-semibold">Perplexity Context</span>
-                <StatusBadge status={pxLog.status} label={pxLog.status} />
-              </div>
-              <TokenBadge entry={pxLog} />
-            </div>
+          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+            <StepHeader entry={pxLog} label="Background Context" icon={Brain} />
+            {pxLog.quality && <QualityBadge quality={pxLog.quality} />}
             {pxLog.promptSent && (
-              <div>
-                <button onClick={() => setShowPxPrompt(!showPxPrompt)}
-                  className="text-[10px] font-mono text-blue hover:text-blue/80 transition-colors flex items-center gap-1">
-                  {showPxPrompt ? "▾ Hide" : "▸ Show"} prompt sent
-                </button>
-                {showPxPrompt && (
-                  <div className="mt-1.5 px-2.5 py-2 rounded bg-surface/80 border border-border text-[11px] font-mono text-dim whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
-                    {pxLog.promptSent}
-                  </div>
-                )}
+              <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1">
+                <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Sent to AI</div>
+                <ExpandableText label="full prompt" text={pxLog.promptSent} maxLen={1500} />
               </div>
             )}
-            <div className="text-[10px] font-mono text-dim">
-              {pxLog.chars?.toLocaleString()} chars · {pxLog.citations} citations
-            </div>
+            {pxLog.rawResponse && (
+              <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1">
+                <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">AI Response ({pxLog.chars?.toLocaleString()} chars, {pxLog.citations} citations)</div>
+                <ExpandableText label="response text" text={pxLog.rawResponse} maxLen={1500} />
+              </div>
+            )}
+            {!pxLog.rawResponse && pxLog.status === "ok" && (
+              <div className="text-[10px] font-mono text-dim">{pxLog.chars?.toLocaleString()} chars · {pxLog.citations} citations</div>
+            )}
           </div>
         )}
 
-        {/* DB Similarity */}
+        {/* 3. DB Similarity */}
         {simLog && (
-          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-orange" />
-                <span className="text-[11px] font-semibold">DB Similarity Search</span>
-                <StatusBadge status={simLog.status} label={simLog.status} />
-              </div>
-              {simLog.matchCount != null && (
-                <span className="text-[10px] font-mono text-dim">{simLog.matchCount} matches</span>
-              )}
-            </div>
+          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1.5">
+            <StepHeader entry={simLog} label="Similarity Search" icon={Target} />
+            {simLog.embeddingInputChars && (
+              <div className="text-[10px] font-mono text-dim">Embedded {simLog.embeddingInputChars.toLocaleString()} chars via OpenAI</div>
+            )}
+            {simLog.matchCount != null && (
+              <div className="text-[10px] font-mono text-dim">{simLog.matchCount} similar videos found</div>
+            )}
             {simLog.topMatch && (
-              <div className="text-[10px] font-mono text-dim mt-1">Top: {simLog.topMatch}</div>
+              <div className="text-[10px] font-mono text-dim">Top match: {simLog.topMatch}</div>
             )}
           </div>
         )}
 
-        {/* Synthesis */}
+        {/* 4. Claude Synthesis */}
         {synthLog && (
-          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-success" />
-                <span className="text-[11px] font-semibold">AI Synthesis</span>
-                <StatusBadge status={synthLog.status} label={synthLog.status} />
-                <span className="text-[10px] font-mono text-dim">{synthLog.model}</span>
+          <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border space-y-2">
+            <StepHeader entry={synthLog} label="AI Synthesis" icon={Sparkles} />
+            {synthLog.quality && <QualityBadge quality={synthLog.quality} />}
+            {synthLog.promptSent && (
+              <div className="rounded-lg border border-blue/20 bg-blue/5 p-3 space-y-1">
+                <div className="text-[10px] font-mono text-blue font-bold uppercase tracking-wider">Sent to AI</div>
+                <ExpandableText label="full prompt" text={synthLog.promptSent} maxLen={1500} />
               </div>
-              <TokenBadge entry={synthLog} />
-            </div>
-            {synthLog.promptPreview && (
-              <div>
-                <button onClick={() => setShowSynthPrompt(!showSynthPrompt)}
-                  className="text-[10px] font-mono text-blue hover:text-blue/80 transition-colors flex items-center gap-1">
-                  {showSynthPrompt ? "▾ Hide" : "▸ Show"} prompt sent to AI
-                </button>
-                {showSynthPrompt && (
-                  <div className="mt-1.5 px-2.5 py-2 rounded bg-surface/80 border border-border text-[11px] font-mono text-dim whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-                    {synthLog.promptPreview}
-                    {synthLog.promptPreview.length >= 498 && <span className="text-blue">…(truncated)</span>}
-                  </div>
-                )}
+            )}
+            {synthLog.rawResponse && (
+              <div className="rounded-lg border border-success/20 bg-success/5 p-3 space-y-1">
+                <div className="text-[10px] font-mono text-success font-bold uppercase tracking-wider">AI Response</div>
+                <ExpandableText label="raw response" text={synthLog.rawResponse} maxLen={1500} />
               </div>
             )}
             {synthLog.briefKeys && synthLog.briefKeys.length > 0 && (
-              <div className="text-[10px] font-mono text-dim">
-                Output keys: {synthLog.briefKeys.join(", ")}
-              </div>
+              <div className="text-[10px] font-mono text-dim">Output keys: {synthLog.briefKeys.join(", ")}</div>
             )}
           </div>
         )}
