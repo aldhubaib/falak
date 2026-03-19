@@ -6,6 +6,7 @@ const { execFile } = require('child_process')
 const { promisify } = require('util')
 const fetch = require('node-fetch')
 const FormData = require('form-data')
+const ffmpegPath = require('ffmpeg-static')
 const db = require('../lib/db')
 const { decrypt } = require('./crypto')
 const { getSignedReadUrl } = require('./r2')
@@ -39,7 +40,7 @@ async function transcribeFromR2(r2Key, channelId) {
     if (!videoRes.ok) throw new Error(`Failed to download video from R2: ${videoRes.status}`)
     await pipeline(videoRes.body, fs.createWriteStream(videoPath))
 
-    await execFileAsync('ffmpeg', [
+    await execFileAsync(ffmpegPath, [
       '-i', videoPath,
       '-vn',                 // drop video
       '-ac', '1',            // mono
@@ -123,13 +124,22 @@ async function callWhisper(apiKey, filePath, channelId) {
 }
 
 async function getAudioDuration(filePath) {
-  const { stdout } = await execFileAsync('ffprobe', [
-    '-v', 'error',
-    '-show_entries', 'format=duration',
-    '-of', 'default=noprint_wrappers=1:nokey=1',
-    filePath,
-  ])
-  return parseFloat(stdout.trim()) || 0
+  try {
+    const { stderr } = await execFileAsync(ffmpegPath, [
+      '-i', filePath,
+      '-f', 'null', '-',
+    ], { timeout: 60_000 })
+    const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/)
+    if (match) {
+      return parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]) + parseInt(match[4]) / 100
+    }
+  } catch (e) {
+    const match = (e.stderr || '').match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/)
+    if (match) {
+      return parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]) + parseInt(match[4]) / 100
+    }
+  }
+  return 0
 }
 
 async function splitAudio(audioPath, tmpDir, chunkDurationSec) {
@@ -142,7 +152,7 @@ async function splitAudio(audioPath, tmpDir, chunkDurationSec) {
     const chunkPath = path.join(tmpDir, `chunk_${idx}.mp3`)
     const duration = Math.min(chunkDurationSec, totalDuration - start)
 
-    await execFileAsync('ffmpeg', [
+    await execFileAsync(ffmpegPath, [
       '-i', audioPath,
       '-ss', String(start),
       '-t', String(duration),
