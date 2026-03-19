@@ -372,11 +372,10 @@ export default function ArticlePipeline() {
     return () => clearInterval(tick);
   }, [fetchPipeline]);
 
-  const handlePauseResume = () => {
-    const endpoint = paused ? "/api/article-pipeline/resume" : "/api/article-pipeline/pause";
-    fetch(endpoint, { method: "POST", credentials: "include" })
-      .then((r) => { if (!r.ok) throw new Error(); setPaused(!paused); toast.success(paused ? "Resumed" : "Paused"); })
-      .catch(() => toast.error("Failed"));
+  const handlePause = () => {
+    fetch("/api/article-pipeline/pause", { method: "POST", credentials: "include" })
+      .then((r) => { if (!r.ok) throw new Error(); setPaused(true); toast.success("Paused — restart app to resume"); })
+      .catch(() => toast.error("Failed to pause"));
   };
 
   const handleRetryAll = () => {
@@ -491,10 +490,13 @@ export default function ArticlePipeline() {
             <Circle className="w-2 h-2 fill-current" />
             {paused ? "Paused" : `Running · ${countdown}s`}
           </span>
-          <button onClick={handlePauseResume}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
-            {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-            {paused ? "Resume" : "Pause"}
+          <button
+            onClick={handlePause}
+            disabled={paused}
+            title={paused ? "Restart the application to resume processing" : "Pause article pipeline"}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-dim">
+            <Pause className="w-3 h-3" />
+            {paused ? "Paused" : "Pause"}
           </button>
           <button onClick={handleTestRun} disabled={testRunning}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-purple/30 bg-purple/10 text-[11px] text-purple font-medium hover:bg-purple/20 transition-colors disabled:opacity-50">
