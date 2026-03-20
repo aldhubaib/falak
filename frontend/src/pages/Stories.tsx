@@ -194,6 +194,26 @@ export default function Stories() {
 
   
 
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of stories) {
+      counts[s.stage] = (counts[s.stage] || 0) + 1;
+    }
+    return counts;
+  }, [stories]);
+
+  const stageStoriesSorted = useMemo(() => {
+    const filtered = activeStage === "all" ? stories : stories.filter((s) => s.stage === activeStage);
+    return [...filtered].sort((a, b) => {
+      const scoreA = a.compositeScore ?? 0;
+      const scoreB = b.compositeScore ?? 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [stories, activeStage]);
+  const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
+  const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
+
   if (loadError) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -224,26 +244,6 @@ export default function Stories() {
       </div>
     );
   }
-
-  const stageCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const s of stories) {
-      counts[s.stage] = (counts[s.stage] || 0) + 1;
-    }
-    return counts;
-  }, [stories]);
-
-  const stageStoriesSorted = useMemo(() => {
-    const filtered = activeStage === "all" ? stories : stories.filter((s) => s.stage === activeStage);
-    return [...filtered].sort((a, b) => {
-      const scoreA = a.compositeScore ?? 0;
-      const scoreB = b.compositeScore ?? 0;
-      if (scoreB !== scoreA) return scoreB - scoreA;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  }, [stories, activeStage]);
-  const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
-  const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
 
   return (
     <div className="flex flex-col min-h-screen">
