@@ -336,7 +336,7 @@ async function doStageResearch(article, project) {
 
     return { nextStage: 'translated' }
   } catch (e) {
-    log.push({ step: 'research', status: 'failed', error: e.message, at: new Date().toISOString() })
+    log.push({ step: 'research', status: 'partial', error: `${e.message} (non-blocking)`, at: new Date().toISOString() })
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to translated)')
     return { nextStage: 'translated' }
@@ -521,10 +521,10 @@ async function doStageTranslated(article, project) {
           at: new Date().toISOString(),
         })
       } else {
-        log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', reason: 'Failed to parse translated brief JSON', at: new Date().toISOString() })
+        log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', reason: 'Failed to parse translated brief JSON — non-blocking', at: new Date().toISOString() })
       }
     } catch (e) {
-      log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', error: `${e.message} (non-blocking)`, at: new Date().toISOString() })
       logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] translate_research failed (non-fatal)')
     }
   } else {
