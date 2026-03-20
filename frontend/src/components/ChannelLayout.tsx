@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Outlet } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { PageError } from "@/components/PageError";
 
 /**
@@ -57,7 +58,7 @@ export function ChannelLayout() {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-card">
-        <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }

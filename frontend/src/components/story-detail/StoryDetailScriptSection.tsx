@@ -298,7 +298,7 @@ export function StoryDetailScriptSection({
                     }`}
                   >
                     {generating ? (
-                      <span className="w-3 h-3 border border-dim border-t-transparent rounded-full animate-spin" />
+                      <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
                     ) : (
                       <Sparkles className="w-3 h-3" />
                     )}

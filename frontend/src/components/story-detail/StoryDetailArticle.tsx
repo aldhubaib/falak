@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Wand2, RefreshCw, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Wand2, RefreshCw, ExternalLink } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 
@@ -285,7 +285,7 @@ export function StoryDetailArticle({
               </div>
             ) : articleLoading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : hasValidContent ? (
               <>

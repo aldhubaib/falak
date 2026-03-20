@@ -5,7 +5,7 @@ import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { getCountryName } from "@/data/countries";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Video } from "@/data/mock";
 
@@ -228,7 +228,7 @@ export default function ChannelDetail() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-card">
-        <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin mb-3" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-3" />
         <p className="text-[13px] text-foreground">Loading channel…</p>
       </div>
     );

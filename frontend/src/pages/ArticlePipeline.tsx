@@ -507,7 +507,7 @@ function PipelineTabContent() {
       <div className="flex-1 relative overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <>
