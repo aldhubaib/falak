@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import { ArrowUpRight, Loader2, Upload } from "lucide-react";
@@ -225,13 +225,15 @@ export default function Stories() {
     );
   }
 
-  const stageStories = activeStage === "all" ? stories : stories.filter((s) => s.stage === activeStage);
-  const stageStoriesSorted = [...stageStories].sort((a, b) => {
-    const scoreA = a.compositeScore ?? 0;
-    const scoreB = b.compositeScore ?? 0;
-    if (scoreB !== scoreA) return scoreB - scoreA;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  const stageStoriesSorted = useMemo(() => {
+    const filtered = activeStage === "all" ? stories : stories.filter((s) => s.stage === activeStage);
+    return [...filtered].sort((a, b) => {
+      const scoreA = a.compositeScore ?? 0;
+      const scoreB = b.compositeScore ?? 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [stories, activeStage]);
   const stageStoriesVisible = stageStoriesSorted.slice(0, storiesDisplayLimit);
   const hasMoreStories = stageStoriesSorted.length > storiesDisplayLimit;
 

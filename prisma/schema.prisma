@@ -146,6 +146,7 @@ model Comment {
   createdAt   DateTime  @default(now())
 
   @@index([videoId])
+  @@index([videoId, likeCount(sort: Desc)])
 }
 
 // ─────────────────────────────────────────────
@@ -180,6 +181,7 @@ model Story {
   @@index([channelId, stage])
   @@index([channelId, compositeScore])
   @@index([channelId, createdAt])
+  @@index([channelId, lastRescoredAt])
 }
 
 model StoryLog {
@@ -408,6 +410,7 @@ model Article {
   @@unique([channelId, url])
   @@index([sourceId, stage])
   @@index([channelId, stage])
+  @@index([channelId, createdAt(sort: Desc)])
   @@index([stage, status])
   @@index([storyId])
 }

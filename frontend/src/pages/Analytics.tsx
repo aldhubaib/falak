@@ -307,7 +307,7 @@ function ChannelDropdown({
                   onChange(ch);
                   setOpen(false);
                 }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-mono hover:bg-surface/50 transition-colors text-left ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-mono hover:bg-card/50 transition-colors text-left ${
                   ch.id === value?.id ? (isYou ? "text-blue" : "text-foreground") : "text-dim"
                 }`}
               >
@@ -435,7 +435,7 @@ function GrowthMomentumSection({
 
       {/* Per-channel growth table */}
       <div className="mx-5 mb-4 rounded-xl border border-border overflow-hidden">
-        <div className="grid grid-cols-[1fr_90px_90px_90px] gap-4 px-5 py-3 bg-surface/30 border-b border-border">
+        <div className="grid grid-cols-[1fr_90px_90px_90px] gap-4 px-5 py-3 bg-card/30 border-b border-border">
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest">CHANNEL</span>
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest text-right">SUB GROWTH</span>
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest text-right">VIEW GROWTH</span>
@@ -920,7 +920,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
       </div>
 
       <div className="mx-5 mb-4 rounded-xl border border-border overflow-hidden">
-        <div className="grid grid-cols-[1fr_100px_120px_50px] gap-4 px-5 py-3 bg-surface/30 border-b border-border">
+        <div className="grid grid-cols-[1fr_100px_120px_50px] gap-4 px-5 py-3 bg-card/30 border-b border-border">
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest">METRIC</span>
           <div className="flex items-center gap-1.5 justify-end">
             <ChannelAvatar name={chName(yourCh)} avatarUrl={yourCh.avatarUrl} size="sm" />
@@ -1294,7 +1294,7 @@ function TrendChart({
           return (
             <span
               key={c.id}
-              className={`flex items-center gap-1.5 text-[11px] font-mono text-dim rounded-md px-1.5 py-0.5 transition-colors ${active ? "bg-surface text-sensor" : dimmed ? "opacity-45" : ""}`}
+              className={`flex items-center gap-1.5 text-[11px] font-mono text-dim rounded-md px-1.5 py-0.5 transition-colors ${active ? "bg-card text-sensor" : dimmed ? "opacity-45" : ""}`}
             >
               <span className="w-3 h-0.5 bg-dim/40 rounded-full inline-block" />
               <ChannelAvatar name={c.name} avatarUrl={c.ch?.avatarUrl} channelId={c.id} size="sm" />
@@ -1550,82 +1550,76 @@ export default function Analytics() {
   const ourVideoCount = ourChannels.reduce((s, c) => s + c.videoCount, 0);
   const compVideoCount = competitorChannels.reduce((s, c) => s + c.videoCount, 0);
 
-  // ── Rankings
-  const buildRankings = (tab: FieldTab) => {
-    const entries = channels.map((ch) => {
-      let rawVal = 0;
-      let displayVal = "";
-      if (tab === "Subscribers") {
-        rawVal = parseInt(ch.subscribers);
-        displayVal = fmtSubs(ch.subscribers);
-      } else if (tab === "Engagement") {
-        rawVal = ch.avgEngagement;
-        displayVal = `${ch.avgEngagement.toFixed(2)}%`;
-      } else if (tab === "Views") {
-        rawVal = parseInt(ch.totalViews);
-        displayVal = fmtNum(parseInt(ch.totalViews));
-      } else {
-        rawVal = ch.uploadsPerMonth;
-        displayVal = `${ch.uploadsPerMonth}/mo`;
-      }
-      return {
-        id: ch.id,
-        name: chName(ch),
-        avatarUrl: ch.avatarUrl,
-        isYou: isOurs(ch),
-        rawVal,
-        value: displayVal,
-      };
-    });
+  // ── Rankings (memoised — channels is the only dependency)
+  const rankingsMap = useMemo(() => {
+    const tabs: FieldTab[] = ["Subscribers", "Engagement", "Views", "Uploads"];
+    const map = {} as Record<FieldTab, { id: string; name: string; avatarUrl: string; isYou: boolean; rawVal: number; value: string; rank: number }[]>;
+    for (const tab of tabs) {
+      const entries = channels.map((ch) => {
+        let rawVal = 0;
+        let displayVal = "";
+        if (tab === "Subscribers") {
+          rawVal = parseInt(ch.subscribers);
+          displayVal = fmtSubs(ch.subscribers);
+        } else if (tab === "Engagement") {
+          rawVal = ch.avgEngagement;
+          displayVal = `${ch.avgEngagement.toFixed(2)}%`;
+        } else if (tab === "Views") {
+          rawVal = parseInt(ch.totalViews);
+          displayVal = fmtNum(parseInt(ch.totalViews));
+        } else {
+          rawVal = ch.uploadsPerMonth;
+          displayVal = `${ch.uploadsPerMonth}/mo`;
+        }
+        return { id: ch.id, name: chName(ch), avatarUrl: ch.avatarUrl, isYou: isOurs(ch), rawVal, value: displayVal };
+      });
+      map[tab] = entries.sort((a, b) => b.rawVal - a.rawVal).map((e, i) => ({ ...e, rank: i + 1 }));
+    }
+    return map;
+  }, [channels]);
 
-    return entries
-      .sort((a, b) => b.rawVal - a.rawVal)
-      .map((e, i) => ({ ...e, rank: i + 1 }));
-  };
+  const rankings = rankingsMap[fieldTab];
 
-  const rankings = buildRankings(fieldTab);
+  // ── Comparison cards (derived from memoised rankings)
+  const { engRank, subRank, marketAvgEng, viewsMultiplier, topViewCh, benchmarks } = useMemo(() => {
+    const engRanks = rankingsMap["Engagement"];
+    const firstOurEngIdx = engRanks.findIndex((r) => r.isYou);
+    const _engRank = firstOurEngIdx >= 0 ? firstOurEngIdx + 1 : engRanks.length;
 
-  // ── Comparison cards
-  const engRanks = buildRankings("Engagement");
-  const firstOurEngIdx = engRanks.findIndex((r) => r.isYou);
-  const engRank = firstOurEngIdx >= 0 ? firstOurEngIdx + 1 : engRanks.length;
+    const subRanks = rankingsMap["Subscribers"];
+    const firstOurSubIdx = subRanks.findIndex((r) => r.isYou);
+    const _subRank = firstOurSubIdx >= 0 ? firstOurSubIdx + 1 : subRanks.length;
 
-  const subRanks = buildRankings("Subscribers");
-  const firstOurSubIdx = subRanks.findIndex((r) => r.isYou);
-  const subRank = firstOurSubIdx >= 0 ? firstOurSubIdx + 1 : subRanks.length;
-
-  const marketAvgEng =
-    channels.length > 0
+    const _marketAvgEng = channels.length > 0
       ? channels.reduce((s, c) => s + c.avgEngagement, 0) / channels.length
       : 0;
 
-  const viewRanks = buildRankings("Views");
-  const topViewCh = viewRanks[0];
-  const firstOurViewIdx = viewRanks.findIndex((r) => r.isYou);
-  const ourTopViews = firstOurViewIdx >= 0 ? viewRanks[firstOurViewIdx] : null;
-  const viewsMultiplier =
-    topViewCh && ourTopViews && ourTopViews.rawVal > 0
-      ? `×${Math.round(topViewCh.rawVal / ourTopViews.rawVal)}`
+    const viewRanks = rankingsMap["Views"];
+    const _topViewCh = viewRanks[0];
+    const firstOurViewIdx = viewRanks.findIndex((r) => r.isYou);
+    const ourTopViews = firstOurViewIdx >= 0 ? viewRanks[firstOurViewIdx] : null;
+    const _viewsMultiplier = _topViewCh && ourTopViews && ourTopViews.rawVal > 0
+      ? `×${Math.round(_topViewCh.rawVal / ourTopViews.rawVal)}`
       : "×∞";
 
-  // ── Benchmarks
-  const buildBenchmark = (label: string, tab: FieldTab) => ({
-    label,
-    items: buildRankings(tab).map((r) => ({
-      rank: r.rank,
-      name: r.name,
-      avatarUrl: r.avatarUrl,
-      channelId: r.id,
-      value: r.value,
-      isYou: r.isYou,
-    })),
-  });
+    const toBenchmark = (label: string, tab: FieldTab) => ({
+      label,
+      items: rankingsMap[tab].map((r) => ({ rank: r.rank, name: r.name, avatarUrl: r.avatarUrl, channelId: r.id, value: r.value, isYou: r.isYou })),
+    });
 
-  const benchmarks = [
-    buildBenchmark("SUBSCRIBERS", "Subscribers"),
-    buildBenchmark("TOTAL VIDEO VIEWS", "Views"),
-    buildBenchmark("AVG ENGAGEMENT RATE", "Engagement"),
-  ];
+    return {
+      engRank: _engRank,
+      subRank: _subRank,
+      marketAvgEng: _marketAvgEng,
+      viewsMultiplier: _viewsMultiplier,
+      topViewCh: _topViewCh,
+      benchmarks: [
+        toBenchmark("SUBSCRIBERS", "Subscribers"),
+        toBenchmark("TOTAL VIDEO VIEWS", "Views"),
+        toBenchmark("AVG ENGAGEMENT RATE", "Engagement"),
+      ],
+    };
+  }, [rankingsMap, channels]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -1652,7 +1646,7 @@ export default function Analytics() {
               key={t}
               onClick={() => handlePeriod(t)}
               className={`px-3 py-1 text-[11px] font-mono rounded-full transition-colors ${
-                period === t ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
+                period === t ? "bg-card text-foreground" : "text-dim hover:text-sensor"
               }`}
             >
               {t}
@@ -1725,7 +1719,7 @@ export default function Analytics() {
                     onClick={() => setFieldTab(t)}
                     className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors border ${
                       fieldTab === t
-                        ? "bg-surface text-foreground border-border"
+                        ? "bg-card text-foreground border-border"
                         : "bg-transparent text-dim border-transparent hover:text-sensor"
                     }`}
                   >
@@ -1930,7 +1924,7 @@ export default function Analytics() {
                     onClick={() => setTrendTab(t)}
                     className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors border ${
                       trendTab === t
-                        ? "bg-surface text-foreground border-border"
+                        ? "bg-card text-foreground border-border"
                         : "bg-transparent text-dim border-transparent hover:text-sensor"
                     }`}
                   >
@@ -1970,7 +1964,7 @@ export default function Analytics() {
                 <Link
                   key={v.id}
                   to={channelPath(`/video/${v.id}`)}
-                  className="group flex items-center gap-5 px-5 py-3.5 border-t border-border hover:bg-surface/30 transition-colors cursor-pointer no-underline"
+                  className="group flex items-center gap-5 px-5 py-3.5 border-t border-border hover:bg-card/30 transition-colors cursor-pointer no-underline"
                 >
                   <span className="text-[12px] text-dim font-mono w-6 text-right shrink-0">
                     {v.rank}

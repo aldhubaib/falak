@@ -34,113 +34,6 @@ monitor.get('/', async (req, res) => {
   }
 })
 
-// ── ADMIN (user management) ────────────────────────────────────
-const admin = express.Router()
-admin.use(requireAuth)
-admin.use(requireRole('owner', 'admin'))
-
-admin.get('/users', async (req, res) => {
-  try {
-    const users = await db.user.findMany({
-      select: {
-        id: true, email: true, name: true, avatarUrl: true,
-        role: true, note: true, isActive: true,
-        pageAccess: true, channelAccess: true,
-        createdAt: true, updatedAt: true,
-      },
-      orderBy: { createdAt: 'asc' }
-    })
-    res.json(users)
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-admin.post('/users', async (req, res) => {
-  try {
-    const { email, role, note, pageAccess, channelAccess } = req.body
-    if (!email) return res.status(400).json({ error: 'email required' })
-
-    const existing = await db.user.findUnique({ where: { email } })
-    if (existing) return res.status(409).json({ error: 'User already exists' })
-
-    const user = await db.user.create({
-      data: { email, role: role || 'viewer', note, pageAccess, channelAccess }
-    })
-    res.json(user)
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-admin.patch('/users/:id', async (req, res) => {
-  try {
-    // Prevent owner from demoting themselves
-    if (req.params.id === req.user.id && req.body.role && req.body.role !== 'owner') {
-      return res.status(400).json({ error: 'Cannot change your own role' })
-    }
-    const allowed = ['role', 'note', 'isActive', 'pageAccess', 'channelAccess']
-    const data = {}
-    for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k]
-
-    const user = await db.user.update({ where: { id: req.params.id }, data })
-    res.json(user)
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-admin.delete('/users/:id', async (req, res) => {
-  try {
-    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot delete yourself' })
-    await db.user.delete({ where: { id: req.params.id } })
-    res.json({ ok: true })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
-// Re-queue videos that have a plain-string transcription (not yet migrated to JSON segments).
-// Call once after deploying the segment-storage update to re-process existing videos.
-admin.post('/retranscribe-all', async (req, res) => {
-  try {
-    const videos = await db.video.findMany({
-      where: { transcription: { not: null } },
-      select: {
-        id: true,
-        transcription: true,
-        pipelineItem: { select: { id: true, stage: true } },
-      },
-      take: 1000,
-    })
-
-    // A transcription is "already migrated" if it's valid JSON containing an array.
-    const needsMigration = videos.filter(v => {
-      try {
-        const p = JSON.parse(v.transcription)
-        return !Array.isArray(p)   // has content but it's not an array
-      } catch (_) {
-        return true                // plain string — not valid JSON at all
-      }
-    })
-
-    let reset = 0
-    for (const v of needsMigration) {
-      if (v.pipelineItem) {
-        await db.pipelineItem.update({
-          where: { id: v.pipelineItem.id },
-          data: { stage: 'transcribe', status: 'queued', error: null, retries: 0 },
-        })
-        reset++
-      }
-    }
-
-    res.json({ ok: true, total: videos.length, reset })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
-  }
-})
-
 // ── PROFILES (replaces projects) ──────────────────────────────
 const profiles = express.Router()
 profiles.use(requireAuth)
@@ -256,4 +149,4 @@ profiles.get('/:id/usage', requireRole('owner', 'admin'), async (req, res) => {
   }
 })
 
-module.exports = { monitor, admin, profiles }
+module.exports = { monitor, profiles }

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Video } from "@/data/mock";
 import { Link } from "react-router-dom";
 import { Eye, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight } from "lucide-react";
@@ -16,7 +17,7 @@ const statusIcon: Record<string, { icon: React.ElementType; className: string; t
   analyzing: { icon: Loader2, className: "text-blue animate-spin", title: "Analyzing" },
 };
 
-export function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTableProps) {
+export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTableProps) {
   return (
     <>
       {/* Desktop table */}
@@ -42,7 +43,7 @@ export function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTablePro
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-8 rounded-lg bg-elevated shrink-0 overflow-hidden">
                       {v.thumbnail ? (
-                        <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+                        <img src={v.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
@@ -99,7 +100,7 @@ export function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTablePro
               >
                 <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
                   {v.thumbnail ? (
-                    <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+                    <img src={v.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
@@ -127,7 +128,7 @@ export function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTablePro
             >
               <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
                 {v.thumbnail ? (
-                  <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+                  <img src={v.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <VideoTypeIcon type={v.type} className="w-3 h-3 text-dim" />
@@ -153,13 +154,13 @@ export function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTablePro
       <div className="flex items-center justify-between pt-3 mt-2 flex-wrap gap-2">
         <span className="text-[11px] text-dim font-mono">Showing 1–{videos.length} of {videos.length}</span>
         <div className="flex items-center gap-1">
-          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">«</button>
-          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">‹</button>
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">«</button>
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">‹</button>
           <button className="w-7 h-7 rounded-full bg-[rgb(30,81,233)] text-white text-xs font-mono flex items-center justify-center">1</button>
-          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">›</button>
-          <button disabled className="w-7 h-7 rounded-full border border-border bg-surface text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">»</button>
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">›</button>
+          <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">»</button>
         </div>
       </div>
     </>
   );
-}
+});

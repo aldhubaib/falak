@@ -143,8 +143,8 @@ async function runQueueWorker() {
     console.error('[worker] REDIS_URL is not set. Start the server with REDIS_URL to use the queue worker.')
     process.exit(1)
   }
-  q.process((job) => processJob(job))
-  console.log('[worker] Pipeline queue consumer started (Bull)')
+  q.process(5, (job) => processJob(job))
+  console.log('[worker] Pipeline queue consumer started (Bull, concurrency=5)')
 }
 
 async function runPollingWorker() {

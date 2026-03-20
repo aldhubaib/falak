@@ -8,11 +8,13 @@ router.use(requireAuth)
 // GET /api/settings — return all key metadata (no actual keys)
 router.get('/', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const keys = await db.apiKey.findMany({ orderBy: { service: 'asc' } })
-    const youtubeKeys = await db.youtubeApiKey.findMany({
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, label: true, isActive: true, lastUsedAt: true, usageCount: true, sortOrder: true }
-    })
+    const [keys, youtubeKeys] = await Promise.all([
+      db.apiKey.findMany({ orderBy: { service: 'asc' } }),
+      db.youtubeApiKey.findMany({
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        select: { id: true, label: true, isActive: true, lastUsedAt: true, usageCount: true, sortOrder: true }
+      }),
+    ])
     res.json({
       keys: keys.map(k => ({
         id: k.id, service: k.service, hasKey: !!k.encryptedKey,
@@ -131,18 +133,20 @@ router.get('/embedding-status', requireRole('owner', 'admin'), async (req, res) 
   try {
     const { channelId } = req.query
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
-    const embeddingKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
-    const channel = await db.channel.findUnique({
-      where: { id: channelId },
-      select: { lastStatsRefreshAt: true, rescoreIntervalHours: true },
-    })
-    const profile = await db.scoreProfile.findUnique({
-      where: { channelId },
-      select: {
-        totalOutcomes: true, totalDecisions: true,
-        aiViralAccuracy: true, channelAvgViews: true, lastLearnedAt: true,
-      },
-    }).catch(() => null)
+    const [embeddingKey, channel, profile] = await Promise.all([
+      db.apiKey.findUnique({ where: { service: 'embedding' } }),
+      db.channel.findUnique({
+        where: { id: channelId },
+        select: { lastStatsRefreshAt: true, rescoreIntervalHours: true },
+      }),
+      db.scoreProfile.findUnique({
+        where: { channelId },
+        select: {
+          totalOutcomes: true, totalDecisions: true,
+          aiViralAccuracy: true, channelAvgViews: true, lastLearnedAt: true,
+        },
+      }).catch(() => null),
+    ])
     res.json({
       hasEmbeddingKey: !!embeddingKey?.encryptedKey,
       lastStatsRefreshAt: channel?.lastStatsRefreshAt,

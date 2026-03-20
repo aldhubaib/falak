@@ -12,26 +12,29 @@ const logger = require('../lib/logger')
 
 const PROFILE_CACHE = new Map()
 const CACHE_TTL_MS = 5 * 60 * 1000
+const MAX_CACHE_SIZE = 50
 
-/**
- * Get cached preference profile, or build fresh if stale.
- */
+function _cacheSet(channelId, entry) {
+  if (PROFILE_CACHE.size >= MAX_CACHE_SIZE && !PROFILE_CACHE.has(channelId)) {
+    const oldest = PROFILE_CACHE.keys().next().value
+    PROFILE_CACHE.delete(oldest)
+  }
+  PROFILE_CACHE.set(channelId, entry)
+}
+
 async function getPreferenceProfile(channelId) {
   const cached = PROFILE_CACHE.get(channelId)
   if (cached && Date.now() - cached.builtAt < CACHE_TTL_MS) {
     return cached.profile
   }
   const profile = await buildPreferenceProfile(channelId)
-  PROFILE_CACHE.set(channelId, { profile, builtAt: Date.now() })
+  _cacheSet(channelId, { profile, builtAt: Date.now() })
   return profile
 }
 
-/**
- * Force rebuild the preference profile (called after story stage changes).
- */
 async function refreshPreferenceProfile(channelId) {
   const profile = await buildPreferenceProfile(channelId)
-  PROFILE_CACHE.set(channelId, { profile, builtAt: Date.now() })
+  _cacheSet(channelId, { profile, builtAt: Date.now() })
   return profile
 }
 

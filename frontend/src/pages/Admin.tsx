@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Shield, Mail, Search, Pencil, Trash2, ChevronDown, Key, Eye } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -74,7 +74,7 @@ const initialUsers: AllowedUser[] = [
 const roleColors: Record<Role, string> = {
   admin: "text-destructive border-destructive/30 bg-destructive/10",
   editor: "text-blue border-blue/30 bg-blue/10",
-  viewer: "text-dim border-border bg-surface",
+  viewer: "text-dim border-border bg-card",
 };
 
 const roleIcons: Record<Role, typeof Key> = {
@@ -91,12 +91,12 @@ export default function Admin() {
   const [newRole, setNewRole] = useState<Role>("editor");
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
-  const filteredUsers = users.filter(
+  const filteredUsers = useMemo(() => users.filter(
     (u) =>
       !searchQuery ||
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ), [users, searchQuery]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -138,7 +138,7 @@ export default function Admin() {
                   placeholder="user@example.com"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
+                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
                 />
               </div>
               <button className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
@@ -152,7 +152,7 @@ export default function Admin() {
             <div className="flex items-center justify-between mb-4 max-sm:flex-col max-sm:items-start max-sm:gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="text-[14px] font-semibold">Allowed Users</span>
-                <span className="text-[11px] text-dim font-mono bg-surface px-2 py-0.5 rounded-full">{users.length}</span>
+                <span className="text-[11px] text-dim font-mono bg-card px-2 py-0.5 rounded-full">{users.length}</span>
               </div>
               <div className="relative max-sm:w-full">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
@@ -273,7 +273,7 @@ export default function Admin() {
                 {
                   role: "Viewer" as const,
                   icon: "👁",
-                  color: "border-border bg-surface/30",
+                  color: "border-border bg-card/30",
                   textColor: "text-dim",
                   desc: "Read-only access to assigned pages · Cannot make changes · Perfect for stakeholders or clients",
                 },

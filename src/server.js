@@ -19,8 +19,7 @@ const channelRoutes  = require('./routes/channels')
 const pipelineRoutes = require('./routes/pipeline')
 const storyRoutes    = require('./routes/stories')
 const analyticsRoutes = require('./routes/analytics')
-const dialectRoutes   = require('./routes/dialects')
-const { monitor, admin, profiles } = require('./routes/misc')
+const { monitor, profiles } = require('./routes/misc')
 
 const app = express()
 
@@ -59,21 +58,17 @@ app.use('/api/auth', rateLimit({
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/auth',      authRoutes)
 app.use('/api/channels',  bigintJson, channelRoutes)
-app.use('/api/videos',     require('./routes/videos'))
-app.use('/api/pipeline',  pipelineRoutes)
+app.use('/api/videos',    bigintJson, require('./routes/videos'))
+app.use('/api/pipeline',  bigintJson, pipelineRoutes)
 app.use('/api/stories',   storyRoutes)
 app.use('/api/analytics', bigintJson, analyticsRoutes)
-app.use('/api/dialects',  dialectRoutes)
 app.use('/api/monitor',   monitor)
 app.use('/api/settings',  require('./routes/settings'))
-app.use('/api/admin',     admin)
 app.use('/api/profiles',  profiles)
-app.use('/api/brain',     require('./routes/brain'))
 app.use('/api/upload',    require('./routes/upload'))
 app.use('/api/gallery',   bigintJson, require('./routes/gallery'))
 app.use('/api/article-sources',  require('./routes/articleSources'))
 app.use('/api/article-pipeline', require('./routes/articlePipeline'))
-app.use('/api/alerts',           require('./routes/alerts'))
 app.use('/api/vector-intelligence', bigintJson, require('./routes/vectorIntelligence'))
 
 // ── Public thumbnails — no auth required (used by login page) ─────────────
