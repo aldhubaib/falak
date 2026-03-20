@@ -1,0 +1,41 @@
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+  <!-- Separators -->
+  <div style="max-width: 240px; flex:1;">
+    <div class="section-note">Horizontal separator</div>
+    <div style="padding: 12px 0;">Some content above</div>
+    <div class="sep-h" data-cid="separator-h"></div>
+    <div style="padding: 12px 0; color: var(--muted-foreground); font-size: 13px;">Content below</div>
+    <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px;">
+      <span style="font-size: 13px;">Left</span>
+      <div class="sep-v" data-cid="separator-v"></div>
+      <span style="font-size: 13px;">Right</span>
+    </div>
+  </div>
+  <!-- Scroll area -->
+  <div>
+    <div class="section-note">Scroll area (custom scrollbar)</div>
+    <div class="scroll-demo" data-cid="scroll-area">
+      <div class="scroll-content">
+        Line 1 — Video metadata<br>Line 2 — Channel info<br>Line 3 — Pipeline status<br>
+        Line 4 — Analytics data<br>Line 5 — Score history<br>Line 6 — Comments<br>
+        Line 7 — Transcript segments<br>Line 8 — Related videos
+      </div>
+      <div class="scroll-thumb"></div>
+    </div>
+  </div>
+  <!-- Aspect ratio -->
+  <div>
+    <div class="section-note">Aspect ratios</div>
+    <div style="display: flex; gap: 12px; align-items: flex-start;" data-cid="aspect-ratio">
+      <div style="width: 120px;">
+        <div style="aspect-ratio: 16/9; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">16:9</div>
+      </div>
+      <div style="width: 60px;">
+        <div style="aspect-ratio: 9/16; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">9:16</div>
+      </div>
+      <div style="width: 80px;">
+        <div style="aspect-ratio: 4/3; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">4:3</div>
+      </div>
+    </div>
+  </div>
+</div>

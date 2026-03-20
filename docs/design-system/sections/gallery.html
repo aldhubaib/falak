@@ -1,0 +1,50 @@
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+  <!-- Album cards -->
+  <div style="display: flex; gap: 12px;">
+    <div class="album-card" data-cid="album-card" style="width: 160px;">
+      <div class="album-cover">
+        <div class="album-gradient"></div>
+      </div>
+      <div class="album-info">
+        <div style="font-size: 13px; font-weight: 500;">B-Roll</div>
+        <div style="font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">24 items</div>
+      </div>
+    </div>
+    <div class="album-card" style="width: 160px;">
+      <div class="album-cover" style="background: var(--card);">
+        <div class="album-gradient"></div>
+      </div>
+      <div class="album-info">
+        <div style="font-size: 13px; font-weight: 500;">Thumbnails</div>
+        <div style="font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">8 items</div>
+      </div>
+    </div>
+  </div>
+  <!-- Media grid -->
+  <div style="flex: 1; min-width: 240px;">
+    <div class="section-note">Media Grid with selection</div>
+    <div class="gallery-grid" data-cid="media-grid">
+      <div class="gallery-cell">
+        <div class="gallery-select selected"></div>
+        <div class="gallery-overlay">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+      </div>
+      <div class="gallery-cell" style="background: var(--card);">
+        <div class="gallery-select"></div>
+      </div>
+      <div class="gallery-cell">
+        <div class="gallery-select"></div>
+      </div>
+      <div class="gallery-cell" style="background: var(--card);">
+        <div class="gallery-select selected"></div>
+      </div>
+      <div class="gallery-cell">
+        <div class="gallery-select"></div>
+      </div>
+      <div class="gallery-cell" style="background: var(--card);">
+        <div class="gallery-select"></div>
+      </div>
+    </div>
+  </div>
+</div>

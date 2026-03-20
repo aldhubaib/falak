@@ -93,6 +93,65 @@ import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 
 ---
 
+## Text Shimmer
+
+Sweeping highlight over text to indicate an in-progress operation.
+Use instead of static "Loading..." text.
+
+```tsx
+<span className="text-shimmer">Generating script…</span>
+```
+
+| Property | Value |
+|----------|-------|
+| Class | `text-shimmer` |
+| Base color | `--dim` |
+| Highlight color | `--foreground` (white sweep) |
+| Cycle | `1.8s` ease-in-out, infinite |
+| Technique | `background-clip: text` gradient |
+
+### When to use
+
+| Scenario | Use |
+|----------|-----|
+| Status text while AI is working | `text-shimmer` |
+| Block placeholder while loading | `Skeleton` (pulse) |
+| Toast while processing | Static text, no shimmer |
+
+---
+
+## AI Cursor
+
+Blinking caret that shows the AI writer's current state.
+
+```tsx
+{/* Idle — slow blink */}
+<span className="ai-cursor ai-cursor--idle" />
+
+{/* Thinking — fast blink + shimmer on status text */}
+<span className="ai-status-word--shimmer">Planning outline</span>
+<span className="ai-cursor ai-cursor--thinking" />
+
+{/* Writing — solid, no blink */}
+<span className="ai-cursor ai-cursor--writing" />
+```
+
+| State | Cursor | Status text | Blink speed |
+|-------|--------|-------------|-------------|
+| Idle | `--dim` | Static | 1.1s |
+| Thinking | `--dim` | Shimmer sweep | 0.55s |
+| Writing | `--foreground` | None (streaming) | No blink |
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--cursor-width` | `2px` | Caret width |
+| `--cursor-height` | `0.95em` | Caret height |
+| `--shimmer-base` | `hsl(var(--dim))` | Gradient start/end |
+| `--shimmer-highlight` | `hsl(var(--foreground))` | Gradient peak |
+| `--shimmer-duration` | `1.8s` | Sweep cycle |
+
+---
+
 ## Tokens Used
 
 | Token | Tailwind | Usage |
@@ -102,7 +161,10 @@ import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 | `--destructive` | `bg-destructive/10`, `bg-destructive` | Error icon tint, delete action |
 | `--destructive-foreground` | `text-destructive-foreground` | Delete button text |
 | `--foreground` | `text-foreground` | Channel name emphasis |
-| `--dim` | `text-dim` | VideoTypeIcon default color |
+| `--dim` | `text-dim` | VideoTypeIcon default color, shimmer base, cursor idle |
+| `--shimmer-base` | — | Shimmer gradient start/end |
+| `--shimmer-highlight` | — | Shimmer gradient peak |
+| `--shimmer-duration` | — | Shimmer sweep speed (1.8s) |
 
 ---
 
@@ -114,3 +176,6 @@ import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 4. **VideoTypeIcon is inline** — size it with className override.
 5. **Error fingerprints** use mono font for copyability.
 6. **Channel name is bold** in the delete confirmation to prevent mistakes.
+7. **Use `text-shimmer` for in-progress text**, not `animate-pulse` on text.
+8. **AI cursor must match writer state** — idle/thinking/writing.
+9. **Never apply shimmer to article or script body text** — only status labels.

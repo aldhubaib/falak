@@ -1,0 +1,43 @@
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+  <!-- Error page -->
+  <div style="flex: 1; min-width: 280px;">
+    <div class="section-note">Page Error</div>
+    <div class="error-demo" data-cid="error-page">
+      <div class="error-card">
+        <div class="error-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">Something went wrong</div>
+        <div style="font-size: 13px; color: var(--muted-foreground); margin-bottom: 8px;">Could not load channel data. The server returned an error.</div>
+        <div class="error-fingerprint">ID: fp_a1b2c3d4</div>
+        <div class="error-actions">
+          <button class="btn btn-outline btn-sm">Copy</button>
+          <button class="btn btn-default btn-sm">Retry</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Delete modal -->
+  <div style="flex: 1; min-width: 280px;">
+    <div class="section-note">Delete Confirmation (AlertDialog)</div>
+    <div class="dialog-demo" data-cid="delete-modal">
+      <div class="dialog-title">Remove this channel?</div>
+      <div class="dialog-desc">This will permanently remove <span style="color: var(--foreground); font-weight: 500;">TechChannel</span> and all its data. This action cannot be undone.</div>
+      <div class="dialog-actions">
+        <button class="btn btn-outline btn-sm">Cancel</button>
+        <button class="btn btn-destructive btn-sm">Remove</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="section-note" style="margin-top: 20px;">Video Type Icons</div>
+<div style="display: flex; gap: 16px; align-items: center;">
+  <div data-cid="video-type-video" style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    Video
+  </div>
+  <div data-cid="video-type-short" style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    Short
+  </div>
+</div>
