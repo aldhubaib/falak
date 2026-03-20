@@ -74,7 +74,7 @@ Three worker loops start in-process inside `server.js` after boot:
   transcribe → comments → AI analysis). If Redis is available, it consumes a
   Bull queue; otherwise it polls the database every 10 seconds.
 - **Article pipeline worker** — polls every 10 seconds for articles to process
-  through 6 stages (content → classify → research → translate → score → promote).
+  through 7 stages (content → classify → research → translate → script → score → promote).
   Also polls article sources every 5 minutes for new imports.
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
   from YouTube, learns from editorial decisions and published-video outcomes, and
@@ -437,7 +437,7 @@ An article fetched from a source, processed through the 6-stage pipeline
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Stages:** `imported` → `content` → `classify` → `research` → `translated` → `score` → `done`.
+**Stages:** `imported` → `content` → `classify` → `research` → `translated` → `script` → `score` → `done`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
 
 #### ApifyRun
@@ -900,7 +900,7 @@ reset to `queued`.
 
 ```mermaid
 flowchart LR
-    IM["imported"] --> CO["content"] --> CL["classify"] --> RE["research"] --> TR["translated"] --> SC["score"] --> DO["done"]
+    IM["imported"] --> CO["content"] --> CL["classify"] --> RE["research"] --> TR["translated"] --> SR["script"] --> SC["score"] --> DO["done"]
     CO -.->|needs review| RV["review"]
     IM -.->|failure| F["failed"]
     CO -.->|failure| F
@@ -919,7 +919,8 @@ flowchart LR
 | **classify** | AI classification (Haiku): topic, tags, contentType, region, summary, uniqueAngle. Works in original language. Retries once if language mismatch. | Anthropic Haiku | `Article.analysis`, `Article.language` |
 | **research** | Multi-source research: Firecrawl search (5 related articles) → Perplexity context → Claude synthesis into structured brief. Non-fatal on failure. | Firecrawl, Perplexity, Anthropic Sonnet | `Article.analysis.research` |
 | **translated** | Translates content + fields + research brief to Arabic via Haiku. Skips if source is already Arabic (copies fields). | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar` |
-| **score** | Generates embedding → similarity search → AI scoring (Haiku) → final score formula → promotes to Story → auto-generates draft script (Sonnet) with branded hooks, dialect, and research context. All scored articles become stories for team evaluation. | OpenAI Embeddings, Anthropic Haiku, Anthropic Sonnet | `Article.finalScore`, creates `Story` + `Story.embedding` + `Story.brief.script/suggestedTitle/openingHook/hookStart/hookEnd/youtubeTags` |
+| **script** | Auto-generates a draft script (Sonnet) with branded hooks, channel dialect, and research context. Non-fatal on failure. Stored in `Article.analysis.draftScript`. | Anthropic Sonnet | `Article.analysis.draftScript` (title, hooks, script, tags) |
+| **score** | Generates embedding → similarity search → AI scoring (Haiku) → final score formula → promotes to Story. Draft script from script stage is copied to `Story.brief`. All scored articles become stories for team evaluation. | OpenAI Embeddings, Anthropic Haiku | `Article.finalScore`, creates `Story` + `Story.embedding` |
 
 **Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
 
