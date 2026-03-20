@@ -5,7 +5,7 @@ import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
   Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2, Info,
-  Loader2, RotateCcw,
+  Loader2, RotateCcw, PenLine,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -502,7 +502,7 @@ const STEP_MAP: Record<string, string[]> = {
   synthesis: ["synthesis", "research"],
   translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
   score: ["score_similarity", "score_ai_analysis", "score"],
-  promote: ["promote"],
+  promote: ["promote", "auto_script"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
@@ -532,6 +532,7 @@ const STEP_DISPLAY: Record<string, { label: string; subtitle?: string; icon: typ
   score_ai_analysis: { label: "AI Scoring", subtitle: "Relevance & viral scores", icon: Brain },
   score: { label: "Final Score", subtitle: "Composite score", icon: Sparkles },
   promote: { label: "Story Created", subtitle: "Create or link story", icon: CheckCircle2 },
+  auto_script: { label: "Draft Script", subtitle: "Auto-generated script with branded hooks", icon: PenLine },
 };
 
 /** Single card for one pipeline step — matches Kanban column (title + optional subtitle). */
@@ -1298,29 +1299,49 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
 }
 
 function PromoteDetail({ article, log, pp }: { article: ArticleDetail; log: LogEntry[]; pp: (p: string) => string }) {
-  const stepId = "promote";
-  const entry = log.find((e) => e.step === stepId);
-  const { label, icon } = STEP_DISPLAY[stepId] || { label: "Story Promotion", icon: CheckCircle2 };
+  const promoteEntry = log.find((e) => e.step === "promote");
+  const scriptEntry = log.find((e) => e.step === "auto_script");
+  const { label: promoteLabel, icon: promoteIcon } = STEP_DISPLAY.promote || { label: "Story Promotion", icon: CheckCircle2 };
+  const { label: scriptLabel, icon: scriptIcon, subtitle: scriptSubtitle } = STEP_DISPLAY.auto_script || { label: "Draft Script", icon: PenLine };
 
   return (
     <div className="p-4 space-y-3">
       <LogStepCard
-        entry={entry ?? null}
-        stepId={stepId}
-        label={entry?.status === "created" ? "Story Created" : entry?.status === "linked" ? "Linked to Existing" : label}
-        subtitle={STEP_DISPLAY[stepId]?.subtitle}
-        icon={icon}
+        entry={promoteEntry ?? null}
+        stepId="promote"
+        label={promoteEntry?.status === "created" ? "Story Created" : promoteEntry?.status === "linked" ? "Linked to Existing" : promoteLabel}
+        subtitle={STEP_DISPLAY.promote?.subtitle}
+        icon={promoteIcon}
       >
-        {entry?.status === "created" && article.storyId && (
+        {promoteEntry?.status === "created" && article.storyId && (
           <Link to={pp(`/story/${article.storyId}`)} className="text-success hover:underline font-medium">
             Story created — click to view
           </Link>
         )}
-        {entry?.status === "linked" && <span>Article linked to existing story (same headline).</span>}
-        {entry?.status === "skipped" && <span>{entry.reason ?? "Skipped"}</span>}
-        {entry?.status === "failed" && <span className="text-destructive">{entry.error ?? "Failed"}</span>}
+        {promoteEntry?.status === "linked" && <span>Article linked to existing story (same headline).</span>}
+        {promoteEntry?.status === "skipped" && <span>{promoteEntry.reason ?? "Skipped"}</span>}
+        {promoteEntry?.status === "failed" && <span className="text-destructive">{promoteEntry.error ?? "Failed"}</span>}
       </LogStepCard>
-      {entry?.status === "created" && article.storyId && (
+
+      {promoteEntry?.status === "created" && (
+        <LogStepCard
+          entry={scriptEntry ?? null}
+          stepId="auto_script"
+          label={scriptLabel}
+          subtitle={scriptSubtitle}
+          icon={scriptIcon}
+          skippedReason={!scriptEntry ? "Waiting for promotion" : undefined}
+        >
+          {scriptEntry?.status === "ok" && (
+            <span className="text-success">Draft script with branded hooks generated</span>
+          )}
+          {scriptEntry?.status === "skipped" && (
+            <span className="text-dim">Script generation skipped (no API key or content)</span>
+          )}
+        </LogStepCard>
+      )}
+
+      {promoteEntry?.status === "created" && article.storyId && (
         <Link to={pp(`/story/${article.storyId}`)}
           className="flex items-center gap-2 px-4 py-3 rounded-lg bg-success/5 border border-success/20 hover:bg-success/10 transition-colors">
           <CheckCircle2 className="w-4 h-4 text-success" />

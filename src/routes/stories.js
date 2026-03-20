@@ -24,35 +24,56 @@ async function generateScriptForStory(storyId) {
   if (!channelId) return
   const channel = await db.channel.findFirst({
     where: { id: channelId },
-    select: { id: true, startHook: true, endHook: true },
+    select: { id: true, startHook: true, endHook: true, nationality: true },
   })
   if (!channel) return
   const durationMinutes = Math.max(0.5, parseFloat(brief.scriptDuration) || 3)
   const isShort = durationMinutes <= 3
   const startHook = (channel.startHook || '').trim()
   const endHook = (channel.endHook || '').trim()
+  const dialect = await getDialectForCountry(channel.nationality)
+  const dialectInstruction = dialect
+    ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
+    : 'Write the script in Arabic.'
   const apiKey = decrypt(apiKeyRow.encryptedKey)
   const durationInstruction = isShort
     ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
     : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
-  const system = `You are an expert Arabic YouTube scriptwriter. Output ONLY a structured script in Arabic, using exactly these section headers (each on its own line). No other text or explanations.
+  const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
+
+Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
 
 ## TITLE
-(one line: suggested video title in Arabic)
+(one line: suggested video title)
 
 ## OPENING_HOOK
-(one short paragraph: the first 10 seconds hook in Arabic)
+(one short paragraph: the first 10 seconds hook)
 
 ## BRANDED_HOOK_START
 ${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
 
 ## SCRIPT
-(Main script body in Arabic with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
+(Main script body with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
 
 ## BRANDED_HOOK_END
-${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}`
+${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
 
-  const userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script in Arabic:\n\n${articleContent.slice(0, 120000)}`
+## HASHTAGS
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
+
+  let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
+
+  if (brief.research) {
+    const researchParts = []
+    if (brief.research.briefAr || brief.research.brief) researchParts.push(brief.research.briefAr || brief.research.brief)
+    if (brief.research.competitionInsight) researchParts.push(`Competition Insight: ${brief.research.competitionInsight}`)
+    if (brief.research.keyFacts && Array.isArray(brief.research.keyFacts)) {
+      researchParts.push(`Key Facts:\n${brief.research.keyFacts.map(f => `- ${f}`).join('\n')}`)
+    }
+    if (researchParts.length) userMessage += `\n\n--- RESEARCH BRIEF ---\n${researchParts.join('\n\n')}`
+  }
+  if (brief.summary) userMessage += `\n\n--- SUMMARY ---\n${brief.summary}`
+  if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
 
   let fullScript = ''
   try {
@@ -74,6 +95,7 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
     hookStart: parsed.hookStart !== undefined ? parsed.hookStart : brief.hookStart,
     script: parsed.script || brief.script,
     hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
+    youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
     scriptDuration: durationMinutes,
     scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
   }
@@ -321,7 +343,19 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
 
-    const userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
+    let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
+
+    if (brief.research) {
+      const researchParts = []
+      if (brief.research.briefAr || brief.research.brief) researchParts.push(brief.research.briefAr || brief.research.brief)
+      if (brief.research.competitionInsight) researchParts.push(`Competition Insight: ${brief.research.competitionInsight}`)
+      if (brief.research.keyFacts && Array.isArray(brief.research.keyFacts)) {
+        researchParts.push(`Key Facts:\n${brief.research.keyFacts.map(f => `- ${f}`).join('\n')}`)
+      }
+      if (researchParts.length) userMessage += `\n\n--- RESEARCH BRIEF ---\n${researchParts.join('\n\n')}`
+    }
+    if (brief.summary) userMessage += `\n\n--- SUMMARY ---\n${brief.summary}`
+    if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
