@@ -487,7 +487,7 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
             })
             if (!fresh || DONE_STAGES.has(fresh.stage) || fresh.status === 'review') break
             item.currentStage = fresh.stage
-            await processItem(fresh)
+            await processItem(fresh, { force: true })
             const after = await db.article.findUnique({
               where: { id: item.id },
               select: { stage: true, status: true, error: true },

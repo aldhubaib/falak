@@ -56,10 +56,10 @@ async function pickItems(stage) {
   })
 }
 
-async function processItem(article) {
+async function processItem(article, { force = false } = {}) {
   const channel = article.source?.channel
   if (!channel) return
-  if (channel.status === 'paused') return
+  if (!force && channel.status === 'paused') return
 
   try {
     let out
