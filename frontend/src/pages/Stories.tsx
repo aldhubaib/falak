@@ -50,14 +50,14 @@ function getSourceBadge(sourceName: string | null): { label: string; color: stri
 }
 
 const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
-  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-orange",     sub: "awaiting triage · multi-source news" },
-  { key: "liked",      label: "Liked",          color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "saved for review" },
-  { key: "scripting",  label: "Scripting",      color: "text-blue",       pillClass: "bg-blue/15 text-blue",       sub: "editing script" },
-  { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-success", sub: "waiting for URL" },
-  { key: "publish",    label: "Publish",        color: "text-primary",   pillClass: "bg-primary/15 text-primary", sub: "final details needed" },
+  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-foreground",     sub: "awaiting triage · multi-source news" },
+  { key: "liked",      label: "Liked",          color: "text-blue",       pillClass: "bg-blue/15 text-foreground",       sub: "saved for review" },
+  { key: "scripting",  label: "Scripting",      color: "text-blue",       pillClass: "bg-blue/15 text-foreground",       sub: "editing script" },
+  { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-foreground", sub: "waiting for URL" },
+  { key: "publish",    label: "Publish",        color: "text-primary",   pillClass: "bg-primary/15 text-foreground", sub: "final details needed" },
   { key: "done",       label: "Done",           color: "text-foreground", pillClass: "bg-foreground/15 text-foreground", sub: "published all time" },
-  { key: "passed",     label: "Passed",         color: "text-dim",        pillClass: "bg-elevated text-dim border border-border", sub: "passed on" },
-  { key: "omit",       label: "Omitted",        color: "text-dim",        pillClass: "bg-elevated text-dim border border-border", sub: "insufficient data" },
+  { key: "passed",     label: "Passed",         color: "text-dim",        pillClass: "bg-elevated text-foreground border border-border", sub: "passed on" },
+  { key: "omit",       label: "Omitted",        color: "text-dim",        pillClass: "bg-elevated text-foreground border border-border", sub: "insufficient data" },
 ];
 
 function relativeTime(iso: string | null | undefined): string {
@@ -384,17 +384,17 @@ export default function Stories() {
                             </span>
                           )}
                           {isFirst && (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-success">
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-foreground">
                               1st
                             </span>
                           )}
                           {isLate && (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange">
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-foreground">
                               Late
                             </span>
                           )}
                           {story.origin === "manual" && (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-foreground border border-orange/20">
                               Manual
                             </span>
                           )}

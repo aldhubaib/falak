@@ -1228,8 +1228,8 @@ function ActiveArticleRow({
         <div className="flex items-center gap-2">
           {domain && <span>{domain}</span>}
           {article.language && (
-            <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${
-              article.language === "ar" ? "bg-success/15 text-success" : "bg-blue/15 text-blue"
+            <span className={`px-1 py-0.5 rounded text-[9px] font-bold text-foreground ${
+              article.language === "ar" ? "bg-success/15" : "bg-blue/15"
             }`}>{LANG_LABELS[article.language] || article.language}</span>
           )}
         </div>

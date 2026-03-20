@@ -27,12 +27,12 @@ export interface StoryDetailArticleProps {
 }
 
 const SOURCE_BADGE_COLORS: Record<string, string> = {
-  NewsAPI: "bg-emerald-500/15 text-emerald-400",
-  GNews: "bg-teal-500/15 text-teal-400",
-  Guardian: "bg-blue-500/15 text-blue-400",
-  "The Guardian": "bg-blue-500/15 text-blue-400",
-  NYT: "bg-orange-500/15 text-orange-400",
-  Firecrawl: "bg-zinc-500/15 text-zinc-400",
+  NewsAPI: "bg-emerald-500/15 text-foreground",
+  GNews: "bg-teal-500/15 text-foreground",
+  Guardian: "bg-blue-500/15 text-foreground",
+  "The Guardian": "bg-blue-500/15 text-foreground",
+  NYT: "bg-orange-500/15 text-foreground",
+  Firecrawl: "bg-zinc-500/15 text-foreground",
 };
 
 function parseSourceBadge(sourceName: string | null): { provider: string; outlet: string | null; colorClass: string } | null {
@@ -40,7 +40,7 @@ function parseSourceBadge(sourceName: string | null): { provider: string; outlet
   const parts = sourceName.split("/");
   const provider = parts[0].trim();
   const outlet = parts.length > 1 ? parts.slice(1).join("/").trim() : null;
-  return { provider, outlet, colorClass: SOURCE_BADGE_COLORS[provider] || "bg-zinc-500/15 text-zinc-400" };
+  return { provider, outlet, colorClass: SOURCE_BADGE_COLORS[provider] || "bg-zinc-500/15 text-foreground" };
 }
 
 export function StoryDetailArticle({

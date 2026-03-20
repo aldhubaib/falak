@@ -749,17 +749,17 @@ function StatusBadge({ status, label }: { status?: string; label?: string }) {
 
 function ProcessorBadge({ type }: { type: "ai" | "server" | "api" }) {
   if (type === "ai") return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple/10 text-purple text-[9px] font-mono font-bold uppercase">
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple/10 text-foreground text-[9px] font-mono font-bold uppercase">
       <Cpu className="w-2.5 h-2.5" />AI
     </span>
   );
   if (type === "api") return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue/10 text-blue text-[9px] font-mono font-bold uppercase">
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue/10 text-foreground text-[9px] font-mono font-bold uppercase">
       <Globe className="w-2.5 h-2.5" />API
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-dim/10 text-dim text-[9px] font-mono font-bold uppercase">
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-dim/10 text-foreground text-[9px] font-mono font-bold uppercase">
       <Server className="w-2.5 h-2.5" />Server
     </span>
   );

@@ -308,7 +308,14 @@
       "doc": "cards.md",
       "source": null,
       "components": {
-        "stat-row": { "tokens": ["--card", "--border", "--dim", "--foreground"], "label": "Stat row" }
+        "stat-row-pipeline": { "tokens": ["--card", "--border", "--dim", "--orange", "--blue", "--purple", "--success", "--destructive"], "label": "Pipeline stat row (colored)" },
+        "stat-import": { "tokens": ["--orange"], "label": "Import stage stat" },
+        "stat-transcribe": { "tokens": ["--blue"], "label": "Transcribe stage stat" },
+        "stat-comments": { "tokens": ["--purple"], "label": "Comments stage stat" },
+        "stat-analysis": { "tokens": ["--success"], "label": "AI Analysis stage stat" },
+        "stat-failed": { "tokens": ["--destructive"], "label": "Failed stat" },
+        "stat-row-articles": { "tokens": ["--card", "--border", "--dim", "--orange", "--blue", "--purple", "--success", "--destructive"], "label": "Article pipeline stat row" },
+        "stat-row": { "tokens": ["--card", "--border", "--dim", "--foreground"], "label": "Generic stat row" }
       }
     },
     {
@@ -604,12 +611,27 @@
       "doc": null,
       "source": null,
       "components": {
-        "kanban-imported":  { "tokens": ["--primary", "--card", "--border", "--foreground", "--dim"], "label": "Kanban column — Imported" },
-        "kanban-apify":     { "tokens": ["--orange", "--card", "--border"],                          "label": "Kanban column — Apify Content" },
-        "kanban-firecrawl": { "tokens": ["--blue", "--card", "--border"],                            "label": "Kanban column — Firecrawl" },
-        "kanban-htmlfetch": { "tokens": ["--blue", "--card", "--border"],                            "label": "Kanban column — HTML Fetch" },
-        "kanban-review":    { "tokens": ["--orange", "--card", "--border", "--destructive"],          "label": "Kanban column — Review" },
-        "kanban-failed":    { "tokens": ["--destructive", "--card", "--border"],                     "label": "Kanban column — Failed" }
+        "pipeline-controls": { "tokens": ["--border", "--background"], "label": "Pipeline controls bar" },
+        "pill-running":      { "tokens": ["--success"], "label": "Running status pill" },
+        "pill-paused":       { "tokens": ["--orange"], "label": "Paused status pill" },
+        "btn-resume":        { "tokens": ["--dim", "--border", "--sensor"], "label": "Resume/Pause button" },
+        "btn-retry-all":     { "tokens": ["--dim", "--border", "--sensor"], "label": "Retry all failed button" },
+        "btn-test":          { "tokens": ["--purple"], "label": "Test run button" },
+        "btn-fetch-sources": { "tokens": ["--dim", "--border", "--sensor"], "label": "Fetch sources button" },
+        "review-btn-skip":   { "tokens": ["--blue"], "label": "Review — Skip action" },
+        "review-btn-drop":   { "tokens": ["--destructive"], "label": "Review — Drop action" },
+        "review-btn-paste":  { "tokens": ["--purple"], "label": "Review — Paste action" },
+        "log-tag-ok":        { "tokens": ["--success"], "label": "Log tag — ok/created" },
+        "log-tag-classify":  { "tokens": ["--success"], "label": "Log tag — classify" },
+        "log-tag-review":    { "tokens": ["--orange"], "label": "Log tag — review" },
+        "log-tag-fail":      { "tokens": ["--destructive"], "label": "Log tag — failed" },
+        "log-tag-pending":   { "tokens": ["--dim"], "label": "Log tag — pending" },
+        "kanban-imported":   { "tokens": ["--primary", "--card", "--border", "--foreground", "--dim"], "label": "Kanban column — Imported" },
+        "kanban-apify":      { "tokens": ["--orange", "--card", "--border"],                          "label": "Kanban column — Apify Content" },
+        "kanban-firecrawl":  { "tokens": ["--blue", "--card", "--border"],                            "label": "Kanban column — Firecrawl" },
+        "kanban-htmlfetch":  { "tokens": ["--blue", "--card", "--border"],                            "label": "Kanban column — HTML Fetch" },
+        "kanban-review":     { "tokens": ["--orange", "--card", "--border", "--destructive"],          "label": "Kanban column — Review" },
+        "kanban-failed":     { "tokens": ["--destructive", "--card", "--border"],                     "label": "Kanban column — Failed" }
       }
     }
   ]

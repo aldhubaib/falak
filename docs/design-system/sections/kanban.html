@@ -1,5 +1,62 @@
+<!-- Pipeline controls bar -->
+<div class="pipeline-controls" data-cid="pipeline-controls">
+  <div class="pipeline-controls-left">
+    <span class="pipeline-pill pipeline-pill-running" data-cid="pill-running">
+      <span class="pipeline-pill-dot"></span>
+      Running · 24s
+    </span>
+    <span class="pipeline-pill pipeline-pill-paused" data-cid="pill-paused">
+      <span class="pipeline-pill-dot-paused"></span>
+      Paused
+    </span>
+    <button class="pipeline-ctrl-btn" data-cid="btn-resume">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Resume
+    </button>
+    <button class="pipeline-ctrl-btn" data-cid="btn-retry-all">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+      Retry all failed (7)
+    </button>
+  </div>
+  <div class="pipeline-controls-right">
+    <button class="pipeline-test-btn" data-cid="btn-test">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/></svg>
+      Test 1
+    </button>
+    <button class="pipeline-ctrl-btn" data-cid="btn-fetch-sources">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Fetch All Sources
+    </button>
+  </div>
+</div>
+
+<div class="section-note" style="margin-top: 16px;">Review action buttons — per-item actions in the Review column.</div>
+<div class="btn-row" style="margin-top: 8px;">
+  <button class="review-action-btn review-action-skip" data-cid="review-btn-skip">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+    Skip
+  </button>
+  <button class="review-action-btn review-action-drop" data-cid="review-btn-drop">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+    Drop
+  </button>
+  <button class="review-action-btn review-action-paste" data-cid="review-btn-paste">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+    Paste
+  </button>
+</div>
+
+<div class="section-note" style="margin-top: 24px;">Log breadcrumbs — colored tags per processing step on kanban items.</div>
+<div class="btn-row" style="margin-top: 8px; gap: 4px;">
+  <span class="log-tag log-tag-ok" data-cid="log-tag-ok">content_source</span>
+  <span class="log-tag log-tag-ok" data-cid="log-tag-classify">classify</span>
+  <span class="log-tag log-tag-review" data-cid="log-tag-review">review</span>
+  <span class="log-tag log-tag-fail" data-cid="log-tag-fail">failed</span>
+  <span class="log-tag log-tag-dim" data-cid="log-tag-pending">pending</span>
+</div>
+
 <!-- Section header -->
-<div class="kanban-section-header">
+<div class="kanban-section-header" style="margin-top: 32px;">
   <svg class="kanban-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
   <span class="kanban-section-title">Imported</span>
   <span class="kanban-section-sub">— Ingest from source. One action: get the article into the system.</span>
