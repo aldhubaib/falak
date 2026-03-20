@@ -1151,6 +1151,16 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
           </div>
         </ResultCard>
       )}
+
+      {(() => {
+        const brief = (article.analysis as Analysis | null)?.research?.brief;
+        if (!brief?.competitionInsight) return null;
+        return (
+          <ResultCard label="Competition Insight" icon={Target}>
+            <div className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{brief.competitionInsight}</div>
+          </ResultCard>
+        );
+      })()}
     </div>
   );
 }
@@ -1255,11 +1265,6 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
               </div>
             ))}
           </div>
-        </ResultCard>
-      )}
-      {brief?.competitionInsight && (
-        <ResultCard label="Competition Insight" icon={Target}>
-          <div className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{brief.competitionInsight}</div>
         </ResultCard>
       )}
       {brief?.sources && brief.sources.length > 0 && (
