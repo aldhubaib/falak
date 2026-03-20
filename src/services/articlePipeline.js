@@ -376,18 +376,18 @@ async function ingestApifySourceWithRunTracking(source, channel, { force = false
   let totalDupes = 0
   let lastImportedRunId = source.lastImportedRunId
 
+  const pendingRunRecords = []
+
   for (const run of sortedMissing) {
     if (!run.datasetId) {
-      await db.apifyRun.create({
-        data: {
-          sourceId,
-          runId: run.id,
-          datasetId: null,
-          startedAt: run.startedAt ? new Date(run.startedAt) : null,
-          finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
-          itemCount: 0,
-          status: 'skipped_empty',
-        },
+      pendingRunRecords.push({
+        sourceId,
+        runId: run.id,
+        datasetId: null,
+        startedAt: run.startedAt ? new Date(run.startedAt) : null,
+        finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
+        itemCount: 0,
+        status: 'skipped_empty',
       })
       continue
     }
@@ -396,16 +396,14 @@ async function ingestApifySourceWithRunTracking(source, channel, { force = false
     try {
       result = await fetchDatasetItemsByDatasetId(run.datasetId, apiKey, limit, source.language || 'en')
     } catch (e) {
-      await db.apifyRun.create({
-        data: {
-          sourceId,
-          runId: run.id,
-          datasetId: run.datasetId,
-          startedAt: run.startedAt ? new Date(run.startedAt) : null,
-          finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
-          itemCount: null,
-          status: 'failed',
-        },
+      pendingRunRecords.push({
+        sourceId,
+        runId: run.id,
+        datasetId: run.datasetId,
+        startedAt: run.startedAt ? new Date(run.startedAt) : null,
+        finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
+        itemCount: null,
+        status: 'failed',
       })
       logger.error({ sourceId, runId: run.id, error: e.message }, '[articlePipeline] Apify dataset fetch failed')
       continue
@@ -421,18 +419,20 @@ async function ingestApifySourceWithRunTracking(source, channel, { force = false
     totalDupes += dupes
 
     lastImportedRunId = run.id
-    await db.apifyRun.create({
-      data: {
-        sourceId,
-        runId: run.id,
-        datasetId: run.datasetId,
-        startedAt: run.startedAt ? new Date(run.startedAt) : null,
-        finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
-        itemCount: rawCount,
-        status: 'imported',
-        importedAt: new Date(),
-      },
+    pendingRunRecords.push({
+      sourceId,
+      runId: run.id,
+      datasetId: run.datasetId,
+      startedAt: run.startedAt ? new Date(run.startedAt) : null,
+      finishedAt: run.finishedAt ? new Date(run.finishedAt) : null,
+      itemCount: rawCount,
+      status: 'imported',
+      importedAt: new Date(),
     })
+  }
+
+  if (pendingRunRecords.length > 0) {
+    await db.apifyRun.createMany({ data: pendingRunRecords })
   }
 
   const logEntry = {

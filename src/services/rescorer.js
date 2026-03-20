@@ -50,6 +50,7 @@ async function rescoreActiveStories(channelId) {
   let changed = 0
   const alerts = []
   const logEntries = []
+  const storyUpdates = []
 
   for (const story of stories) {
     const result = await rescoreStory(story, profile, confidence, channelAvgMap, channelId)
@@ -57,6 +58,7 @@ async function rescoreActiveStories(channelId) {
 
     if (result.changed) {
       changed++
+      if (result.dbUpdate) storyUpdates.push(result.dbUpdate)
 
       const scoreDelta = result.after.compositeScore - result.before.compositeScore
       const direction = scoreDelta > 0 ? '↑' : '↓'
@@ -90,20 +92,23 @@ async function rescoreActiveStories(channelId) {
     }
   }
 
-  if (logEntries.length > 0) {
-    await db.storyLog.createMany({ data: logEntries })
-  }
-  if (alerts.length > 0) {
-    await db.alert.createMany({
-      data: alerts.map(a => ({
-        channelId,
-        storyId: a.storyId,
-        type: a.type,
-        title: a.title,
-        detail: a.detail || null,
-      })),
-      skipDuplicates: true,
-    })
+  if (storyUpdates.length > 0 || logEntries.length > 0 || alerts.length > 0) {
+    const ops = []
+    for (const u of storyUpdates) ops.push(db.story.update(u))
+    if (logEntries.length > 0) ops.push(db.storyLog.createMany({ data: logEntries }))
+    if (alerts.length > 0) {
+      ops.push(db.alert.createMany({
+        data: alerts.map(a => ({
+          channelId,
+          storyId: a.storyId,
+          type: a.type,
+          title: a.title,
+          detail: a.detail || null,
+        })),
+        skipDuplicates: true,
+      }))
+    }
+    await db.$transaction(ops)
   }
 
   logger.info({ channelId, evaluated, changed, alerts: alerts.length, confidence }, '[rescorer] re-scored active stories')
@@ -292,20 +297,22 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
     const existingLog = Array.isArray(story.rescoreLog) ? story.rescoreLog : []
     const updatedLog = [...existingLog.slice(-19), rescoreEntry] // keep last 20 entries
 
-    await db.story.update({
-      where: { id: story.id },
-      data: {
-        viralScore: correctedViral,
-        firstMoverScore: adjustedFirstMover,
-        compositeScore: newCompositeScore,
-        lastRescoredAt: new Date(),
-        rescoreLog: updatedLog,
-      },
-    })
   }
 
   return {
     changed: scoreChanged,
+    ...(scoreChanged ? {
+      dbUpdate: {
+        where: { id: story.id },
+        data: {
+          viralScore: correctedViral,
+          firstMoverScore: adjustedFirstMover,
+          compositeScore: newCompositeScore,
+          lastRescoredAt: new Date(),
+          rescoreLog: updatedLog,
+        },
+      },
+    } : {}),
     before,
     after,
     factors: {

@@ -532,7 +532,7 @@ function ManualStoryWorkflow({
             {(brief.youtubeTags || []).map((tag, i) => (
               <span
                 key={i}
-                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-full bg-surface border border-border text-sensor"
+                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-full bg-card border border-border text-sensor"
               >
                 #{tag}
                 {!isDone && (
@@ -883,9 +883,9 @@ export default function StoryDetail() {
 
   // Load all stories for prev/next navigation, grouped by stage then newest-first within each stage
   useEffect(() => {
-    if (!channelId || !story) return;
+    if (!channelId) return;
     let cancelled = false;
-    fetch(`/api/stories?channelId=${channelId}`, { credentials: "include" })
+    fetch(`/api/stories?channelId=${channelId}&slim=true`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then((list: { id: string; stage: string; createdAt: string }[]) => {
         if (cancelled) return;
@@ -903,7 +903,7 @@ export default function StoryDetail() {
         if (!cancelled) setStageStories([]);
       });
     return () => { cancelled = true; };
-  }, [channelId, story?.id]);
+  }, [channelId]);
 
   // Original Story: always expanded by default on page load
   useEffect(() => {
@@ -1498,10 +1498,10 @@ export default function StoryDetail() {
                         type="url"
                         value={youtubeInput}
                         onChange={() => {}}
-                        className="w-full px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
                       />
                     ) : (
-                      <div className="rounded-xl bg-surface px-4 py-2.5 text-[13px] font-mono text-sensor truncate">
+                      <div className="rounded-xl bg-card px-4 py-2.5 text-[13px] font-mono text-sensor truncate">
                         {brief.youtubeUrl}
                       </div>
                     )}

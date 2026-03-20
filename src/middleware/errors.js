@@ -58,16 +58,17 @@ function getErrorCode(err) {
 
 function errorHandler(err, req, res, next) {
   if (!err) return next()
+  const config = require('../config')
+  const logger = require('../lib/logger')
   const statusCode = getStatusCode(err)
   const code = getErrorCode(err)
-  const message = err.code === 'P2025' ? 'Record not found' : (err.message || 'An error occurred')
+  const rawMessage = err.code === 'P2025' ? 'Record not found' : (err.message || 'An error occurred')
+  const message = statusCode >= 500 && config.NODE_ENV === 'production' ? 'An internal error occurred' : rawMessage
   const payload = { error: { code, message } }
   if (err.details && statusCode === 400) payload.error.details = err.details
 
-  const config = require('../config')
-  const logger = require('../lib/logger')
-  if (config.NODE_ENV !== 'production' && statusCode >= 500) {
-    logger.error({ err, requestId: req.id, method: req.method, path: req.path, statusCode }, message)
+  if (statusCode >= 500) {
+    logger.error({ err, requestId: req.id, method: req.method, path: req.path, statusCode }, rawMessage)
   }
 
   res.status(statusCode).json(payload)

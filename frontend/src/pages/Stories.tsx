@@ -119,7 +119,7 @@ export default function Stories() {
     if (!channelId) return;
     try {
       const [storiesRes, summaryRes] = await Promise.all([
-        fetch(`/api/stories?channelId=${channelId}`, { credentials: "include" }),
+        fetch(`/api/stories?channelId=${channelId}&slim=true`, { credentials: "include" }),
         fetch(`/api/stories/summary?channelId=${channelId}`, { credentials: "include" }),
       ]);
       if (storiesRes.ok) setStories(await storiesRes.json());

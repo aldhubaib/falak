@@ -100,15 +100,19 @@ router.get('/', async (req, res) => {
     if (channelId) where.channelId = channelId
     if (stage)     where.stage = stage
 
+    const slim = req.query.slim === 'true'
+    const selectFields = {
+      id: true, headline: true, stage: true, compositeScore: true,
+      relevanceScore: true, viralScore: true, firstMoverScore: true,
+      coverageStatus: true, sourceName: true, sourceDate: true,
+      sourceUrl: true, createdAt: true, updatedAt: true,
+      channelId: true, origin: true,
+    }
+    if (!slim) selectFields.brief = true
+
     const stories = await db.story.findMany({
       where,
-      select: {
-        id: true, headline: true, stage: true, compositeScore: true,
-        relevanceScore: true, viralScore: true, firstMoverScore: true,
-        coverageStatus: true, sourceName: true, sourceDate: true,
-        sourceUrl: true, createdAt: true, updatedAt: true,
-        channelId: true, brief: true,
-      },
+      select: selectFields,
       orderBy: [
         { compositeScore: 'desc' },
         { createdAt: 'desc' }
@@ -815,7 +819,7 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
 
     const story = await db.story.update({ where: { id: req.params.id }, data })
 
-    if (req.body.stage) {
+    if (req.body.stage && typeof req.body.stage === 'string') {
       const stageLabel = req.body.stage.charAt(0).toUpperCase() + req.body.stage.slice(1)
       await addLog(story.id, req.user.id, 'stage_change', `Status changed to ${stageLabel}`)
 

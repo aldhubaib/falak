@@ -141,7 +141,7 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
 
     const data = {}
     const nextType = req.body.type || existing.type
-    if (req.body.label !== undefined) data.label = req.body.label.trim()
+    if (req.body.label !== undefined) data.label = String(req.body.label || '').trim()
     if (req.body.isActive !== undefined) data.isActive = !!req.body.isActive
     if (req.body.language !== undefined) data.language = req.body.language
     if (req.body.image !== undefined) {

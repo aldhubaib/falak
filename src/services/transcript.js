@@ -102,7 +102,8 @@ async function fetchFromYoutubeTranscriptIo(videoId, apiToken) {
     if (retryAfterMs) err.retryAfterMs = retryAfterMs
     throw err
   }
-  const data = await res.json()
+  let data
+  try { data = await res.json() } catch { return null }
   const list = Array.isArray(data) ? data : (data.transcripts || data.data || [])
   const one = list.find(t => (t.id || t.video_id) === videoId) || list[0]
   if (!one) return null

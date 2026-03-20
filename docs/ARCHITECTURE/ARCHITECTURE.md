@@ -1715,4 +1715,58 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 
 ---
 
+## Section 17 — Second-Pass Hardening (2026-03-20, Iteration 7)
+
+### Crash Fixes
+
+#### `articleSources.js` — `label.trim()` on null
+- **Problem**: `PATCH /api/article-sources/:id` with `{ "label": null }` crashed with `TypeError: null.trim()`.
+- **Fix**: Changed to `String(req.body.label || '').trim()`.
+
+#### `stories.js` — `stage.charAt(0)` on non-string
+- **Problem**: `PATCH /api/stories/:id` with non-string `stage` (e.g. number) crashed with TypeError on `.charAt(0)`.
+- **Fix**: Added `typeof req.body.stage === 'string'` guard.
+
+#### `transcript.js` — Unguarded `res.json()`
+- **Problem**: If youtube-transcript.io returns non-JSON (HTML error page), `res.json()` throws unhandled rejection in the worker.
+- **Fix**: Wrapped in try/catch, returns `null` on parse failure.
+
+### Security Hardening
+
+#### Error Message Leakage
+- **Problem**: Error handler sent raw `err.message` for 500 errors, potentially exposing DB schema, Prisma internals, or external API details.
+- **Fix**: In production, 500 errors now return generic `"An internal error occurred"`. Full message still logged server-side.
+
+#### SSRF Protection
+- **Problem**: `fetchArticleText` in `articleFetcher.js` fetched any user-supplied URL without blocking private IP ranges. An attacker could use `POST /api/stories/:id/fetch-article` with `sourceUrl: "http://169.254.169.254/..."` to access internal services.
+- **Fix**: Added `isSafeUrl()` function that resolves the hostname via DNS, checks against private/reserved IP ranges (10.x, 172.16-31.x, 192.168.x, 127.x, 169.254.x, localhost), and blocks the request before fetching.
+
+#### R2 Signed URL — Tightened
+- Existing `requireRole` + path prefix validation from Iteration 6 confirmed working.
+
+### N+1 Query Elimination (continued)
+
+#### `rescorer.js` — Story Updates (10-100+ items)
+- **Before**: `db.story.update` called inside the loop for each changed story, then `storyLog.createMany` and `alert.createMany` separately.
+- **After**: `rescoreStory` returns `dbUpdate` descriptor instead of writing directly. All story updates, log creates, and alert creates are batched in a single `db.$transaction`.
+
+#### `articlePipeline.js` — ApifyRun Records (1-20 items)
+- **Before**: `db.apifyRun.create` called 1-3 times per run inside the loop.
+- **After**: All run records collected in `pendingRunRecords` array, then `db.apifyRun.createMany` at the end.
+
+### Stories Page Performance (continued)
+
+#### Backend — Slim Mode for List Endpoint
+- **Problem**: `brief` field (containing article content, scripts, transcripts — up to 100KB per story) was always included in list responses. For 500 stories, this produced multi-MB payloads.
+- **Fix**: Added `?slim=true` query parameter. When set, `brief` is excluded from the select. Stories.tsx and StoryDetail.tsx now use `slim=true`. PublishQueue.tsx continues to get full `brief` (it needs `videoFileName`, `videoFileSize`, etc.).
+
+#### Frontend — `origin` field for Manual badge
+- Added `origin` to the select fields so the "Manual" badge still renders correctly without `brief`.
+
+#### StoryDetail — Eliminated Nav Fetch Waterfall
+- **Before**: The prev/next navigation list was fetched only after the story loaded (`[channelId, story?.id]` dependency). This created a waterfall: story fetch → nav list fetch.
+- **After**: Nav list fetch starts immediately when `channelId` is available (`[channelId]` dependency), running in parallel with the story fetch.
+
+---
+
 *Last updated: 2026-03-20*
