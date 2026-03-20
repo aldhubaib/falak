@@ -428,7 +428,7 @@ export function VideoUpload({
       className={`
         rounded-xl overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-background
         ${dragOver
-          ? "border-blue shadow-[inset_0_0_20px_rgba(56,132,244,0.05)]"
+          ? "border-blue shadow-[inset_0_0_20px_hsl(var(--blue)/0.05)]"
           : "border-dashed border-border hover:border-blue/30"
         }
       `}

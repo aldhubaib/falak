@@ -3,7 +3,7 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ArrowUpRight,
-  Search, Eye,
+  Search, Eye, Loader2,
 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { fmtDateTime } from "@/lib/utils";
@@ -312,7 +312,7 @@ function PipelineTab() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <>
@@ -466,7 +466,7 @@ function MonitorTab() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <>

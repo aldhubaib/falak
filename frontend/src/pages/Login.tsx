@@ -116,9 +116,9 @@ export default function Login() {
       <div className="hidden lg:block w-1/3 relative overflow-hidden">
         {/* Gradient overlays */}
         <div className="absolute inset-0 bg-sidebar/20 z-10 pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#070707] to-transparent z-20 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#070707] to-transparent z-20 pointer-events-none" />
-        <div className="absolute top-0 right-0 bottom-0 w-16 bg-gradient-to-l from-[#070707] to-transparent z-20 pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-background to-transparent z-20 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent z-20 pointer-events-none" />
+        <div className="absolute top-0 right-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-20 pointer-events-none" />
 
         <div className="flex gap-3 p-3 h-full">
           {[col1, col2].map((col, colIdx) => (

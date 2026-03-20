@@ -50,13 +50,61 @@
 
 ---
 
+### ✅ `from-[#070707]` — Login gradient stops
+
+**Fixed:** Replaced with `from-background` in Login.tsx (3 instances).
+
+---
+
+### ✅ `bg-[#1e1e2e]` — Script editor floating toolbar
+
+**Fixed:** Replaced with `bg-card` in ScriptEditorTiptap.tsx.
+
+---
+
+### ✅ `ring-[#FFFF00]` — Competition live dot
+
+**Fixed:** Replaced with `ring-orange` in Competitions.tsx.
+
+---
+
+### ✅ `#22c55e` / `#ef4444` — Chart SVG colors
+
+**Fixed:** Replaced with `hsl(var(--success))` and `hsl(var(--destructive))` in ProfileHome.tsx.
+
+---
+
+### ✅ `#1e51e9` — ProfilePicker fallback color & palette
+
+**Fixed:** Default avatar fallback uses `hsl(var(--primary))`. Palette array uses DLS tokens (primary, success, orange, destructive, purple). ProfilePicker.tsx.
+
+---
+
+### ✅ `rgba()` in shadows — MediaGrid, VideoUpload
+
+**Fixed:** Replaced `rgba(...)` with `hsl(...)` in MediaGrid.tsx (3 instances) and VideoUpload.tsx (1 instance).
+
+---
+
 ### ➖ `text-[#00d68a]` — Apify brand color
 
 **Kept as-is.** Third-party brand color, only used in Source.tsx.
 
 ---
 
-### ✅ `focus:border-[#2a2a2e]` — Input focus border
+### ➖ Google brand colors in Login.tsx
+
+**Kept as-is.** `#4285F4`, `#34A853`, `#FBBC05`, `#EA4335` are official Google brand colors.
+
+---
+
+### ➖ `fill='%23666'` — SVG data URL placeholders
+
+**Kept as-is.** CSS variables can't be used in data URLs. Value `#666` is close to `--dim` (40% lightness). Used in ProfileHome, ChannelDetail, Competitions.
+
+---
+
+### ➖ `focus:border-[#2a2a2e]` — Input focus border
 
 **Fixed:** Replaced with `focus:border-border` in Competitions.tsx.
 
@@ -104,34 +152,39 @@ Low priority. Third-party element selectors in chart.tsx.
 
 ---
 
-## 6. Loading Spinner Inconsistency
+## 6. ✅ Loading Spinner Inconsistency
 
-Two spinner approaches exist:
-- CSS spinner (`border-2 border-sensor border-t-transparent rounded-full animate-spin`)
-- Lucide `Loader2` (`animate-spin text-dim`)
+**Fixed:** All 18 CSS border spinners replaced with `<Loader2 className="w-SIZE h-SIZE animate-spin text-muted-foreground" />` across 17 files. The codebase now consistently uses Lucide `Loader2` for all loading indicators.
 
-⏳ **Gradual migration.** Standardize on `Loader2` for new code. Existing CSS spinners can be migrated over time.
+Files migrated: App.tsx, ChannelLayout.tsx, StoryDetailArticle.tsx, StoryDetailScriptSection.tsx, AlbumDetail.tsx, ArticleDetail.tsx, ArticlePipeline.tsx, ChannelDetail.tsx, Gallery.tsx, Monitor.tsx, Pipeline.tsx (2), ProfileHome.tsx, ProfilePicker.tsx, PublishQueue.tsx, Stories.tsx, VectorIntelligence.tsx, VideoDetail.tsx.
 
 ---
 
-## 7. Empty State Inconsistency
+## 7. ✅ Empty State Inconsistency
 
-Different heights, font sizes, and approaches across pages.
+**Fixed:** Created shared `EmptyState` component at `components/ui/empty-state.tsx` with consistent styling:
 
-⏳ **Gradual migration.** Create a shared `EmptyState` component for new features. Existing empty states can be migrated over time.
+```tsx
+<EmptyState icon={IconName} title="..." description="..." className="..." />
+```
+
+Migrated 20+ empty states across 14 files: MediaGrid, AlbumDetail, Gallery, Competitions, Stories, Monitor, Source, PublishQueue, VideoDetail, StoryDetail, VectorIntelligence, ArticleDetail, Settings, ProfileHome.
+
+Remaining empty states in Pipeline.tsx and ArticlePipeline.tsx use specialized Kanban empty patterns and are acceptable as-is.
 
 ---
 
-## 8. Confirmation Dialog Inconsistency
+## 8. ✅ Confirmation Dialog Inconsistency
 
-| Approach | Files |
-|----------|-------|
-| `AlertDialog` (correct) | StoryDetailTopBar |
-| `Dialog` (for delete) | ProfilePicker, AppSidebar |
-| Custom modal overlay | DeleteChannelModal |
-| `window.confirm()` | Source, ChannelRightPanel |
+**Fixed:** All destructive confirmations now use `AlertDialog`:
 
-⏳ **Gradual migration.** Use `AlertDialog` for all destructive confirmations in new code. Replace `window.confirm()` calls over time.
+| Before | After | File |
+|--------|-------|------|
+| `window.confirm()` | AlertDialog | Source.tsx |
+| `window.confirm()` | AlertDialog | ChannelRightPanel.tsx |
+| `Dialog` for delete | AlertDialog | ProfilePicker.tsx |
+| Custom modal overlay | AlertDialog | DeleteChannelModal.tsx |
+| Direct delete (no confirm) | AlertDialog confirmation | MediaViewer.tsx |
 
 ---
 
@@ -167,12 +220,12 @@ Pages use bare divs with consistent card-like styling. Fine as-is. Adopt `Card` 
 
 | Priority | Issue | Status |
 |----------|-------|--------|
-| **High** | Hardcoded colors | ✅ Fixed |
+| **High** | Hardcoded colors | ✅ Fixed (17 new + 7 prior) |
 | **High** | Page title sizes | ✅ Fixed |
+| **Medium** | Loading spinner approach | ✅ Fixed (18 spinners → Loader2) |
+| **Medium** | Empty state approach | ✅ Fixed (EmptyState component, 20+ migrated) |
+| **Medium** | Confirmation dialog approach | ✅ Fixed (5 patterns → AlertDialog) |
 | **Medium** | Page padding | ✅ Fixed |
-| **Medium** | Loading spinner approach | ⏳ Gradual |
-| **Medium** | Empty state approach | ⏳ Gradual |
-| **Medium** | Confirmation dialog approach | ⏳ Gradual |
 | **Medium** | Dialog border-radius mismatch | ✅ Fixed |
 | **Low** | Separator colors | ✅ Fixed |
 | **Low** | Form state (react-hook-form) | ⏳ Gradual |
