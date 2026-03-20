@@ -261,9 +261,9 @@ export default function DesignSystem() {
           <div className="rounded-xl border border-border overflow-hidden">
             <PageError
               title="Something went wrong"
-              message="Failed to load channel data. The server returned a 502 error."
-              onRetry={NOOP}
-              showHome
+              message="Failed to load channel data. Check your connection and try again."
+              detail="Error: ECONNREFUSED 127.0.0.1:5432"
+              showHome={false}
             />
           </div>
         </IsolationBoundary>
