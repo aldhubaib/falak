@@ -253,7 +253,7 @@ export function VideoUpload({
   // ── Failed ────────────────────────────────────────────────────
   if (isFailed && task) {
     return (
-      <div className="rounded-xl overflow-hidden border border-red-500/20 flex max-md:flex-col bg-background">
+      <div className="rounded-xl overflow-hidden border border-destructive/20 flex max-md:flex-col bg-background">
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           <div className={`w-full ${thumbAspect} rounded-xl bg-red-500/5 flex items-center justify-center`}>
             <div className="flex flex-col items-center gap-2">

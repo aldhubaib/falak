@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Falak DLS — Token Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0b; color: #ededed;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; }
+
+  .top-bar {
+    position: sticky; top: 0; z-index: 100;
+    background: #0a0a0b; border-bottom: 1px solid #1a1a1c;
+    padding: 14px 32px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .top-bar-title { font-size: 14px; font-weight: 600; letter-spacing: -0.3px; }
+  .top-bar-path { font-size: 11px; color: #666; font-family: 'JetBrains Mono', monospace; }
+
+  .page { max-width: 960px; margin: 0 auto; padding: 48px 32px 120px; }
+
+  .section { margin-bottom: 56px; }
+  .section-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #666; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid #1a1a1c;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .token-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 12px; border-radius: 6px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .token-row:hover { background: #111113; }
+  .token-row.copied { background: #0d2818; }
+
+  .swatch {
+    width: 40px; height: 40px; border-radius: 6px; flex-shrink: 0;
+    border: 1px solid #1a1a1c;
+  }
+
+  .token-info { flex: 1; min-width: 0; }
+  .token-id {
+    font-size: 12px; font-weight: 500;
+    font-family: 'JetBrains Mono', monospace; color: #ededed;
+  }
+  .token-value {
+    font-size: 11px; color: #555;
+    font-family: 'JetBrains Mono', monospace; margin-top: 2px;
+  }
+  .token-ref {
+    font-size: 10px; color: #4a7dff; margin-left: 8px;
+  }
+
+  .radius-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 12px; border-radius: 6px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .radius-row:hover { background: #111113; }
+  .radius-row.copied { background: #0d2818; }
+  .radius-demo {
+    width: 40px; height: 40px; flex-shrink: 0;
+    background: #4a7dff; display: flex; align-items: center; justify-content: center;
+  }
+  .radius-info { flex: 1; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .radius-id { font-size: 12px; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+  .radius-dim { font-size: 11px; color: #555; font-family: 'JetBrains Mono', monospace; }
+  .radius-tw { font-size: 11px; color: #4a7dff; font-family: 'JetBrains Mono', monospace; }
+  .radius-usage { font-size: 11px; color: #444; margin-left: auto; }
+
+  .type-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 12px; border-radius: 6px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .type-row:hover { background: #111113; }
+  .type-row.copied { background: #0d2818; }
+  .type-sample { flex-shrink: 0; width: 200px; color: #ededed; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .type-info { flex: 1; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .type-id { font-size: 12px; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+  .type-dim { font-size: 11px; color: #555; font-family: 'JetBrains Mono', monospace; }
+  .type-usage { font-size: 11px; color: #444; margin-left: auto; }
+
+  .copy-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1a1a1c; color: #ededed; padding: 8px 20px; border-radius: 8px;
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 200;
+  }
+  .copy-toast.visible { opacity: 1; }
+</style>
+</head>
+<body>
+<script>
+// ====== TOKEN DATA — auto-updated by Cursor rule ======
+const TOKENS = {
+  colors: {
+    surface: [
+      { id: '--background', value: '240 4% 6%', hsl: 'hsl(240,4%,6%)' },
+      { id: '--foreground', value: '0 0% 93%', hsl: 'hsl(0,0%,93%)' },
+      { id: '--card', value: '240 4% 6%', hsl: 'hsl(240,4%,6%)' },
+      { id: '--popover', value: '0 0% 7%', hsl: 'hsl(0,0%,7%)' },
+      { id: '--secondary', value: '0 0% 10%', hsl: 'hsl(0,0%,10%)' },
+      { id: '--muted', value: '0 0% 10%', hsl: 'hsl(0,0%,10%)' },
+      { id: '--accent', value: '0 0% 10%', hsl: 'hsl(0,0%,10%)' },
+      { id: '--elevated', value: '0 0% 13%', hsl: 'hsl(0,0%,13%)' },
+      { id: '--row-hover', value: '0 0% 5%', hsl: 'hsl(0,0%,5%)' },
+      { id: '--dim', value: '0 0% 40%', hsl: 'hsl(0,0%,40%)' },
+      { id: '--sensor', value: '0 0% 60%', hsl: 'hsl(0,0%,60%)' },
+      { id: '--muted-foreground', value: '0 0% 45%', hsl: 'hsl(0,0%,45%)' },
+    ],
+    status: [
+      { id: '--primary', value: '217 72% 56%', hsl: 'hsl(217,72%,56%)' },
+      { id: '--destructive', value: '0 72% 51%', hsl: 'hsl(0,72%,51%)' },
+      { id: '--success', value: '142 50% 45%', hsl: 'hsl(142,50%,45%)' },
+      { id: '--blue', value: '217 72% 56%', hsl: 'hsl(217,72%,56%)' },
+      { id: '--purple', value: '258 60% 59%', hsl: 'hsl(258,60%,59%)' },
+      { id: '--orange', value: '25 90% 55%', hsl: 'hsl(25,90%,55%)' },
+    ],
+    border: [
+      { id: '--border', value: '228 8% 9%', hsl: 'hsl(228,8%,9%)' },
+      { id: '--page-border', value: '231 8% 9%', hsl: 'hsl(231,8%,9%)' },
+      { id: '--input', value: '0 0% 13%', hsl: 'hsl(0,0%,13%)' },
+      { id: '--ring', value: '217 72% 56%', hsl: 'hsl(217,72%,56%)' },
+    ],
+    sidebar: [
+      { id: '--sidebar-background', value: '0 0% 4%', hsl: 'hsl(0,0%,4%)' },
+      { id: '--sidebar-foreground', value: '0 0% 45%', hsl: 'hsl(0,0%,45%)' },
+      { id: '--sidebar-primary', value: '258 60% 59%', hsl: 'hsl(258,60%,59%)' },
+      { id: '--sidebar-border', value: '0 0% 12%', hsl: 'hsl(0,0%,12%)' },
+    ],
+    script: [
+      { id: '--script-block-title', ref: '--orange', hsl: 'hsl(25,90%,55%)' },
+      { id: '--script-block-hook', ref: '--destructive', hsl: 'hsl(0,72%,51%)' },
+      { id: '--script-block-hookStart', ref: '--purple', hsl: 'hsl(258,60%,59%)' },
+      { id: '--script-block-script', ref: '--blue', hsl: 'hsl(217,72%,56%)' },
+      { id: '--script-block-hookEnd', ref: '--purple', hsl: 'hsl(258,60%,59%)' },
+      { id: '--script-block-hashtags', ref: '--success', hsl: 'hsl(142,50%,45%)' },
+    ],
+  },
+  radius: [
+    { id: '--radius-sm', rem: '0.125rem', px: '2px', tw: 'rounded-sm', usage: 'Logo dot, accents' },
+    { id: '--radius-md', rem: '0.375rem', px: '6px', tw: 'rounded-md', usage: 'Inputs, small buttons' },
+    { id: '--radius-lg', rem: '0.5rem', px: '8px', tw: 'rounded-lg', usage: 'Form fields, inner cards' },
+    { id: '--radius-xl', rem: '0.75rem', px: '12px', tw: 'rounded-xl', usage: 'Section cards, panels ×160' },
+    { id: '--radius-2xl', rem: '1rem', px: '16px', tw: 'rounded-2xl', usage: 'Login card, profile picker' },
+    { id: '--radius-full', rem: '9999px', px: 'pill', tw: 'rounded-full', usage: 'Avatars, badges, pills ×280' },
+  ],
+  typography: [
+    { id: '--text-2xs', rem: '0.5625rem', px: '9px', usage: 'Metadata labels, chart axis, progress' },
+    { id: '--text-xs', rem: '0.625rem', px: '10px', usage: 'Section labels, stat counters' },
+    { id: '--text-sm', rem: '0.6875rem', px: '11px', usage: 'Sub-text, channel names, body content' },
+    { id: '--text-base', rem: '0.75rem', px: '12px', usage: 'Body paragraphs, table cells' },
+    { id: '--text-md', rem: '0.8125rem', px: '13px', usage: 'Section headings, nav items, primary body' },
+    { id: '--text-lg', rem: '0.875rem', px: '14px', usage: 'Form inputs, page sub-headings' },
+    { id: '--text-xl', rem: '0.9375rem', px: '15px', usage: 'Dialog titles, h2 headings' },
+    { id: '--text-2xl', rem: '1.125rem', px: '18px', usage: 'Avatar fallback initials' },
+    { id: '--text-3xl', rem: '1.375rem', px: '22px', usage: 'Page headings' },
+  ],
+};
+// ====== END TOKEN DATA ======
+
+var toastTimer;
+function copyToken(id) {
+  navigator.clipboard.writeText(id);
+  var toast = document.getElementById('toast');
+  toast.textContent = 'Copied: ' + id;
+  toast.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { toast.classList.remove('visible'); }, 1200);
+}
+
+function flashRow(el) {
+  el.classList.add('copied');
+  setTimeout(function() { el.classList.remove('copied'); }, 600);
+}
+
+function renderColors(containerId, tokens) {
+  var c = document.getElementById(containerId);
+  tokens.forEach(function(t) {
+    var row = document.createElement('div');
+    row.className = 'token-row';
+    row.onclick = function() { copyToken(t.id); flashRow(row); };
+
+    var swatch = document.createElement('div');
+    swatch.className = 'swatch';
+    swatch.style.background = t.hsl;
+
+    var info = document.createElement('div');
+    info.className = 'token-info';
+
+    var idEl = document.createElement('div');
+    idEl.className = 'token-id';
+    idEl.textContent = t.id;
+    if (t.ref) {
+      var refSpan = document.createElement('span');
+      refSpan.className = 'token-ref';
+      refSpan.textContent = '→ ' + t.ref;
+      idEl.appendChild(refSpan);
+    }
+
+    var valEl = document.createElement('div');
+    valEl.className = 'token-value';
+    valEl.textContent = t.value ? t.value + '  ·  ' + t.hsl : t.hsl;
+
+    info.appendChild(idEl);
+    info.appendChild(valEl);
+    row.appendChild(swatch);
+    row.appendChild(info);
+    c.appendChild(row);
+  });
+}
+
+function renderRadius(containerId) {
+  var c = document.getElementById(containerId);
+  TOKENS.radius.forEach(function(t) {
+    var row = document.createElement('div');
+    row.className = 'radius-row';
+    row.onclick = function() { copyToken(t.id); flashRow(row); };
+
+    var demo = document.createElement('div');
+    demo.className = 'radius-demo';
+    demo.style.borderRadius = t.rem;
+
+    var info = document.createElement('div');
+    info.className = 'radius-info';
+    info.innerHTML =
+      '<span class="radius-id">' + t.id + '</span>' +
+      '<span class="radius-dim">' + t.rem + ' · ' + t.px + '</span>' +
+      '<span class="radius-tw">' + t.tw + '</span>' +
+      '<span class="radius-usage">' + t.usage + '</span>';
+
+    row.appendChild(demo);
+    row.appendChild(info);
+    c.appendChild(row);
+  });
+}
+
+function renderTypography(containerId) {
+  var c = document.getElementById(containerId);
+  TOKENS.typography.forEach(function(t) {
+    var row = document.createElement('div');
+    row.className = 'type-row';
+    row.onclick = function() { copyToken(t.id); flashRow(row); };
+
+    var sample = document.createElement('div');
+    sample.className = 'type-sample';
+    sample.style.fontSize = t.rem;
+    sample.textContent = 'The quick brown fox — ' + t.px;
+
+    var info = document.createElement('div');
+    info.className = 'type-info';
+    info.innerHTML =
+      '<span class="type-id">' + t.id + '</span>' +
+      '<span class="type-dim">' + t.rem + ' · ' + t.px + '</span>' +
+      '<span class="type-usage">' + t.usage + '</span>';
+
+    row.appendChild(sample);
+    row.appendChild(info);
+    c.appendChild(row);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderColors('surface-colors', TOKENS.colors.surface);
+  renderColors('status-colors', TOKENS.colors.status);
+  renderColors('border-colors', TOKENS.colors.border);
+  renderColors('sidebar-colors', TOKENS.colors.sidebar);
+  renderColors('script-colors', TOKENS.colors.script);
+  renderRadius('radius-tokens');
+  renderTypography('type-tokens');
+});
+</script>
+
+<div class="top-bar">
+  <div class="top-bar-title">Falak DLS — Token Preview</div>
+  <div class="top-bar-path">docs/Design/preview.html</div>
+</div>
+
+<div class="page">
+  <div class="section">
+    <div class="section-title">Surface Colors</div>
+    <div id="surface-colors"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Status Colors</div>
+    <div id="status-colors"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Border &amp; Form</div>
+    <div id="border-colors"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Sidebar</div>
+    <div id="sidebar-colors"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Script Blocks</div>
+    <div id="script-colors"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Radius Scale</div>
+    <div id="radius-tokens"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Typography Scale</div>
+    <div id="type-tokens"></div>
+  </div>
+</div>
+
+<div class="copy-toast" id="toast"></div>
+</body>
+</html>

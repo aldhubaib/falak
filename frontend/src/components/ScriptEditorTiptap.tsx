@@ -165,7 +165,7 @@ function FloatingToolbar({ editor }: { editor: Editor }) {
   return (
     <div
       ref={ref}
-      className="fixed z-50 flex items-center gap-0.5 bg-card border border-white/10 rounded-lg px-1 py-0.5 shadow-xl"
+      className="fixed z-50 flex items-center gap-0.5 bg-card border border-border rounded-lg px-1 py-0.5 shadow-xl"
       style={{ top: pos.top, left: pos.left, transform: "translateX(-50%)" }}
       onMouseDown={(e) => e.preventDefault()}
     >

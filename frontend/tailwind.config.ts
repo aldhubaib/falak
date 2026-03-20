@@ -17,6 +17,17 @@ export default {
         sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
+      fontSize: {
+        '2xs':  'var(--text-2xs)',
+        'xs':   'var(--text-xs)',
+        'sm':   'var(--text-sm)',
+        'base': 'var(--text-base)',
+        'md':   'var(--text-md)',
+        'lg':   'var(--text-lg)',
+        'xl':   'var(--text-xl)',
+        '2xl':  'var(--text-2xl)',
+        '3xl':  'var(--text-3xl)',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -84,9 +95,12 @@ export default {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm:   "var(--radius-sm)",
+        md:   "var(--radius-md)",
+        lg:   "var(--radius-lg)",
+        xl:   "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
+        full: "var(--radius-full)",
       },
       keyframes: {
         "accordion-down": {

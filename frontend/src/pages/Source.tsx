@@ -361,7 +361,7 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
 
       {(fetching || result || error) && (
         <div className="px-3 pb-2 -mt-0.5">
-          <div className={`rounded-lg px-3 py-2 text-[11px] font-mono ${error ? "bg-red-500/5 border border-red-500/20" : result ? "bg-emerald-500/5 border border-emerald-500/20" : "bg-blue/5 border border-blue/20"}`}>
+          <div className={`rounded-lg px-3 py-2 text-[11px] font-mono ${error ? "bg-destructive/5 border border-destructive/20" : result ? "bg-success/5 border border-success/20" : "bg-blue/5 border border-blue/20"}`}>
             {fetching && (
               <div className="flex items-center gap-2 text-blue">
                 <Loader2 className="w-3 h-3 animate-spin shrink-0" />
