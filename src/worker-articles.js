@@ -1,6 +1,6 @@
 /**
  * Article pipeline worker: polls for queued articles and processes them through stages.
- * Stages: imported → content → classify → research → translated → score → done
+ * Stages: imported → content → classify → research → translated → script → score → done
  *
  * Mirrors the video pipeline worker pattern (worker.js).
  */
@@ -13,6 +13,7 @@ const {
   doStageClassify,
   doStageResearch,
   doStageTranslated,
+  doStageScript,
   doStageScore,
 } = require('./services/articleProcessor')
 
@@ -24,9 +25,9 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'score']
+const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'script', 'score']
 
-const AI_STAGES = new Set(['classify', 'research', 'translated', 'score'])
+const AI_STAGES = new Set(['classify', 'research', 'translated', 'script', 'score'])
 
 let paused = false
 let pauseLoaded = false
@@ -102,6 +103,9 @@ async function processItem(article, { force = false } = {}) {
         break
       case 'translated':
         out = await doStageTranslated(article, channel)
+        break
+      case 'script':
+        out = await doStageScript(article, channel)
         break
       case 'score':
         out = await doStageScore(article, channel)

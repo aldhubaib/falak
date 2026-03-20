@@ -2,7 +2,7 @@
  * Article pipeline stage processors.
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
- * Stages: imported → content → classify → research → translated → score → done
+ * Stages: imported → content → classify → research → translated → script → score → done
  *
  * Key design: classify and research run on ORIGINAL language content so web
  * searches find results in the source language. Translation happens after
@@ -381,7 +381,7 @@ async function doStageTranslated(article, project) {
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
     })
-    return { nextStage: 'score' }
+    return { nextStage: 'script' }
   }
 
   const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
@@ -542,7 +542,7 @@ async function doStageTranslated(article, project) {
     },
   })
 
-  return { nextStage: 'score' }
+  return { nextStage: 'script' }
 }
 
 function parseTranslatedFields(raw) {
@@ -562,7 +562,143 @@ function parseTranslatedFields(raw) {
   return result
 }
 
-// ── Stage 6: score → done ───────────────────────────────────────────────────
+// ── Stage 6: script → score ──────────────────────────────────────────────────
+// AUTO-GENERATE: draft script with branded hooks, dialect, and research context.
+
+async function doStageScript(article, project) {
+  const log = getLog(article)
+
+  const freshArticle = await db.article.findUnique({ where: { id: article.id } })
+  const art = freshArticle || article
+  const analysis = art.analysis || {}
+
+  const articleContent = art.contentAr || art.contentClean || ''
+  if (!articleContent.trim() || articleContent.length < 100) {
+    log.push({ step: 'auto_script', processor: 'server', status: 'skipped', reason: 'No usable content', at: new Date().toISOString() })
+    await saveLog(article.id, log)
+    return { nextStage: 'score' }
+  }
+
+  const apiKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (!apiKeyRow?.encryptedKey) {
+    log.push({ step: 'auto_script', processor: 'server', status: 'skipped', reason: 'No Anthropic API key', at: new Date().toISOString() })
+    await saveLog(article.id, log)
+    return { nextStage: 'score' }
+  }
+
+  const ch = await db.channel.findFirst({
+    where: { id: art.channelId },
+    select: { id: true, startHook: true, endHook: true, nationality: true },
+  })
+  if (!ch) {
+    log.push({ step: 'auto_script', processor: 'server', status: 'skipped', reason: 'Channel not found', at: new Date().toISOString() })
+    await saveLog(article.id, log)
+    return { nextStage: 'score' }
+  }
+
+  const startHook = (ch.startHook || '').trim()
+  const endHook = (ch.endHook || '').trim()
+  const dialect = await getDialectForCountry(ch.nationality)
+  const dialectInstruction = dialect
+    ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
+    : 'Write the script in Arabic.'
+
+  const durationMinutes = 3
+  const durationInstruction = `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
+
+  const researchContext = analysis.research ? buildResearchContext(analysis.research) : ''
+
+  const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
+
+Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
+
+## TITLE
+(one line: suggested video title)
+
+## OPENING_HOOK
+(one short paragraph: the first 10 seconds hook)
+
+## BRANDED_HOOK_START
+${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
+
+## SCRIPT
+(Main script body with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
+
+## BRANDED_HOOK_END
+${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
+
+## HASHTAGS
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
+
+  const summary = analysis.summaryAr || analysis.summary || ''
+  const uniqueAngle = analysis.uniqueAngleAr || analysis.uniqueAngle || ''
+
+  let userMessage = `Article to turn into a short video (~${durationMinutes} min) script:\n\n${articleContent.slice(0, 120000)}`
+  if (researchContext) userMessage += `\n\n--- RESEARCH BRIEF ---\n${researchContext}`
+  if (summary) userMessage += `\n\n--- SUMMARY ---\n${summary}`
+  if (uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${uniqueAngle}`
+
+  try {
+    const apiKey = decrypt(apiKeyRow.encryptedKey)
+    const fullScript = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+      system,
+      maxTokens: 8192,
+      channelId: ch.id,
+      action: 'Auto Generate Script',
+    })
+    const usage = callAnthropic._lastUsage || {}
+
+    const parsed = parseAutoScript(fullScript, startHook, endHook)
+
+    const scriptData = {
+      suggestedTitle: parsed.suggestedTitle || null,
+      openingHook: parsed.openingHook || null,
+      hookStart: parsed.hookStart,
+      script: parsed.script || null,
+      hookEnd: parsed.hookEnd,
+      youtubeTags: parsed.youtubeTags,
+      scriptDuration: durationMinutes,
+      scriptRaw: (fullScript || '').trim(),
+      autoGenerated: true,
+    }
+
+    const updatedAnalysis = { ...analysis, draftScript: scriptData }
+    await db.article.update({
+      where: { id: article.id },
+      data: { analysis: updatedAnalysis, processingLog: [...log, {
+        step: 'auto_script',
+        processor: 'ai',
+        service: 'Anthropic Claude Sonnet',
+        model: 'claude-sonnet-4-6',
+        status: 'ok',
+        inputTokens: usage.inputTokens || null,
+        outputTokens: usage.outputTokens || null,
+        totalTokens: usage.totalTokens || null,
+        dialect: dialect ? dialect.short : 'MSA',
+        hasHooks: !!(startHook || endHook),
+        hasResearch: !!researchContext,
+        at: new Date().toISOString(),
+      }] },
+    })
+
+    return { nextStage: 'score' }
+  } catch (e) {
+    log.push({
+      step: 'auto_script',
+      processor: 'ai',
+      service: 'Anthropic Claude Sonnet',
+      model: 'claude-sonnet-4-6',
+      status: 'partial',
+      error: e.message + ' (non-blocking)',
+      at: new Date().toISOString(),
+    })
+    await saveLog(article.id, log)
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] auto-script failed (non-fatal)')
+    return { nextStage: 'score' }
+  }
+}
+
+// ── Stage 7: score → done ───────────────────────────────────────────────────
 // THE DECISION STAGE: similarity search (AR vs AR), AI scoring on Arabic, final score, promote.
 
 async function doStageScore(article, project) {
@@ -761,24 +897,10 @@ ${contentAr.slice(0, 15000)}`
     },
   })
 
-  // ── Sub-step D: promote + auto-script ──
-  let promotedStoryId = null
+  // ── Sub-step D: promote ──
   try {
-    promotedStoryId = await promoteToStory(art, analysis, relevance, viralPotential, finalScore, scoreEmbedding, project)
+    const promotedStoryId = await promoteToStory(art, analysis, relevance, viralPotential, finalScore, scoreEmbedding, project)
     log.push({ step: 'promote', processor: 'server', service: 'Database write (no 3rd party)', status: promotedStoryId ? 'created' : 'linked', storyId: promotedStoryId || null, at: new Date().toISOString() })
-    if (promotedStoryId) {
-      const updatedStory = await db.story.findUnique({ where: { id: promotedStoryId }, select: { brief: true } })
-      const scriptGenerated = updatedStory?.brief?.autoGenerated === true
-      log.push({
-        step: 'auto_script',
-        processor: 'ai',
-        service: 'Anthropic Claude Sonnet',
-        model: 'claude-sonnet-4-6',
-        status: scriptGenerated ? 'ok' : 'skipped',
-        storyId: promotedStoryId,
-        at: new Date().toISOString(),
-      })
-    }
     await saveLog(article.id, log)
   } catch (e) {
     log.push({ step: 'promote', processor: 'server', service: 'Database write', status: 'failed', error: e.message, at: new Date().toISOString() })
@@ -938,114 +1060,20 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
     logger.warn({ storyId: story.id, error: e.message }, '[articleProcessor] story embedding failed (non-fatal)')
   }
 
-  // ── Auto-generate draft script ──
-  try {
-    await generateAutoScript(story.id, brief, channel || { id: article.channelId })
-  } catch (e) {
-    logger.warn({ storyId: story.id, error: e.message }, '[articleProcessor] auto-script generation failed (non-fatal)')
+  // Copy draft script from article's script stage into the story brief
+  if (analysis.draftScript) {
+    const scriptBrief = { ...brief, ...analysis.draftScript }
+    try {
+      await db.story.update({
+        where: { id: story.id },
+        data: { brief: scriptBrief },
+      })
+    } catch (e) {
+      logger.warn({ storyId: story.id, error: e.message }, '[articleProcessor] copy draft script to story failed (non-fatal)')
+    }
   }
 
   return story.id
-}
-
-// ── Auto-script generation (runs at promote, non-fatal) ───────────────────────
-
-async function generateAutoScript(storyId, brief, channel) {
-  const apiKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (!apiKeyRow?.encryptedKey) return
-
-  const articleContent = typeof brief.articleContent === 'string'
-    && brief.articleContent !== '__SCRAPE_FAILED__'
-    && brief.articleContent !== '__YOUTUBE__'
-    ? brief.articleContent : ''
-  if (!articleContent.trim()) return
-
-  const ch = await db.channel.findFirst({
-    where: { id: channel.id },
-    select: { id: true, startHook: true, endHook: true, nationality: true },
-  })
-  if (!ch) return
-
-  const startHook = (ch.startHook || '').trim()
-  const endHook = (ch.endHook || '').trim()
-  const dialect = await getDialectForCountry(ch.nationality)
-  const dialectInstruction = dialect
-    ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
-    : 'Write the script in Arabic.'
-
-  const durationMinutes = 3
-  const durationInstruction = `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
-
-  const researchContext = brief.research ? buildResearchContext(brief.research) : ''
-
-  const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
-
-Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
-
-## TITLE
-(one line: suggested video title)
-
-## OPENING_HOOK
-(one short paragraph: the first 10 seconds hook)
-
-## BRANDED_HOOK_START
-${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
-
-## SCRIPT
-(Main script body with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
-
-## BRANDED_HOOK_END
-${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
-
-## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
-
-  let userMessage = `Article to turn into a short video (~${durationMinutes} min) script:\n\n${articleContent.slice(0, 120000)}`
-
-  if (researchContext) {
-    userMessage += `\n\n--- RESEARCH BRIEF ---\n${researchContext}`
-  }
-
-  if (brief.summary) {
-    userMessage += `\n\n--- SUMMARY ---\n${brief.summary}`
-  }
-  if (brief.uniqueAngle) {
-    userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
-  }
-
-  const apiKey = decrypt(apiKeyRow.encryptedKey)
-  const fullScript = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
-    system,
-    maxTokens: 8192,
-    channelId: ch.id,
-    action: 'Auto Generate Script',
-  })
-  const usage = callAnthropic._lastUsage || {}
-
-  const parsed = parseAutoScript(fullScript, startHook, endHook)
-  const updatedBrief = {
-    ...brief,
-    suggestedTitle: parsed.suggestedTitle || undefined,
-    openingHook: parsed.openingHook || undefined,
-    hookStart: parsed.hookStart,
-    script: parsed.script || undefined,
-    hookEnd: parsed.hookEnd,
-    youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : undefined,
-    scriptDuration: durationMinutes,
-    scriptRaw: (fullScript || '').trim() || undefined,
-    autoGenerated: true,
-  }
-
-  await db.story.update({
-    where: { id: storyId },
-    data: { brief: updatedBrief },
-  })
-
-  logger.info({
-    storyId,
-    inputTokens: usage.inputTokens,
-    outputTokens: usage.outputTokens,
-  }, '[articleProcessor] auto-script generated')
 }
 
 function buildResearchContext(research) {
@@ -1106,5 +1134,6 @@ module.exports = {
   doStageClassify,
   doStageResearch,
   doStageTranslated,
+  doStageScript,
   doStageScore,
 }

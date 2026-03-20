@@ -225,7 +225,8 @@ const STAGE_DEFS = [
   { id: "classify", label: "Classify", subtitle: "Running classification", color: "text-success", number: 3 },
   { id: "research", label: "Research", subtitle: "Gathering context", color: "text-purple", number: 4 },
   { id: "translated", label: "Translated", subtitle: "Translating to Arabic", color: "text-blue", number: 5 },
-  { id: "score", label: "Score", subtitle: "Scoring & promotion", color: "text-orange", number: 6 },
+  { id: "script", label: "Script", subtitle: "Generating draft script", color: "text-purple", number: 6 },
+  { id: "score", label: "Score", subtitle: "Scoring & promotion", color: "text-orange", number: 7 },
   { id: "review", label: "Review", subtitle: "Needs manual review", color: "text-orange", number: 0 },
   { id: "failed", label: "Failed", subtitle: "Errors after retries", color: "text-destructive", number: 0 },
 ];
@@ -686,7 +687,17 @@ function PipelineTabContent() {
               </div>
             </div>
 
-            {/* ── 7. SCORE ── */}
+            {/* ── 7. SCRIPT ── */}
+            <SectionHeader icon={getFlowDef("script")!.icon} title={getFlowDef("script")!.name} subtitle={getFlowDef("script")!.subtitle} />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
+                {(data?.byStage.script ?? []).length > 0 && (
+                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.script ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                )}
+              </div>
+            </div>
+
+            {/* ── 8. SCORE ── */}
             <SectionHeader icon={getFlowDef("score")!.icon} title={getFlowDef("score")!.name} subtitle={getFlowDef("score")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
@@ -694,7 +705,7 @@ function PipelineTabContent() {
                   <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.score ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
@@ -713,8 +724,8 @@ function PipelineTabContent() {
             <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review and failed articles" />
             <div className="px-6 max-lg:px-4 pb-8">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[8]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
           </>

@@ -1,4 +1,4 @@
-import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2 } from "lucide-react";
+import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, PenLine } from "lucide-react";
 
 export interface FlowDef {
   id: string;
@@ -9,7 +9,7 @@ export interface FlowDef {
   bgColor: string;
 }
 
-/** Shared flow definitions for Pipeline dashboard and Article Inspector. Eight stages. */
+/** Shared flow definitions for Pipeline dashboard and Article Inspector. Nine stages. */
 export const FLOW_DEFS: FlowDef[] = [
   {
     id: "imported",
@@ -58,6 +58,14 @@ export const FLOW_DEFS: FlowDef[] = [
     icon: Languages,
     color: "text-blue",
     bgColor: "bg-blue",
+  },
+  {
+    id: "script",
+    name: "Script",
+    subtitle: "Auto-generate draft script with branded hooks, dialect, and research context.",
+    icon: PenLine,
+    color: "text-purple",
+    bgColor: "bg-purple",
   },
   {
     id: "score",
