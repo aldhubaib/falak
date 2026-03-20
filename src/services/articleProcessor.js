@@ -608,6 +608,13 @@ async function doStageScript(article, project) {
 
   const researchContext = analysis.research ? buildResearchContext(analysis.research) : ''
 
+  const hookStartBlock = startHook
+    ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
+    : ''
+  const hookEndBlock = endHook
+    ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
+    : ''
+
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
@@ -615,20 +622,19 @@ Output ONLY a structured script using exactly these section headers (each on its
 ## TITLE
 (one line: suggested video title)
 
-## OPENING_HOOK
-(one short paragraph: the first 10 seconds hook)
-
-## BRANDED_HOOK_START
-${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
-
 ## SCRIPT
-(Main script body with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
+Write the full script as one continuous flow with timestamps. The structure MUST be:
 
-## BRANDED_HOOK_END
-${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
+1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention immediately.
+${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
+3. **Main body** — the core content with timestamps every 15–30 seconds.
+${hookEndBlock ? `4. **Branded sign-off** — ${hookEndBlock}` : ''}
+
+${durationInstruction}
+Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)`
 
   const summary = analysis.summaryAr || analysis.summary || ''
   const uniqueAngle = analysis.uniqueAngleAr || analysis.uniqueAngle || ''
@@ -648,14 +654,11 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
     })
     const usage = callAnthropic._lastUsage || {}
 
-    const parsed = parseAutoScript(fullScript, startHook, endHook)
+    const parsed = parseAutoScript(fullScript)
 
     const scriptData = {
       suggestedTitle: parsed.suggestedTitle || null,
-      openingHook: parsed.openingHook || null,
-      hookStart: parsed.hookStart,
       script: parsed.script || null,
-      hookEnd: parsed.hookEnd,
       youtubeTags: parsed.youtubeTags,
       scriptDuration: durationMinutes,
       scriptRaw: (fullScript || '').trim(),
@@ -1090,10 +1093,10 @@ function buildResearchContext(research) {
   return parts.join('\n\n')
 }
 
-function parseAutoScript(text, channelStartHook = '', channelEndHook = '') {
+function parseAutoScript(text) {
   const raw = (text || '').trim()
   const sections = {}
-  const sectionNames = ['TITLE', 'OPENING_HOOK', 'BRANDED_HOOK_START', 'SCRIPT', 'BRANDED_HOOK_END', 'HASHTAGS']
+  const sectionNames = ['TITLE', 'SCRIPT', 'HASHTAGS']
   let currentKey = null
   let currentLines = []
   for (const line of raw.split('\n')) {
@@ -1120,10 +1123,7 @@ function parseAutoScript(text, channelStartHook = '', channelEndHook = '') {
 
   return {
     suggestedTitle: sections.TITLE || '',
-    openingHook: sections.OPENING_HOOK || '',
-    hookStart: sections.BRANDED_HOOK_START !== undefined ? sections.BRANDED_HOOK_START : channelStartHook,
     script: sections.SCRIPT || raw,
-    hookEnd: sections.BRANDED_HOOK_END !== undefined ? sections.BRANDED_HOOK_END : channelEndHook,
     youtubeTags,
   }
 }

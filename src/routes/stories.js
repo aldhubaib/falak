@@ -39,6 +39,12 @@ async function generateScriptForStory(storyId) {
   const durationInstruction = isShort
     ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
     : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
+  const hookStartBlock = startHook
+    ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
+    : ''
+  const hookEndBlock = endHook
+    ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
+    : ''
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
@@ -46,20 +52,19 @@ Output ONLY a structured script using exactly these section headers (each on its
 ## TITLE
 (one line: suggested video title)
 
-## OPENING_HOOK
-(one short paragraph: the first 10 seconds hook)
-
-## BRANDED_HOOK_START
-${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
-
 ## SCRIPT
-(Main script body with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
+Write the full script as one continuous flow with timestamps. The structure MUST be:
 
-## BRANDED_HOOK_END
-${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
+1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention immediately.
+${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
+3. **Main body** — the core content with timestamps every 15–30 seconds.
+${hookEndBlock ? `4. **Branded sign-off** — ${hookEndBlock}` : ''}
+
+${durationInstruction}
+Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)`
 
   let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
 
@@ -87,14 +92,11 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
     console.error('[stories/generateScriptForStory]', storyId, err?.message)
     return
   }
-  const parsed = parseStructuredScript(fullScript, startHook, endHook)
+  const parsed = parseStructuredScript(fullScript)
   const newBrief = {
     ...brief,
     suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
-    openingHook: parsed.openingHook || brief.openingHook,
-    hookStart: parsed.hookStart !== undefined ? parsed.hookStart : brief.hookStart,
     script: parsed.script || brief.script,
-    hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
     youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
     scriptDuration: durationMinutes,
     scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
@@ -239,11 +241,11 @@ router.post('/:id/fetch-article', requireRole('owner', 'admin', 'editor'), async
   }
 })
 
-// Parse structured script output into brief fields. Sections: ## TITLE, ## OPENING_HOOK, ## BRANDED_HOOK_START, ## SCRIPT, ## BRANDED_HOOK_END, ## HASHTAGS
-function parseStructuredScript(text, channelStartHook = '', channelEndHook = '') {
+// Parse structured script output into brief fields. Sections: ## TITLE, ## SCRIPT, ## HASHTAGS
+function parseStructuredScript(text) {
   const raw = (text || '').trim()
   const sections = {}
-  const sectionNames = ['TITLE', 'OPENING_HOOK', 'BRANDED_HOOK_START', 'SCRIPT', 'BRANDED_HOOK_END', 'HASHTAGS']
+  const sectionNames = ['TITLE', 'SCRIPT', 'HASHTAGS']
   let currentKey = null
   let currentLines = []
   for (const line of raw.split('\n')) {
@@ -270,10 +272,7 @@ function parseStructuredScript(text, channelStartHook = '', channelEndHook = '')
 
   return {
     suggestedTitle: sections.TITLE || '',
-    openingHook: sections.OPENING_HOOK || '',
-    hookStart: sections.BRANDED_HOOK_START !== undefined ? sections.BRANDED_HOOK_START : channelStartHook,
     script: sections.SCRIPT || raw,
-    hookEnd: sections.BRANDED_HOOK_END !== undefined ? sections.BRANDED_HOOK_END : channelEndHook,
     youtubeTags,
   }
 }
@@ -321,6 +320,12 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     const durationInstruction = isShort
       ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
       : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
+    const hookStartBlock = startHook
+      ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
+      : ''
+    const hookEndBlock = endHook
+      ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
+      : ''
     const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
@@ -328,20 +333,19 @@ Output ONLY a structured script using exactly these section headers (each on its
 ## TITLE
 (one line: suggested video title)
 
-## OPENING_HOOK
-(one short paragraph: the first 10 seconds hook)
-
-## BRANDED_HOOK_START
-${startHook ? `Output this text exactly:\n${startHook}` : '(leave empty or a brief channel greeting)'}
-
 ## SCRIPT
-(Main script body with timestamps. ${durationInstruction} Use format like 0:00 ... then 0:30 ... etc.)
+Write the full script as one continuous flow with timestamps. The structure MUST be:
 
-## BRANDED_HOOK_END
-${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief call to subscribe)'}
+1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention immediately.
+${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
+3. **Main body** — the core content with timestamps every 15–30 seconds.
+${hookEndBlock ? `4. **Branded sign-off** — ${hookEndBlock}` : ''}
+
+${durationInstruction}
+Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO. Example: tag1, tag2, tag3)`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)`
 
     let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
 
@@ -382,14 +386,11 @@ ${endHook ? `Output this text exactly:\n${endHook}` : '(leave empty or a brief c
       return
     }
 
-    const parsed = parseStructuredScript(fullScript, startHook, endHook)
+    const parsed = parseStructuredScript(fullScript)
     const newBrief = {
       ...brief,
       suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
-      openingHook: parsed.openingHook || brief.openingHook,
-      hookStart: parsed.hookStart !== undefined ? parsed.hookStart : brief.hookStart,
       script: parsed.script || brief.script,
-      hookEnd: parsed.hookEnd !== undefined ? parsed.hookEnd : brief.hookEnd,
       youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
       scriptDuration: durationMinutes,
       scriptRaw: fullScript.trim() || brief.scriptRaw,

@@ -116,10 +116,7 @@ interface Analysis {
   };
   draftScript?: {
     suggestedTitle?: string;
-    openingHook?: string;
-    hookStart?: string;
     script?: string;
-    hookEnd?: string;
     youtubeTags?: string[];
     scriptDuration?: number;
     scriptRaw?: string;
@@ -1337,24 +1334,11 @@ function ScriptDetail({ article, log }: { article: ArticleDetail; log: LogEntry[
           <p className="text-sm font-medium" dir="rtl" style={{ textAlign: "right" }}>{String(draftScript.suggestedTitle)}</p>
         </ResultCard>
       )}
-      {draftScript?.openingHook && (
-        <ResultCard label="Opening Hook">
-          <p className="text-sm" dir="rtl" style={{ textAlign: "right" }}>{String(draftScript.openingHook)}</p>
-        </ResultCard>
-      )}
       {draftScript?.script && (
-        <ResultCard label="Script Body">
-          <pre className="text-[12px] whitespace-pre-wrap leading-relaxed text-foreground/80 max-h-[300px] overflow-y-auto" dir="rtl" style={{ textAlign: "right" }}>
+        <ResultCard label="Script" icon={PenLine}>
+          <pre className="text-[12px] whitespace-pre-wrap leading-relaxed text-foreground/80 max-h-[400px] overflow-y-auto" dir="rtl" style={{ textAlign: "right" }}>
             {String(draftScript.script)}
           </pre>
-        </ResultCard>
-      )}
-      {(draftScript?.hookStart || draftScript?.hookEnd) && (
-        <ResultCard label="Branded Hooks">
-          <div className="space-y-2 text-sm" dir="rtl" style={{ textAlign: "right" }}>
-            {draftScript.hookStart && <div><span className="text-dim text-[11px]">Start:</span> {String(draftScript.hookStart)}</div>}
-            {draftScript.hookEnd && <div><span className="text-dim text-[11px]">End:</span> {String(draftScript.hookEnd)}</div>}
-          </div>
         </ResultCard>
       )}
       {Array.isArray(draftScript?.youtubeTags) && (draftScript.youtubeTags as string[]).length > 0 && (
