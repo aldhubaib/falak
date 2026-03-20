@@ -41,8 +41,9 @@ From a user perspective the workflow is:
 3. **Analytics Dashboard** — view subscriber growth, engagement, content mix,
    publishing patterns, and head-to-head comparisons.
 4. **Story Discovery** — the article pipeline ingests news from RSS and Apify
-   sources, classifies them with AI, translates to Arabic, scores relevance, and
-   promotes the best ones to a kanban-style "AI Intelligence" board.
+   sources, classifies them with AI, translates to Arabic, scores relevance,
+   promotes all scored articles to stories, and auto-generates a draft script
+   (Claude Sonnet) with branded hooks and research context for team evaluation.
 5. **Editorial Workspace** — each story has a Tiptap collaborative editor with
    AI script generation, video upload, transcription (Whisper), title / description /
    tag generation, and an SRT subtitle builder.
@@ -743,7 +744,7 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | DELETE | `/api/stories/:id` | admin+ | Delete a story. | — |
 | POST | `/api/stories/:id/fetch-article` | editor+ | Scrape source URL content. | Firecrawl API → updates Story.brief |
 | POST | `/api/stories/:id/cleanup` | editor+ | AI-clean scraped article. | Anthropic API |
-| POST | `/api/stories/:id/generate-script` | editor+ | AI-generate script (SSE stream). | Anthropic API (streaming) |
+| POST | `/api/stories/:id/generate-script` | editor+ | AI-generate script (SSE stream). Includes research brief, dialect, branded hooks. | Anthropic Sonnet (streaming) |
 | POST | `/api/stories/:id/fetch-subtitles` | editor+ | Fetch YouTube transcript as SRT. | Transcript API |
 | POST | `/api/stories/:id/transcribe` | editor+ | Whisper transcription of uploaded video. | OpenAI Whisper → R2 download |
 | POST | `/api/stories/:id/generate-title` | editor+ | AI-generate YouTube title. | Anthropic API |
@@ -918,7 +919,7 @@ flowchart LR
 | **classify** | AI classification (Haiku): topic, tags, contentType, region, summary, uniqueAngle. Works in original language. Retries once if language mismatch. | Anthropic Haiku | `Article.analysis`, `Article.language` |
 | **research** | Multi-source research: Firecrawl search (5 related articles) → Perplexity context → Claude synthesis into structured brief. Non-fatal on failure. | Firecrawl, Perplexity, Anthropic Sonnet | `Article.analysis.research` |
 | **translated** | Translates content + fields + research brief to Arabic via Haiku. Skips if source is already Arabic (copies fields). | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar` |
-| **score** | Generates embedding → similarity search → AI scoring (Haiku) → final score formula → promotes to Story. | OpenAI Embeddings, Anthropic Haiku | `Article.finalScore`, creates `Story` + `Story.embedding` |
+| **score** | Generates embedding → similarity search → AI scoring (Haiku) → final score formula → promotes to Story → auto-generates draft script (Sonnet) with branded hooks, dialect, and research context. All scored articles become stories for team evaluation. | OpenAI Embeddings, Anthropic Haiku, Anthropic Sonnet | `Article.finalScore`, creates `Story` + `Story.embedding` + `Story.brief.script/suggestedTitle/openingHook/hookStart/hookEnd/youtubeTags` |
 
 **Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
 
