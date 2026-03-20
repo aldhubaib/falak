@@ -276,14 +276,14 @@ router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res)
 // ── POST /api/article-pipeline/pause ──────────────────────────────────────
 router.post('/pause', requireRole('owner', 'admin'), async (req, res) => {
   const { setPaused } = require('../worker-articles')
-  setPaused(true)
+  await setPaused(true)
   res.json({ paused: true })
 })
 
 // ── POST /api/article-pipeline/resume ─────────────────────────────────────
 router.post('/resume', requireRole('owner', 'admin'), async (req, res) => {
   const { setPaused } = require('../worker-articles')
-  setPaused(false)
+  await setPaused(false)
   res.json({ paused: false })
 })
 
@@ -411,6 +411,32 @@ router.patch('/:id/content', requireRole('owner', 'admin', 'editor'), async (req
       },
     })
     res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-pipeline/reset — wipe all stories & articles to start fresh
+router.post('/reset', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const results = await db.$transaction([
+      db.storyLog.deleteMany({}),
+      db.alert.deleteMany({}),
+      db.article.deleteMany({}),
+      db.apifyRun.deleteMany({}),
+      db.story.deleteMany({}),
+      db.scoreProfile.deleteMany({}),
+    ])
+
+    const labels = ['StoryLog', 'Alert', 'Article', 'ApifyRun', 'Story', 'ScoreProfile']
+    const deleted = {}
+    results.forEach((r, i) => { deleted[labels[i]] = r.count })
+
+    await db.articleSource.updateMany({
+      data: { lastPolledAt: null, fetchLog: null, lastImportedRunId: null },
+    })
+
+    res.json({ ok: true, deleted })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

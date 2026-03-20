@@ -29,8 +29,32 @@ const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'sc
 const AI_STAGES = new Set(['classify', 'research', 'translated', 'score'])
 
 let paused = false
+let pauseLoaded = false
+
+async function loadPausedState() {
+  try {
+    const row = await db.appSetting.findUnique({ where: { key: 'articlePipelinePaused' } })
+    paused = row?.value === 'true'
+    pauseLoaded = true
+  } catch (_) {
+    // table may not exist yet during migration — keep in-memory default
+  }
+}
+
 function isPaused() { return paused }
-function setPaused(v) { paused = !!v }
+
+async function setPaused(v) {
+  paused = !!v
+  try {
+    await db.appSetting.upsert({
+      where: { key: 'articlePipelinePaused' },
+      update: { value: String(paused) },
+      create: { key: 'articlePipelinePaused', value: String(paused) },
+    })
+  } catch (e) {
+    logger.warn({ error: e.message }, '[article-worker] failed to persist pause state')
+  }
+}
 
 async function pickItems(stage) {
   const limit = AI_STAGES.has(stage) ? BATCH_AI : BATCH_FAST
@@ -197,7 +221,8 @@ async function pollSources() {
 }
 
 async function runPollingWorker() {
-  logger.info({ pollMs: POLL_MS, sourcePollMs: SOURCE_POLL_MS }, '[article-worker] started (polling)')
+  await loadPausedState()
+  logger.info({ pollMs: POLL_MS, sourcePollMs: SOURCE_POLL_MS, paused }, '[article-worker] started (polling)')
   for (;;) {
     try {
       await tick()
