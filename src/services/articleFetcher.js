@@ -88,4 +88,4 @@ async function fetchArticleText(url) {
   }
 }
 
-module.exports = { fetchArticleText, extractTextFromHtml }
+module.exports = { fetchArticleText, extractTextFromHtml, isSafeUrl }

@@ -282,7 +282,7 @@ async function main() {
           return
         }
         const jwt = require('jsonwebtoken')
-        jwt.verify(token, config.JWT_SECRET)
+        jwt.verify(token, config.JWT_SECRET, { algorithms: ['HS256'] })
         hocuspocus.handleUpgrade(req, socket, head)
       } catch (e) {
         logger.error(e, '[collab] WebSocket upgrade failed')

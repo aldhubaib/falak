@@ -95,10 +95,11 @@ router.post('/fetch', requireRole('owner', 'admin', 'editor'), async (req, res) 
 // ── GET /api/stories?channelId=xxx&stage=xxx
 router.get('/', async (req, res) => {
   try {
-    const { channelId, stage } = req.query
+    const { channelId, stage, origin } = req.query
     const where = {}
     if (channelId) where.channelId = channelId
     if (stage)     where.stage = stage
+    if (origin)    where.origin = origin
 
     const slim = req.query.slim === 'true'
     const selectFields = {

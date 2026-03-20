@@ -30,6 +30,26 @@ async function rescoreActiveStories(channelId) {
     },
   })
 
+  // Preload embeddings for all active stories in a single query
+  const storyIds = stories.map(s => s.id)
+  const embeddingMap = new Map()
+  if (storyIds.length > 0) {
+    try {
+      const rows = await db.$queryRaw`
+        SELECT id, (embedding IS NOT NULL) as "hasEmbedding", embedding::text as embedding
+        FROM "Story" WHERE id = ANY(${storyIds})
+      `
+      for (const row of rows) {
+        embeddingMap.set(row.id, {
+          hasEmbedding: row.hasEmbedding,
+          embedding: row.embedding ? JSON.parse(row.embedding) : null,
+        })
+      }
+    } catch (e) {
+      logger.warn({ channelId, error: e.message }, '[rescorer] embedding preload failed')
+    }
+  }
+
   // Preload channel avg views for competition ratio calculations
   const competitorChannels = await db.channel.findMany({
     where: { parentChannelId: channelId, type: 'competitor', status: 'active' },
@@ -53,7 +73,7 @@ async function rescoreActiveStories(channelId) {
   const storyUpdates = []
 
   for (const story of stories) {
-    const result = await rescoreStory(story, profile, confidence, channelAvgMap, channelId)
+    const result = await rescoreStory(story, profile, confidence, channelAvgMap, channelId, embeddingMap)
     evaluated++
 
     if (result.changed) {
@@ -118,7 +138,7 @@ async function rescoreActiveStories(channelId) {
 /**
  * Re-score a single story. Returns before/after and whether anything changed.
  */
-async function rescoreStory(story, profile, confidence, channelAvgMap, channelId) {
+async function rescoreStory(story, profile, confidence, channelAvgMap, channelId, embeddingMap) {
   const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
   const before = {
     relevanceScore: story.relevanceScore || 0,
@@ -138,19 +158,14 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
   let newCompetitorVideos = 0
   let topCompetitor = null
 
-  // Check if story has an embedding (Prisma can't read vector type, use raw SQL)
-  const embCheck = await db.$queryRaw`
-    SELECT embedding IS NOT NULL as "hasEmbedding" FROM "Story" WHERE id = ${story.id}
-  `
-  const hasEmbedding = embCheck?.[0]?.hasEmbedding
+  const embData = embeddingMap?.get(story.id)
+  const hasEmbedding = embData?.hasEmbedding
+  const preloadedEmbedding = embData?.embedding
 
-  if (hasEmbedding) {
+  if (hasEmbedding && preloadedEmbedding) {
     try {
-      const embRow = await db.$queryRaw`
-        SELECT embedding::text FROM "Story" WHERE id = ${story.id}
-      `
-      if (embRow?.[0]?.embedding) {
-        const embedding = JSON.parse(embRow[0].embedding)
+      {
+        const embedding = preloadedEmbedding
 
         const similar = await findSimilarVideos(embedding, channelId, 10)
         competitionMatches = similar.length
@@ -186,12 +201,9 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
 
   // ── 3. Own channel affinity (from done stories with YouTube stats) ──
   let ownChannelBoost = 0
-  if (hasEmbedding) {
+  if (hasEmbedding && preloadedEmbedding) {
     try {
-      const embRow2 = await db.$queryRaw`SELECT embedding::text FROM "Story" WHERE id = ${story.id}`
-      const embedding = embRow2?.[0]?.embedding ? JSON.parse(embRow2[0].embedding) : null
-      if (!embedding) throw new Error('no embedding')
-      const ownSimilar = await findSimilarOwnStories(embedding, channelId, story.id, 5)
+      const ownSimilar = await findSimilarOwnStories(preloadedEmbedding, channelId, story.id, 5)
       const withViews = ownSimilar.filter(s => {
         const b = (s.brief && typeof s.brief === 'object') ? s.brief : {}
         return b.views > 0

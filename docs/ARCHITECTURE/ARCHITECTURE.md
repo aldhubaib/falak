@@ -1769,4 +1769,21 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 
 ---
 
+## Section 18 — Third-Pass Verification (2026-03-20, Iteration 8)
+
+### Crash Fix
+- **`articlePipeline.js`**: `return getSourcesView(...)` changed to `return await getSourcesView(...)`. Without `await`, the surrounding try/catch did not catch rejections from the async function, causing unhandled promise rejections.
+
+### Security
+- **RSS SSRF**: `fetchRSS()` in `articlePipeline.js` now calls `isSafeUrl()` (exported from `articleFetcher.js`) before fetching, blocking private/reserved IP ranges.
+- **JWT algorithm pinning**: Both `auth.js` middleware and WebSocket upgrade now use `jwt.verify(token, secret, { algorithms: ['HS256'] })` to prevent algorithm confusion attacks.
+
+### N+1 Elimination
+- **Rescorer embedding preload**: Previously, `rescoreStory` made 2–3 raw SQL queries per story (embedding check + embedding text, twice). Now `rescoreActiveStories` preloads all embeddings in a single `SELECT ... WHERE id = ANY(...)` query and passes the map to `rescoreStory`. For 100 active stories this eliminates ~300 DB round-trips.
+
+### Stories Page
+- **Backend `origin` filter**: `GET /api/stories` now supports `?origin=manual` query parameter. PublishQueue uses this to fetch only manual stories instead of all 500.
+
+---
+
 *Last updated: 2026-03-20*

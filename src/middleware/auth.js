@@ -8,7 +8,7 @@ async function requireAuth(req, res, next) {
     const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '')
     if (!token) return res.status(401).json({ error: 'Not authenticated' })
 
-    jwt.verify(token, config.JWT_SECRET)
+    jwt.verify(token, config.JWT_SECRET, { algorithms: ['HS256'] })
 
     const cached = sessionCache.get(token)
     if (cached) {

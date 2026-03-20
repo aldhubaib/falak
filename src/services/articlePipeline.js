@@ -102,6 +102,10 @@ async function fetchFromApifySource(source, apiKey) {
 
 async function fetchRSS(url) {
   const nodeFetch = require('node-fetch')
+  const { isSafeUrl } = require('./articleFetcher')
+  if (!await isSafeUrl(url)) {
+    throw new Error('RSS URL resolves to a private or reserved address')
+  }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 15000)
   try {

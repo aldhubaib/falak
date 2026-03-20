@@ -153,7 +153,7 @@ export default function PublishQueue() {
   const loadExistingStories = useCallback(async () => {
     if (!channelId) return;
     try {
-      const res = await fetch(`/api/stories?channelId=${channelId}`, { credentials: "include" });
+      const res = await fetch(`/api/stories?channelId=${channelId}&origin=manual`, { credentials: "include" });
       if (!res.ok) return;
       const stories = await res.json();
       const manualStories = stories
@@ -540,7 +540,7 @@ export default function PublishQueue() {
                 onClick={() => setActiveFilter(tab)}
                 className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                   activeFilter === tab
-                    ? "bg-surface text-foreground border-border"
+                    ? "bg-card text-foreground border-border"
                     : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
                 }`}
               >

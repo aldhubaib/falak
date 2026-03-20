@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
 
     if (view === 'sources') {
-      return getSourcesView(req, res, channelId)
+      return await getSourcesView(req, res, channelId)
     }
 
     const { isPaused } = require('../worker-articles')
