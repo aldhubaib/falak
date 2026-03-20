@@ -353,26 +353,27 @@ export default function ArticleDetailPage() {
             )}
           </div>
 
-          {/* Timeline */}
-          <div className="relative">
-            {TIMELINE_STAGES.map((stage, i) => {
+          {/* Stage detail sections */}
+          <div className="space-y-4">
+            {TIMELINE_STAGES.map((stage) => {
               const mappedStage = stage.id === "promote" ? null : stage.id === "synthesis" ? "research" : stage.id;
               const hasPromoteLog = log.some((e) => e.step === "promote");
               const reached =
                 stage.id === "promote"
                   ? isDone || (article.stage === "score" && hasPromoteLog)
                   : isDone || (mappedStage != null && currentStageIdx >= stageIndex(mappedStage));
-              const isActive = !isDone && !isFailed && mappedStage != null && article.stage === mappedStage;
+
+              if (!reached) return null;
+
+              const stepLog = getStepLogs(stage.id, log);
+              if (stepLog.length === 0 && stage.id !== "imported") return null;
 
               return (
-                <TimelineStep
+                <StageSection
                   key={stage.id}
                   stage={stage}
                   article={article}
                   log={log}
-                  reached={reached}
-                  isActive={isActive}
-                  isLast={i === TIMELINE_STAGES.length - 1}
                   pp={pp}
                 />
               );
@@ -445,71 +446,47 @@ function RestartControl({
   );
 }
 
-/* ─── Timeline Step ─── */
+/* ─── Stage Section (flat collapsible card — no timeline dots/lines) ─── */
 
-function TimelineStep({
-  stage, article, log, reached, isActive, isLast, pp,
+function StageSection({
+  stage, article, log, pp,
 }: {
   stage: TimelineStage;
   article: ArticleDetail;
   log: LogEntry[];
-  reached: boolean;
-  isActive: boolean;
-  isLast: boolean;
   pp: (p: string) => string;
 }) {
-  const [expanded, setExpanded] = useState(reached);
+  const [expanded, setExpanded] = useState(true);
   const Icon = stage.icon;
-
   const stepLog = getStepLogs(stage.id, log);
   const timestamp = stepLog.length > 0 ? stepLog[0].at : null;
 
   return (
-    <div className="relative flex gap-4">
-      {/* Vertical line */}
-      {!isLast && (
-        <div className={`absolute left-[15px] top-[32px] bottom-0 w-[2px] ${
-          reached ? stage.bgColor + "/30" : "bg-border"
-        }`} />
+    <div className="rounded-xl border border-border bg-background overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2.5 w-full text-left px-4 py-3 hover:bg-card/50 transition-colors"
+      >
+        <Icon className={`w-4 h-4 ${stage.color} shrink-0`} />
+        <span className="text-[13px] font-semibold text-foreground">{stage.label}</span>
+        {timestamp && <span className="text-[10px] text-dim font-mono">{fmtDate(timestamp)}</span>}
+        {expanded
+          ? <ChevronDown className="w-3.5 h-3.5 text-dim ml-auto" />
+          : <ChevronRight className="w-3.5 h-3.5 text-dim ml-auto" />
+        }
+      </button>
+      {expanded && (
+        <>
+          {stage.id === "imported" && <ImportedDetail article={article} log={log} />}
+          {stage.id === "content" && <ContentDetail article={article} log={log} />}
+          {stage.id === "classify" && <AiAnalysisDetail article={article} log={log} />}
+          {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
+          {stage.id === "translated" && <TranslatedDetail article={article} log={log} />}
+          {stage.id === "synthesis" && <SynthesisDetail article={article} log={log} />}
+          {stage.id === "score" && <ScoringDetail article={article} log={log} />}
+          {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
+        </>
       )}
-
-      {/* Dot */}
-      <div className={`relative z-10 mt-1 w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 ${
-        reached ? stage.bgColor + "/20" : "bg-card"
-      } border ${reached ? "border-" + stage.bgColor.replace("bg-", "") + "/40" : "border-border"}`}>
-        <Icon className={`w-3.5 h-3.5 ${reached ? stage.color : "text-dim/40"}`} />
-      </div>
-
-      {/* Content */}
-      <div className={`flex-1 pb-6 ${!reached ? "opacity-40" : ""}`}>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-2 w-full text-left group"
-        >
-          <span className="text-[13px] font-semibold text-foreground">{stage.label}</span>
-          {timestamp && <span className="text-[10px] text-dim font-mono">{fmtDate(timestamp)}</span>}
-          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
-          {!reached && <span className="text-[10px] text-dim font-mono italic">pending</span>}
-          {reached && (
-            expanded
-              ? <ChevronDown className="w-3 h-3 text-dim ml-auto" />
-              : <ChevronRight className="w-3 h-3 text-dim ml-auto" />
-          )}
-        </button>
-
-        {expanded && reached && (
-          <div className="mt-3 rounded-xl border border-border bg-background overflow-hidden">
-            {stage.id === "imported" && <ImportedDetail article={article} log={log} />}
-            {stage.id === "content" && <ContentDetail article={article} log={log} />}
-            {stage.id === "classify" && <AiAnalysisDetail article={article} log={log} />}
-            {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
-            {stage.id === "translated" && <TranslatedDetail article={article} log={log} />}
-            {stage.id === "synthesis" && <SynthesisDetail article={article} log={log} />}
-            {stage.id === "score" && <ScoringDetail article={article} log={log} />}
-            {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
