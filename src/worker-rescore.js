@@ -140,4 +140,17 @@ async function runPollingWorker() {
   }
 }
 
+let shuttingDown = false
+function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  logger.info(`[rescore-worker] ${signal} received — shutting down`)
+  db.$disconnect()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1))
+  setTimeout(() => process.exit(1), 10_000)
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+
 module.exports = { tick, runPollingWorker, runCycleForChannel, isPaused, setPaused }

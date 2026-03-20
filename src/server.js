@@ -294,7 +294,8 @@ async function main() {
     gracefulShutdown(server, 1)
   })
   process.on('unhandledRejection', (reason) => {
-    logger.error({ reason }, '[fatal] Unhandled rejection')
+    logger.error({ reason }, '[fatal] Unhandled rejection — shutting down')
+    gracefulShutdown(server, 1)
   })
 
   const SHUTDOWN_TIMEOUT_MS = 15_000

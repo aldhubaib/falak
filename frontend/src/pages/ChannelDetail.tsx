@@ -136,19 +136,18 @@ export default function ChannelDetail() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
     setLoading(true);
     setNotFound(false);
     setChannel(null);
     fetch(`/api/channels/${id}`, { credentials: "include" })
       .then((r) => {
-        if (r.status === 404) {
-          setNotFound(true);
-          return null;
-        }
+        if (r.status === 404) { if (!cancelled) setNotFound(true); return null; }
         if (!r.ok) throw new Error("Failed to load channel");
         return r.json();
       })
       .then((data) => {
+        if (cancelled) return;
         if (data && typeof data.id === "string") {
           setChannel(data);
           setChannelType(data.type === "ours" ? "ours" : "competition");
@@ -156,16 +155,19 @@ export default function ChannelDetail() {
           setNotFound(true);
         }
       })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setNotFound(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [id]);
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
     fetch(`/api/channels/${id}/videos?limit=100`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : { videos: [] }))
-      .then((data: { videos: ApiVideo[] }) => setChannelVideos((data.videos || []).map(mapVideo)))
-      .catch(() => setChannelVideos([]));
+      .then((data: { videos: ApiVideo[] }) => { if (!cancelled) setChannelVideos((data.videos || []).map(mapVideo)); })
+      .catch(() => { if (!cancelled) setChannelVideos([]); });
+    return () => { cancelled = true; };
   }, [id]);
 
   const filteredVideos = channelVideos.filter((v) => {
@@ -225,7 +227,7 @@ export default function ChannelDetail() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-surface">
+      <div className="flex flex-col min-h-screen items-center justify-center bg-card">
         <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin mb-3" />
         <p className="text-[13px] text-foreground">Loading channel…</p>
       </div>
@@ -234,7 +236,7 @@ export default function ChannelDetail() {
 
   if (notFound || !channel) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
+      <div className="flex flex-col min-h-screen items-center justify-center bg-card p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
         <Link
           to={channelPath("")}
@@ -338,7 +340,7 @@ export default function ChannelDetail() {
                       onClick={() => setActiveFilter(tab)}
                       className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                         activeFilter === tab
-                          ? "bg-surface text-foreground border-border"
+                          ? "bg-card text-foreground border-border"
                           : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
                       }`}
                     >

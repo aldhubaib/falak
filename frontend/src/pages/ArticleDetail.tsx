@@ -222,7 +222,7 @@ export default function ArticleDetailPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(fetchArticle, [id]);
+  useEffect(() => { fetchArticle(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRestart = async (stage?: string) => {
     if (!id || restarting) return;
@@ -298,7 +298,7 @@ export default function ArticleDetailPage() {
                 {article.title || "Untitled"}
               </h2>
               <a href={article.url} target="_blank" rel="noopener noreferrer"
-                className="shrink-0 p-1.5 rounded-md border border-border hover:bg-surface transition-colors">
+                className="shrink-0 p-1.5 rounded-md border border-border hover:bg-card transition-colors">
                 <ExternalLink className="w-3.5 h-3.5 text-dim" />
               </a>
             </div>
@@ -309,7 +309,7 @@ export default function ArticleDetailPage() {
             )}
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-dim">
               <span>{extractDomain(article.url)}</span>
-              {article.source && <span className="px-1.5 py-0.5 rounded bg-surface text-foreground/70">{article.source.label}</span>}
+              {article.source && <span className="px-1.5 py-0.5 rounded bg-card text-foreground/70">{article.source.label}</span>}
               {article.language && (
                 <span className={`px-1.5 py-0.5 rounded font-bold ${
                   article.language === "ar" ? "bg-success/15 text-success" : "bg-blue/15 text-blue"
@@ -412,7 +412,7 @@ function RestartControl({
       <button
         onClick={() => onRestart()}
         disabled={restarting || !canRestartCurrent}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface/80 text-[11px] font-semibold text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-card/80 text-[11px] font-semibold text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <RotateCcw className={`w-3 h-3 ${restarting ? "animate-spin" : ""}`} />
         {restarting ? "Restarting…" : "Restart"}
@@ -420,7 +420,7 @@ function RestartControl({
       <div className="relative">
         <button
           onClick={() => setShowPicker(!showPicker)}
-          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface/80 text-[10px] font-mono text-dim transition-colors"
+          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border bg-card hover:bg-card/80 text-[10px] font-mono text-dim transition-colors"
         >
           from stage
           <ChevronDown className="w-3 h-3" />
@@ -432,7 +432,7 @@ function RestartControl({
                 key={s.id}
                 onClick={() => { setShowPicker(false); onRestart(s.id); }}
                 disabled={restarting}
-                className="w-full text-left px-3 py-1.5 text-[11px] font-mono text-foreground hover:bg-surface transition-colors disabled:opacity-40"
+                className="w-full text-left px-3 py-1.5 text-[11px] font-mono text-foreground hover:bg-card transition-colors disabled:opacity-40"
               >
                 {s.label}
               </button>
@@ -474,7 +474,7 @@ function TimelineStep({
 
       {/* Dot */}
       <div className={`relative z-10 mt-1 w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 ${
-        reached ? stage.bgColor + "/20" : "bg-surface"
+        reached ? stage.bgColor + "/20" : "bg-card"
       } border ${reached ? "border-" + stage.bgColor.replace("bg-", "") + "/40" : "border-border"}`}>
         <Icon className={`w-3.5 h-3.5 ${reached ? stage.color : "text-dim/40"}`} />
       </div>
@@ -590,7 +590,7 @@ function LogStepCard({
   );
 
   return (
-    <div className={`px-3 py-2.5 rounded-lg border space-y-2 ${skipped ? "bg-surface/20 border-border/50 opacity-60" : "bg-surface/50 border-border"}`}>
+    <div className={`px-3 py-2.5 rounded-lg border space-y-2 ${skipped ? "bg-card/20 border-border/50 opacity-60" : "bg-card/50 border-border"}`}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2 flex-wrap">
@@ -603,7 +603,7 @@ function LogStepCard({
               <button
                 type="button"
                 onClick={() => setShowDetails((v) => !v)}
-                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-dim hover:text-foreground hover:bg-surface transition-colors"
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-dim hover:text-foreground hover:bg-card transition-colors"
                 title="Show details"
                 aria-label="Show status details"
               >
@@ -622,7 +622,7 @@ function LogStepCard({
         <div className={`mt-2 px-2.5 py-2 rounded-md text-[11px] font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-auto border ${
           entry?.status === "failed" || entry?.status === "parse_error"
             ? "bg-destructive/10 border-destructive/20 text-destructive"
-            : "bg-surface border-border text-dim"
+            : "bg-card border-border text-dim"
         }`}>
           {typeof detailsContent === "string" ? detailsContent : JSON.stringify(detailsContent).slice(0, 500)}
         </div>
@@ -672,7 +672,7 @@ function ContentBlock({ label, content, dir, maxHeight = 200 }: {
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 bg-surface/50 border-b border-border">
+      <div className="flex items-center justify-between px-3 py-2 bg-card/50 border-b border-border">
         <span className="text-[10px] font-mono text-dim uppercase tracking-wider">{label}</span>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-dim">{content.length.toLocaleString()} chars</span>
@@ -695,7 +695,7 @@ function ContentBlock({ label, content, dir, maxHeight = 200 }: {
       {content.length > 300 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full px-3 py-1.5 text-[10px] font-mono text-blue hover:text-foreground bg-surface/30 border-t border-border transition-colors"
+          className="w-full px-3 py-1.5 text-[10px] font-mono text-blue hover:text-foreground bg-card/30 border-t border-border transition-colors"
         >
           {expanded ? "Show less" : "Show more"}
         </button>
@@ -767,7 +767,7 @@ function ProcessorBadge({ type }: { type: "ai" | "server" | "api" }) {
 function TokensBadge({ entry }: { entry?: LogEntry | null }) {
   if (!entry?.totalTokens) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface border border-border text-[10px] font-mono text-dim">
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-card border border-border text-[10px] font-mono text-dim">
       <span>↑{entry.inputTokens?.toLocaleString()}</span>
       <span>↓{entry.outputTokens?.toLocaleString()}</span>
       <span className="text-foreground font-semibold">Σ{entry.totalTokens.toLocaleString()}</span>
@@ -785,7 +785,7 @@ function ExpandableText({ label, text, maxLen }: { label: string; text: string; 
         {open ? "▾ Hide" : "▸ Show"} {label}
       </button>
       {open && (
-        <div className="mt-1.5 px-3 py-2 rounded-lg bg-surface/50 border border-border text-[11px] font-mono text-dim whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto break-all">
+        <div className="mt-1.5 px-3 py-2 rounded-lg bg-card/50 border border-border text-[11px] font-mono text-dim whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto break-all">
           {text}
           {isTruncated && <span className="text-blue">…(truncated)</span>}
         </div>
@@ -1247,7 +1247,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
         <ResultCard label="Key Facts" icon={ListOrdered}>
           <div className="space-y-1.5">
             {brief.keyFacts.map((fact, i) => (
-              <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+              <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-card/50 border border-border">
                 <span className="text-[10px] font-mono text-purple font-bold mt-0.5 shrink-0">{i + 1}</span>
                 <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{fact}</span>
               </div>
@@ -1259,7 +1259,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
         <ResultCard label="Timeline" icon={ListOrdered}>
           <div className="space-y-1">
             {brief.timeline.map((entry, i) => (
-              <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+              <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-card/50 border border-border">
                 <span className="text-[11px] font-mono text-blue shrink-0 w-24">{entry.date}</span>
                 <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{entry.event}</span>
               </div>
@@ -1271,7 +1271,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
         <ResultCard label="Key People" icon={Users}>
           <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
             {brief.mainCharacters.map((person, i) => (
-              <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+              <div key={i} className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
                 <div className="text-[12px] font-semibold text-foreground" dir="auto">{person.name}</div>
                 <div className="text-[11px] text-dim mt-0.5" dir="auto">{person.role}</div>
               </div>
@@ -1386,7 +1386,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
         <ResultCard label="Related Articles" icon={Search}>
           <div className="space-y-1.5">
             {research.relatedArticles.map((ra, i) => (
-              <div key={i} className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+              <div key={i} className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-mono text-blue shrink-0">{i + 1}.</span>
                   {ra.url ? (
@@ -1421,7 +1421,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
         <ResultCard label="Similar Competition Videos" icon={Target}>
           <div className="space-y-1.5">
             {research.similarVideos.map((v, i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-card/50 border border-border">
                 <span className="text-[10px] font-mono text-purple shrink-0">{i + 1}.</span>
                 <span className="text-[12px] text-foreground truncate flex-1" dir="auto">{v.title}</span>
                 <div className="flex items-center gap-2 text-[10px] font-mono text-dim shrink-0">
@@ -1444,7 +1444,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
 
 function InfoCard({ label, value, color, dir }: { label: string; value: string; color?: string; dir?: string }) {
   return (
-    <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+    <div className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
       <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-0.5">{label}</div>
       <div className={`text-[13px] font-medium ${color || "text-foreground"}`} dir={dir}>{value}</div>
     </div>
@@ -1458,7 +1458,7 @@ function ScoreGauge({ label, value }: { label: string; value?: number }) {
   const bgColor = pct >= 70 ? "bg-success" : pct >= 40 ? "bg-orange" : "bg-destructive";
 
   return (
-    <div className="px-3 py-2.5 rounded-lg bg-surface/50 border border-border">
+    <div className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
       <div className="flex items-center justify-between mb-1">
         <span className="text-[10px] font-mono text-dim uppercase tracking-wider">{label}</span>
         <span className={`text-[13px] font-mono font-bold ${color}`}>{v.toFixed(2)}</span>
@@ -1473,7 +1473,7 @@ function ScoreGauge({ label, value }: { label: string; value?: number }) {
 function ScoreRow({ label, value, weight, result }: { label: string; value: number; weight: number; result: number }) {
   const pct = Math.round(value * 100);
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-border">
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-card/50 border border-border">
       <span className="text-[12px] font-mono text-dim w-28">{label}</span>
       <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
         <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />

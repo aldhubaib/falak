@@ -1,7 +1,9 @@
 const express = require('express')
 const router = express.Router()
 const db = require('../lib/db')
-const { requireRole } = require('../middleware/auth')
+const { requireAuth, requireRole } = require('../middleware/auth')
+
+router.use(requireAuth)
 
 // ── GET /api/alerts?channelId=xxx&unreadOnly=true&limit=50
 router.get('/', requireRole('owner', 'admin', 'editor', 'viewer'), async (req, res) => {

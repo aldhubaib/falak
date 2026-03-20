@@ -144,9 +144,12 @@ export default function Settings() {
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageInitialLoaded, setUsageInitialLoaded] = useState(false);
   const usageScrollRef = useRef<HTMLDivElement>(null);
+  const usageLoadingRef = useRef(false);
+  const usageCursorRef = useRef<string | null>(null);
 
   const fetchUsagePage = useCallback(async (cursor: string | null, replace: boolean) => {
-    if (!channelId || usageLoading) return;
+    if (!channelId || usageLoadingRef.current) return;
+    usageLoadingRef.current = true;
     setUsageLoading(true);
     try {
       const url = `/api/profiles/${channelId}/usage?limit=50${cursor ? `&cursor=${cursor}` : ""}`;
@@ -166,34 +169,36 @@ export default function Settings() {
         };
       });
       setUsageLogs((prev) => replace ? mapped : [...prev, ...mapped]);
-      setUsageCursor(data.nextCursor ?? null);
+      const nextCursor = data.nextCursor ?? null;
+      setUsageCursor(nextCursor);
+      usageCursorRef.current = nextCursor;
       setUsageHasMore(data.hasMore ?? false);
     } catch {
       // silent
     } finally {
+      usageLoadingRef.current = false;
       setUsageLoading(false);
       setUsageInitialLoaded(true);
     }
-  }, [channelId, usageLoading]);
+  }, [channelId]);
 
   // Initial load
   useEffect(() => {
     if (channelId) fetchUsagePage(null, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId]);
+  }, [channelId, fetchUsagePage]);
 
   // Infinite scroll: when user hits bottom of the 500px container, load next page
   useEffect(() => {
     const el = usageScrollRef.current;
     if (!el) return;
     const onScroll = () => {
-      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) {
-        fetchUsagePage(usageCursor, false);
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && !usageLoadingRef.current) {
+        fetchUsagePage(usageCursorRef.current, false);
       }
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [usageHasMore, usageLoading, usageCursor, fetchUsagePage]);
+  }, [fetchUsagePage]);
 
   // Load key status + YouTube keys (global /api/settings) and project keys (for firecrawl)
   useEffect(() => {
@@ -397,7 +402,7 @@ export default function Settings() {
         {isSet && !isEd ? (
           <div
             onClick={() => setEditing((p) => ({ ...p, [def.service]: "" }))}
-            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-blue/40 transition-colors"
+            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-blue/40 transition-colors"
           >
             ••••••••••••••••  (click to replace)
           </div>
@@ -407,7 +412,7 @@ export default function Settings() {
             value={editing[def.service] || ""}
             onChange={(e) => setEditing((p) => ({ ...p, [def.service]: e.target.value }))}
             placeholder={def.placeholder || "Paste your API key..."}
-            className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
             autoFocus={isEd}
           />
         )}
@@ -461,7 +466,7 @@ export default function Settings() {
                     {def.multiKey ? (
                       <div className="space-y-2 mb-1">
                         {ytKeys.map((k) => (
-                          <div key={k.id} className="flex items-center justify-between px-4 py-2 bg-surface rounded-xl">
+                          <div key={k.id} className="flex items-center justify-between px-4 py-2 bg-card rounded-xl">
                             <div className="flex items-center gap-2.5">
                               <span className="text-[12px] font-medium">{k.label}</span>
                               {k.usageCount > 0 && <span className="text-[10px] text-dim font-mono">{k.usageCount.toLocaleString()} calls</span>}
@@ -474,9 +479,9 @@ export default function Settings() {
                         ))}
                         <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
                           <input type="text" placeholder="Label (e.g. Key 2)" value={newYtLabel} onChange={(e) => setNewYtLabel(e.target.value)}
-                            className="w-[160px] max-sm:w-full px-3.5 py-2 text-[12px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+                            className="w-[160px] max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
                           <input type="text" placeholder={def.placeholder || "AIza..."} value={newYtValue} onChange={(e) => setNewYtValue(e.target.value)}
-                            className="flex-1 max-sm:w-full px-3.5 py-2 text-[12px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+                            className="flex-1 max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
                           <button onClick={handleAddYt} disabled={addingYt}
                             className="px-4 py-2 text-[12px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50 flex items-center gap-1.5">
                             {addingYt && <Loader2 className="w-3 h-3 animate-spin" />} Add Key
@@ -520,7 +525,7 @@ export default function Settings() {
               {embeddingKeySet && !embeddingKeyEditing ? (
                 <div
                   onClick={() => setEmbeddingKeyEditing(true)}
-                  className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-purple/40 transition-colors"
+                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-xl text-dim font-mono cursor-pointer hover:border-purple/40 transition-colors"
                 >
                   ••••••••••••••••  (click to replace)
                 </div>
@@ -530,7 +535,7 @@ export default function Settings() {
                   value={embeddingKeyInput}
                   onChange={(e) => setEmbeddingKeyInput(e.target.value)}
                   placeholder="sk-..."
-                  className="flex-1 px-4 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-purple/40"
+                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-purple/40"
                   autoFocus={embeddingKeyEditing}
                 />
               )}
@@ -552,31 +557,31 @@ export default function Settings() {
               <div className="mt-4 pt-4 border-t border-border space-y-2">
                 <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">INTELLIGENCE STATUS</div>
                 <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-                  <div className="px-3 py-2.5 bg-surface rounded-lg">
+                  <div className="px-3 py-2.5 bg-card rounded-lg">
                     <div className="text-[10px] text-dim font-mono mb-0.5">Last Stats Refresh</div>
                     <div className="text-[12px] font-mono text-foreground">
                       {embeddingStatus.lastStatsRefreshAt ? fmtDateTime(embeddingStatus.lastStatsRefreshAt) : "Never"}
                     </div>
                   </div>
-                  <div className="px-3 py-2.5 bg-surface rounded-lg">
+                  <div className="px-3 py-2.5 bg-card rounded-lg">
                     <div className="text-[10px] text-dim font-mono mb-0.5">Auto Re-score Interval</div>
                     <div className="text-[12px] font-mono text-foreground">{embeddingStatus.rescoreIntervalHours ?? 24}h</div>
                   </div>
                   {embeddingStatus.scoreProfile && (
                     <>
-                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                      <div className="px-3 py-2.5 bg-card rounded-lg">
                         <div className="text-[10px] text-dim font-mono mb-0.5">Decisions Learned</div>
                         <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalDecisions}</div>
                       </div>
-                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                      <div className="px-3 py-2.5 bg-card rounded-lg">
                         <div className="text-[10px] text-dim font-mono mb-0.5">Outcomes Tracked</div>
                         <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalOutcomes}</div>
                       </div>
-                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                      <div className="px-3 py-2.5 bg-card rounded-lg">
                         <div className="text-[10px] text-dim font-mono mb-0.5">AI Viral Accuracy</div>
                         <div className="text-[12px] font-mono text-foreground">{(embeddingStatus.scoreProfile.aiViralAccuracy * 100).toFixed(0)}%</div>
                       </div>
-                      <div className="px-3 py-2.5 bg-surface rounded-lg">
+                      <div className="px-3 py-2.5 bg-card rounded-lg">
                         <div className="text-[10px] text-dim font-mono mb-0.5">Last Learning</div>
                         <div className="text-[12px] font-mono text-foreground">
                           {embeddingStatus.scoreProfile.lastLearnedAt ? fmtDateTime(embeddingStatus.scoreProfile.lastLearnedAt) : "Never"}
@@ -637,7 +642,7 @@ export default function Settings() {
             ) : (
               <>
                 <div className="rounded-xl border border-border overflow-hidden max-sm:hidden">
-                  <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-surface/20 border-b border-border sticky top-0 z-10">
+                  <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-card/20 border-b border-border sticky top-0 z-10">
                     {["TIME", "API NAME", "ACTION", "TOKENS / UNITS", "STATUS"].map((h) => (
                       <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
                     ))}

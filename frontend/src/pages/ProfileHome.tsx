@@ -115,6 +115,7 @@ export default function ProfileHome() {
 
   useEffect(() => {
     if (!channelId) return;
+    let cancelled = false;
     setLoading(true);
 
     const fetchAll = async () => {
@@ -126,6 +127,7 @@ export default function ProfileHome() {
         fetch(`/api/analytics?channelId=${channelId}&period=30d`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
         fetch(`/api/channels/${channelId}/publish-not-done`, { credentials: "include" }).then(r => r.ok ? r.json() : null),
       ]);
+      if (cancelled) return;
 
       if (chRes.status === "fulfilled" && chRes.value) setChannel(chRes.value);
       if (vidRes.status === "fulfilled") setRecentVideos(vidRes.value?.videos || []);
@@ -145,6 +147,7 @@ export default function ProfileHome() {
     };
 
     fetchAll();
+    return () => { cancelled = true; };
   }, [channelId]);
 
   const name = channel ? (channel.nameEn || channel.nameAr || channel.handle) : "";

@@ -74,21 +74,19 @@ export default function VideoDetail() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
     setLoading(true);
     setNotFound(false);
     setVideo(null);
     setChannel(null);
     fetch(`/api/videos/${id}`, { credentials: "include" })
       .then((r) => {
-        if (r.status === 404) {
-          setNotFound(true);
-          return null;
-        }
+        if (r.status === 404) { if (!cancelled) setNotFound(true); return null; }
         if (!r.ok) throw new Error("Failed to load video");
         return r.json();
       })
       .then((data: Record<string, unknown>) => {
-        if (!data || typeof data.id !== "string") return;
+        if (cancelled || !data || typeof data.id !== "string") return;
         const ch = data.channel as { id: string; handle: string; nameAr?: string; nameEn?: string; avatarUrl?: string | null } | undefined;
         const pi = data.pipelineItem as { stage: string; status: string; error?: string | null; retries?: number; startedAt?: string | null; finishedAt?: string | null } | null;
         const viewsRaw = Number(data.viewCount) || 0;
@@ -197,13 +195,14 @@ export default function VideoDetail() {
           comments: commentRows,
         });
       })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) setNotFound(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [id]);
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-surface">
+      <div className="flex flex-col min-h-screen items-center justify-center bg-card">
         <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin mb-3" />
         <p className="text-[13px] text-foreground">Loading video…</p>
       </div>
@@ -212,7 +211,7 @@ export default function VideoDetail() {
 
   if (notFound || !video || !channel) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-surface p-6">
+      <div className="flex flex-col min-h-screen items-center justify-center bg-card p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
         <Link to={channelPath("")} className="text-sensor hover:text-foreground underline text-[13px]">
           Return to home
@@ -364,7 +363,7 @@ export default function VideoDetail() {
                   onClick={() => setActiveTab(tab)}
                   className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                     activeTab === tab
-                      ? "bg-surface text-foreground border-border"
+                      ? "bg-card text-foreground border-border"
                       : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
                   }`}
                 >

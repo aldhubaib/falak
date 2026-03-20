@@ -150,8 +150,8 @@ router.post('/logout', async (req, res) => {
 
 // ── GET /api/auth/me
 router.get('/me', requireAuth, (req, res) => {
-  const { id, email, name, avatarUrl, role, pageAccess, projectAccess } = req.user
-  res.json({ id, email, name, avatarUrl, role, pageAccess, projectAccess })
+  const { id, email, name, avatarUrl, role, pageAccess, channelAccess } = req.user
+  res.json({ id, email, name, avatarUrl, role, pageAccess, channelAccess })
 })
 
 module.exports = router

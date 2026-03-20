@@ -167,6 +167,22 @@ async function main() {
   }
 }
 
+let shuttingDown = false
+function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`[worker] ${signal} received — shutting down`)
+  const q = getQueue()
+  const closeQueue = q ? q.close().catch(() => {}) : Promise.resolve()
+  closeQueue
+    .then(() => db.$disconnect())
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1))
+  setTimeout(() => process.exit(1), 10_000)
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+
 if (require.main === module) {
   main().catch((e) => {
     console.error('[worker] fatal:', e)

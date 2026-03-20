@@ -1556,4 +1556,34 @@ Changes applied in the second infrastructure audit iteration:
 
 ---
 
+## Section 13 — Infrastructure Hardening (2026-03-20, Iteration 3)
+
+### Dead Code Cleanup
+- **Deleted 3 unrouted pages**: `Index.tsx`, `OurChannels.tsx`, `Channels.tsx` — never wired to any route.
+- **Deleted 9 unused story-detail components**: `StoryDetailPrevNext`, `StoryDetailStageLiked`, `StoryDetailStageApprovedFilmedPublish`, `StoryDetailStageDone`, `StoryDetailScriptBox`, `StoryDetailScriptBoxSaved`, `StoryDetailScores`, `StoryDetailAIAnalysis`, `StoryDetailRankingList` — exported from barrel but never imported by any page.
+- **Deleted unused components**: `NavLink.tsx`, `AIWriterBox.tsx` — zero imports across the codebase.
+- **Deleted shadcn sidebar/toast system**: `sidebar.tsx`, `toaster.tsx`, `toast.tsx`, `use-toast.ts` — app uses custom `AppSidebar` and Sonner instead.
+- **Deleted dead hooks**: `use-toast.ts`, `use-mobile.tsx` — only consumers were deleted files.
+- **Deleted 4 mock data files**: `analyticsMock.ts`, `monitorMock.ts`, `pipelineMock.ts`, `storiesMock.ts` — never imported.
+- **Cleaned `mock.ts`**: Removed 280+ lines of hardcoded data arrays and asset imports; kept only type definitions (`Channel`, `Video`, `PipelineStep`).
+- **Deleted orphaned assets**: 6 avatar images, 8 thumbnail images, 2 temp preview PNGs.
+- **Total**: 3,519 lines removed across 44 files.
+
+### Security Fixes
+- **alerts.js missing auth**: Added `router.use(requireAuth)` before `requireRole` — previously unauthenticated requests would hit `requireRole`, crash on `req.user.role`, and return 500 instead of 401.
+- **auth.js response bug**: `/api/auth/me` returned `projectAccess` (undefined) instead of `channelAccess` from the User model.
+
+### Reliability Fixes
+- **unhandledRejection shutdown**: `process.on('unhandledRejection')` now calls `gracefulShutdown()` instead of only logging — prevents the process from running in an inconsistent state.
+- **Worker SIGTERM/SIGINT handlers**: All three workers (`worker.js`, `worker-articles.js`, `worker-rescore.js`) now register `SIGTERM` and `SIGINT` handlers that disconnect Prisma, close Bull queues, and exit cleanly within a 10s timeout.
+
+### Frontend Reliability
+- **ProfileHome.tsx**: Added `cancelled` flag to the 6-fetch `useEffect` — prevents state updates on unmounted component during fast navigation.
+- **ChannelDetail.tsx**: Added `cancelled` flags to both channel and video fetch effects.
+- **VideoDetail.tsx**: Added `cancelled` flag to the video fetch effect.
+- **ArticleDetail.tsx**: Fixed `useEffect(fetchArticle, [id])` anti-pattern — `fetchArticle` was recreated every render, causing the effect to reference stale closure. Replaced with `useEffect(() => { fetchArticle(); }, [id])`.
+- **Settings.tsx scroll listener**: `fetchUsagePage` callback included `usageLoading` in deps, causing it to be recreated on every load state change, which re-attached the scroll event listener on every fetch. Fixed by using refs (`usageLoadingRef`, `usageCursorRef`) for the loading guard, stabilizing the callback identity.
+
+---
+
 *Last updated: 2026-03-20*

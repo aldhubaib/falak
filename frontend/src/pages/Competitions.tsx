@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import { DeleteChannelModal } from "@/components/DeleteChannelModal";
 import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle, ChevronDown } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 import { COUNTRIES } from "@/data/countries";
 
@@ -86,7 +87,7 @@ export default function Competitions() {
 
   useEffect(() => {
     fetchChannels();
-  }, [channelId]);
+  }, [channelId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAdd = () => {
     const val = inputValue.trim();
@@ -258,21 +259,31 @@ export default function Competitions() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => fetchChannels()}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteTarget(ch.id);
-                      }}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => fetchChannels()}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Sync channel</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(ch.id);
+                          }}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Remove channel</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
