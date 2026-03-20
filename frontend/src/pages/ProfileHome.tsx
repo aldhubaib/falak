@@ -293,7 +293,7 @@ export default function ProfileHome() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 max-lg:px-4">
+      <div className="px-6 pt-5 pb-8 max-lg:px-4">
         <div className="flex items-start gap-4">
           <img
             src={channel.avatarUrl || "/placeholder.svg"}

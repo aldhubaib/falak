@@ -115,7 +115,7 @@ export function StoryDetailTopBar({
 
   return (
     <>
-      <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:px-3 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2">
+      <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:px-3 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
@@ -160,7 +160,7 @@ export function StoryDetailTopBar({
               <ChevronDown className={`w-3 h-3 text-dim/40 transition-transform shrink-0 ${actionDropOpen ? "rotate-180" : ""}`} />
             </button>
             {actionDropOpen && (
-              <div className="absolute z-20 mt-2 right-0 w-48 rounded-xl bg-surface border border-border overflow-hidden shadow-lg">
+              <div className="absolute z-20 mt-2 right-0 w-48 rounded-xl bg-card border border-border overflow-hidden shadow-lg">
                 {nextStageKey && nextStageLabel && (
                   <>
                     <button

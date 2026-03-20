@@ -23,7 +23,6 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        surface: "hsl(var(--surface))",
         elevated: "hsl(var(--elevated))",
         sensor: "hsl(var(--sensor))",
         dim: "hsl(var(--dim))",

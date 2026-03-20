@@ -101,7 +101,7 @@ export function StoryDetailArticle({
       <button
         type="button"
         onClick={() => setArticleOpen(!articleOpen)}
-        className="w-full px-5 max-sm:px-3 py-3.5 flex items-center justify-between hover:bg-surface/30 transition-colors text-left"
+        className="w-full px-5 max-sm:px-3 py-3.5 flex items-center justify-between hover:bg-card/30 transition-colors text-left"
       >
         <div className="flex items-center gap-2">
           {articleOpen ? (

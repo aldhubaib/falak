@@ -217,7 +217,7 @@ export default function Stories() {
   if (loadError) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+        <div className="h-12 flex items-center px-6 border-b border-border shrink-0">
           <h1 className="text-sm font-semibold">AI Intelligence</h1>
         </div>
         <div className="flex-1">
@@ -235,7 +235,7 @@ export default function Stories() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+        <div className="h-12 flex items-center px-6 border-b border-border shrink-0">
           <h1 className="text-sm font-semibold">AI Intelligence</h1>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -248,7 +248,7 @@ export default function Stories() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">AI Intelligence</h1>
         </div>
@@ -375,7 +375,7 @@ export default function Stories() {
                     <Link
                       key={story.id}
                       to={channelPath(`/story/${story.id}`)}
-                      className="block w-full px-4 py-3.5 border-t border-border text-right hover:bg-[#0d0d10] transition-colors group no-underline"
+                      className="block w-full px-4 py-3.5 border-t border-border text-right hover:bg-card transition-colors group no-underline"
                     >
                       <div className="flex items-start justify-between mb-1.5 gap-2">
                         <div className="flex items-center gap-1.5 shrink-0 flex-wrap">

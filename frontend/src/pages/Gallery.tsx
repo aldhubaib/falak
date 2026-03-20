@@ -197,7 +197,7 @@ export default function Gallery() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Tab bar */}
-      <div className="h-12 flex items-center gap-0 px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center gap-0 px-6 border-b border-border shrink-0 max-lg:px-4">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -262,7 +262,7 @@ export default function Gallery() {
                       doneRef.current = false;
                     }}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
-                      type === f.value ? "bg-surface text-foreground" : "text-dim hover:text-sensor"
+                      type === f.value ? "bg-card text-foreground" : "text-dim hover:text-sensor"
                     }`}
                   >
                     {f.icon && <f.icon className="w-3 h-3" />}
@@ -276,7 +276,7 @@ export default function Gallery() {
                 <button
                   onClick={() => setShowSort((v) => !v)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-colors ${
-                    showSort ? "border-border bg-surface text-foreground" : "border-border/50 text-dim hover:text-sensor hover:border-border"
+                    showSort ? "border-border bg-card text-foreground" : "border-border/50 text-dim hover:text-sensor hover:border-border"
                   }`}
                 >
                   <SlidersHorizontal className="w-3 h-3" />
@@ -299,7 +299,7 @@ export default function Gallery() {
                           doneRef.current = false;
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[12px] transition-colors ${
-                          sortBy === opt.value ? "bg-surface text-foreground" : "text-dim hover:text-sensor hover:bg-surface/50"
+                          sortBy === opt.value ? "bg-card text-foreground" : "text-dim hover:text-sensor hover:bg-card/50"
                         }`}
                       >
                         <span>{opt.label}</span>

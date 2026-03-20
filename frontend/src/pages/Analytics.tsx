@@ -1588,7 +1588,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+        <div className="h-12 flex items-center px-6 border-b border-border shrink-0">
           <h1 className="text-sm font-semibold">Analytics</h1>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -1601,7 +1601,7 @@ export default function Analytics() {
   if (!data || !universe) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+        <div className="h-12 flex items-center px-6 border-b border-border shrink-0">
           <h1 className="text-sm font-semibold">Analytics</h1>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -1614,7 +1614,7 @@ export default function Analytics() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Analytics</h1>
           <span className="text-[11px] text-dim font-mono">

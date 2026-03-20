@@ -201,7 +201,7 @@ export default function Pipeline() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Tab bar */}
-      <div className="h-12 flex items-center gap-0 px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center gap-0 px-6 border-b border-border shrink-0 max-lg:px-4">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -565,7 +565,7 @@ function MonitorTab() {
                     onClick={() => setActiveFilter(tab)}
                     className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                       activeFilter === tab
-                        ? "bg-surface text-foreground border-border"
+                        ? "bg-card text-foreground border-border"
                         : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
                     }`}
                   >
@@ -600,7 +600,7 @@ function MonitorTab() {
                     <Link
                       key={ch.id}
                       to={channelPath(`/channel/${ch.id}`)}
-                      className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center no-underline"
+                      className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-card transition-colors cursor-pointer group items-center no-underline"
                     >
                       <div className="flex items-center gap-2.5">
                         {ch.avatarUrl ? (
@@ -632,7 +632,7 @@ function MonitorTab() {
                     <Link
                       key={ch.id}
                       to={channelPath(`/channel/${ch.id}`)}
-                      className="block rounded-xl bg-background p-4 cursor-pointer active:bg-[#0d0d10] transition-colors no-underline"
+                      className="block rounded-xl bg-background p-4 cursor-pointer active:bg-card transition-colors no-underline"
                     >
                       <div className="flex items-center gap-3 mb-3">
                         {ch.avatarUrl ? (
@@ -765,7 +765,7 @@ function PipelineItemRow({ item, isFailed, onRetry }: { item: ApiPipelineItem; i
 
   return (
     <Wrapper
-      className={`block px-4 py-3 border-t border-border hover:bg-surface/50 transition-colors group no-underline ${video?.id ? "cursor-pointer" : ""}`}
+      className={`block px-4 py-3 border-t border-border hover:bg-card/50 transition-colors group no-underline ${video?.id ? "cursor-pointer" : ""}`}
       {...(wrapperProps as any)}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">

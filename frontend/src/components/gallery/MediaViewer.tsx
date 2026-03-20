@@ -134,7 +134,7 @@ export function MediaViewer({ open, items, index, onOpenChange, onIndexChange, o
               <div className="px-4 py-3 border-t border-border flex gap-2 shrink-0">
                 <button
                   onClick={() => onDownload(active)}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-surface text-[12px] text-foreground font-medium hover:bg-elevated transition-colors"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-card text-[12px] text-foreground font-medium hover:bg-elevated transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download

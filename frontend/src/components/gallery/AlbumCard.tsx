@@ -14,7 +14,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
   return (
     <Link
       to={`/c/${channelId}/gallery/album/${album.id}`}
-      className="group block overflow-hidden rounded-xl bg-background hover:bg-[#0d0d10] transition-colors no-underline cursor-pointer"
+      className="group block overflow-hidden rounded-xl bg-background hover:bg-card transition-colors no-underline cursor-pointer"
     >
       <div className="aspect-[4/3] bg-elevated relative overflow-hidden">
         {coverUrl ? (

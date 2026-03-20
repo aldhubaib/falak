@@ -115,14 +115,14 @@ export default function ProfilePicker() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#080808] flex items-center justify-center">
+      <div className="min-h-screen bg-sidebar flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center px-6 py-16">
+    <div className="min-h-screen bg-sidebar flex flex-col items-center justify-center px-6 py-16">
       <h1 className="text-[22px] font-semibold text-foreground mb-2 tracking-tight">
         Choose your profile
       </h1>
@@ -132,7 +132,7 @@ export default function ProfilePicker() {
         {profiles.map((p) => (
           <div
             key={p.id}
-            className="relative group flex flex-col items-center rounded-2xl bg-[#111114] border border-border/50 px-4 py-6 cursor-pointer hover:border-blue/40 hover:bg-[#14141a] transition-all"
+            className="relative group flex flex-col items-center rounded-2xl bg-card border border-border/50 px-4 py-6 cursor-pointer hover:border-blue/40 hover:bg-card transition-all"
             onClick={() => navigate(`/c/${p.id}/`)}
           >
             {/* Three-dot menu */}
@@ -191,7 +191,7 @@ export default function ProfilePicker() {
         {/* Add card */}
         <div
           onClick={() => setAddOpen(true)}
-          className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 px-4 py-6 cursor-pointer hover:border-blue/40 hover:bg-[#0c0c10] transition-all min-h-[160px]"
+          className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/40 px-4 py-6 cursor-pointer hover:border-blue/40 hover:bg-card transition-all min-h-[160px]"
         >
           <div className="w-16 h-16 rounded-full bg-elevated/40 flex items-center justify-center mb-3">
             <Plus className="w-7 h-7 text-dim" />
@@ -217,7 +217,7 @@ export default function ProfilePicker() {
                 value={addHandle}
                 onChange={(e) => { setAddHandle(e.target.value); setAddError(""); }}
                 placeholder="@handle"
-                className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
                 autoFocus
               />
             </div>
@@ -254,7 +254,7 @@ export default function ProfilePicker() {
                 value={editNameAr}
                 onChange={(e) => setEditNameAr(e.target.value)}
                 placeholder="Display name"
-                className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
                 dir="rtl"
                 autoFocus
               />

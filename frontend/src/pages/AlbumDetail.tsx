@@ -90,7 +90,7 @@ export default function AlbumDetail() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header bar */}
-      <div className="h-12 flex items-center gap-3 px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center gap-3 px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link
           to={`/c/${channelId}/gallery`}
           className="inline-flex items-center gap-1 text-[12px] text-dim hover:text-sensor transition-colors no-underline"

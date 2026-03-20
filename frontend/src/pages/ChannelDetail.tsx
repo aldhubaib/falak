@@ -250,7 +250,7 @@ export default function ChannelDetail() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link
           to={channelPath(channelType === "competition" ? "/competitions" : "")}
           className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"

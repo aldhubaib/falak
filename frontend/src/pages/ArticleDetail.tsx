@@ -273,11 +273,11 @@ export default function ArticleDetailPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
-      <div className="h-12 flex items-center gap-3 px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center gap-3 px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link to={pp("/article-pipeline")} className="text-dim hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <h1 className="text-[13px] font-medium text-foreground truncate">Article Inspector</h1>
+        <h1 className="text-sm font-semibold text-foreground truncate">Article Inspector</h1>
         <span className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
           isDone ? "bg-success/15 text-success" :
           isFailed ? "bg-destructive/15 text-destructive" :

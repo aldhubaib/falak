@@ -88,7 +88,7 @@ export function StoryDetailScriptSection({
               className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors ${
                 videoFormat === "long"
                   ? "bg-blue/15 text-blue"
-                  : "bg-surface text-dim hover:text-foreground hover:bg-elevated"
+                  : "bg-card text-dim hover:text-foreground hover:bg-elevated"
               }`}
             >
               <Film className="w-3.5 h-3.5" />
@@ -100,7 +100,7 @@ export function StoryDetailScriptSection({
               className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors border-l border-border ${
                 videoFormat === "short"
                   ? "bg-blue/15 text-blue"
-                  : "bg-surface text-dim hover:text-foreground hover:bg-elevated"
+                  : "bg-card text-dim hover:text-foreground hover:bg-elevated"
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
@@ -141,17 +141,17 @@ export function StoryDetailScriptSection({
                   <img
                     src={currentUser.avatarUrl}
                     alt={currentUser.name}
-                    className="w-7 h-7 rounded-full object-cover border-2 border-surface ring-2 ring-blue/40"
+                    className="w-7 h-7 rounded-full object-cover border-2 border-card ring-2 ring-blue/40"
                   />
                 ) : (
                   <div
-                    className="w-7 h-7 rounded-full border-2 border-surface ring-2 ring-blue/40 bg-blue/15 flex items-center justify-center text-[10px] font-mono text-blue"
+                    className="w-7 h-7 rounded-full border-2 border-card ring-2 ring-blue/40 bg-blue/15 flex items-center justify-center text-[10px] font-mono text-blue"
                     title={`${currentUser.name} (you)`}
                   >
                     {(currentUser.name || "?").slice(0, 1).toUpperCase()}
                   </div>
                 )}
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-surface" />
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-card" />
               </div>
             )}
             {collaborators.slice(0, 5).map((u) => (
@@ -160,22 +160,22 @@ export function StoryDetailScriptSection({
                   <img
                     src={u.avatar}
                     alt={u.name}
-                    className="w-7 h-7 rounded-full object-cover border-2 border-surface"
+                    className="w-7 h-7 rounded-full object-cover border-2 border-card"
                   />
                 ) : (
                   <div
-                    className="w-7 h-7 rounded-full border-2 border-surface flex items-center justify-center text-[10px] font-mono text-dim"
+                    className="w-7 h-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-mono text-dim"
                     style={{ backgroundColor: u.color ? `${u.color}33` : undefined }}
                     title={u.name}
                   >
                     {(u.name || "?").slice(0, 1).toUpperCase()}
                   </div>
                 )}
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-surface" />
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-card" />
               </div>
             ))}
             {collaborators.length > 5 && (
-              <div className="w-7 h-7 rounded-full bg-surface border-2 border-surface flex items-center justify-center text-[10px] text-muted-foreground font-medium">
+              <div className="w-7 h-7 rounded-full bg-card border-2 border-card flex items-center justify-center text-[10px] text-muted-foreground font-medium">
                 +{collaborators.length - 5}
               </div>
             )}
@@ -185,7 +185,7 @@ export function StoryDetailScriptSection({
       <div className="rounded-xl bg-background border border-border overflow-visible">
         <div className="px-4 max-sm:px-3 py-3 flex items-center justify-between border-b border-border flex-wrap gap-2">
           <div className="flex items-center gap-3 flex-1">
-            <div className="inline-flex items-center bg-surface rounded-full border border-border flex-wrap">
+            <div className="inline-flex items-center bg-card rounded-full border border-border flex-wrap">
               <div className="relative">
                 <button
                   type="button"
@@ -212,7 +212,7 @@ export function StoryDetailScriptSection({
                   {!readOnly && <ChevronDown className={`w-2.5 h-2.5 text-dim transition-transform ${channelDropOpen ? "rotate-180" : ""}`} />}
                 </button>
                 {channelDropOpen && !readOnly && (
-                  <div className="absolute z-10 mt-2 left-0 w-64 rounded-xl bg-surface border border-border overflow-hidden shadow-lg">
+                  <div className="absolute z-10 mt-2 left-0 w-64 rounded-xl bg-card border border-border overflow-hidden shadow-lg">
                     {channels.length === 0 ? (
                       <div className="px-4 py-3 text-[12px] text-dim text-center">
                         No channels added yet. Add your channels in the Channels page.

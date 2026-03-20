@@ -145,7 +145,7 @@ export default function Competitions() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="h-12 flex items-center px-6 border-b shrink-0 max-md:px-4 border-[#151619]">
+      <div className="h-12 flex items-center px-6 border-b shrink-0 max-md:px-4 border-border">
         <h1 className="text-sm font-semibold">
           Competitions <span className="text-dim font-normal">({channels.length})</span>
         </h1>
@@ -160,7 +160,7 @@ export default function Competitions() {
                 <select
                   value={nationality}
                   onChange={(e) => setNationality(e.target.value)}
-                  className="appearance-none pl-3 pr-8 py-2 bg-background border border-border text-foreground text-[13px] font-sans outline-none transition-colors focus:border-[#2a2a2e] cursor-pointer min-w-[180px]"
+                  className="appearance-none pl-3 pr-8 py-2 bg-background border border-border text-foreground text-[13px] font-sans outline-none transition-colors focus:border-border cursor-pointer min-w-[180px]"
                   style={{ borderRadius: "20px" }}
                 >
                   <option value="">Select country</option>
@@ -183,14 +183,14 @@ export default function Competitions() {
                 }}
                 placeholder="@handle or channel ID..."
                 className={`w-full pl-3 pr-3 py-2 bg-background border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-dim ${
-                  inputError ? "border-destructive/50" : "border-border focus:border-[#2a2a2e]"
+                  inputError ? "border-destructive/50" : "border-border focus:border-border"
                 }`}
                 style={{ borderRadius: "20px" }}
               />
             </div>
             <button
               onClick={handleAdd}
-              className="px-4 py-2 bg-[rgb(30,81,233)] text-white text-[13px] font-medium cursor-pointer whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity flex items-center gap-1.5 max-md:w-full max-md:justify-center"
+              className="px-4 py-2 bg-primary text-white text-[13px] font-medium cursor-pointer whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity flex items-center gap-1.5 max-md:w-full max-md:justify-center"
               style={{ borderRadius: "20px" }}
             >
               <Plus className="w-3.5 h-3.5" />
@@ -210,11 +210,11 @@ export default function Competitions() {
               No competitor channels yet. Add your first competitor above.
             </p>
           ) : (
-            <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: "12px" }}>
+            <div className="rounded-xl overflow-hidden border border-border">
               {channels.map((ch) => (
                 <div
                   key={ch.id}
-                  className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors group border-b border-border last:border-b-0"
+                  className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors group border-b border-border last:border-b-0"
                 >
                   <div className="relative shrink-0">
                     <img

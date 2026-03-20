@@ -111,11 +111,11 @@ export default function Login() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#070707]">
+    <div className="flex h-screen overflow-hidden bg-sidebar">
       {/* Left — Scrolling thumbnails from our channels (1/3) */}
       <div className="hidden lg:block w-1/3 relative overflow-hidden">
         {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-[#070707]/20 z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-sidebar/20 z-10 pointer-events-none" />
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#070707] to-transparent z-20 pointer-events-none" />
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#070707] to-transparent z-20 pointer-events-none" />
         <div className="absolute top-0 right-0 bottom-0 w-16 bg-gradient-to-l from-[#070707] to-transparent z-20 pointer-events-none" />
@@ -173,7 +173,7 @@ export default function Login() {
             </p>
           </div>
 
-          <div className="bg-surface border border-border rounded-2xl p-6">
+          <div className="bg-card border border-border rounded-2xl p-6">
             {error && (
               <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-[12px]">
                 {error}

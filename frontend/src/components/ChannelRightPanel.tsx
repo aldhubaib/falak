@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import type { Channel } from "@/data/mock";
 import { toast } from "sonner";
 import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock, Globe } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 import { COUNTRIES } from "@/data/countries";
 
@@ -180,7 +181,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
   return (
     <div
       ref={ref}
-      className="absolute top-2 right-2 w-[260px] rounded-xl bg-surface border border-border shadow-xl shadow-black/30 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+      className="absolute top-2 right-2 w-[260px] rounded-xl bg-card border border-border shadow-xl shadow-black/30 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -223,7 +224,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
             onClick={() => onTypeChange?.("ours")}
             className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
               channel.type === "ours"
-                ? "bg-[#1e51e9]/15 text-[#1e51e9] border-r border-border"
+                ? "bg-primary/15 text-primary border-r border-border"
                 : "bg-elevated text-dim hover:text-sensor border-r border-border"
             }`}
           >
@@ -233,7 +234,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
             onClick={() => onTypeChange?.("competition")}
             className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
               channel.type === "competition"
-                ? "bg-[#FFFF00]/10 text-[#FFFF00]"
+                ? "bg-orange/10 text-orange"
                 : "bg-elevated text-dim hover:text-sensor"
             }`}
           >
@@ -282,15 +283,30 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
 
       {/* Actions */}
       <div className="px-4 py-3 border-t border-border flex items-center justify-between">
-        <button title="Sync Now" onClick={handleSync} disabled={syncing} className="w-10 h-10 rounded-full flex items-center justify-center bg-elevated border border-border text-sensor cursor-pointer transition-all hover:bg-border hover:text-foreground disabled:opacity-50">
-          <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
-        </button>
-        <button title="Analyze All" onClick={handleAnalyzeAll} disabled={analyzing} className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/10 border border-primary/15 text-primary cursor-pointer transition-all hover:bg-primary/15 disabled:opacity-50">
-          <Play className="w-4 h-4" />
-        </button>
-        <button title="Remove Channel" onClick={handleRemove} className="w-10 h-10 rounded-full flex items-center justify-center bg-transparent border border-destructive/15 text-destructive cursor-pointer transition-all hover:bg-destructive/[0.06]">
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button onClick={handleSync} disabled={syncing} className="w-10 h-10 rounded-full flex items-center justify-center bg-elevated border border-border text-sensor cursor-pointer transition-all hover:bg-border hover:text-foreground disabled:opacity-50">
+              <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Sync now</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button onClick={handleAnalyzeAll} disabled={analyzing} className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/10 border border-primary/15 text-primary cursor-pointer transition-all hover:bg-primary/15 disabled:opacity-50">
+              <Play className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Analyze all</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button onClick={handleRemove} className="w-10 h-10 rounded-full flex items-center justify-center bg-transparent border border-destructive/15 text-destructive cursor-pointer transition-all hover:bg-destructive/[0.06]">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Remove channel</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

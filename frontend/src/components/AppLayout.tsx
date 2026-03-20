@@ -112,7 +112,7 @@ export function AppLayout() {
       )}
 
       {/* Main content */}
-      <main className={`flex-1 min-w-0 bg-surface relative z-10 ${isDesktop ? "pt-0 rounded-l-2xl" : "pt-12"}`}>
+      <main className={`flex-1 min-w-0 bg-card relative z-10 ${isDesktop ? "pt-0 rounded-l-2xl" : "pt-12"}`}>
         <Outlet />
       </main>
     </div>

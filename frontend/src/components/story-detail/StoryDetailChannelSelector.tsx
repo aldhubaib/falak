@@ -30,7 +30,7 @@ export function StoryDetailChannelSelector({
         <button
           type="button"
           onClick={onToggleOpen}
-          className="w-full flex items-center gap-3 px-4 py-2.5 bg-surface border border-border rounded-full text-[13px] font-medium focus:outline-none focus:border-primary/40"
+          className="w-full flex items-center gap-3 px-4 py-2.5 bg-card border border-border rounded-full text-[13px] font-medium focus:outline-none focus:border-primary/40"
         >
           {selected ? (
             <>
@@ -61,7 +61,7 @@ export function StoryDetailChannelSelector({
                 key={c.id}
                 type="button"
                 onClick={() => onSelect(c.id)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-surface ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-card ${
                   selectedId === c.id ? "bg-blue/10" : ""
                 }`}
               >

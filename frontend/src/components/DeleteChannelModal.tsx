@@ -12,7 +12,7 @@ export function DeleteChannelModal({ open, channelName, onClose, onDelete }: Del
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-        <div className="bg-surface border border-border rounded-2xl p-6 w-[380px] max-w-full">
+        <div className="bg-card border border-border rounded-2xl p-6 w-[380px] max-w-full">
         <div className="w-9 h-9 rounded-xl bg-destructive/10 border border-destructive/15 flex items-center justify-center mb-4">
           <AlertTriangle className="w-4 h-4 text-destructive" />
         </div>

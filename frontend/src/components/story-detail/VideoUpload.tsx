@@ -202,7 +202,7 @@ export function VideoUpload({
               <Loader2 className="w-8 h-8 animate-spin text-blue" />
               <span className="text-[11px] font-mono text-dim">{Math.round(task.progress)}%</span>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-surface">
+            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-card">
               <div
                 className="h-full bg-blue transition-all duration-300 ease-out"
                 style={{ width: `${task.progress}%` }}
@@ -350,7 +350,7 @@ export function VideoUpload({
           ) : (
             <div className={`w-full ${thumbAspect} rounded-xl bg-elevated flex items-center justify-center`}>
               <div className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-full bg-surface/80 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-card/80 flex items-center justify-center">
                   <Play className="w-5 h-5 text-foreground ml-0.5" />
                 </div>
                 <span className="text-[9px] font-mono text-dim uppercase tracking-widest">{ext}</span>
@@ -442,7 +442,7 @@ export function VideoUpload({
           <div className="flex flex-col items-center gap-2">
             <div className={`
               w-12 h-12 rounded-full flex items-center justify-center transition-colors
-              ${dragOver ? "bg-blue/20" : "bg-surface/80"}
+              ${dragOver ? "bg-blue/20" : "bg-card/80"}
             `}>
               <Upload className={`w-5 h-5 transition-colors ${dragOver ? "text-blue" : "text-dim"}`} />
             </div>

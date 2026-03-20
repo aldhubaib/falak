@@ -140,7 +140,7 @@ export function PageError({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-4 px-3 py-2 rounded-lg bg-surface text-[11px] font-mono text-dim">
+        <div className="flex items-center gap-3 mb-4 px-3 py-2 rounded-lg bg-card text-[11px] font-mono text-dim">
           <Bug className="w-3.5 h-3.5 shrink-0" />
           <span className="select-all">{fingerprint}</span>
           <span className="text-border">|</span>
@@ -159,7 +159,7 @@ export function PageError({
         </button>
 
         {expanded && (
-          <pre className="text-left text-[10px] font-mono text-dim bg-surface rounded-lg p-3 mb-4 overflow-auto max-h-48 select-text whitespace-pre-wrap break-words">
+          <pre className="text-left text-[10px] font-mono text-dim bg-card rounded-lg p-3 mb-4 overflow-auto max-h-48 select-text whitespace-pre-wrap break-words">
             {debugReport}
           </pre>
         )}

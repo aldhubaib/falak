@@ -21,7 +21,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden lg:block rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+      <div className="hidden lg:block rounded-xl overflow-hidden border border-border">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-elevated/40">
@@ -77,7 +77,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
                 <tr
                   key={v.id}
                   onClick={() => onVideoClick?.(v.id)}
-                  className={`bg-background hover:bg-[#0d0d10] transition-colors group ${onVideoClick || href ? "cursor-pointer" : ""}`}
+                  className={`bg-background hover:bg-card transition-colors group ${onVideoClick || href ? "cursor-pointer" : ""}`}
                 >
                   {rowContent}
                 </tr>
@@ -88,7 +88,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
       </div>
 
       {/* Mobile cards */}
-      <div className="flex flex-col lg:hidden rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+      <div className="flex flex-col lg:hidden rounded-xl overflow-hidden border border-border">
         {videos.map((v) => {
           const href = getVideoHref?.(v.id);
           if (href) {
@@ -96,7 +96,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
               <Link
                 key={v.id}
                 to={href}
-                className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors border-b border-border last:border-b-0 cursor-pointer no-underline"
+                className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 cursor-pointer no-underline"
               >
                 <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
                   {v.thumbnail ? (
@@ -124,7 +124,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
             <div
               key={v.id}
               onClick={() => onVideoClick?.(v.id)}
-              className={`bg-background flex items-center gap-3 px-4 py-3 hover:bg-[#0d0d10] transition-colors border-b border-border last:border-b-0 ${onVideoClick ? "cursor-pointer" : ""}`}
+              className={`bg-background flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 ${onVideoClick ? "cursor-pointer" : ""}`}
             >
               <div className="w-10 h-7 rounded-lg bg-elevated shrink-0 overflow-hidden">
                 {v.thumbnail ? (
@@ -156,7 +156,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
         <div className="flex items-center gap-1">
           <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">«</button>
           <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">‹</button>
-          <button className="w-7 h-7 rounded-full bg-[rgb(30,81,233)] text-white text-xs font-mono flex items-center justify-center">1</button>
+          <button className="w-7 h-7 rounded-full bg-primary text-white text-xs font-mono flex items-center justify-center">1</button>
           <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">›</button>
           <button disabled className="w-7 h-7 rounded-full border border-border bg-card text-dim text-xs font-mono cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center">»</button>
         </div>

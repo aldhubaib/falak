@@ -430,7 +430,7 @@ export default function Settings() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Settings</h1>
           <span className="text-[11px] text-dim font-mono">API keys and usage monitoring</span>

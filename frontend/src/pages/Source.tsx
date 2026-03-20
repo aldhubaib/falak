@@ -648,7 +648,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
               <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
                 placeholder={typeDef.label}
-                className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
             </div>
           </div>
 
@@ -662,7 +662,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
                 <input type="text" value={config[f.key] || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             ))}
             {typeDef.format === "apify" && (
@@ -673,7 +673,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder="apify_api_..."
-                  className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             )}
           </div>
@@ -791,7 +791,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
             <div className="flex-1">
               <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-                className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
             </div>
           </div>
 
@@ -805,7 +805,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
                 <input type="text" value={(config[f.key] as string) || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             ))}
             {typeDef.format === "apify" && (
@@ -818,7 +818,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder={source.hasApiKey ? "Leave blank to keep current" : "apify_api_..."}
-                  className="w-full px-3 py-2.5 text-[13px] bg-surface border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             )}
           </div>

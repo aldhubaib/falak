@@ -1043,7 +1043,7 @@ export default function StoryDetail() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
+        <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
           <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>
@@ -1058,7 +1058,7 @@ export default function StoryDetail() {
   if (!story) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
+        <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
           <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>

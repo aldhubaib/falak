@@ -307,7 +307,7 @@ export default function ArticlePipeline() {
 function ArticlePipelineShell({ activeTab, setTab, children }: { activeTab: Tab; setTab: (t: Tab) => void; children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="h-12 flex items-center gap-0 px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center gap-0 px-6 border-b border-border shrink-0 max-lg:px-4">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -471,7 +471,7 @@ function PipelineTabContent() {
   return (
     <>
       {/* Actions bar */}
-      <div className="h-10 flex items-center justify-end px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-10 flex items-center justify-end px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-2">
           <button onClick={handlePauseResume}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
@@ -798,7 +798,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
   const promoteLog = log.find(e => e.step === "promote");
 
   return (
-    <Link to={pp(`/article/${article.id}`)} className="block px-3 py-2.5 border-t border-border hover:bg-surface/50 transition-colors group no-underline cursor-pointer">
+    <Link to={pp(`/article/${article.id}`)} className="block px-3 py-2.5 border-t border-border hover:bg-card/50 transition-colors group no-underline cursor-pointer">
       {/* Title row */}
       <div className="flex items-center justify-between gap-1.5 mb-1">
         <span className="text-[12px] text-foreground font-medium truncate flex-1" dir="auto">
@@ -1184,7 +1184,7 @@ function ActiveArticleRow({
   const recentSteps = log.slice(-3);
 
   return (
-    <div className="px-3 py-2.5 border-t border-border hover:bg-surface/50 transition-colors group">
+    <div className="px-3 py-2.5 border-t border-border hover:bg-card/50 transition-colors group">
       <div className="flex items-center justify-between gap-1.5 mb-1">
         <div className="flex items-center gap-1.5 min-w-0">
           {article.status === "running" && <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" />}

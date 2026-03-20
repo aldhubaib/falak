@@ -41,7 +41,7 @@ export function ChannelLayout() {
   if (error) {
     const isAuth = error.includes("sign in");
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface p-6">
+      <div className="min-h-screen flex items-center justify-center bg-card p-6">
         <PageError
           title={isAuth ? "Sign in required" : "Could not load profile"}
           message={error}
@@ -56,7 +56,7 @@ export function ChannelLayout() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface">
+      <div className="flex min-h-screen items-center justify-center bg-card">
         <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
       </div>
     );

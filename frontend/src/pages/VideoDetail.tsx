@@ -231,7 +231,7 @@ export default function VideoDetail() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link
           to={channelPath(`/channel/${channel.id}`)}
           className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
@@ -376,7 +376,7 @@ export default function VideoDetail() {
             {activeTab === "Overview" && (
               <div>
                 {/* Transcript */}
-                <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+                <div className="rounded-xl overflow-hidden border border-border">
                   <div className="bg-background px-4 py-3">
                     <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Transcript</div>
                     {(!analysis || analysis.transcript.length === 0) ? (
@@ -395,7 +395,7 @@ export default function VideoDetail() {
                 </div>
 
                 <SectionDivider label="Topics" />
-                <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+                <div className="rounded-xl overflow-hidden border border-border">
                   <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
                     {analysis && analysis.topics.length > 0
                       ? analysis.topics.map((t) => (
@@ -407,7 +407,7 @@ export default function VideoDetail() {
                 </div>
 
                 <SectionDivider label="Keywords" />
-                <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+                <div className="rounded-xl overflow-hidden border border-border">
                   <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
                     {analysis && analysis.keywords.length > 0
                       ? analysis.keywords.map((k) => (
@@ -423,13 +423,13 @@ export default function VideoDetail() {
             {activeTab === "Sentiment" && (
               <div>
                 {/* Sentiment bars in table */}
-                <div className="rounded-xl overflow-hidden border border-border mb-7" style={{ borderRadius: '12px' }}>
+                <div className="rounded-xl overflow-hidden border border-border mb-7">
                   {[
                     { label: "Positive", val: analysis?.sentiment.positive ?? 0, cls: "bg-success" },
                     { label: "Negative", val: analysis?.sentiment.negative ?? 0, cls: "bg-destructive" },
                     { label: "Neutral", val: analysis?.sentiment.neutral ?? 0, cls: "bg-dim" },
                   ].map((s) => (
-                    <div key={s.label} className="flex items-center gap-3 bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors">
+                    <div key={s.label} className="flex items-center gap-3 bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <span className="text-xs text-sensor w-[72px]">{s.label}</span>
                       <div className="flex-1 h-1.5 bg-elevated rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${s.cls}`} style={{ width: `${s.val}%` }} />
@@ -484,12 +484,12 @@ export default function VideoDetail() {
             )}
 
             {activeTab === "Comments" && (
-              <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+              <div className="rounded-xl overflow-hidden border border-border">
                 {(!analysis || analysis.comments.length === 0) ? (
                   <div className="bg-background px-4 py-6 text-center text-[13px] text-dim">No comments yet.</div>
                 ) : (
                   analysis.comments.map((c, i) => (
-                    <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors">
+                    <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center mb-1.5">
                         <span className="text-[13px] font-medium">{c.author}</span>
                         <span className="text-[11px] text-dim font-mono ml-auto">{c.date}</span>
@@ -528,9 +528,9 @@ export default function VideoDetail() {
             {activeTab === "Pipeline" && (
               <div>
                 <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Pipeline</div>
-                <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+                <div className="rounded-xl overflow-hidden border border-border">
                   {video.pipeline.map((step) => (
-                    <div key={step.name} className="flex items-center justify-between bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors">
+                    <div key={step.name} className="flex items-center justify-between bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center gap-2.5">
                         <div className={`w-2 h-2 rounded-full ${
                           step.status === "done" ? "bg-success" :
@@ -566,12 +566,12 @@ export default function VideoDetail() {
             {activeTab === "History" && (
               <div>
                 <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Analysis History</div>
-                <div className="rounded-xl overflow-hidden border border-border" style={{ borderRadius: '12px' }}>
+                <div className="rounded-xl overflow-hidden border border-border">
                   {[
                     { time: "Mar 8, 14:22", name: "Full Analysis", status: "success" as const, badge: "Completed" },
                     { time: "Mar 7, 09:15", name: "Comment Refresh", status: "failed" as const, badge: "Failed", error: "API rate limit exceeded. Retry after 60 minutes." },
                   ].map((item, i) => (
-                    <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors">
+                    <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[13px] font-medium">{item.name}</span>
                         <TooltipProvider delayDuration={200}>

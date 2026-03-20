@@ -1,5 +1,5 @@
 ---
-description: Project-wide defaults for Falak
+description: Falak project defaults
 alwaysApply: true
 ---
 
@@ -11,3 +11,4 @@ alwaysApply: true
 - When committing, stage only files related to the requested task.
 - `push` means push the current branch to `main` in `aldhubaib/falak`.
 - If a push target is unclear, ask before pushing.
+- Remote target for push: https://github.com/aldhubaib/falak

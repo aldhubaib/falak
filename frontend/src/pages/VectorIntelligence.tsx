@@ -138,7 +138,7 @@ export default function VectorIntelligence() {
   return (
     <>
       {/* Actions bar */}
-      <div className="h-10 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-10 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <span className="text-[10px] text-dim font-mono">text-embedding-3-small · 1536d · pgvector HNSW</span>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-success/15 text-success">
@@ -359,7 +359,7 @@ export default function VectorIntelligence() {
                 <div className="divide-y divide-border">
                   {data.topSimilarity.map((s, i) => (
                     <Link key={s.id} to={pp(`/story/${s.id}`)}
-                      className="flex items-center gap-4 px-4 py-3 hover:bg-surface/50 transition-colors no-underline group">
+                      className="flex items-center gap-4 px-4 py-3 hover:bg-card/50 transition-colors no-underline group">
                       <span className="w-6 h-6 rounded-full bg-orange/10 flex items-center justify-center text-[10px] font-bold text-orange shrink-0">
                         {i + 1}
                       </span>
@@ -418,7 +418,7 @@ export default function VectorIntelligence() {
                     const factors = s.latestEntry?.factors as Record<string, unknown> | undefined;
                     return (
                       <Link key={s.id} to={pp(`/story/${s.id}`)}
-                        className="block px-4 py-3 border-t border-border hover:bg-surface/50 transition-colors no-underline">
+                        className="block px-4 py-3 border-t border-border hover:bg-card/50 transition-colors no-underline">
                         <div className="flex items-center justify-between mb-1">
                           <div className="text-[12px] text-foreground font-medium truncate flex-1 mr-3" dir="auto">{s.headline}</div>
                           {delta != null && (

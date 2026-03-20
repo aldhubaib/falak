@@ -119,7 +119,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
 
       {!hasTranscript && !transcribing && (
         <div className="px-4 pb-4">
-          <div className="rounded-lg bg-surface border border-border/50 px-4 py-6 text-center">
+          <div className="rounded-lg bg-card border border-border/50 px-4 py-6 text-center">
             <Mic className="w-6 h-6 text-dim/40 mx-auto mb-2" />
             <p className="text-[12px] text-dim">
               {brief.videoR2Key
@@ -132,7 +132,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
 
       {transcribing && (
         <div className="px-4 pb-4">
-          <div className="rounded-lg bg-surface border border-blue/20 px-4 py-6 text-center">
+          <div className="rounded-lg bg-card border border-blue/20 px-4 py-6 text-center">
             <Loader2 className="w-6 h-6 text-blue animate-spin mx-auto mb-2" />
             <p className="text-[12px] text-dim">Transcribing with OpenAI Whisper… This may take a few minutes for large videos.</p>
           </div>
@@ -142,7 +142,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
       {hasTranscript && expanded && (
         <div className="px-4 pb-4">
           {segments.length > 0 ? (
-            <div className="rounded-lg bg-surface border border-border/50 max-h-[300px] overflow-y-auto">
+            <div className="rounded-lg bg-card border border-border/50 max-h-[300px] overflow-y-auto">
               {segments.map((seg, i) => (
                 <div key={i} className="flex gap-3 px-3 py-2 border-b border-border/30 last:border-b-0">
                   <span className="text-[10px] font-mono text-blue shrink-0 pt-0.5 w-8 text-right">
@@ -155,7 +155,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
               ))}
             </div>
           ) : (
-            <pre className="rounded-lg bg-surface border border-border/50 px-3 py-2 text-[12px] text-foreground/80 leading-relaxed max-h-[300px] overflow-y-auto whitespace-pre-wrap" dir="auto">
+            <pre className="rounded-lg bg-card border border-border/50 px-3 py-2 text-[12px] text-foreground/80 leading-relaxed max-h-[300px] overflow-y-auto whitespace-pre-wrap" dir="auto">
               {brief.transcript}
             </pre>
           )}

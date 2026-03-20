@@ -427,7 +427,7 @@ export default function PublishQueue() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
-      <div className="h-12 flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4">
+      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <Link
             to={channelPath("/stories")}
@@ -593,7 +593,7 @@ export default function PublishQueue() {
                     key={item.storyId}
                     className={`group grid grid-cols-[1fr_100px_100px_160px_100px] max-md:grid-cols-[1fr_100px_100px] gap-0 px-4 py-3 border-b border-border last:border-b-0 items-center transition-colors ${
                       isActionable
-                        ? "hover:bg-[#0d0d10] cursor-pointer"
+                        ? "hover:bg-card cursor-pointer"
                         : isStalled
                         ? "bg-orange/[0.02]"
                         : "bg-background"

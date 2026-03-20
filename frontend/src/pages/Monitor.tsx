@@ -242,7 +242,7 @@ export default function Monitor() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
-      <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-[#151619] shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2">
+      <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Monitor</h1>
           <span className="text-[11px] text-dim font-mono">
@@ -380,7 +380,7 @@ export default function Monitor() {
                       onClick={() => setActiveFilter(tab)}
                       className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                         activeFilter === tab
-                          ? "bg-surface text-foreground border-border"
+                          ? "bg-card text-foreground border-border"
                           : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
                       }`}
                     >
@@ -415,7 +415,7 @@ export default function Monitor() {
                       <Link
                         key={ch.id}
                         to={channelPath(`/channel/${ch.id}`)}
-                        className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-[#0d0d10] transition-colors cursor-pointer group items-center no-underline"
+                        className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-card transition-colors cursor-pointer group items-center no-underline"
                       >
                         <div className="flex items-center gap-2.5">
                           {ch.avatarUrl ? (
@@ -447,7 +447,7 @@ export default function Monitor() {
                       <Link
                         key={ch.id}
                         to={channelPath(`/channel/${ch.id}`)}
-                        className="block rounded-xl bg-background p-4 cursor-pointer active:bg-[#0d0d10] transition-colors no-underline"
+                        className="block rounded-xl bg-background p-4 cursor-pointer active:bg-card transition-colors no-underline"
                       >
                         <div className="flex items-center gap-3 mb-3">
                           {ch.avatarUrl ? (

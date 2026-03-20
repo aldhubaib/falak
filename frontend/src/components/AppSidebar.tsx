@@ -65,7 +65,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
   const displayName = channelInfo?.nameAr || channelInfo?.nameEn || channelInfo?.handle || "Channel";
 
   return (
-    <div className={`flex flex-col bg-[#080808] transition-all duration-200 ${isMobile ? "h-full" : `${sidebarWidth} h-screen sticky top-0 overflow-y-auto`}`}>
+    <div className={`flex flex-col bg-sidebar transition-all duration-200 ${isMobile ? "h-full" : `${sidebarWidth} h-screen sticky top-0 overflow-y-auto`}`}>
       {/* Channel header + home button */}
       <div className="relative px-3 h-12 flex items-center justify-between shrink-0">
         {!collapsed ? (
@@ -139,7 +139,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
       )}
 
       {/* Nav */}
-      <nav className="flex-1 py-1.5 px-2 bg-[#080808] overflow-y-auto">
+      <nav className="flex-1 py-1.5 px-2 bg-sidebar overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -206,7 +206,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
       {/* User */}
       <button
         onClick={() => setLogoutOpen(true)}
-        className={`px-3 py-3 flex items-center gap-2.5 bg-[#080808] hover:bg-elevated/60 transition-colors w-full text-left ${collapsed ? "justify-center" : ""}`}
+        className={`px-3 py-3 flex items-center gap-2.5 bg-sidebar hover:bg-elevated/60 transition-colors w-full text-left ${collapsed ? "justify-center" : ""}`}
       >
         {currentUser?.avatarUrl ? (
           <img

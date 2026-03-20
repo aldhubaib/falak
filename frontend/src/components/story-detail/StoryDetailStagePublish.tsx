@@ -184,7 +184,7 @@ export function StoryDetailStagePublish({
           }
           placeholder="YouTube description… Click 'Generate with AI' to auto-create from your script."
           rows={6}
-          className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-[13px] text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors resize-y leading-relaxed"
+          className="w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors resize-y leading-relaxed"
         />
       </div>
 
@@ -224,7 +224,7 @@ export function StoryDetailStagePublish({
           </div>
         </div>
         {srtContent ? (
-          <pre className="bg-surface border border-border rounded-lg px-3 py-2 text-[11px] text-foreground/80 font-mono leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-wrap">
+          <pre className="bg-card border border-border rounded-lg px-3 py-2 text-[11px] text-foreground/80 font-mono leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-wrap">
             {srtContent}
           </pre>
         ) : (
@@ -283,7 +283,7 @@ export function StoryDetailStagePublish({
                 }
               }}
               placeholder="Paste YouTube video URL…"
-              className={`w-full bg-surface border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors ${!urlEditing ? "opacity-70 cursor-default" : ""}`}
+              className={`w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors ${!urlEditing ? "opacity-70 cursor-default" : ""}`}
             />
             {urlInput && (() => {
               const result = validateYoutubeUrl(urlInput.trim());
@@ -323,7 +323,7 @@ export function StoryDetailStagePublish({
             <button
               type="button"
               onClick={() => setUrlEditing(true)}
-              className="shrink-0 px-4 py-2 rounded-lg bg-surface border border-border text-[12px] font-medium text-foreground hover:bg-elevated transition-colors"
+              className="shrink-0 px-4 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-elevated transition-colors"
             >
               Edit
             </button>

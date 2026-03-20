@@ -35,7 +35,7 @@ export function VideoRightPanel({ video, visible, onClose, pipeline }: VideoRigh
   return (
     <div
       ref={ref}
-      className="absolute top-2 right-2 w-[260px] rounded-xl bg-surface border border-border shadow-xl shadow-black/30 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+      className="absolute top-2 right-2 w-[260px] rounded-xl bg-card border border-border shadow-xl shadow-black/30 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">

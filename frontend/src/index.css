@@ -9,13 +9,13 @@
     --background: 240 4% 6%;
     --foreground: 0 0% 93%;
 
-    --card: 0 0% 7%;
+    --card: 240 4% 6%;
     --card-foreground: 0 0% 93%;
 
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 93%;
 
-    --primary: 258 60% 59%;
+    --primary: 217 72% 56%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 10%;
@@ -42,9 +42,9 @@
     --orange: 25 90% 55%;
     --orange-foreground: 0 0% 100%;
 
-    --border: 230 7% 9%;
-    --input: 0 0% 12%;
-    --ring: 258 60% 59%;
+    --border: 228 8% 9%;
+    --input: 0 0% 13%;
+    --ring: 217 72% 56%;
 
     --radius: 0rem;
 
@@ -58,7 +58,7 @@
     --sidebar-ring: 258 60% 59%;
 
     /* Surface levels */
-    --surface: 240 3% 11%;
+
     --elevated: 0 0% 13%;
 
     /* Semantic text */
