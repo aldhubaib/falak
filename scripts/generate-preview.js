@@ -73,6 +73,29 @@ function buildPanels(tabs, sections) {
 
   return tabs.map((tab, ti) => {
     const active = ti === 0 ? ' active' : '';
+
+    if (tab.id === 'inventory') {
+      return `  <div class="tab-panel${active}" id="tab-inventory">
+    <div class="inv-toolbar">
+      <input type="text" class="inv-search" id="invSearch" placeholder="Search by name, type, data-cid, section…">
+      <div class="inv-counts" id="invCounts"></div>
+    </div>
+    <table class="inv-table" id="invTable">
+      <thead>
+        <tr>
+          <th class="inv-th inv-th-preview">Preview</th>
+          <th class="inv-th">Type</th>
+          <th class="inv-th">data-cid</th>
+          <th class="inv-th">Section</th>
+          <th class="inv-th">State</th>
+          <th class="inv-th">Usage</th>
+        </tr>
+      </thead>
+      <tbody id="invBody"></tbody>
+    </table>
+  </div><!-- /tab-inventory -->`;
+    }
+
     const secs = byTab[tab.id] || [];
     let html = '';
     let lastGroup = null;
@@ -164,6 +187,7 @@ ${buildPanels(tabs, sections)}
 </div>
 
 <script>
+var __componentIndex = ${JSON.stringify(buildComponentIndex(sections))};
 ${interactiveJS}
 </script>
 </body>

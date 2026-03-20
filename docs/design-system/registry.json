@@ -61,7 +61,8 @@
     { "id": "dataviz",    "label": "Data Viz" },
     { "id": "feedback",   "label": "Feedback" },
     { "id": "layout",     "label": "Layout" },
-    { "id": "features",   "label": "Features" }
+    { "id": "features",   "label": "Features" },
+    { "id": "inventory",  "label": "Inventory" }
   ],
 
   "sections": [
