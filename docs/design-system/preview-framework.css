@@ -226,6 +226,7 @@
   .badge-success { background: transparent; color: var(--success); border: 1px solid var(--border); }
   .badge-blue { background: transparent; color: var(--blue); border: 1px solid var(--border); }
   .badge-orange { background: transparent; color: var(--orange); border: 1px solid var(--border); }
+  .badge-purple { background: transparent; color: var(--purple); border: 1px solid var(--border); }
   .badge-dim { background: transparent; color: var(--dim); border: 1px solid var(--border); }
   .badge-sm { padding: 1px 7px; font-size: 10px; }
   .badge-xs { padding: 1px 5px; font-size: 9px; font-weight: 700; color: var(--foreground); }
@@ -898,6 +899,93 @@
     font-size: 12px; color: var(--dim); font-family: 'JetBrains Mono', monospace;
   }
 
+  /* ── Pipeline Controls ── */
+  .pipeline-controls {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; flex-wrap: wrap;
+    padding: 10px 16px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--background);
+  }
+  .pipeline-controls-left, .pipeline-controls-right {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .pipeline-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+  }
+  .pipeline-pill-running { background: hsl(142 50% 45% / 0.15); color: var(--success); }
+  .pipeline-pill-paused { background: hsl(25 90% 55% / 0.15); color: var(--orange); }
+  .pipeline-pill-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); animation: pulse-dot 1.5s infinite;
+  }
+  .pipeline-pill-dot-paused {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--orange);
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .pipeline-ctrl-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500; color: var(--dim);
+    background: none; border: 1px solid var(--border); cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: color 0.15s;
+  }
+  .pipeline-ctrl-btn:hover { color: var(--sensor); }
+
+  .pipeline-test-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+    color: var(--purple); background: hsl(258 60% 59% / 0.1);
+    border: 1px solid hsl(258 60% 59% / 0.3); cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: background 0.15s;
+  }
+  .pipeline-test-btn:hover { background: hsl(258 60% 59% / 0.2); }
+
+  /* ── Review Action Buttons ── */
+  .review-action-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border-radius: 6px;
+    font-size: 10px; font-weight: 600; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: background 0.15s;
+  }
+  .review-action-skip {
+    color: var(--blue); background: hsl(217 72% 56% / 0.05);
+    border: 1px solid hsl(217 72% 56% / 0.2);
+  }
+  .review-action-skip:hover { background: hsl(217 72% 56% / 0.1); }
+  .review-action-drop {
+    color: var(--destructive); background: hsl(0 72% 51% / 0.05);
+    border: 1px solid hsl(0 72% 51% / 0.2);
+  }
+  .review-action-drop:hover { background: hsl(0 72% 51% / 0.1); }
+  .review-action-paste {
+    color: var(--purple); background: hsl(258 60% 59% / 0.05);
+    border: 1px solid hsl(258 60% 59% / 0.2);
+  }
+  .review-action-paste:hover { background: hsl(258 60% 59% / 0.1); }
+
+  /* ── Log Breadcrumb Tags ── */
+  .log-tag {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 2px 6px; border-radius: 4px;
+    font-size: 9px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .log-tag-ok { background: hsl(142 50% 45% / 0.1); color: var(--success); }
+  .log-tag-review { background: hsl(25 90% 55% / 0.1); color: var(--orange); }
+  .log-tag-fail { background: hsl(0 72% 51% / 0.1); color: var(--destructive); }
+  .log-tag-dim { background: hsl(0 0% 40% / 0.1); color: var(--dim); }
+
+  /* ── Stat sub-text ── */
+  .stat-sub { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+
   /* ── Inventory Tab ── */
   .inv-toolbar {
     display: flex; align-items: center; gap: 16px;
@@ -955,16 +1043,18 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
-  .inv-state {
-    display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .inv-state-normal { background: hsl(142 50% 45% / 0.15); color: var(--success); }
-
   .inv-usage { font-size: 11px; font-weight: 600; }
   .inv-usage-yes { color: var(--success); }
+  .inv-usage-warn { color: var(--orange); }
   .inv-usage-none { color: var(--dim); }
+  .inv-pages {
+    display: block; margin-top: 4px;
+    font-size: 11px; color: var(--foreground); line-height: 1.6;
+  }
+  .inv-more {
+    color: var(--dim); font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
   .inv-tokens {
     display: block; margin-top: 4px;
     font-size: 10px; color: var(--dim);

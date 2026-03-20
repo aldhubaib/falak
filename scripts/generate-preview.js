@@ -87,7 +87,6 @@ function buildPanels(tabs, sections) {
           <th class="inv-th">Type</th>
           <th class="inv-th">data-cid</th>
           <th class="inv-th">Section</th>
-          <th class="inv-th">State</th>
           <th class="inv-th">Usage</th>
         </tr>
       </thead>
@@ -122,6 +121,65 @@ function buildPanels(tabs, sections) {
   }).join('\n\n');
 }
 
+/**
+ * Scan frontend/src/pages/*.tsx and frontend/src/components/*.tsx to build
+ * a mapping of token-name → [page names that use it].
+ * Looks for both Tailwind classes (bg-primary, text-destructive, border-orange…)
+ * and raw CSS variable references (--primary, var(--orange)…).
+ */
+function scanTokenUsage() {
+  const PAGES_DIR = path.join(ROOT, 'frontend', 'src', 'pages');
+  const COMPS_DIR = path.join(ROOT, 'frontend', 'src', 'components');
+
+  const tokenNames = [
+    'background', 'foreground', 'card', 'card-foreground', 'popover',
+    'popover-foreground', 'primary', 'primary-foreground', 'secondary',
+    'secondary-foreground', 'muted', 'muted-foreground', 'accent',
+    'accent-foreground', 'destructive', 'destructive-foreground', 'success',
+    'success-foreground', 'blue', 'blue-foreground', 'purple',
+    'purple-foreground', 'orange', 'orange-foreground', 'border', 'input',
+    'ring', 'elevated', 'hover', 'row-hover', 'sensor', 'dim', 'page-border',
+    'sidebar-background', 'sidebar-foreground', 'sidebar-primary',
+    'sidebar-accent', 'sidebar-border', 'sidebar-ring',
+  ];
+
+  const usage = {};
+  tokenNames.forEach(t => { usage[t] = new Set(); });
+
+  function scanFile(filePath, label) {
+    if (!fs.existsSync(filePath)) return;
+    const src = fs.readFileSync(filePath, 'utf8');
+    for (const token of tokenNames) {
+      const patterns = [
+        new RegExp(`(?:bg|text|border|ring|from|to|via|outline|shadow|divide|accent|fill|stroke)-${token.replace(/-/g, '[-]')}(?![\\w-])`, 'i'),
+        new RegExp(`--${token.replace(/-/g, '[-]')}(?![\\w])`, 'i'),
+      ];
+      if (patterns.some(p => p.test(src))) {
+        usage[token].add(label);
+      }
+    }
+  }
+
+  function scanDir(dir, labelFn) {
+    if (!fs.existsSync(dir)) return;
+    for (const f of fs.readdirSync(dir, { recursive: true })) {
+      if (!f.endsWith('.tsx') && !f.endsWith('.ts')) continue;
+      const full = path.join(dir, f);
+      const label = labelFn(f);
+      scanFile(full, label);
+    }
+  }
+
+  scanDir(PAGES_DIR, f => f.replace(/\.tsx$/, ''));
+  scanDir(COMPS_DIR, f => f.replace(/\.tsx$/, ''));
+
+  const result = {};
+  for (const [token, pages] of Object.entries(usage)) {
+    if (pages.size) result[token] = [...pages].sort();
+  }
+  return result;
+}
+
 function buildComponentIndex(sections) {
   const index = {};
   for (const s of sections) {
@@ -140,7 +198,10 @@ function generate() {
   const sectionCount = sections.length;
 
   const { css: tokenCSS, count: tokenCount } = parseTokensFromCSS(INDEX_CSS_PATH);
+  const tokenUsage = scanTokenUsage();
+  const usageTokenCount = Object.keys(tokenUsage).length;
   console.log(`Tokens: ${tokenCount} variables read from frontend/src/index.css`);
+  console.log(`Usage: scanned codebase, ${usageTokenCount} tokens found in use`);
   console.log(`Registry: ${sectionCount} sections, ${componentCount} components`);
 
   const html = `<!DOCTYPE html>
@@ -187,7 +248,8 @@ ${buildPanels(tabs, sections)}
 </div>
 
 <script>
-var __componentIndex = ${JSON.stringify(buildComponentIndex(sections))};
+var __componentIndex = ${JSON.stringify(componentIndex)};
+var __tokenUsage = ${JSON.stringify(tokenUsage)};
 ${interactiveJS}
 </script>
 </body>

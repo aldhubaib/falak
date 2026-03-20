@@ -272,15 +272,25 @@ function sortCol(el) {
       tdSection.className = 'inv-cell';
       tdSection.textContent = r.section;
 
-      var tdState = document.createElement('td');
-      tdState.className = 'inv-cell';
-      tdState.innerHTML = '<span class="inv-state inv-state-normal">Normal</span>';
-
       var tdUsage = document.createElement('td');
       tdUsage.className = 'inv-cell';
       var tokens = (r.meta.tokens || []);
-      if (tokens.length) {
-        tdUsage.innerHTML = '<span class="inv-usage inv-usage-yes">Yes</span>' +
+      var usageMap = window.__tokenUsage || {};
+      var pages = {};
+      tokens.forEach(function(t) {
+        var clean = t.replace(/^--/, '');
+        var list = usageMap[clean] || [];
+        list.forEach(function(p) { pages[p] = true; });
+      });
+      var pageList = Object.keys(pages).sort();
+      if (pageList.length) {
+        var pageNames = pageList.filter(function(p) { return !p.includes('/'); }).slice(0, 5);
+        var more = pageList.length > 5 ? ' <span class="inv-more">+' + (pageList.length - 5) + '</span>' : '';
+        tdUsage.innerHTML = '<span class="inv-usage inv-usage-yes">' + pageList.length + ' files</span>' +
+          '<span class="inv-pages">' + pageNames.join(', ') + more + '</span>' +
+          '<span class="inv-tokens">' + tokens.join(', ') + '</span>';
+      } else if (tokens.length) {
+        tdUsage.innerHTML = '<span class="inv-usage inv-usage-warn">0 files</span>' +
           '<span class="inv-tokens">' + tokens.join(', ') + '</span>';
       } else {
         tdUsage.innerHTML = '<span class="inv-usage inv-usage-none">—</span>';
@@ -290,7 +300,6 @@ function sortCol(el) {
       tr.appendChild(tdType);
       tr.appendChild(tdCid);
       tr.appendChild(tdSection);
-      tr.appendChild(tdState);
       tr.appendChild(tdUsage);
       body.appendChild(tr);
     });

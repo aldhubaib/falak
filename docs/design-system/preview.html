@@ -295,6 +295,7 @@
   .badge-success { background: transparent; color: var(--success); border: 1px solid var(--border); }
   .badge-blue { background: transparent; color: var(--blue); border: 1px solid var(--border); }
   .badge-orange { background: transparent; color: var(--orange); border: 1px solid var(--border); }
+  .badge-purple { background: transparent; color: var(--purple); border: 1px solid var(--border); }
   .badge-dim { background: transparent; color: var(--dim); border: 1px solid var(--border); }
   .badge-sm { padding: 1px 7px; font-size: 10px; }
   .badge-xs { padding: 1px 5px; font-size: 9px; font-weight: 700; color: var(--foreground); }
@@ -967,6 +968,93 @@
     font-size: 12px; color: var(--dim); font-family: 'JetBrains Mono', monospace;
   }
 
+  /* ── Pipeline Controls ── */
+  .pipeline-controls {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; flex-wrap: wrap;
+    padding: 10px 16px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--background);
+  }
+  .pipeline-controls-left, .pipeline-controls-right {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .pipeline-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+  }
+  .pipeline-pill-running { background: hsl(142 50% 45% / 0.15); color: var(--success); }
+  .pipeline-pill-paused { background: hsl(25 90% 55% / 0.15); color: var(--orange); }
+  .pipeline-pill-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); animation: pulse-dot 1.5s infinite;
+  }
+  .pipeline-pill-dot-paused {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--orange);
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .pipeline-ctrl-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500; color: var(--dim);
+    background: none; border: 1px solid var(--border); cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: color 0.15s;
+  }
+  .pipeline-ctrl-btn:hover { color: var(--sensor); }
+
+  .pipeline-test-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+    color: var(--purple); background: hsl(258 60% 59% / 0.1);
+    border: 1px solid hsl(258 60% 59% / 0.3); cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: background 0.15s;
+  }
+  .pipeline-test-btn:hover { background: hsl(258 60% 59% / 0.2); }
+
+  /* ── Review Action Buttons ── */
+  .review-action-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border-radius: 6px;
+    font-size: 10px; font-weight: 600; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: background 0.15s;
+  }
+  .review-action-skip {
+    color: var(--blue); background: hsl(217 72% 56% / 0.05);
+    border: 1px solid hsl(217 72% 56% / 0.2);
+  }
+  .review-action-skip:hover { background: hsl(217 72% 56% / 0.1); }
+  .review-action-drop {
+    color: var(--destructive); background: hsl(0 72% 51% / 0.05);
+    border: 1px solid hsl(0 72% 51% / 0.2);
+  }
+  .review-action-drop:hover { background: hsl(0 72% 51% / 0.1); }
+  .review-action-paste {
+    color: var(--purple); background: hsl(258 60% 59% / 0.05);
+    border: 1px solid hsl(258 60% 59% / 0.2);
+  }
+  .review-action-paste:hover { background: hsl(258 60% 59% / 0.1); }
+
+  /* ── Log Breadcrumb Tags ── */
+  .log-tag {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 2px 6px; border-radius: 4px;
+    font-size: 9px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .log-tag-ok { background: hsl(142 50% 45% / 0.1); color: var(--success); }
+  .log-tag-review { background: hsl(25 90% 55% / 0.1); color: var(--orange); }
+  .log-tag-fail { background: hsl(0 72% 51% / 0.1); color: var(--destructive); }
+  .log-tag-dim { background: hsl(0 0% 40% / 0.1); color: var(--dim); }
+
+  /* ── Stat sub-text ── */
+  .stat-sub { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+
   /* ── Inventory Tab ── */
   .inv-toolbar {
     display: flex; align-items: center; gap: 16px;
@@ -1024,16 +1112,18 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
-  .inv-state {
-    display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .inv-state-normal { background: hsl(142 50% 45% / 0.15); color: var(--success); }
-
   .inv-usage { font-size: 11px; font-weight: 600; }
   .inv-usage-yes { color: var(--success); }
+  .inv-usage-warn { color: var(--orange); }
   .inv-usage-none { color: var(--dim); }
+  .inv-pages {
+    display: block; margin-top: 4px;
+    font-size: 11px; color: var(--foreground); line-height: 1.6;
+  }
+  .inv-more {
+    color: var(--dim); font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
   .inv-tokens {
     display: block; margin-top: 4px;
     font-size: 10px; color: var(--dim);
@@ -1117,6 +1207,10 @@
   <div class="swatch" data-cid="swatch-blue">
     <div class="swatch-color" style="background: var(--blue)"></div>
     <div class="swatch-info"><div class="swatch-name">Blue</div><div class="swatch-var">--blue</div></div>
+  </div>
+  <div class="swatch" data-cid="swatch-purple">
+    <div class="swatch-color" style="background: var(--purple)"></div>
+    <div class="swatch-info"><div class="swatch-name">Purple</div><div class="swatch-var">--purple</div></div>
   </div>
   <div class="swatch" data-cid="swatch-orange">
     <div class="swatch-color" style="background: var(--orange)"></div>
@@ -1369,6 +1463,7 @@
       <span class="badge badge-success" data-cid="badge-success">Published</span>
       <span class="badge badge-blue" data-cid="badge-blue">Filming</span>
       <span class="badge badge-orange" data-cid="badge-orange">Script</span>
+      <span class="badge badge-purple" data-cid="badge-purple">Testing</span>
       <span class="badge badge-destructive" data-cid="badge-destructive">Failed</span>
       <span class="badge badge-dim" data-cid="badge-dim">Draft</span>
       <span class="badge badge-default" data-cid="badge-default">Default</span>
@@ -1378,6 +1473,7 @@
       <span class="badge badge-sm badge-success" data-cid="badge-sm-success">Published</span>
       <span class="badge badge-sm badge-blue" data-cid="badge-sm-blue">Filming</span>
       <span class="badge badge-sm badge-orange" data-cid="badge-sm-orange">Script</span>
+      <span class="badge badge-sm badge-purple" data-cid="badge-sm-purple">Testing</span>
       <span class="badge badge-sm badge-destructive" data-cid="badge-sm-destructive">Failed</span>
       <span class="badge badge-sm badge-dim" data-cid="badge-sm-dim">Draft</span>
       <span class="badge badge-sm badge-default" data-cid="badge-sm-default">Default</span>
@@ -1387,6 +1483,7 @@
       <span class="badge badge-xs badge-success" data-cid="badge-xs-success">AR</span>
       <span class="badge badge-xs badge-blue" data-cid="badge-xs-blue">EN</span>
       <span class="badge badge-xs badge-orange" data-cid="badge-xs-orange">ES</span>
+      <span class="badge badge-xs badge-purple" data-cid="badge-xs-purple">PT</span>
       <span class="badge badge-xs badge-destructive" data-cid="badge-xs-destructive">FR</span>
       <span class="badge badge-xs badge-dim" data-cid="badge-xs-dim">DE</span>
       <span class="badge badge-xs badge-default" data-cid="badge-xs-default">TR</span>
@@ -1616,22 +1713,85 @@
 
   <div id="stat-row" class="section">
     <div class="section-label">Stat Row</div>
+<div class="section-note">Pipeline stats — each stage value is colored by its status token.</div>
+<div class="stat-row" data-cid="stat-row-pipeline">
+  <div class="stat-cell">
+    <div class="stat-value">355</div>
+    <div class="stat-label">Total Videos</div>
+    <div class="stat-sub">7 in pipeline 348 done</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--orange);" data-cid="stat-import">0</div>
+    <div class="stat-label">Import</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--blue);" data-cid="stat-transcribe">0</div>
+    <div class="stat-label">Transcribe</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--purple);" data-cid="stat-comments">0</div>
+    <div class="stat-label">Comments</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--success);" data-cid="stat-analysis">0</div>
+    <div class="stat-label">AI Analysis</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--destructive);" data-cid="stat-failed">7</div>
+    <div class="stat-label">Failed</div>
+  </div>
+</div>
+
+<div class="section-note" style="margin-top: 24px;">Article pipeline stats — same pattern, more stages.</div>
+<div class="stat-row" data-cid="stat-row-articles">
+  <div class="stat-cell">
+    <div class="stat-value">8371</div>
+    <div class="stat-label">Total</div>
+    <div class="stat-sub">7 done</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--orange);" data-cid="stat-imported">0</div>
+    <div class="stat-label">Imported</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--blue);">0</div>
+    <div class="stat-label">Content</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--purple);">808</div>
+    <div class="stat-label">Classify</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--blue);">0</div>
+    <div class="stat-label">Research</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--success);">0</div>
+    <div class="stat-label">Score</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-value" style="color: var(--destructive);" data-cid="stat-articles-failed">7556</div>
+    <div class="stat-label">Failed</div>
+  </div>
+</div>
+
+<div class="section-note" style="margin-top: 24px;">Generic stat row — default foreground values.</div>
 <div class="stat-row" data-cid="stat-row">
   <div class="stat-cell">
-    <div class="stat-label">Total Videos</div>
     <div class="stat-value">1,247</div>
+    <div class="stat-label">Total Videos</div>
   </div>
   <div class="stat-cell">
-    <div class="stat-label">Total Views</div>
     <div class="stat-value">8.3M</div>
+    <div class="stat-label">Total Views</div>
   </div>
   <div class="stat-cell">
-    <div class="stat-label">Active Channels</div>
     <div class="stat-value">12</div>
+    <div class="stat-label">Active Channels</div>
   </div>
   <div class="stat-cell">
-    <div class="stat-label">Queue</div>
     <div class="stat-value">34</div>
+    <div class="stat-label">Queue</div>
   </div>
 </div>
   </div>
@@ -2524,8 +2684,65 @@
   <div id="kanban" class="section">
     <div class="section-label">Kanban / Pipeline</div>
     <div class="section-note">Vertical columns per stage. Items flow left-to-right through stages. Each column shows a header with icon badge, count, and subtitle.</div>
+<!-- Pipeline controls bar -->
+<div class="pipeline-controls" data-cid="pipeline-controls">
+  <div class="pipeline-controls-left">
+    <span class="pipeline-pill pipeline-pill-running" data-cid="pill-running">
+      <span class="pipeline-pill-dot"></span>
+      Running · 24s
+    </span>
+    <span class="pipeline-pill pipeline-pill-paused" data-cid="pill-paused">
+      <span class="pipeline-pill-dot-paused"></span>
+      Paused
+    </span>
+    <button class="pipeline-ctrl-btn" data-cid="btn-resume">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Resume
+    </button>
+    <button class="pipeline-ctrl-btn" data-cid="btn-retry-all">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+      Retry all failed (7)
+    </button>
+  </div>
+  <div class="pipeline-controls-right">
+    <button class="pipeline-test-btn" data-cid="btn-test">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/></svg>
+      Test 1
+    </button>
+    <button class="pipeline-ctrl-btn" data-cid="btn-fetch-sources">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Fetch All Sources
+    </button>
+  </div>
+</div>
+
+<div class="section-note" style="margin-top: 16px;">Review action buttons — per-item actions in the Review column.</div>
+<div class="btn-row" style="margin-top: 8px;">
+  <button class="review-action-btn review-action-skip" data-cid="review-btn-skip">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+    Skip
+  </button>
+  <button class="review-action-btn review-action-drop" data-cid="review-btn-drop">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+    Drop
+  </button>
+  <button class="review-action-btn review-action-paste" data-cid="review-btn-paste">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+    Paste
+  </button>
+</div>
+
+<div class="section-note" style="margin-top: 24px;">Log breadcrumbs — colored tags per processing step on kanban items.</div>
+<div class="btn-row" style="margin-top: 8px; gap: 4px;">
+  <span class="log-tag log-tag-ok" data-cid="log-tag-ok">content_source</span>
+  <span class="log-tag log-tag-ok" data-cid="log-tag-classify">classify</span>
+  <span class="log-tag log-tag-review" data-cid="log-tag-review">review</span>
+  <span class="log-tag log-tag-fail" data-cid="log-tag-fail">failed</span>
+  <span class="log-tag log-tag-dim" data-cid="log-tag-pending">pending</span>
+</div>
+
 <!-- Section header -->
-<div class="kanban-section-header">
+<div class="kanban-section-header" style="margin-top: 32px;">
   <svg class="kanban-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
   <span class="kanban-section-title">Imported</span>
   <span class="kanban-section-sub">— Ingest from source. One action: get the article into the system.</span>
@@ -2726,7 +2943,6 @@
           <th class="inv-th">Type</th>
           <th class="inv-th">data-cid</th>
           <th class="inv-th">Section</th>
-          <th class="inv-th">State</th>
           <th class="inv-th">Usage</th>
         </tr>
       </thead>
@@ -2737,7 +2953,8 @@
 </div>
 
 <script>
-var __componentIndex = {"swatch-background":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--background"],"label":"Background swatch"},"swatch-card":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--card"],"label":"Card / alt-bg swatch"},"swatch-hover":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--hover"],"label":"Hover swatch"},"swatch-border":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--border"],"label":"Border swatch"},"swatch-success":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--success"],"label":"Success swatch"},"swatch-blue":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--blue"],"label":"Blue swatch"},"swatch-orange":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--orange"],"label":"Orange swatch"},"swatch-destructive":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive swatch"},"swatch-primary":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Primary swatch"},"swatch-destructive-btn":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive button swatch"},"text-foreground":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Foreground text"},"text-muted":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--muted-foreground"],"label":"Muted text"},"text-link":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Link text"},"type-page-title":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Page title 14px 600"},"type-section-heading":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Section heading 13px 600"},"type-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Body 13px 400"},"type-small-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Small body 12px 400"},"type-tiny":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Tiny 11px 400"},"type-mono-label":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Mono label 10px 600"},"type-mono-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Mono body 13px 400"},"icon-btn-sync":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Sync channel"},"icon-btn-remove":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Remove channel (destructive)"},"icon-btn-info":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Channel info"},"icon-btn-analyze":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Analyze all (primary)"},"icon-btn-delete":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Delete video (destructive)"},"icon-btn-add":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Add new"},"icon-btn-search":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Search"},"icon-btn-external":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Open in YouTube"},"icon-btn-cancel-upload":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Cancel upload (destructive)"},"icon-btn-discard":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Discard changes (destructive)"},"badge-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Published (success)"},"badge-blue":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--blue","--border"],"label":"Filming (blue)"},"badge-orange":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--orange","--border"],"label":"Script (orange)"},"badge-destructive":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--destructive","--border"],"label":"Failed (destructive)"},"badge-dim":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--dim","--border"],"label":"Draft (dim)"},"badge-default":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--foreground","--border"],"label":"Default"},"badge-sm-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Small — Published"},"badge-xs-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success"],"label":"XS — AR language tag"},"alert-default":{"section":"alerts","tab":"actions","doc":"alerts.md","source":"frontend/src/components/ui/alert.tsx","tokens":["--background","--foreground","--border"],"label":"Default alert (info)"},"alert-destructive":{"section":"alerts","tab":"actions","doc":"alerts.md","source":"frontend/src/components/ui/alert.tsx","tokens":["--destructive","--border"],"label":"Destructive alert (error)"},"input-text":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Text input"},"input-textarea":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Textarea"},"input-inline-btn":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring"],"label":"Input with inline button"},"input-disabled":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border"],"label":"Disabled input"},"input-error":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--destructive","--border"],"label":"Input with error"},"radio-group":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--dim","--primary"],"label":"Radio group"},"slider":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--secondary","--primary","--background"],"label":"Slider"},"toggle-group":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--muted-foreground","--hover","--foreground"],"label":"Toggle group"},"avatar-sm":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar small"},"avatar-md":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar default"},"avatar-lg":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar large"},"avatar-stack":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--primary","--success","--orange","--blue"],"label":"Stacked avatars"},"card-overview":{"section":"card","tab":"content","doc":"cards.md","source":"frontend/src/components/ui/card.tsx","tokens":["--card","--border","--foreground","--muted-foreground","--sensor"],"label":"Card — channel overview"},"dialog-delete":{"section":"card","tab":"content","doc":"cards.md","source":"frontend/src/components/ui/card.tsx","tokens":["--card","--border","--foreground","--muted-foreground"],"label":"Dialog — delete confirmation"},"table-header":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--dim","--border","--card"],"label":"Table header with sort"},"table-row":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--foreground","--sensor","--dim","--hover","--border"],"label":"Table row"},"stat-row":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--foreground"],"label":"Stat row"},"pill-active":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--foreground"],"label":"Active filter pill"},"pill":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--dim","--foreground"],"label":"Inactive filter pill"},"breadcrumb":{"section":"data-navigation","tab":"navigation","doc":"data-navigation.md","source":null,"tokens":["--muted-foreground","--foreground","--dim"],"label":"Breadcrumb"},"pagination":{"section":"data-navigation","tab":"navigation","doc":"data-navigation.md","source":null,"tokens":["--foreground","--hover","--border","--dim"],"label":"Pagination"},"menu-dropdown":{"section":"menus","tab":"navigation","doc":"menus.md","source":null,"tokens":["--card","--border","--foreground","--hover","--destructive","--dim"],"label":"Dropdown menu"},"menu-command":{"section":"menus","tab":"navigation","doc":"menus.md","source":null,"tokens":["--card","--border","--foreground","--hover","--dim"],"label":"Command palette"},"accordion":{"section":"accordions","tab":"navigation","doc":"accordions.md","source":null,"tokens":["--card","--border","--foreground","--hover","--dim","--muted-foreground"],"label":"Accordion"},"tooltip":{"section":"overlays","tab":"navigation","doc":"overlays.md","source":null,"tokens":["--foreground","--background"],"label":"Tooltip"},"popover":{"section":"overlays","tab":"navigation","doc":"overlays.md","source":null,"tokens":["--card","--border","--primary","--dim"],"label":"Popover with checkboxes"},"ring-lg-primary":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--primary","--secondary","--dim","--foreground"],"label":"Large ring — Relevance"},"ring-lg-blue":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--blue","--secondary","--dim","--foreground"],"label":"Large ring — Virality"},"ring-lg-success":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--success","--secondary","--dim","--foreground"],"label":"Large ring — First Mover"},"ring-lg-orange":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--orange","--secondary","--dim","--foreground"],"label":"Large ring — Processing"},"ring-sm-primary":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--primary","--secondary","--foreground"],"label":"Small ring — Relevance"},"ring-sm-blue":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--blue","--secondary","--foreground"],"label":"Small ring — Virality"},"ring-sm-success":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--success","--secondary","--foreground"],"label":"Small ring — First Mover"},"ring-sm-orange":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--orange","--secondary","--foreground"],"label":"Small ring — Processing"},"carousel":{"section":"media","tab":"dataviz","doc":"media.md","source":null,"tokens":["--card","--border","--dim","--foreground"],"label":"Carousel"},"chart-bar":{"section":"media","tab":"dataviz","doc":"media.md","source":null,"tokens":["--card","--border","--primary","--dim"],"label":"Bar chart"},"toast-success":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--success","--card","--border"],"label":"Success toast"},"toast-error":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--destructive","--card","--border"],"label":"Error toast"},"toast-info":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--blue","--card","--border"],"label":"Info toast"},"spinner":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--muted-foreground"],"label":"Loading spinner"},"empty-state":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--dim"],"label":"Empty state"},"skeleton":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--secondary"],"label":"Skeleton loader"},"text-shimmer":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"Text shimmer loading"},"ai-cursor-idle":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim"],"label":"AI cursor — idle"},"ai-cursor-thinking":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"AI cursor — thinking"},"ai-cursor-writing":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--foreground"],"label":"AI cursor — writing"},"error-page":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--background","--border","--card","--destructive","--muted-foreground","--dim"],"label":"Page error"},"delete-modal":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--card","--border","--foreground","--muted-foreground","--destructive"],"label":"Delete confirmation modal"},"video-type-video":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — video"},"video-type-short":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — short"},"separator-h":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--border"],"label":"Horizontal separator"},"separator-v":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--border"],"label":"Vertical separator"},"scroll-area":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--card","--border","--muted-foreground"],"label":"Scroll area"},"aspect-ratio":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--secondary","--dim"],"label":"Aspect ratio boxes"},"topbar":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border","--foreground"],"label":"Top bar"},"content-area":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border"],"label":"Content area with pills + list"},"sidebar-collapsed":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar collapsed (56px)"},"sidebar-expanded":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar expanded (220px)"},"panel-float":{"section":"panels","tab":"layout","doc":"panels.md","source":null,"tokens":["--card","--border","--foreground","--sensor","--dim"],"label":"Floating right panel"},"upload-zone":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--border","--primary","--dim"],"label":"Upload zone (drag & drop)"},"upload-in-progress":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--blue","--foreground"],"label":"Upload indicator — in progress"},"upload-complete":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--success","--foreground"],"label":"Upload indicator — complete"},"album-card":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--background","--card","--secondary","--foreground","--dim"],"label":"Album card"},"media-grid":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--secondary","--card","--primary"],"label":"Media grid with selection"},"score-bar-relevance":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--purple","--secondary","--border","--dim","--foreground"],"label":"Score bar — Relevance"},"score-bar-virality":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--blue","--secondary","--border","--dim","--foreground"],"label":"Score bar — Virality"},"score-bar-firstmover":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--success","--secondary","--border","--dim","--foreground"],"label":"Score bar — First Mover"},"editor-toolbar":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--dim","--hover","--foreground"],"label":"Floating editor toolbar"},"script-block-title":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--orange"],"label":"Script block — Title"},"script-block-hook":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--blue"],"label":"Script block — Hook"},"script-block-body":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--primary","--muted-foreground"],"label":"Script block — Body"},"slash-menu":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--border","--hover","--secondary","--dim","--foreground"],"label":"Slash command menu"},"kanban-imported":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--primary","--card","--border","--foreground","--dim"],"label":"Kanban column — Imported"},"kanban-apify":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border"],"label":"Kanban column — Apify Content"},"kanban-firecrawl":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — Firecrawl"},"kanban-htmlfetch":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — HTML Fetch"},"kanban-review":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border","--destructive"],"label":"Kanban column — Review"},"kanban-failed":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive","--card","--border"],"label":"Kanban column — Failed"}};
+var __componentIndex = {"swatch-background":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--background"],"label":"Background swatch"},"swatch-card":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--card"],"label":"Card / alt-bg swatch"},"swatch-hover":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--hover"],"label":"Hover swatch"},"swatch-border":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--border"],"label":"Border swatch"},"swatch-success":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--success"],"label":"Success swatch"},"swatch-blue":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--blue"],"label":"Blue swatch"},"swatch-orange":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--orange"],"label":"Orange swatch"},"swatch-destructive":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive swatch"},"swatch-primary":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Primary swatch"},"swatch-destructive-btn":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive button swatch"},"text-foreground":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Foreground text"},"text-muted":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--muted-foreground"],"label":"Muted text"},"text-link":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Link text"},"type-page-title":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Page title 14px 600"},"type-section-heading":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Section heading 13px 600"},"type-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Body 13px 400"},"type-small-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Small body 12px 400"},"type-tiny":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Tiny 11px 400"},"type-mono-label":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Mono label 10px 600"},"type-mono-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Mono body 13px 400"},"icon-btn-sync":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Sync channel"},"icon-btn-remove":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Remove channel (destructive)"},"icon-btn-info":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Channel info"},"icon-btn-analyze":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Analyze all (primary)"},"icon-btn-delete":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Delete video (destructive)"},"icon-btn-add":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Add new"},"icon-btn-search":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Search"},"icon-btn-external":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Open in YouTube"},"icon-btn-cancel-upload":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Cancel upload (destructive)"},"icon-btn-discard":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Discard changes (destructive)"},"badge-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Published (success)"},"badge-blue":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--blue","--border"],"label":"Filming (blue)"},"badge-orange":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--orange","--border"],"label":"Script (orange)"},"badge-destructive":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--destructive","--border"],"label":"Failed (destructive)"},"badge-dim":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--dim","--border"],"label":"Draft (dim)"},"badge-default":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--foreground","--border"],"label":"Default"},"badge-sm-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Small — Published"},"badge-xs-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success"],"label":"XS — AR language tag"},"alert-default":{"section":"alerts","tab":"actions","doc":"alerts.md","source":"frontend/src/components/ui/alert.tsx","tokens":["--background","--foreground","--border"],"label":"Default alert (info)"},"alert-destructive":{"section":"alerts","tab":"actions","doc":"alerts.md","source":"frontend/src/components/ui/alert.tsx","tokens":["--destructive","--border"],"label":"Destructive alert (error)"},"input-text":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Text input"},"input-textarea":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Textarea"},"input-inline-btn":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring"],"label":"Input with inline button"},"input-disabled":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border"],"label":"Disabled input"},"input-error":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--destructive","--border"],"label":"Input with error"},"radio-group":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--dim","--primary"],"label":"Radio group"},"slider":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--secondary","--primary","--background"],"label":"Slider"},"toggle-group":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--muted-foreground","--hover","--foreground"],"label":"Toggle group"},"avatar-sm":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar small"},"avatar-md":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar default"},"avatar-lg":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar large"},"avatar-stack":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--primary","--success","--orange","--blue"],"label":"Stacked avatars"},"card-overview":{"section":"card","tab":"content","doc":"cards.md","source":"frontend/src/components/ui/card.tsx","tokens":["--card","--border","--foreground","--muted-foreground","--sensor"],"label":"Card — channel overview"},"dialog-delete":{"section":"card","tab":"content","doc":"cards.md","source":"frontend/src/components/ui/card.tsx","tokens":["--card","--border","--foreground","--muted-foreground"],"label":"Dialog — delete confirmation"},"table-header":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--dim","--border","--card"],"label":"Table header with sort"},"table-row":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--foreground","--sensor","--dim","--hover","--border"],"label":"Table row"},"stat-row-pipeline":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--orange","--blue","--purple","--success","--destructive"],"label":"Pipeline stat row (colored)"},"stat-import":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--orange"],"label":"Import stage stat"},"stat-transcribe":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--blue"],"label":"Transcribe stage stat"},"stat-comments":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--purple"],"label":"Comments stage stat"},"stat-analysis":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--success"],"label":"AI Analysis stage stat"},"stat-failed":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--destructive"],"label":"Failed stat"},"stat-row-articles":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--orange","--blue","--purple","--success","--destructive"],"label":"Article pipeline stat row"},"stat-row":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--foreground"],"label":"Generic stat row"},"pill-active":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--foreground"],"label":"Active filter pill"},"pill":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--dim","--foreground"],"label":"Inactive filter pill"},"breadcrumb":{"section":"data-navigation","tab":"navigation","doc":"data-navigation.md","source":null,"tokens":["--muted-foreground","--foreground","--dim"],"label":"Breadcrumb"},"pagination":{"section":"data-navigation","tab":"navigation","doc":"data-navigation.md","source":null,"tokens":["--foreground","--hover","--border","--dim"],"label":"Pagination"},"menu-dropdown":{"section":"menus","tab":"navigation","doc":"menus.md","source":null,"tokens":["--card","--border","--foreground","--hover","--destructive","--dim"],"label":"Dropdown menu"},"menu-command":{"section":"menus","tab":"navigation","doc":"menus.md","source":null,"tokens":["--card","--border","--foreground","--hover","--dim"],"label":"Command palette"},"accordion":{"section":"accordions","tab":"navigation","doc":"accordions.md","source":null,"tokens":["--card","--border","--foreground","--hover","--dim","--muted-foreground"],"label":"Accordion"},"tooltip":{"section":"overlays","tab":"navigation","doc":"overlays.md","source":null,"tokens":["--foreground","--background"],"label":"Tooltip"},"popover":{"section":"overlays","tab":"navigation","doc":"overlays.md","source":null,"tokens":["--card","--border","--primary","--dim"],"label":"Popover with checkboxes"},"ring-lg-primary":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--primary","--secondary","--dim","--foreground"],"label":"Large ring — Relevance"},"ring-lg-blue":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--blue","--secondary","--dim","--foreground"],"label":"Large ring — Virality"},"ring-lg-success":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--success","--secondary","--dim","--foreground"],"label":"Large ring — First Mover"},"ring-lg-orange":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--orange","--secondary","--dim","--foreground"],"label":"Large ring — Processing"},"ring-sm-primary":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--primary","--secondary","--foreground"],"label":"Small ring — Relevance"},"ring-sm-blue":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--blue","--secondary","--foreground"],"label":"Small ring — Virality"},"ring-sm-success":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--success","--secondary","--foreground"],"label":"Small ring — First Mover"},"ring-sm-orange":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--orange","--secondary","--foreground"],"label":"Small ring — Processing"},"carousel":{"section":"media","tab":"dataviz","doc":"media.md","source":null,"tokens":["--card","--border","--dim","--foreground"],"label":"Carousel"},"chart-bar":{"section":"media","tab":"dataviz","doc":"media.md","source":null,"tokens":["--card","--border","--primary","--dim"],"label":"Bar chart"},"toast-success":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--success","--card","--border"],"label":"Success toast"},"toast-error":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--destructive","--card","--border"],"label":"Error toast"},"toast-info":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--blue","--card","--border"],"label":"Info toast"},"spinner":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--muted-foreground"],"label":"Loading spinner"},"empty-state":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--dim"],"label":"Empty state"},"skeleton":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--secondary"],"label":"Skeleton loader"},"text-shimmer":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"Text shimmer loading"},"ai-cursor-idle":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim"],"label":"AI cursor — idle"},"ai-cursor-thinking":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"AI cursor — thinking"},"ai-cursor-writing":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--foreground"],"label":"AI cursor — writing"},"error-page":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--background","--border","--card","--destructive","--muted-foreground","--dim"],"label":"Page error"},"delete-modal":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--card","--border","--foreground","--muted-foreground","--destructive"],"label":"Delete confirmation modal"},"video-type-video":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — video"},"video-type-short":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — short"},"separator-h":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--border"],"label":"Horizontal separator"},"separator-v":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--border"],"label":"Vertical separator"},"scroll-area":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--card","--border","--muted-foreground"],"label":"Scroll area"},"aspect-ratio":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--secondary","--dim"],"label":"Aspect ratio boxes"},"topbar":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border","--foreground"],"label":"Top bar"},"content-area":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border"],"label":"Content area with pills + list"},"sidebar-collapsed":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar collapsed (56px)"},"sidebar-expanded":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar expanded (220px)"},"panel-float":{"section":"panels","tab":"layout","doc":"panels.md","source":null,"tokens":["--card","--border","--foreground","--sensor","--dim"],"label":"Floating right panel"},"upload-zone":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--border","--primary","--dim"],"label":"Upload zone (drag & drop)"},"upload-in-progress":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--blue","--foreground"],"label":"Upload indicator — in progress"},"upload-complete":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--success","--foreground"],"label":"Upload indicator — complete"},"album-card":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--background","--card","--secondary","--foreground","--dim"],"label":"Album card"},"media-grid":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--secondary","--card","--primary"],"label":"Media grid with selection"},"score-bar-relevance":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--purple","--secondary","--border","--dim","--foreground"],"label":"Score bar — Relevance"},"score-bar-virality":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--blue","--secondary","--border","--dim","--foreground"],"label":"Score bar — Virality"},"score-bar-firstmover":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--success","--secondary","--border","--dim","--foreground"],"label":"Score bar — First Mover"},"editor-toolbar":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--dim","--hover","--foreground"],"label":"Floating editor toolbar"},"script-block-title":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--orange"],"label":"Script block — Title"},"script-block-hook":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--blue"],"label":"Script block — Hook"},"script-block-body":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--primary","--muted-foreground"],"label":"Script block — Body"},"slash-menu":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--border","--hover","--secondary","--dim","--foreground"],"label":"Slash command menu"},"pipeline-controls":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--border","--background"],"label":"Pipeline controls bar"},"pill-running":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Running status pill"},"pill-paused":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange"],"label":"Paused status pill"},"btn-resume":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Resume/Pause button"},"btn-retry-all":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Retry all failed button"},"btn-test":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--purple"],"label":"Test run button"},"btn-fetch-sources":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Fetch sources button"},"review-btn-skip":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue"],"label":"Review — Skip action"},"review-btn-drop":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive"],"label":"Review — Drop action"},"review-btn-paste":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--purple"],"label":"Review — Paste action"},"log-tag-ok":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Log tag — ok/created"},"log-tag-classify":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Log tag — classify"},"log-tag-review":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange"],"label":"Log tag — review"},"log-tag-fail":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive"],"label":"Log tag — failed"},"log-tag-pending":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim"],"label":"Log tag — pending"},"kanban-imported":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--primary","--card","--border","--foreground","--dim"],"label":"Kanban column — Imported"},"kanban-apify":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border"],"label":"Kanban column — Apify Content"},"kanban-firecrawl":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — Firecrawl"},"kanban-htmlfetch":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — HTML Fetch"},"kanban-review":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border","--destructive"],"label":"Kanban column — Review"},"kanban-failed":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive","--card","--border"],"label":"Kanban column — Failed"}};
+var __tokenUsage = {"background":["Admin","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","Competitions","Gallery","GalleryUploadIndicator","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoTable","gallery/AlbumCard","gallery/MediaViewer","gallery/UploadZone","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStageOmit","story-detail/StoryDetailStagePassed","story-detail/StoryDetailStagePublish","story-detail/TranscriptSection","story-detail/VideoUpload","ui/alert","ui/alert-dialog","ui/button","ui/chart","ui/dialog","ui/drawer","ui/input","ui/menubar","ui/navigation-menu","ui/select","ui/sheet","ui/slider","ui/sonner","ui/switch","ui/tabs","ui/textarea"],"foreground":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","DeleteChannelModal","Gallery","GalleryUploadIndicator","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","gallery/AlbumCard","gallery/MediaViewer","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/alert","ui/badge","ui/breadcrumb","ui/button","ui/calendar","ui/chart","ui/command","ui/context-menu","ui/dropdown-menu","ui/input","ui/input-otp","ui/menubar","ui/navigation-menu","ui/select","ui/sheet","ui/sonner","ui/tabs","ui/toggle"],"card":["Admin","Analytics","AppLayout","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelLayout","ChannelRightPanel","Competitions","Gallery","Login","Monitor","PageError","Pipeline","ProfilePicker","PublishQueue","ScriptEditorTiptap","Settings","Source","Stories","StoryDetail","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","gallery/AlbumCard","gallery/MediaViewer","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/card"],"card-foreground":["ui/card"],"popover":["ui/command","ui/context-menu","ui/dropdown-menu","ui/hover-card","ui/menubar","ui/navigation-menu","ui/popover","ui/select","ui/tooltip"],"popover-foreground":["ui/command","ui/context-menu","ui/dropdown-menu","ui/hover-card","ui/menubar","ui/navigation-menu","ui/popover","ui/select","ui/tooltip"],"primary":["AlbumDetail","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelRightPanel","Competitions","Gallery","Login","NotFound","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Stories","VideoDetail","VideoRightPanel","VideoTable","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailTopBar","ui/badge","ui/button","ui/calendar","ui/checkbox","ui/progress","ui/radio-group","ui/slider","ui/sonner","ui/switch"],"primary-foreground":["AlbumDetail","ChannelRightPanel","Gallery","ProfileHome","PublishQueue","ui/badge","ui/button","ui/calendar","ui/checkbox","ui/sonner"],"secondary":["ui/badge","ui/button","ui/progress","ui/sheet","ui/slider"],"secondary-foreground":["ui/badge","ui/button"],"muted":["ArticleDetail","NotFound","Settings","story-detail/StoryDetailArticle","ui/avatar","ui/chart","ui/drawer","ui/skeleton","ui/sonner","ui/table","ui/tabs","ui/toggle"],"muted-foreground":["AlbumDetail","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelLayout","Gallery","GalleryUploadIndicator","Monitor","NotFound","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Stories","VectorIntelligence","VideoDetail","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailScriptSection","ui/alert-dialog","ui/breadcrumb","ui/calendar","ui/card","ui/chart","ui/command","ui/context-menu","ui/dialog","ui/drawer","ui/empty-state","ui/form","ui/input","ui/menubar","ui/select","ui/sheet","ui/sonner","ui/table","ui/tabs","ui/textarea","ui/toggle"],"accent":["ui/button","ui/calendar","ui/command","ui/context-menu","ui/dialog","ui/dropdown-menu","ui/menubar","ui/navigation-menu","ui/select","ui/toggle"],"accent-foreground":["ui/button","ui/calendar","ui/command","ui/context-menu","ui/dropdown-menu","ui/menubar","ui/navigation-menu","ui/select","ui/toggle"],"destructive":["Admin","AlbumDetail","Analytics","AppSidebar","ArticleDetail","ArticlePipeline","ChannelRightPanel","Competitions","DeleteChannelModal","Gallery","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","VectorIntelligence","VideoDetail","VideoTable","gallery/MediaViewer","story-detail/StoryDetailTopBar","story-detail/VideoUpload","ui/alert","ui/badge","ui/button","ui/form"],"destructive-foreground":["AppSidebar","ChannelRightPanel","DeleteChannelModal","ProfilePicker","Source","gallery/MediaViewer","ui/badge","ui/button"],"success":["Admin","Analytics","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","VectorIntelligence","VideoDetail","VideoTable","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload"],"success-foreground":["StoryDetail"],"blue":["Admin","Analytics","AppSidebar","ArticleDetail","ArticlePipeline","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoTable","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload"],"blue-foreground":["Admin","ProfilePicker","Settings","StoryDetail"],"purple":["Admin","Analytics","ArticleDetail","ArticlePipeline","Pipeline","ProfilePicker","PublishQueue","Settings","Stories","VectorIntelligence","VideoDetail","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailTopBar","story-detail/VideoUpload"],"orange":["Admin","Analytics","ArticleDetail","ArticlePipeline","ChannelRightPanel","Competitions","Gallery","Monitor","Pipeline","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","VectorIntelligence","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/VideoUpload"],"orange-foreground":["Stories","story-detail/StoryDetailTopBar"],"border":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Gallery","GalleryUploadIndicator","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","gallery/MediaViewer","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStageOmit","story-detail/StoryDetailStagePassed","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/chart","ui/command","ui/context-menu","ui/dropdown-menu","ui/menubar","ui/navigation-menu","ui/resizable","ui/scroll-area","ui/select","ui/separator","ui/sonner"],"input":["ui/button","ui/input","ui/input-otp","ui/select","ui/switch","ui/textarea","ui/toggle"],"ring":["ui/badge","ui/button","ui/checkbox","ui/dialog","ui/input","ui/input-otp","ui/radio-group","ui/resizable","ui/select","ui/sheet","ui/slider","ui/switch","ui/tabs","ui/textarea","ui/toggle"],"elevated":["Admin","Analytics","AppLayout","AppSidebar","ChannelDetail","ChannelRightPanel","Competitions","Gallery","Login","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Source","Stories","StoryDetail","UploadIndicator","VideoDetail","VideoRightPanel","VideoTable","gallery/AlbumCard","gallery/MediaViewer","story-detail/ScoreBar","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/VideoUpload"],"sensor":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Gallery","Login","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Source","StoryDetail","VideoDetail","VideoRightPanel","VideoTable","gallery/MediaViewer","story-detail/CopyBtn","story-detail/StoryDetailArticle","story-detail/TranscriptSection","story-detail/VideoUpload"],"dim":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Gallery","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","VideoTypeIcon","gallery/AlbumCard","gallery/MediaViewer","story-detail/CopyBtn","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStageOmit","story-detail/StoryDetailStagePassed","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/empty-state"]};
 /* Tab switching */
 function switchTab(id) {
   document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
@@ -3012,15 +3229,25 @@ function sortCol(el) {
       tdSection.className = 'inv-cell';
       tdSection.textContent = r.section;
 
-      var tdState = document.createElement('td');
-      tdState.className = 'inv-cell';
-      tdState.innerHTML = '<span class="inv-state inv-state-normal">Normal</span>';
-
       var tdUsage = document.createElement('td');
       tdUsage.className = 'inv-cell';
       var tokens = (r.meta.tokens || []);
-      if (tokens.length) {
-        tdUsage.innerHTML = '<span class="inv-usage inv-usage-yes">Yes</span>' +
+      var usageMap = window.__tokenUsage || {};
+      var pages = {};
+      tokens.forEach(function(t) {
+        var clean = t.replace(/^--/, '');
+        var list = usageMap[clean] || [];
+        list.forEach(function(p) { pages[p] = true; });
+      });
+      var pageList = Object.keys(pages).sort();
+      if (pageList.length) {
+        var pageNames = pageList.filter(function(p) { return !p.includes('/'); }).slice(0, 5);
+        var more = pageList.length > 5 ? ' <span class="inv-more">+' + (pageList.length - 5) + '</span>' : '';
+        tdUsage.innerHTML = '<span class="inv-usage inv-usage-yes">' + pageList.length + ' files</span>' +
+          '<span class="inv-pages">' + pageNames.join(', ') + more + '</span>' +
+          '<span class="inv-tokens">' + tokens.join(', ') + '</span>';
+      } else if (tokens.length) {
+        tdUsage.innerHTML = '<span class="inv-usage inv-usage-warn">0 files</span>' +
           '<span class="inv-tokens">' + tokens.join(', ') + '</span>';
       } else {
         tdUsage.innerHTML = '<span class="inv-usage inv-usage-none">—</span>';
@@ -3030,7 +3257,6 @@ function sortCol(el) {
       tr.appendChild(tdType);
       tr.appendChild(tdCid);
       tr.appendChild(tdSection);
-      tr.appendChild(tdState);
       tr.appendChild(tdUsage);
       body.appendChild(tr);
     });
