@@ -127,7 +127,7 @@ app.get('/health', async (req, res) => {
 
 // ── Design-system preview (generated HTML, no auth) ──────────────
 app.get('/design-system', (_req, res) => {
-  const preview = path.join(__dirname, '../docs/design-system/preview.html')
+  const preview = path.join(__dirname, '../docs/Design/preview.html')
   res.sendFile(preview, (err) => {
     if (err) res.status(404).send('Design system preview not found. Run: node scripts/generate-preview.js')
   })
