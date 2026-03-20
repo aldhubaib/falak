@@ -1356,7 +1356,7 @@
 
   <div class="group-heading group-heading-first">
     <div class="group-heading-title">Actions</div>
-    <div class="group-heading-desc">Buttons, Badges, Alerts</div>
+    <div class="group-heading-desc">Buttons, Badges</div>
   </div>
 
   <div id="buttons" class="section">
@@ -1490,30 +1490,13 @@
     </div>
   </div>
 
-  <div id="alerts" class="section">
-    <div class="section-label">Alerts</div>
-    <div class="section-note">Inline banners. Default for info, destructive for errors.</div>
-<div style="display: flex; flex-direction: column; gap: 16px; max-width: 540px;">
-      <div class="alert-demo alert-demo-default" data-cid="alert-default">
-        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <div class="alert-title">Heads up</div>
-        <div class="alert-desc">This channel has no API key configured.</div>
-      </div>
-      <div class="alert-demo alert-demo-destructive" data-cid="alert-destructive">
-        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        <div class="alert-title">Fetch failed</div>
-        <div class="alert-desc">Could not reach YouTube API after 3 retries.</div>
-      </div>
-    </div>
-  </div>
-
   </div><!-- /tab-actions -->
 
   <div class="tab-panel" id="tab-forms">
 
   <div class="group-heading group-heading-first">
     <div class="group-heading-title">Forms & Input</div>
-    <div class="group-heading-desc">Form Elements, Advanced Controls (radio, slider, toggle)</div>
+    <div class="group-heading-desc">Form Elements</div>
   </div>
 
   <div id="form-elements" class="section">
@@ -1554,125 +1537,13 @@
 </div>
   </div>
 
-  <div id="forms-advanced" class="section">
-    <div class="section-label">Forms — Advanced Controls</div>
-    <div class="section-note">Radio group, slider, toggle, and labels.</div>
-<div style="display: flex; gap: 32px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
-  <!-- Radio group -->
-  <div>
-    <div class="input-label" style="margin-bottom: 10px;">Video Format</div>
-    <div class="radio-group" data-cid="radio-group">
-      <div class="radio-item active" onclick="this.parentElement.querySelectorAll('.radio-item').forEach(r=>r.classList.remove('active'));this.classList.add('active');">
-        <div class="radio-circle"><div class="radio-dot"></div></div>
-        Video (16:9)
-      </div>
-      <div class="radio-item" onclick="this.parentElement.querySelectorAll('.radio-item').forEach(r=>r.classList.remove('active'));this.classList.add('active');">
-        <div class="radio-circle"><div class="radio-dot"></div></div>
-        Short (9:16)
-      </div>
-    </div>
-  </div>
-
-  <!-- Slider -->
-  <div>
-    <div class="input-label" style="margin-bottom: 10px;">Duration (seconds)</div>
-    <div class="slider-demo" data-cid="slider">
-      <div class="slider-track">
-        <div class="slider-fill" style="width: 65%; border-radius: 9999px;"></div>
-      </div>
-      <div class="slider-thumb" style="left: calc(65% - 10px);"></div>
-    </div>
-    <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; max-width: 300px;">
-      <span>0</span><span>60</span><span>120</span>
-    </div>
-  </div>
-
-  <!-- Toggle group -->
-  <div>
-    <div class="input-label" style="margin-bottom: 10px;">Display Mode</div>
-    <div class="toggle-row" data-cid="toggle-group">
-      <button class="toggle-btn active" onclick="this.parentElement.querySelectorAll('.toggle-btn').forEach(t=>t.classList.remove('active'));this.classList.add('active');">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      </button>
-      <button class="toggle-btn" onclick="this.parentElement.querySelectorAll('.toggle-btn').forEach(t=>t.classList.remove('active'));this.classList.add('active');">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
-    </div>
-  </div>
-</div>
-  </div>
-
   </div><!-- /tab-forms -->
 
   <div class="tab-panel" id="tab-content">
 
   <div class="group-heading group-heading-first">
     <div class="group-heading-title">Content Display</div>
-    <div class="group-heading-desc">Avatars, Card, Data Table, Stat Row</div>
-  </div>
-
-  <div id="avatars" class="section">
-    <div class="section-label">Avatars</div>
-    <div class="section-note">Sizes: small (24), default (40), large (56). Fallback with initials.</div>
-<div class="avatar-row">
-  <div class="avatar avatar-sm" data-cid="avatar-sm">A</div>
-  <div class="avatar avatar-md" data-cid="avatar-md">AB</div>
-  <div class="avatar avatar-lg" data-cid="avatar-lg">AZ</div>
-  <div class="avatar avatar-md" style="background: var(--primary); color: var(--primary-foreground);">F</div>
-  <div class="avatar avatar-md" style="background: var(--success); color: var(--success-foreground);">OK</div>
-  <div class="avatar avatar-md" style="background: var(--orange); color: var(--orange-foreground);">JD</div>
-</div>
-<div class="section-note" style="margin-top: 16px;">Stacked — collaborators working on the same script.</div>
-<div class="avatar-stack" data-cid="avatar-stack">
-  <div class="avatar avatar-sm" style="background: var(--primary); color: var(--primary-foreground);">A</div>
-  <div class="avatar avatar-sm" style="background: var(--success); color: var(--success-foreground);">B</div>
-  <div class="avatar avatar-sm" style="background: var(--orange); color: var(--orange-foreground);">C</div>
-  <div class="avatar avatar-sm" style="background: var(--blue); color: var(--blue-foreground);">D</div>
-</div>
-  </div>
-
-  <div id="card" class="section">
-    <div class="section-label">Card</div>
-<div class="two-col">
-  <div class="card-demo" data-cid="card-overview">
-    <div class="card-header">
-      <div class="card-title">Channel Overview</div>
-      <div class="card-desc">Manage channel settings and video pipeline</div>
-    </div>
-    <div class="card-content">
-      <div style="display: flex; flex-direction: column; gap: 8px">
-        <div style="display: flex; justify-content: space-between; font-size: 13px">
-          <span style="color: var(--sensor)">Videos</span>
-          <span>142</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 13px">
-          <span style="color: var(--sensor)">Subscribers</span>
-          <span>1.2M</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 13px">
-          <span style="color: var(--sensor)">Status</span>
-          <span class="badge badge-success" style="font-size: 11px">Active</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Dialog preview -->
-  <div id="dialog" class="dialog-demo" data-cid="dialog-delete">
-    <div class="dialog-title">Delete this channel?</div>
-    <div class="dialog-desc">This will permanently remove the channel and all its data. This action cannot be undone.</div>
-    <div class="dialog-actions">
-      <button class="icon-btn">
-        <span class="tooltip-text">Cancel</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <button class="icon-btn icon-btn-destructive">
-        <span class="tooltip-text">Delete</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
-    </div>
-  </div>
-</div>
+    <div class="group-heading-desc">Data Table, Stat Row</div>
   </div>
 
   <div id="table" class="section">
@@ -1802,7 +1673,7 @@
 
   <div class="group-heading group-heading-first">
     <div class="group-heading-title">Navigation & Interaction</div>
-    <div class="group-heading-desc">Filter Pills, Breadcrumb / Pagination, Menus, Accordion, Overlays</div>
+    <div class="group-heading-desc">Filter Pills, Tooltips</div>
   </div>
 
   <div id="filter-pills" class="section">
@@ -1819,156 +1690,11 @@
 </div>
   </div>
 
-  <div id="data-navigation" class="section">
-    <div class="section-label">Data Navigation</div>
-    <div class="section-note">Breadcrumbs and pagination for multi-page data.</div>
-<div style="display: flex; flex-direction: column; gap: 24px;">
-  <!-- Breadcrumb -->
-  <div>
-    <div class="section-note">Breadcrumb</div>
-    <div class="breadcrumb-demo" data-cid="breadcrumb">
-      <span class="breadcrumb-link">Channels</span>
-      <span class="breadcrumb-sep">/</span>
-      <span class="breadcrumb-link">TechChannel</span>
-      <span class="breadcrumb-sep">/</span>
-      <span class="breadcrumb-current">Videos</span>
-    </div>
-  </div>
-  <!-- Pagination -->
-  <div>
-    <div class="section-note">Pagination</div>
-    <div class="pagination-demo" data-cid="pagination">
-      <button class="page-btn nav">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-      </button>
-      <button class="page-btn active">1</button>
-      <button class="page-btn">2</button>
-      <button class="page-btn">3</button>
-      <button class="page-btn" style="cursor:default; color: var(--dim);">…</button>
-      <button class="page-btn">12</button>
-      <button class="page-btn nav">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      </button>
-    </div>
-  </div>
-</div>
-  </div>
-
-  <div id="menus" class="section">
-    <div class="section-label">Menus</div>
-    <div class="section-note">Dropdown menu, context menu, and command palette.</div>
-<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
-  <!-- Dropdown -->
-  <div>
-    <div class="section-note">Dropdown Menu</div>
-    <div class="menu-demo" data-cid="menu-dropdown">
-      <div class="menu-label">Actions</div>
-      <div class="menu-item">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-        Edit
-        <span class="shortcut">⌘E</span>
-      </div>
-      <div class="menu-item">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-        Duplicate
-      </div>
-      <div class="menu-sep"></div>
-      <div class="menu-item menu-item-destructive">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        Delete
-        <span class="shortcut">⌘⌫</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Command palette -->
-  <div style="flex: 1; min-width: 300px;">
-    <div class="section-note">Command Palette</div>
-    <div class="command-demo" data-cid="menu-command">
-      <div class="command-input-row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" placeholder="Type a command or search..." />
-      </div>
-      <div class="command-group-label">Actions</div>
-      <div class="command-item selected">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Create Story
-      </div>
-      <div class="command-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-        Sync Channel
-      </div>
-      <div class="command-group-label">Navigation</div>
-      <div class="command-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Go to Pipeline
-      </div>
-      <div class="command-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-        Settings
-      </div>
-    </div>
-  </div>
-</div>
-  </div>
-
-  <div id="accordions" class="section">
-    <div class="section-label">Accordion</div>
-    <div class="section-note">Expand/collapse sections. Click to toggle.</div>
-<div class="accordion-demo" data-cid="accordion" style="max-width: 480px;">
-  <div class="accordion-item open" onclick="this.classList.toggle('open')">
-    <button class="accordion-trigger">
-      Video Details
-      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-    </button>
-    <div class="accordion-body">Metadata, tags, thumbnails, and description fields for the selected video.</div>
-  </div>
-  <div class="accordion-item" onclick="this.classList.toggle('open')">
-    <button class="accordion-trigger">
-      Transcript
-      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-    </button>
-    <div class="accordion-body">Full transcript with timestamps generated by Whisper.</div>
-  </div>
-  <div class="accordion-item" onclick="this.classList.toggle('open')">
-    <button class="accordion-trigger">
-      Analytics
-      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-    </button>
-    <div class="accordion-body">View count, watch time, and engagement metrics over time.</div>
-  </div>
-</div>
-  </div>
-
   <div id="overlays" class="section">
-    <div class="section-label">Overlays — Tooltip, Popover, Hover Card</div>
-<div class="overlay-row">
-  <div data-cid="tooltip">
-    <div class="section-note">Tooltip (hover the buttons above ↑)</div>
-    <div class="section-note">Same tooltip pattern used in the Buttons section. Small label on hover with <code style="font-size:11px; background:var(--secondary); padding:2px 6px; border-radius:4px;">bg-popover</code> surface.</div>
-  </div>
-  <div>
-    <div class="section-note">Popover</div>
-    <div class="popover-demo" data-cid="popover">
-      <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Filter options</div>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-          <div style="width:14px; height:14px; border-radius:3px; border:1.5px solid var(--primary); display:flex; align-items:center; justify-content:center;">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          Published
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-          <div style="width:14px; height:14px; border-radius:3px; border:1.5px solid var(--dim);"></div>
-          Filming
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
-          <div style="width:14px; height:14px; border-radius:3px; border:1.5px solid var(--dim);"></div>
-          Draft
-        </div>
-      </div>
-    </div>
-  </div>
+    <div class="section-label">Overlays — Tooltip</div>
+<div data-cid="tooltip">
+  <div class="section-note">Tooltip (hover the buttons above ↑)</div>
+  <div class="section-note">Same tooltip pattern used in the Buttons section. Small label on hover with <code style="font-size:11px; background:var(--secondary); padding:2px 6px; border-radius:4px;">bg-popover</code> surface.</div>
 </div>
   </div>
 
@@ -1978,149 +1704,32 @@
 
   <div class="group-heading group-heading-first">
     <div class="group-heading-title">Data Visualization</div>
-    <div class="group-heading-desc">Progress rings, Carousel & Chart</div>
-  </div>
-
-  <div id="progress" class="section">
-    <div class="section-label">Progress — Large</div>
-    <div class="section-note">Label and percentage inside the ring.</div>
-<div class="progress-ring-row">
-  <div class="progress-ring-wrapper" data-cid="ring-lg-primary">
-    <div class="progress-ring">
-      <svg viewBox="0 0 120 120">
-        <circle class="track" cx="60" cy="60" r="50"/>
-        <circle class="fill" cx="60" cy="60" r="50" style="stroke: var(--primary); stroke-dasharray: 314.16; stroke-dashoffset: 56.55;"/>
-      </svg>
-      <div class="center-text">
-        <span class="center-label">Relevance</span>
-        <span class="center-value">82%</span>
-      </div>
-    </div>
-  </div>
-  <div class="progress-ring-wrapper" data-cid="ring-lg-blue">
-    <div class="progress-ring">
-      <svg viewBox="0 0 120 120">
-        <circle class="track" cx="60" cy="60" r="50"/>
-        <circle class="fill" cx="60" cy="60" r="50" style="stroke: var(--blue); stroke-dasharray: 314.16; stroke-dashoffset: 113.10;"/>
-      </svg>
-      <div class="center-text">
-        <span class="center-label">Virality</span>
-        <span class="center-value">64%</span>
-      </div>
-    </div>
-  </div>
-  <div class="progress-ring-wrapper" data-cid="ring-lg-success">
-    <div class="progress-ring">
-      <svg viewBox="0 0 120 120">
-        <circle class="track" cx="60" cy="60" r="50"/>
-        <circle class="fill" cx="60" cy="60" r="50" style="stroke: var(--success); stroke-dasharray: 314.16; stroke-dashoffset: 28.27;"/>
-      </svg>
-      <div class="center-text">
-        <span class="center-label">First Mover</span>
-        <span class="center-value">91%</span>
-      </div>
-    </div>
-  </div>
-  <div class="progress-ring-wrapper" data-cid="ring-lg-orange">
-    <div class="progress-ring">
-      <svg viewBox="0 0 120 120">
-        <circle class="track" cx="60" cy="60" r="50"/>
-        <circle class="fill" cx="60" cy="60" r="50" style="stroke: var(--orange); stroke-dasharray: 314.16; stroke-dashoffset: 172.79;"/>
-      </svg>
-      <div class="center-text">
-        <span class="center-label">Processing</span>
-        <span class="center-value">45%</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="section-label" style="margin-top: 40px">Progress — Small</div>
-<div class="section-note">Percentage inside, label underneath.</div>
-<div class="progress-ring-row">
-  <div class="progress-ring-wrapper" data-cid="ring-sm-primary">
-    <div class="progress-ring-sm">
-      <svg viewBox="0 0 64 64">
-        <circle class="track" cx="32" cy="32" r="26"/>
-        <circle class="fill" cx="32" cy="32" r="26" style="stroke: var(--primary); stroke-dasharray: 163.36; stroke-dashoffset: 29.40;"/>
-      </svg>
-      <div class="center-text"><span class="center-value">82%</span></div>
-    </div>
-    <span class="progress-ring-label">Relevance</span>
-  </div>
-  <div class="progress-ring-wrapper" data-cid="ring-sm-blue">
-    <div class="progress-ring-sm">
-      <svg viewBox="0 0 64 64">
-        <circle class="track" cx="32" cy="32" r="26"/>
-        <circle class="fill" cx="32" cy="32" r="26" style="stroke: var(--blue); stroke-dasharray: 163.36; stroke-dashoffset: 58.81;"/>
-      </svg>
-      <div class="center-text"><span class="center-value">64%</span></div>
-    </div>
-    <span class="progress-ring-label">Virality</span>
-  </div>
-  <div class="progress-ring-wrapper" data-cid="ring-sm-success">
-    <div class="progress-ring-sm">
-      <svg viewBox="0 0 64 64">
-        <circle class="track" cx="32" cy="32" r="26"/>
-        <circle class="fill" cx="32" cy="32" r="26" style="stroke: var(--success); stroke-dasharray: 163.36; stroke-dashoffset: 14.70;"/>
-      </svg>
-      <div class="center-text"><span class="center-value">91%</span></div>
-    </div>
-    <span class="progress-ring-label">First Mover</span>
-  </div>
-  <div class="progress-ring-wrapper" data-cid="ring-sm-orange">
-    <div class="progress-ring-sm">
-      <svg viewBox="0 0 64 64">
-        <circle class="track" cx="32" cy="32" r="26"/>
-        <circle class="fill" cx="32" cy="32" r="26" style="stroke: var(--orange); stroke-dasharray: 163.36; stroke-dashoffset: 89.85;"/>
-      </svg>
-      <div class="center-text"><span class="center-value">45%</span></div>
-    </div>
-    <span class="progress-ring-label">Processing</span>
-  </div>
-</div>
+    <div class="group-heading-desc">Charts</div>
   </div>
 
   <div id="media" class="section">
-    <div class="section-label">Media — Carousel & Chart</div>
-    <div class="section-note">Carousel for horizontal slide-through. Charts via Recharts wrapper.</div>
-<div style="display: flex; gap: 24px; flex-wrap: wrap;">
-  <!-- Carousel mock -->
-  <div style="flex: 1; min-width: 280px; position: relative;">
-    <div class="section-note">Carousel</div>
-    <div data-cid="carousel" style="overflow: hidden; border-radius: 12px; border: 1px solid var(--border);">
-      <div style="display: flex;">
-        <div style="min-width: 100%; aspect-ratio: 16/9; background: var(--card); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--dim);">Slide 1 of 3</div>
-      </div>
+    <div class="section-label">Charts</div>
+    <div class="section-note">Custom SVG charts used in Analytics. Bar chart pattern shown.</div>
+<div style="flex: 1; min-width: 280px;">
+  <div class="section-note">Chart (bar)</div>
+  <div data-cid="chart-bar" style="border-radius: 12px; border: 1px solid var(--border); background: var(--card); padding: 16px 20px; aspect-ratio: 16/9; display: flex; flex-direction: column; justify-content: flex-end;">
+    <div style="display: flex; align-items: flex-end; gap: 8px; height: 100%; padding-bottom: 8px;">
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 60%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 80%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 45%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 90%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 70%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 55%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 95%; opacity: 0.8;"></div>
     </div>
-    <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
-      <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--foreground);"></div>
-      <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--dim);"></div>
-      <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--dim);"></div>
-    </div>
-  </div>
-  <!-- Chart mock -->
-  <div style="flex: 1; min-width: 280px;">
-    <div class="section-note">Chart (bar)</div>
-    <div data-cid="chart-bar" style="border-radius: 12px; border: 1px solid var(--border); background: var(--card); padding: 16px 20px; aspect-ratio: 16/9; display: flex; flex-direction: column; justify-content: flex-end;">
-      <div style="display: flex; align-items: flex-end; gap: 8px; height: 100%; padding-bottom: 8px;">
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 60%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 80%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 45%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 90%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 70%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 55%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 95%; opacity: 0.8;"></div>
-      </div>
-      <div style="display: flex; gap: 8px; font-size: 9px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">
-        <span style="flex:1; text-align:center;">Mon</span>
-        <span style="flex:1; text-align:center;">Tue</span>
-        <span style="flex:1; text-align:center;">Wed</span>
-        <span style="flex:1; text-align:center;">Thu</span>
-        <span style="flex:1; text-align:center;">Fri</span>
-        <span style="flex:1; text-align:center;">Sat</span>
-        <span style="flex:1; text-align:center;">Sun</span>
-      </div>
+    <div style="display: flex; gap: 8px; font-size: 9px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">
+      <span style="flex:1; text-align:center;">Mon</span>
+      <span style="flex:1; text-align:center;">Tue</span>
+      <span style="flex:1; text-align:center;">Wed</span>
+      <span style="flex:1; text-align:center;">Thu</span>
+      <span style="flex:1; text-align:center;">Fri</span>
+      <span style="flex:1; text-align:center;">Sat</span>
+      <span style="flex:1; text-align:center;">Sun</span>
     </div>
   </div>
 </div>
@@ -2276,53 +1885,7 @@
 
   <div class="group-heading group-heading-first">
     <div class="group-heading-title">Layout</div>
-    <div class="group-heading-desc">Layout Utilities, Page Layout, Sidebar, Panels</div>
-  </div>
-
-  <div id="layout-utilities" class="section">
-    <div class="section-label">Layout Utilities</div>
-    <div class="section-note">Separator, scroll area, aspect ratio containers.</div>
-<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
-  <!-- Separators -->
-  <div style="max-width: 240px; flex:1;">
-    <div class="section-note">Horizontal separator</div>
-    <div style="padding: 12px 0;">Some content above</div>
-    <div class="sep-h" data-cid="separator-h"></div>
-    <div style="padding: 12px 0; color: var(--muted-foreground); font-size: 13px;">Content below</div>
-    <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px;">
-      <span style="font-size: 13px;">Left</span>
-      <div class="sep-v" data-cid="separator-v"></div>
-      <span style="font-size: 13px;">Right</span>
-    </div>
-  </div>
-  <!-- Scroll area -->
-  <div>
-    <div class="section-note">Scroll area (custom scrollbar)</div>
-    <div class="scroll-demo" data-cid="scroll-area">
-      <div class="scroll-content">
-        Line 1 — Video metadata<br>Line 2 — Channel info<br>Line 3 — Pipeline status<br>
-        Line 4 — Analytics data<br>Line 5 — Score history<br>Line 6 — Comments<br>
-        Line 7 — Transcript segments<br>Line 8 — Related videos
-      </div>
-      <div class="scroll-thumb"></div>
-    </div>
-  </div>
-  <!-- Aspect ratio -->
-  <div>
-    <div class="section-note">Aspect ratios</div>
-    <div style="display: flex; gap: 12px; align-items: flex-start;" data-cid="aspect-ratio">
-      <div style="width: 120px;">
-        <div style="aspect-ratio: 16/9; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">16:9</div>
-      </div>
-      <div style="width: 60px;">
-        <div style="aspect-ratio: 9/16; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">9:16</div>
-      </div>
-      <div style="width: 80px;">
-        <div style="aspect-ratio: 4/3; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">4:3</div>
-      </div>
-    </div>
-  </div>
-</div>
+    <div class="group-heading-desc">Page Layout, Sidebar, Panels</div>
   </div>
 
   <div id="page-layout" class="section">
@@ -2953,7 +2516,7 @@
 </div>
 
 <script>
-var __componentIndex = {"swatch-background":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--background"],"label":"Background swatch"},"swatch-card":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--card"],"label":"Card / alt-bg swatch"},"swatch-hover":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--hover"],"label":"Hover swatch"},"swatch-border":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--border"],"label":"Border swatch"},"swatch-success":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--success"],"label":"Success swatch"},"swatch-blue":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--blue"],"label":"Blue swatch"},"swatch-orange":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--orange"],"label":"Orange swatch"},"swatch-destructive":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive swatch"},"swatch-primary":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Primary swatch"},"swatch-destructive-btn":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive button swatch"},"text-foreground":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Foreground text"},"text-muted":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--muted-foreground"],"label":"Muted text"},"text-link":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Link text"},"type-page-title":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Page title 14px 600"},"type-section-heading":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Section heading 13px 600"},"type-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Body 13px 400"},"type-small-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Small body 12px 400"},"type-tiny":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Tiny 11px 400"},"type-mono-label":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Mono label 10px 600"},"type-mono-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Mono body 13px 400"},"icon-btn-sync":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Sync channel"},"icon-btn-remove":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Remove channel (destructive)"},"icon-btn-info":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Channel info"},"icon-btn-analyze":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Analyze all (primary)"},"icon-btn-delete":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Delete video (destructive)"},"icon-btn-add":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Add new"},"icon-btn-search":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Search"},"icon-btn-external":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Open in YouTube"},"icon-btn-cancel-upload":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Cancel upload (destructive)"},"icon-btn-discard":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Discard changes (destructive)"},"badge-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Published (success)"},"badge-blue":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--blue","--border"],"label":"Filming (blue)"},"badge-orange":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--orange","--border"],"label":"Script (orange)"},"badge-destructive":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--destructive","--border"],"label":"Failed (destructive)"},"badge-dim":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--dim","--border"],"label":"Draft (dim)"},"badge-default":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--foreground","--border"],"label":"Default"},"badge-sm-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Small — Published"},"badge-xs-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success"],"label":"XS — AR language tag"},"alert-default":{"section":"alerts","tab":"actions","doc":"alerts.md","source":"frontend/src/components/ui/alert.tsx","tokens":["--background","--foreground","--border"],"label":"Default alert (info)"},"alert-destructive":{"section":"alerts","tab":"actions","doc":"alerts.md","source":"frontend/src/components/ui/alert.tsx","tokens":["--destructive","--border"],"label":"Destructive alert (error)"},"input-text":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Text input"},"input-textarea":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Textarea"},"input-inline-btn":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring"],"label":"Input with inline button"},"input-disabled":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border"],"label":"Disabled input"},"input-error":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--destructive","--border"],"label":"Input with error"},"radio-group":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--dim","--primary"],"label":"Radio group"},"slider":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--secondary","--primary","--background"],"label":"Slider"},"toggle-group":{"section":"forms-advanced","tab":"forms","doc":"forms-advanced.md","source":null,"tokens":["--muted-foreground","--hover","--foreground"],"label":"Toggle group"},"avatar-sm":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar small"},"avatar-md":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar default"},"avatar-lg":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--secondary","--muted-foreground"],"label":"Avatar large"},"avatar-stack":{"section":"avatars","tab":"content","doc":"avatars.md","source":"frontend/src/components/ui/avatar.tsx","tokens":["--primary","--success","--orange","--blue"],"label":"Stacked avatars"},"card-overview":{"section":"card","tab":"content","doc":"cards.md","source":"frontend/src/components/ui/card.tsx","tokens":["--card","--border","--foreground","--muted-foreground","--sensor"],"label":"Card — channel overview"},"dialog-delete":{"section":"card","tab":"content","doc":"cards.md","source":"frontend/src/components/ui/card.tsx","tokens":["--card","--border","--foreground","--muted-foreground"],"label":"Dialog — delete confirmation"},"table-header":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--dim","--border","--card"],"label":"Table header with sort"},"table-row":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--foreground","--sensor","--dim","--hover","--border"],"label":"Table row"},"stat-row-pipeline":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--orange","--blue","--purple","--success","--destructive"],"label":"Pipeline stat row (colored)"},"stat-import":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--orange"],"label":"Import stage stat"},"stat-transcribe":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--blue"],"label":"Transcribe stage stat"},"stat-comments":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--purple"],"label":"Comments stage stat"},"stat-analysis":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--success"],"label":"AI Analysis stage stat"},"stat-failed":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--destructive"],"label":"Failed stat"},"stat-row-articles":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--orange","--blue","--purple","--success","--destructive"],"label":"Article pipeline stat row"},"stat-row":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--foreground"],"label":"Generic stat row"},"pill-active":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--foreground"],"label":"Active filter pill"},"pill":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--dim","--foreground"],"label":"Inactive filter pill"},"breadcrumb":{"section":"data-navigation","tab":"navigation","doc":"data-navigation.md","source":null,"tokens":["--muted-foreground","--foreground","--dim"],"label":"Breadcrumb"},"pagination":{"section":"data-navigation","tab":"navigation","doc":"data-navigation.md","source":null,"tokens":["--foreground","--hover","--border","--dim"],"label":"Pagination"},"menu-dropdown":{"section":"menus","tab":"navigation","doc":"menus.md","source":null,"tokens":["--card","--border","--foreground","--hover","--destructive","--dim"],"label":"Dropdown menu"},"menu-command":{"section":"menus","tab":"navigation","doc":"menus.md","source":null,"tokens":["--card","--border","--foreground","--hover","--dim"],"label":"Command palette"},"accordion":{"section":"accordions","tab":"navigation","doc":"accordions.md","source":null,"tokens":["--card","--border","--foreground","--hover","--dim","--muted-foreground"],"label":"Accordion"},"tooltip":{"section":"overlays","tab":"navigation","doc":"overlays.md","source":null,"tokens":["--foreground","--background"],"label":"Tooltip"},"popover":{"section":"overlays","tab":"navigation","doc":"overlays.md","source":null,"tokens":["--card","--border","--primary","--dim"],"label":"Popover with checkboxes"},"ring-lg-primary":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--primary","--secondary","--dim","--foreground"],"label":"Large ring — Relevance"},"ring-lg-blue":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--blue","--secondary","--dim","--foreground"],"label":"Large ring — Virality"},"ring-lg-success":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--success","--secondary","--dim","--foreground"],"label":"Large ring — First Mover"},"ring-lg-orange":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--orange","--secondary","--dim","--foreground"],"label":"Large ring — Processing"},"ring-sm-primary":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--primary","--secondary","--foreground"],"label":"Small ring — Relevance"},"ring-sm-blue":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--blue","--secondary","--foreground"],"label":"Small ring — Virality"},"ring-sm-success":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--success","--secondary","--foreground"],"label":"Small ring — First Mover"},"ring-sm-orange":{"section":"progress","tab":"dataviz","doc":"progress.md","source":null,"tokens":["--orange","--secondary","--foreground"],"label":"Small ring — Processing"},"carousel":{"section":"media","tab":"dataviz","doc":"media.md","source":null,"tokens":["--card","--border","--dim","--foreground"],"label":"Carousel"},"chart-bar":{"section":"media","tab":"dataviz","doc":"media.md","source":null,"tokens":["--card","--border","--primary","--dim"],"label":"Bar chart"},"toast-success":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--success","--card","--border"],"label":"Success toast"},"toast-error":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--destructive","--card","--border"],"label":"Error toast"},"toast-info":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--blue","--card","--border"],"label":"Info toast"},"spinner":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--muted-foreground"],"label":"Loading spinner"},"empty-state":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--dim"],"label":"Empty state"},"skeleton":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--secondary"],"label":"Skeleton loader"},"text-shimmer":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"Text shimmer loading"},"ai-cursor-idle":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim"],"label":"AI cursor — idle"},"ai-cursor-thinking":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"AI cursor — thinking"},"ai-cursor-writing":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--foreground"],"label":"AI cursor — writing"},"error-page":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--background","--border","--card","--destructive","--muted-foreground","--dim"],"label":"Page error"},"delete-modal":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--card","--border","--foreground","--muted-foreground","--destructive"],"label":"Delete confirmation modal"},"video-type-video":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — video"},"video-type-short":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — short"},"separator-h":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--border"],"label":"Horizontal separator"},"separator-v":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--border"],"label":"Vertical separator"},"scroll-area":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--card","--border","--muted-foreground"],"label":"Scroll area"},"aspect-ratio":{"section":"layout-utilities","tab":"layout","doc":"layout-utilities.md","source":null,"tokens":["--secondary","--dim"],"label":"Aspect ratio boxes"},"topbar":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border","--foreground"],"label":"Top bar"},"content-area":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border"],"label":"Content area with pills + list"},"sidebar-collapsed":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar collapsed (56px)"},"sidebar-expanded":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar expanded (220px)"},"panel-float":{"section":"panels","tab":"layout","doc":"panels.md","source":null,"tokens":["--card","--border","--foreground","--sensor","--dim"],"label":"Floating right panel"},"upload-zone":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--border","--primary","--dim"],"label":"Upload zone (drag & drop)"},"upload-in-progress":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--blue","--foreground"],"label":"Upload indicator — in progress"},"upload-complete":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--success","--foreground"],"label":"Upload indicator — complete"},"album-card":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--background","--card","--secondary","--foreground","--dim"],"label":"Album card"},"media-grid":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--secondary","--card","--primary"],"label":"Media grid with selection"},"score-bar-relevance":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--purple","--secondary","--border","--dim","--foreground"],"label":"Score bar — Relevance"},"score-bar-virality":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--blue","--secondary","--border","--dim","--foreground"],"label":"Score bar — Virality"},"score-bar-firstmover":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--success","--secondary","--border","--dim","--foreground"],"label":"Score bar — First Mover"},"editor-toolbar":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--dim","--hover","--foreground"],"label":"Floating editor toolbar"},"script-block-title":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--orange"],"label":"Script block — Title"},"script-block-hook":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--blue"],"label":"Script block — Hook"},"script-block-body":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--primary","--muted-foreground"],"label":"Script block — Body"},"slash-menu":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--border","--hover","--secondary","--dim","--foreground"],"label":"Slash command menu"},"pipeline-controls":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--border","--background"],"label":"Pipeline controls bar"},"pill-running":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Running status pill"},"pill-paused":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange"],"label":"Paused status pill"},"btn-resume":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Resume/Pause button"},"btn-retry-all":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Retry all failed button"},"btn-test":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--purple"],"label":"Test run button"},"btn-fetch-sources":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Fetch sources button"},"review-btn-skip":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue"],"label":"Review — Skip action"},"review-btn-drop":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive"],"label":"Review — Drop action"},"review-btn-paste":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--purple"],"label":"Review — Paste action"},"log-tag-ok":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Log tag — ok/created"},"log-tag-classify":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Log tag — classify"},"log-tag-review":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange"],"label":"Log tag — review"},"log-tag-fail":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive"],"label":"Log tag — failed"},"log-tag-pending":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim"],"label":"Log tag — pending"},"kanban-imported":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--primary","--card","--border","--foreground","--dim"],"label":"Kanban column — Imported"},"kanban-apify":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border"],"label":"Kanban column — Apify Content"},"kanban-firecrawl":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — Firecrawl"},"kanban-htmlfetch":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — HTML Fetch"},"kanban-review":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border","--destructive"],"label":"Kanban column — Review"},"kanban-failed":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive","--card","--border"],"label":"Kanban column — Failed"}};
+var __componentIndex = {"swatch-background":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--background"],"label":"Background swatch"},"swatch-card":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--card"],"label":"Card / alt-bg swatch"},"swatch-hover":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--hover"],"label":"Hover swatch"},"swatch-border":{"section":"page-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--border"],"label":"Border swatch"},"swatch-success":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--success"],"label":"Success swatch"},"swatch-blue":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--blue"],"label":"Blue swatch"},"swatch-orange":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--orange"],"label":"Orange swatch"},"swatch-destructive":{"section":"status-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive swatch"},"swatch-primary":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Primary swatch"},"swatch-destructive-btn":{"section":"button-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--destructive"],"label":"Destructive button swatch"},"text-foreground":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Foreground text"},"text-muted":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--muted-foreground"],"label":"Muted text"},"text-link":{"section":"text-colors","tab":"foundation","doc":"tokens.md","source":"frontend/src/index.css","tokens":["--primary"],"label":"Link text"},"type-page-title":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Page title 14px 600"},"type-section-heading":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Section heading 13px 600"},"type-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--foreground"],"label":"Body 13px 400"},"type-small-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Small body 12px 400"},"type-tiny":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Tiny 11px 400"},"type-mono-label":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--dim"],"label":"Mono label 10px 600"},"type-mono-body":{"section":"typography","tab":"foundation","doc":"typography.md","source":"frontend/src/index.css","tokens":["--sensor"],"label":"Mono body 13px 400"},"icon-btn-sync":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Sync channel"},"icon-btn-remove":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Remove channel (destructive)"},"icon-btn-info":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Channel info"},"icon-btn-analyze":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Analyze all (primary)"},"icon-btn-delete":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Delete video (destructive)"},"icon-btn-add":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Add new"},"icon-btn-search":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Search"},"icon-btn-external":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--foreground"],"label":"Open in YouTube"},"icon-btn-cancel-upload":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Cancel upload (destructive)"},"icon-btn-discard":{"section":"buttons","tab":"actions","doc":"buttons.md","source":"frontend/src/components/ui/button.tsx","tokens":["--dim","--hover","--destructive"],"label":"Discard changes (destructive)"},"badge-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Published (success)"},"badge-blue":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--blue","--border"],"label":"Filming (blue)"},"badge-orange":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--orange","--border"],"label":"Script (orange)"},"badge-destructive":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--destructive","--border"],"label":"Failed (destructive)"},"badge-dim":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--dim","--border"],"label":"Draft (dim)"},"badge-default":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--foreground","--border"],"label":"Default"},"badge-sm-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success","--border"],"label":"Small — Published"},"badge-xs-success":{"section":"badges","tab":"actions","doc":"badges.md","source":"frontend/src/components/ui/badge.tsx","tokens":["--success"],"label":"XS — AR language tag"},"input-text":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Text input"},"input-textarea":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring","--foreground"],"label":"Textarea"},"input-inline-btn":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border","--ring"],"label":"Input with inline button"},"input-disabled":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--background","--border"],"label":"Disabled input"},"input-error":{"section":"form-elements","tab":"forms","doc":"inputs.md","source":"frontend/src/components/ui/input.tsx","tokens":["--destructive","--border"],"label":"Input with error"},"table-header":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--dim","--border","--card"],"label":"Table header with sort"},"table-row":{"section":"table","tab":"content","doc":"tables.md","source":"frontend/src/components/ui/table.tsx","tokens":["--foreground","--sensor","--dim","--hover","--border"],"label":"Table row"},"stat-row-pipeline":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--orange","--blue","--purple","--success","--destructive"],"label":"Pipeline stat row (colored)"},"stat-import":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--orange"],"label":"Import stage stat"},"stat-transcribe":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--blue"],"label":"Transcribe stage stat"},"stat-comments":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--purple"],"label":"Comments stage stat"},"stat-analysis":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--success"],"label":"AI Analysis stage stat"},"stat-failed":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--destructive"],"label":"Failed stat"},"stat-row-articles":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--orange","--blue","--purple","--success","--destructive"],"label":"Article pipeline stat row"},"stat-row":{"section":"stat-row","tab":"content","doc":"cards.md","source":null,"tokens":["--card","--border","--dim","--foreground"],"label":"Generic stat row"},"pill-active":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--foreground"],"label":"Active filter pill"},"pill":{"section":"filter-pills","tab":"navigation","doc":"navigation.md","source":null,"tokens":["--dim","--foreground"],"label":"Inactive filter pill"},"tooltip":{"section":"overlays","tab":"navigation","doc":"overlays.md","source":null,"tokens":["--foreground","--background"],"label":"Tooltip"},"chart-bar":{"section":"media","tab":"dataviz","doc":"media.md","source":"frontend/src/pages/Analytics.tsx","tokens":["--card","--border","--primary","--dim"],"label":"Bar chart"},"toast-success":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--success","--card","--border"],"label":"Success toast"},"toast-error":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--destructive","--card","--border"],"label":"Error toast"},"toast-info":{"section":"toasts","tab":"feedback","doc":"toasts.md","source":null,"tokens":["--blue","--card","--border"],"label":"Info toast"},"spinner":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--muted-foreground"],"label":"Loading spinner"},"empty-state":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--dim"],"label":"Empty state"},"skeleton":{"section":"loading-empty","tab":"feedback","doc":"loading-states.md","source":null,"tokens":["--secondary"],"label":"Skeleton loader"},"text-shimmer":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"Text shimmer loading"},"ai-cursor-idle":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim"],"label":"AI cursor — idle"},"ai-cursor-thinking":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--dim","--foreground"],"label":"AI cursor — thinking"},"ai-cursor-writing":{"section":"shimmer","tab":"feedback","doc":"feedback.md","source":null,"tokens":["--foreground"],"label":"AI cursor — writing"},"error-page":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--background","--border","--card","--destructive","--muted-foreground","--dim"],"label":"Page error"},"delete-modal":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--card","--border","--foreground","--muted-foreground","--destructive"],"label":"Delete confirmation modal"},"video-type-video":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — video"},"video-type-short":{"section":"feedback","tab":"feedback","doc":"feedback.md","source":"frontend/src/components/PageError.tsx","tokens":["--dim"],"label":"Video type icon — short"},"topbar":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border","--foreground"],"label":"Top bar"},"content-area":{"section":"page-layout","tab":"layout","doc":"app-shell.md","source":null,"tokens":["--background","--border"],"label":"Content area with pills + list"},"sidebar-collapsed":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar collapsed (56px)"},"sidebar-expanded":{"section":"sidebar","tab":"layout","doc":"sidebar.md","source":null,"tokens":["--card","--border","--dim","--hover","--foreground","--primary"],"label":"Sidebar expanded (220px)"},"panel-float":{"section":"panels","tab":"layout","doc":"panels.md","source":null,"tokens":["--card","--border","--foreground","--sensor","--dim"],"label":"Floating right panel"},"upload-zone":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--border","--primary","--dim"],"label":"Upload zone (drag & drop)"},"upload-in-progress":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--blue","--foreground"],"label":"Upload indicator — in progress"},"upload-complete":{"section":"uploads","tab":"features","doc":"uploads.md","source":null,"tokens":["--card","--border","--success","--foreground"],"label":"Upload indicator — complete"},"album-card":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--background","--card","--secondary","--foreground","--dim"],"label":"Album card"},"media-grid":{"section":"gallery","tab":"features","doc":"gallery.md","source":null,"tokens":["--secondary","--card","--primary"],"label":"Media grid with selection"},"score-bar-relevance":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--purple","--secondary","--border","--dim","--foreground"],"label":"Score bar — Relevance"},"score-bar-virality":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--blue","--secondary","--border","--dim","--foreground"],"label":"Score bar — Virality"},"score-bar-firstmover":{"section":"story-detail","tab":"features","doc":"story-detail.md","source":null,"tokens":["--success","--secondary","--border","--dim","--foreground"],"label":"Score bar — First Mover"},"editor-toolbar":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--dim","--hover","--foreground"],"label":"Floating editor toolbar"},"script-block-title":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--orange"],"label":"Script block — Title"},"script-block-hook":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--blue"],"label":"Script block — Hook"},"script-block-body":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--primary","--muted-foreground"],"label":"Script block — Body"},"slash-menu":{"section":"editor","tab":"features","doc":"editor.md","source":null,"tokens":["--card","--border","--hover","--secondary","--dim","--foreground"],"label":"Slash command menu"},"pipeline-controls":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--border","--background"],"label":"Pipeline controls bar"},"pill-running":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Running status pill"},"pill-paused":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange"],"label":"Paused status pill"},"btn-resume":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Resume/Pause button"},"btn-retry-all":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Retry all failed button"},"btn-test":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--purple"],"label":"Test run button"},"btn-fetch-sources":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim","--border","--sensor"],"label":"Fetch sources button"},"review-btn-skip":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue"],"label":"Review — Skip action"},"review-btn-drop":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive"],"label":"Review — Drop action"},"review-btn-paste":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--purple"],"label":"Review — Paste action"},"log-tag-ok":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Log tag — ok/created"},"log-tag-classify":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--success"],"label":"Log tag — classify"},"log-tag-review":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange"],"label":"Log tag — review"},"log-tag-fail":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive"],"label":"Log tag — failed"},"log-tag-pending":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--dim"],"label":"Log tag — pending"},"kanban-imported":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--primary","--card","--border","--foreground","--dim"],"label":"Kanban column — Imported"},"kanban-apify":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border"],"label":"Kanban column — Apify Content"},"kanban-firecrawl":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — Firecrawl"},"kanban-htmlfetch":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--blue","--card","--border"],"label":"Kanban column — HTML Fetch"},"kanban-review":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--orange","--card","--border","--destructive"],"label":"Kanban column — Review"},"kanban-failed":{"section":"kanban","tab":"features","doc":null,"source":null,"tokens":["--destructive","--card","--border"],"label":"Kanban column — Failed"}};
 var __tokenUsage = {"background":["Admin","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","Competitions","Gallery","GalleryUploadIndicator","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoTable","gallery/AlbumCard","gallery/MediaViewer","gallery/UploadZone","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStageOmit","story-detail/StoryDetailStagePassed","story-detail/StoryDetailStagePublish","story-detail/TranscriptSection","story-detail/VideoUpload","ui/alert","ui/alert-dialog","ui/button","ui/chart","ui/dialog","ui/drawer","ui/input","ui/menubar","ui/navigation-menu","ui/select","ui/sheet","ui/slider","ui/sonner","ui/switch","ui/tabs","ui/textarea"],"foreground":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","DeleteChannelModal","Gallery","GalleryUploadIndicator","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","gallery/AlbumCard","gallery/MediaViewer","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/alert","ui/badge","ui/breadcrumb","ui/button","ui/calendar","ui/chart","ui/command","ui/context-menu","ui/dropdown-menu","ui/input","ui/input-otp","ui/menubar","ui/navigation-menu","ui/select","ui/sheet","ui/sonner","ui/tabs","ui/toggle"],"card":["Admin","Analytics","AppLayout","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelLayout","ChannelRightPanel","Competitions","Gallery","Login","Monitor","PageError","Pipeline","ProfilePicker","PublishQueue","ScriptEditorTiptap","Settings","Source","Stories","StoryDetail","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","gallery/AlbumCard","gallery/MediaViewer","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/card"],"card-foreground":["ui/card"],"popover":["ui/command","ui/context-menu","ui/dropdown-menu","ui/hover-card","ui/menubar","ui/navigation-menu","ui/popover","ui/select","ui/tooltip"],"popover-foreground":["ui/command","ui/context-menu","ui/dropdown-menu","ui/hover-card","ui/menubar","ui/navigation-menu","ui/popover","ui/select","ui/tooltip"],"primary":["AlbumDetail","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelRightPanel","Competitions","Gallery","Login","NotFound","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Stories","VideoDetail","VideoRightPanel","VideoTable","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailTopBar","ui/badge","ui/button","ui/calendar","ui/checkbox","ui/progress","ui/radio-group","ui/slider","ui/sonner","ui/switch"],"primary-foreground":["AlbumDetail","ChannelRightPanel","Gallery","ProfileHome","PublishQueue","ui/badge","ui/button","ui/calendar","ui/checkbox","ui/sonner"],"secondary":["ui/badge","ui/button","ui/progress","ui/sheet","ui/slider"],"secondary-foreground":["ui/badge","ui/button"],"muted":["ArticleDetail","NotFound","Settings","story-detail/StoryDetailArticle","ui/avatar","ui/chart","ui/drawer","ui/skeleton","ui/sonner","ui/table","ui/tabs","ui/toggle"],"muted-foreground":["AlbumDetail","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelLayout","Gallery","GalleryUploadIndicator","Monitor","NotFound","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Stories","VectorIntelligence","VideoDetail","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailScriptSection","ui/alert-dialog","ui/breadcrumb","ui/calendar","ui/card","ui/chart","ui/command","ui/context-menu","ui/dialog","ui/drawer","ui/empty-state","ui/form","ui/input","ui/menubar","ui/select","ui/sheet","ui/sonner","ui/table","ui/tabs","ui/textarea","ui/toggle"],"accent":["ui/button","ui/calendar","ui/command","ui/context-menu","ui/dialog","ui/dropdown-menu","ui/menubar","ui/navigation-menu","ui/select","ui/toggle"],"accent-foreground":["ui/button","ui/calendar","ui/command","ui/context-menu","ui/dropdown-menu","ui/menubar","ui/navigation-menu","ui/select","ui/toggle"],"destructive":["Admin","AlbumDetail","Analytics","AppSidebar","ArticleDetail","ArticlePipeline","ChannelRightPanel","Competitions","DeleteChannelModal","Gallery","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","VectorIntelligence","VideoDetail","VideoTable","gallery/MediaViewer","story-detail/StoryDetailTopBar","story-detail/VideoUpload","ui/alert","ui/badge","ui/button","ui/form"],"destructive-foreground":["AppSidebar","ChannelRightPanel","DeleteChannelModal","ProfilePicker","Source","gallery/MediaViewer","ui/badge","ui/button"],"success":["Admin","Analytics","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","VectorIntelligence","VideoDetail","VideoTable","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload"],"success-foreground":["StoryDetail"],"blue":["Admin","Analytics","AppSidebar","ArticleDetail","ArticlePipeline","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoTable","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload"],"blue-foreground":["Admin","ProfilePicker","Settings","StoryDetail"],"purple":["Admin","Analytics","ArticleDetail","ArticlePipeline","Pipeline","ProfilePicker","PublishQueue","Settings","Stories","VectorIntelligence","VideoDetail","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailTopBar","story-detail/VideoUpload"],"orange":["Admin","Analytics","ArticleDetail","ArticlePipeline","ChannelRightPanel","Competitions","Gallery","Monitor","Pipeline","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","VectorIntelligence","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/VideoUpload"],"orange-foreground":["Stories","story-detail/StoryDetailTopBar"],"border":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Gallery","GalleryUploadIndicator","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","gallery/MediaViewer","gallery/UploadZone","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStageOmit","story-detail/StoryDetailStagePassed","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/chart","ui/command","ui/context-menu","ui/dropdown-menu","ui/menubar","ui/navigation-menu","ui/resizable","ui/scroll-area","ui/select","ui/separator","ui/sonner"],"input":["ui/button","ui/input","ui/input-otp","ui/select","ui/switch","ui/textarea","ui/toggle"],"ring":["ui/badge","ui/button","ui/checkbox","ui/dialog","ui/input","ui/input-otp","ui/radio-group","ui/resizable","ui/select","ui/sheet","ui/slider","ui/switch","ui/tabs","ui/textarea","ui/toggle"],"elevated":["Admin","Analytics","AppLayout","AppSidebar","ChannelDetail","ChannelRightPanel","Competitions","Gallery","Login","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Source","Stories","StoryDetail","UploadIndicator","VideoDetail","VideoRightPanel","VideoTable","gallery/AlbumCard","gallery/MediaViewer","story-detail/ScoreBar","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/VideoUpload"],"sensor":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Gallery","Login","Monitor","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Source","StoryDetail","VideoDetail","VideoRightPanel","VideoTable","gallery/MediaViewer","story-detail/CopyBtn","story-detail/StoryDetailArticle","story-detail/TranscriptSection","story-detail/VideoUpload"],"dim":["Admin","AlbumDetail","Analytics","AppLayout","AppSidebar","ArticleDetail","ArticlePipeline","ChannelDetail","ChannelRightPanel","Competitions","Gallery","Login","Monitor","PageError","Pipeline","ProfileHome","ProfilePicker","PublishQueue","Settings","Source","Stories","StoryDetail","UploadIndicator","VectorIntelligence","VideoDetail","VideoRightPanel","VideoTable","VideoTypeIcon","gallery/AlbumCard","gallery/MediaViewer","story-detail/CopyBtn","story-detail/ScoreBar","story-detail/StoryDetailArticle","story-detail/StoryDetailChannelSelector","story-detail/StoryDetailScriptSection","story-detail/StoryDetailStageOmit","story-detail/StoryDetailStagePassed","story-detail/StoryDetailStagePublish","story-detail/StoryDetailTopBar","story-detail/TranscriptSection","story-detail/VideoUpload","ui/empty-state"]};
 /* Tab switching */
 function switchTab(id) {

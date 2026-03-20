@@ -1,40 +1,23 @@
-<div style="display: flex; gap: 24px; flex-wrap: wrap;">
-  <!-- Carousel mock -->
-  <div style="flex: 1; min-width: 280px; position: relative;">
-    <div class="section-note">Carousel</div>
-    <div data-cid="carousel" style="overflow: hidden; border-radius: 12px; border: 1px solid var(--border);">
-      <div style="display: flex;">
-        <div style="min-width: 100%; aspect-ratio: 16/9; background: var(--card); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--dim);">Slide 1 of 3</div>
-      </div>
+<div style="flex: 1; min-width: 280px;">
+  <div class="section-note">Chart (bar)</div>
+  <div data-cid="chart-bar" style="border-radius: 12px; border: 1px solid var(--border); background: var(--card); padding: 16px 20px; aspect-ratio: 16/9; display: flex; flex-direction: column; justify-content: flex-end;">
+    <div style="display: flex; align-items: flex-end; gap: 8px; height: 100%; padding-bottom: 8px;">
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 60%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 80%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 45%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 90%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 70%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 55%; opacity: 0.8;"></div>
+      <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 95%; opacity: 0.8;"></div>
     </div>
-    <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
-      <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--foreground);"></div>
-      <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--dim);"></div>
-      <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--dim);"></div>
-    </div>
-  </div>
-  <!-- Chart mock -->
-  <div style="flex: 1; min-width: 280px;">
-    <div class="section-note">Chart (bar)</div>
-    <div data-cid="chart-bar" style="border-radius: 12px; border: 1px solid var(--border); background: var(--card); padding: 16px 20px; aspect-ratio: 16/9; display: flex; flex-direction: column; justify-content: flex-end;">
-      <div style="display: flex; align-items: flex-end; gap: 8px; height: 100%; padding-bottom: 8px;">
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 60%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 80%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 45%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 90%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 70%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 55%; opacity: 0.8;"></div>
-        <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 95%; opacity: 0.8;"></div>
-      </div>
-      <div style="display: flex; gap: 8px; font-size: 9px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">
-        <span style="flex:1; text-align:center;">Mon</span>
-        <span style="flex:1; text-align:center;">Tue</span>
-        <span style="flex:1; text-align:center;">Wed</span>
-        <span style="flex:1; text-align:center;">Thu</span>
-        <span style="flex:1; text-align:center;">Fri</span>
-        <span style="flex:1; text-align:center;">Sat</span>
-        <span style="flex:1; text-align:center;">Sun</span>
-      </div>
+    <div style="display: flex; gap: 8px; font-size: 9px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">
+      <span style="flex:1; text-align:center;">Mon</span>
+      <span style="flex:1; text-align:center;">Tue</span>
+      <span style="flex:1; text-align:center;">Wed</span>
+      <span style="flex:1; text-align:center;">Thu</span>
+      <span style="flex:1; text-align:center;">Fri</span>
+      <span style="flex:1; text-align:center;">Sat</span>
+      <span style="flex:1; text-align:center;">Sun</span>
     </div>
   </div>
 </div>

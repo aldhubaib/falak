@@ -170,7 +170,7 @@
       "id": "buttons",
       "tab": "actions",
       "group": "Actions",
-      "groupDesc": "Buttons, Badges, Alerts",
+      "groupDesc": "Buttons, Badges",
       "label": "Buttons — Icon Actions",
       "note": "Icon-only. Circular secondary bg on hover. Tooltip on hover shows what the button does.",
       "doc": "buttons.md",
@@ -192,7 +192,7 @@
       "id": "badges",
       "tab": "actions",
       "group": "Actions",
-      "groupDesc": "Buttons, Badges, Alerts",
+      "groupDesc": "Buttons, Badges",
       "label": "Badges",
       "note": "Outline style. Only text color changes. Colors from the status palette.",
       "doc": "badges.md",
@@ -209,24 +209,10 @@
       }
     },
     {
-      "id": "alerts",
-      "tab": "actions",
-      "group": "Actions",
-      "groupDesc": "Buttons, Badges, Alerts",
-      "label": "Alerts",
-      "note": "Inline banners. Default for info, destructive for errors.",
-      "doc": "alerts.md",
-      "source": "frontend/src/components/ui/alert.tsx",
-      "components": {
-        "alert-default":     { "tokens": ["--background", "--foreground", "--border"], "label": "Default alert (info)" },
-        "alert-destructive": { "tokens": ["--destructive", "--border"],                "label": "Destructive alert (error)" }
-      }
-    },
-    {
       "id": "form-elements",
       "tab": "forms",
       "group": "Forms & Input",
-      "groupDesc": "Form Elements, Advanced Controls (radio, slider, toggle)",
+      "groupDesc": "Form Elements",
       "label": "Form Elements",
       "note": null,
       "doc": "inputs.md",
@@ -240,55 +226,10 @@
       }
     },
     {
-      "id": "forms-advanced",
-      "tab": "forms",
-      "group": "Forms & Input",
-      "groupDesc": "Form Elements, Advanced Controls (radio, slider, toggle)",
-      "label": "Forms — Advanced Controls",
-      "note": "Radio group, slider, toggle, and labels.",
-      "doc": "forms-advanced.md",
-      "source": null,
-      "components": {
-        "radio-group":   { "tokens": ["--dim", "--primary"],                "label": "Radio group" },
-        "slider":        { "tokens": ["--secondary", "--primary", "--background"], "label": "Slider" },
-        "toggle-group":  { "tokens": ["--muted-foreground", "--hover", "--foreground"], "label": "Toggle group" }
-      }
-    },
-    {
-      "id": "avatars",
-      "tab": "content",
-      "group": "Content Display",
-      "groupDesc": "Avatars, Card, Data Table, Stat Row",
-      "label": "Avatars",
-      "note": "Sizes: small (24), default (40), large (56). Fallback with initials.",
-      "doc": "avatars.md",
-      "source": "frontend/src/components/ui/avatar.tsx",
-      "components": {
-        "avatar-sm":     { "tokens": ["--secondary", "--muted-foreground"], "label": "Avatar small" },
-        "avatar-md":     { "tokens": ["--secondary", "--muted-foreground"], "label": "Avatar default" },
-        "avatar-lg":     { "tokens": ["--secondary", "--muted-foreground"], "label": "Avatar large" },
-        "avatar-stack":  { "tokens": ["--primary", "--success", "--orange", "--blue"], "label": "Stacked avatars" }
-      }
-    },
-    {
-      "id": "card",
-      "tab": "content",
-      "group": "Content Display",
-      "groupDesc": "Avatars, Card, Data Table, Stat Row",
-      "label": "Card",
-      "note": null,
-      "doc": "cards.md",
-      "source": "frontend/src/components/ui/card.tsx",
-      "components": {
-        "card-overview":    { "tokens": ["--card", "--border", "--foreground", "--muted-foreground", "--sensor"], "label": "Card — channel overview" },
-        "dialog-delete":    { "tokens": ["--card", "--border", "--foreground", "--muted-foreground"],             "label": "Dialog — delete confirmation" }
-      }
-    },
-    {
       "id": "table",
       "tab": "content",
       "group": "Content Display",
-      "groupDesc": "Avatars, Card, Data Table, Stat Row",
+      "groupDesc": "Data Table, Stat Row",
       "label": "Data Table",
       "note": null,
       "doc": "tables.md",
@@ -302,7 +243,7 @@
       "id": "stat-row",
       "tab": "content",
       "group": "Content Display",
-      "groupDesc": "Avatars, Card, Data Table, Stat Row",
+      "groupDesc": "Data Table, Stat Row",
       "label": "Stat Row",
       "note": null,
       "doc": "cards.md",
@@ -322,7 +263,7 @@
       "id": "filter-pills",
       "tab": "navigation",
       "group": "Navigation & Interaction",
-      "groupDesc": "Filter Pills, Breadcrumb / Pagination, Menus, Accordion, Overlays",
+      "groupDesc": "Filter Pills, Tooltips",
       "label": "Filter Pills & Tabs",
       "note": null,
       "doc": "navigation.md",
@@ -333,92 +274,29 @@
       }
     },
     {
-      "id": "data-navigation",
-      "tab": "navigation",
-      "group": "Navigation & Interaction",
-      "groupDesc": "Filter Pills, Breadcrumb / Pagination, Menus, Accordion, Overlays",
-      "label": "Data Navigation",
-      "note": "Breadcrumbs and pagination for multi-page data.",
-      "doc": "data-navigation.md",
-      "source": null,
-      "components": {
-        "breadcrumb":  { "tokens": ["--muted-foreground", "--foreground", "--dim"], "label": "Breadcrumb" },
-        "pagination":  { "tokens": ["--foreground", "--hover", "--border", "--dim"], "label": "Pagination" }
-      }
-    },
-    {
-      "id": "menus",
-      "tab": "navigation",
-      "group": "Navigation & Interaction",
-      "groupDesc": "Filter Pills, Breadcrumb / Pagination, Menus, Accordion, Overlays",
-      "label": "Menus",
-      "note": "Dropdown menu, context menu, and command palette.",
-      "doc": "menus.md",
-      "source": null,
-      "components": {
-        "menu-dropdown":      { "tokens": ["--card", "--border", "--foreground", "--hover", "--destructive", "--dim"], "label": "Dropdown menu" },
-        "menu-command":       { "tokens": ["--card", "--border", "--foreground", "--hover", "--dim"],                  "label": "Command palette" }
-      }
-    },
-    {
-      "id": "accordions",
-      "tab": "navigation",
-      "group": "Navigation & Interaction",
-      "groupDesc": "Filter Pills, Breadcrumb / Pagination, Menus, Accordion, Overlays",
-      "label": "Accordion",
-      "note": "Expand/collapse sections. Click to toggle.",
-      "doc": "accordions.md",
-      "source": null,
-      "components": {
-        "accordion": { "tokens": ["--card", "--border", "--foreground", "--hover", "--dim", "--muted-foreground"], "label": "Accordion" }
-      }
-    },
-    {
       "id": "overlays",
       "tab": "navigation",
       "group": "Navigation & Interaction",
-      "groupDesc": "Filter Pills, Breadcrumb / Pagination, Menus, Accordion, Overlays",
-      "label": "Overlays — Tooltip, Popover, Hover Card",
+      "groupDesc": "Filter Pills, Tooltips",
+      "label": "Overlays — Tooltip",
       "note": null,
       "doc": "overlays.md",
       "source": null,
       "components": {
-        "tooltip":  { "tokens": ["--foreground", "--background"],             "label": "Tooltip" },
-        "popover":  { "tokens": ["--card", "--border", "--primary", "--dim"], "label": "Popover with checkboxes" }
-      }
-    },
-    {
-      "id": "progress",
-      "tab": "dataviz",
-      "group": "Data Visualization",
-      "groupDesc": "Progress rings, Carousel & Chart",
-      "label": "Progress — Large",
-      "note": "Label and percentage inside the ring.",
-      "doc": "progress.md",
-      "source": null,
-      "components": {
-        "ring-lg-primary": { "tokens": ["--primary", "--secondary", "--dim", "--foreground"],  "label": "Large ring — Relevance" },
-        "ring-lg-blue":    { "tokens": ["--blue", "--secondary", "--dim", "--foreground"],     "label": "Large ring — Virality" },
-        "ring-lg-success": { "tokens": ["--success", "--secondary", "--dim", "--foreground"],  "label": "Large ring — First Mover" },
-        "ring-lg-orange":  { "tokens": ["--orange", "--secondary", "--dim", "--foreground"],   "label": "Large ring — Processing" },
-        "ring-sm-primary": { "tokens": ["--primary", "--secondary", "--foreground"],           "label": "Small ring — Relevance" },
-        "ring-sm-blue":    { "tokens": ["--blue", "--secondary", "--foreground"],              "label": "Small ring — Virality" },
-        "ring-sm-success": { "tokens": ["--success", "--secondary", "--foreground"],           "label": "Small ring — First Mover" },
-        "ring-sm-orange":  { "tokens": ["--orange", "--secondary", "--foreground"],            "label": "Small ring — Processing" }
+        "tooltip":  { "tokens": ["--foreground", "--background"], "label": "Tooltip" }
       }
     },
     {
       "id": "media",
       "tab": "dataviz",
       "group": "Data Visualization",
-      "groupDesc": "Progress rings, Carousel & Chart",
-      "label": "Media — Carousel & Chart",
-      "note": "Carousel for horizontal slide-through. Charts via Recharts wrapper.",
+      "groupDesc": "Charts",
+      "label": "Charts",
+      "note": "Custom SVG charts used in Analytics. Bar chart pattern shown.",
       "doc": "media.md",
-      "source": null,
+      "source": "frontend/src/pages/Analytics.tsx",
       "components": {
-        "carousel":  { "tokens": ["--card", "--border", "--dim", "--foreground"], "label": "Carousel" },
-        "chart-bar": { "tokens": ["--card", "--border", "--primary", "--dim"],    "label": "Bar chart" }
+        "chart-bar": { "tokens": ["--card", "--border", "--primary", "--dim"], "label": "Bar chart" }
       }
     },
     {
@@ -484,26 +362,10 @@
       }
     },
     {
-      "id": "layout-utilities",
-      "tab": "layout",
-      "group": "Layout",
-      "groupDesc": "Layout Utilities, Page Layout, Sidebar, Panels",
-      "label": "Layout Utilities",
-      "note": "Separator, scroll area, aspect ratio containers.",
-      "doc": "layout-utilities.md",
-      "source": null,
-      "components": {
-        "separator-h":  { "tokens": ["--border"],                      "label": "Horizontal separator" },
-        "separator-v":  { "tokens": ["--border"],                      "label": "Vertical separator" },
-        "scroll-area":  { "tokens": ["--card", "--border", "--muted-foreground"], "label": "Scroll area" },
-        "aspect-ratio": { "tokens": ["--secondary", "--dim"],          "label": "Aspect ratio boxes" }
-      }
-    },
-    {
       "id": "page-layout",
       "tab": "layout",
       "group": "Layout",
-      "groupDesc": "Layout Utilities, Page Layout, Sidebar, Panels",
+      "groupDesc": "Page Layout, Sidebar, Panels",
       "label": "Page Layout — Top Bar + Content",
       "note": null,
       "doc": "app-shell.md",
@@ -517,7 +379,7 @@
       "id": "sidebar",
       "tab": "layout",
       "group": "Layout",
-      "groupDesc": "Layout Utilities, Page Layout, Sidebar, Panels",
+      "groupDesc": "Page Layout, Sidebar, Panels",
       "label": "Sidebar",
       "note": "Collapsed (icon-only) and expanded states. Active item uses bg-elevated.",
       "doc": "sidebar.md",
@@ -531,7 +393,7 @@
       "id": "panels",
       "tab": "layout",
       "group": "Layout",
-      "groupDesc": "Layout Utilities, Page Layout, Sidebar, Panels",
+      "groupDesc": "Page Layout, Sidebar, Panels",
       "label": "Panels — Right Panel",
       "note": "Floating panel for channel/video details. Absolute positioned over content.",
       "doc": "panels.md",
