@@ -53,13 +53,18 @@ async function needsResearch(article) {
 
   const SKIP_TYPES = ['opinion']
   if (SKIP_TYPES.includes(analysis.contentType)) {
-    return { needed: false, reason: `Content type "${analysis.contentType}" does not benefit from research` }
+    return { needed: false, reason: 'Opinion pieces rely on the author\'s perspective — external research adds noise' }
   }
 
-  const topic = analysis.topic || article.title || 'unknown topic'
-  const contentType = analysis.contentType ? `${analysis.contentType} article` : 'article'
-  const region = analysis.region ? ` in ${analysis.region}` : ''
-  return { needed: true, reason: `Research needed: ${contentType}${region} about "${topic}"` }
+  const REASON_BY_TYPE = {
+    breaking:  'Breaking news needs background context and related coverage to build a complete picture',
+    analysis:  'Analysis benefits from supporting data and multiple perspectives',
+    report:    'Reports benefit from cross-referencing with other sources',
+    feature:   'Feature stories benefit from deeper background and related angles',
+    interview: 'Interviews benefit from subject background and fact-checking context',
+  }
+  const reason = REASON_BY_TYPE[analysis.contentType] || 'News article benefits from additional context and related sources'
+  return { needed: true, reason }
 }
 
 /**
