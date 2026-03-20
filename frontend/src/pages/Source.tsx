@@ -3,6 +3,11 @@ import { useParams } from "react-router-dom";
 import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, CheckCircle2, XCircle, SkipForward, Clock, Package, Rss, ImagePlus, Download, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -65,6 +70,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [editSource, setEditSource] = useState<ArticleSourceData | null>(null);
+  const [deleteSource, setDeleteSource] = useState<{ id: string; label: string } | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<{ url: string; title: string }[] | null>(null);
 
@@ -89,11 +95,10 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
       .catch(() => toast.error("Failed to update"));
   };
 
-  const handleDelete = (id: string, label: string) => {
-    if (!confirm(`Delete "${label}" and all its articles?`)) return;
+  const handleDelete = (id: string) => {
     fetch(`/api/article-sources/${id}`, { method: "DELETE", credentials: "include" })
       .then((r) => r.ok ? r.json() : Promise.reject())
-      .then(() => { toast.success("Source deleted"); fetchSources(); })
+      .then(() => { toast.success("Source deleted"); setDeleteSource(null); fetchSources(); })
       .catch(() => toast.error("Failed to delete"));
   };
 
@@ -156,10 +161,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
           <Loader2 className="w-5 h-5 animate-spin text-dim" />
         </div>
       ) : sources.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border py-16 flex flex-col items-center gap-3">
-          <Package className="w-8 h-8 text-dim/40" />
-          <p className="text-[13px] text-dim">No sources yet. Add an RSS feed or Apify actor to get started.</p>
-        </div>
+        <EmptyState icon={Package} title="No sources yet" description="Add an RSS feed or Apify actor to get started." />
       ) : (
         <div className="space-y-4">
           {sources.map((s) => (
@@ -172,7 +174,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
               onFetchNew={handleFetchNew}
               onEdit={() => setEditSource(s)}
               onToggle={() => handleToggle(s.id, s.isActive)}
-              onDelete={() => handleDelete(s.id, s.label)}
+              onDelete={() => setDeleteSource({ id: s.id, label: s.label })}
               onRefresh={fetchSources}
             />
           ))}
@@ -205,6 +207,26 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
       {editSource && (
         <EditSourceDialog source={editSource} open={!!editSource} onClose={() => setEditSource(null)} onUpdated={fetchSources} />
       )}
+
+      <AlertDialog open={!!deleteSource} onOpenChange={(v) => { if (!v) setDeleteSource(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete source?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the source and all its articles. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteSource && handleDelete(deleteSource.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

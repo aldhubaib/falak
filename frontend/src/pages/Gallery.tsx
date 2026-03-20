@@ -13,6 +13,7 @@ import { UploadZone } from "@/components/gallery/UploadZone";
 import { MediaViewer } from "@/components/gallery/MediaViewer";
 import { AlbumCard } from "@/components/gallery/AlbumCard";
 import { MediaOverlay, mediaToPhoto, type GalleryPhoto } from "@/components/gallery/MediaGrid";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   useGalleryActions,
   useGalleryAlbums,
@@ -527,12 +528,10 @@ export default function Gallery() {
           <div className="px-6 pb-8 max-lg:px-4">
             {loadingAlbums ? (
               <div className="flex items-center justify-center h-64">
-                <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : albums.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-center">
-                <FolderPlus className="w-10 h-10 text-dim/50 mb-3" />
-                <div className="text-[13px] text-dim font-mono">No albums yet</div>
+              <EmptyState icon={FolderPlus} title="No albums yet" className="h-64">
                 <button
                   onClick={() => setCreateAlbumOpen(true)}
                   className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
@@ -540,7 +539,7 @@ export default function Gallery() {
                   <FolderPlus className="w-3 h-3" />
                   Create your first album
                 </button>
-              </div>
+              </EmptyState>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {albums.map((album) => (

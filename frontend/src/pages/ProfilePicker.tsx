@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, MoreVertical, Pencil, Trash2, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Profile {
   id: string;
@@ -116,7 +120,7 @@ export default function ProfilePicker() {
   if (loading) {
     return (
       <div className="min-h-screen bg-sidebar flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -173,7 +177,7 @@ export default function ProfilePicker() {
             ) : (
               <div
                 className="w-16 h-16 rounded-full mb-3 flex items-center justify-center text-[18px] font-bold text-foreground ring-2 ring-border/30"
-                style={{ backgroundColor: p.color || "#1e51e9" }}
+                style={{ backgroundColor: p.color || "hsl(var(--primary))" }}
               >
                 {(p.nameAr || p.handle || "?").charAt(0).toUpperCase()}
               </div>
@@ -262,7 +266,7 @@ export default function ProfilePicker() {
             <div>
               <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Color</label>
               <div className="flex gap-2">
-                {["#1e51e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"].map((c) => (
+                {["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--orange))", "hsl(var(--destructive))", "hsl(var(--purple))", "#ec4899", "#06b6d4"].map((c) => (
                   <button
                     key={c}
                     onClick={() => setEditColor(c)}
@@ -288,27 +292,27 @@ export default function ProfilePicker() {
       </Dialog>
 
       {/* Delete confirmation */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="sm:max-w-[360px] bg-background border-border">
-          <DialogHeader>
-            <DialogTitle className="text-[15px]">Delete profile</DialogTitle>
-            <DialogDescription className="text-[12px] text-dim">
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="sm:max-w-[360px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete profile</AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to delete <strong>{deleteProfile?.nameAr || deleteProfile?.handle}</strong>? This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 mt-3">
-            <button onClick={() => setDeleteOpen(false)} className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">Cancel</button>
-            <button
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleDelete}
               disabled={deleteLoading}
-              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Delete
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

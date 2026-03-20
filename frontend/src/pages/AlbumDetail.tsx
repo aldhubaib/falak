@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  ArrowLeft, Check, CheckSquare, Pencil, Plus, Save, Trash2, Upload, X,
+  ArrowLeft, Check, CheckSquare, Loader2, Pencil, Plus, Save, Trash2, Upload, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,6 +9,7 @@ import { MediaGrid } from "@/components/gallery/MediaGrid";
 import { UploadZone } from "@/components/gallery/UploadZone";
 import { MediaViewer } from "@/components/gallery/MediaViewer";
 import { useGalleryActions, useGalleryAlbum, useMediaUpload } from "@/hooks/useGallery";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function AlbumDetail() {
   const { channelId = "", albumId = "" } = useParams();
@@ -68,7 +69,7 @@ export default function AlbumDetail() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -193,9 +194,7 @@ export default function AlbumDetail() {
       {/* Grid */}
       <div className="flex-1 overflow-auto px-6 pb-8 max-lg:px-4">
         {mediaItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <Plus className="w-10 h-10 text-dim/50 mb-3" />
-            <div className="text-[13px] text-dim font-mono">This album is empty</div>
+          <EmptyState icon={Plus} title="This album is empty" className="h-64">
             <button
               onClick={() => setUploadOpen(true)}
               className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
@@ -203,7 +202,7 @@ export default function AlbumDetail() {
               <Upload className="w-3 h-3" />
               Upload to album
             </button>
-          </div>
+          </EmptyState>
         ) : (
           <MediaGrid
             items={mediaItems}

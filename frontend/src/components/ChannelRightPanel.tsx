@@ -3,6 +3,10 @@ import type { Channel } from "@/data/mock";
 import { toast } from "sonner";
 import { RefreshCw, Play, Trash2, Calendar, Hash, TrendingUp, X, Zap, Users, Eye, CircleDot, Clock, Globe } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
 import { COUNTRIES } from "@/data/countries";
 
@@ -118,6 +122,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
   const [syncing, setSyncing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [savingCountry, setSavingCountry] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -163,11 +168,11 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
   };
 
   const handleRemove = () => {
-    if (!confirm(`Remove ${channel.name}? This cannot be undone.`)) return;
     fetch(`/api/channels/${channel.id}`, { method: "DELETE", credentials: "include" })
       .then((r) => {
         if (!r.ok) throw new Error("Delete failed");
         toast.success("Channel removed");
+        setRemoveOpen(false);
         onClose();
         onRemove?.();
       })
@@ -301,13 +306,33 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button onClick={handleRemove} className="w-10 h-10 rounded-full flex items-center justify-center bg-transparent border border-destructive/15 text-destructive cursor-pointer transition-all hover:bg-destructive/[0.06]">
+            <button onClick={() => setRemoveOpen(true)} className="w-10 h-10 rounded-full flex items-center justify-center bg-transparent border border-destructive/15 text-destructive cursor-pointer transition-all hover:bg-destructive/[0.06]">
               <Trash2 className="w-4 h-4" />
             </button>
           </TooltipTrigger>
           <TooltipContent>Remove channel</TooltipContent>
         </Tooltip>
       </div>
+
+      <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove channel?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove {channel.name}? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemove}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

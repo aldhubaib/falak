@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import { ArrowUpRight, Loader2, Upload } from "lucide-react";
 import { PageError } from "@/components/PageError";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const STORIES_PAGE_SIZE = 50;
 import { toast } from "sonner";
@@ -266,7 +267,7 @@ export default function Stories() {
           >
             {reEvaluating ? (
               <>
-                <span className="w-3 h-3 border-2 border-purple/30 border-t-purple rounded-full animate-spin" />
+                <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
                 Re-evaluating…
               </>
             ) : (
@@ -359,9 +360,7 @@ export default function Stories() {
               }}
             >
               {stageStoriesSorted.length === 0 ? (
-                <div className="flex items-center justify-center h-32 text-[12px] text-dim font-mono">
-                  No stories in this stage
-                </div>
+                <EmptyState title="No stories in this stage" className="h-32" />
               ) : (
                 stageStoriesVisible.map((story) => {
                   const isFirst = story.coverageStatus === "first";

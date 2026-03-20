@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Trash2, X } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { GalleryMedia, MediaMetadata } from "@/lib/gallery-api";
 
 interface MediaViewerProps {
@@ -30,6 +34,7 @@ function formatDuration(seconds: number | null) {
 }
 
 export function MediaViewer({ open, items, index, onOpenChange, onIndexChange, onDownload, onDelete }: MediaViewerProps) {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const active = useMemo(() => (index >= 0 && index < items.length ? items[index] : null), [index, items]);
   const canPrev = index > 0;
   const canNext = index < items.length - 1;
@@ -141,7 +146,7 @@ export function MediaViewer({ open, items, index, onOpenChange, onIndexChange, o
                 </button>
                 {onDelete && (
                   <button
-                    onClick={() => onDelete(active)}
+                    onClick={() => setDeleteConfirmOpen(true)}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-destructive/10 text-[12px] text-destructive font-medium hover:bg-destructive/20 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -152,6 +157,26 @@ export function MediaViewer({ open, items, index, onOpenChange, onIndexChange, o
           </div>
         )}
       </DialogContent>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete media?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this file. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (active && onDelete) { onDelete(active); setDeleteConfirmOpen(false); } }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

@@ -6,6 +6,7 @@ import { Plus, ArrowUpRight, RefreshCw, X, Users, Eye, PlayCircle, ChevronDown }
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from "date-fns";
 import { COUNTRIES } from "@/data/countries";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface ApiChannel {
   id: string;
@@ -206,9 +207,7 @@ export default function Competitions() {
           {loading ? (
             <p className="text-dim text-[13px]">Loading channels...</p>
           ) : channels.length === 0 ? (
-            <p className="text-dim text-[13px] py-8 text-center">
-              No competitor channels yet. Add your first competitor above.
-            </p>
+            <EmptyState title="No competitor channels yet" description="Add your first competitor above." />
           ) : (
             <div className="rounded-xl overflow-hidden border border-border">
               {channels.map((ch) => (
@@ -225,7 +224,7 @@ export default function Competitions() {
                         (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23666'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14'%3E" + ch.avatar + "%3C/text%3E%3C/svg%3E";
                       }}
                     />
-                    <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-success ring-[1.5px] ring-[#FFFF00]" />
+                    <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-success ring-[1.5px] ring-orange" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <Link

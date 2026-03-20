@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Upload,
   Loader2,
@@ -552,15 +553,13 @@ export default function PublishQueue() {
           {/* Queue list */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Upload className="w-10 h-10 text-dim/30 mb-3" />
-              <p className="text-[13px] text-dim font-mono">
-                {allItems.length === 0 ? "No videos yet" : "No videos in this filter"}
-              </p>
-            </div>
+            <EmptyState
+              icon={Upload}
+              title={allItems.length === 0 ? "No videos yet" : "No videos in this filter"}
+            />
           ) : (
             <div className="rounded-xl border border-border overflow-hidden">
               {/* Header */}

@@ -1,4 +1,5 @@
 import { Check, Image, Play } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { RowsPhotoAlbum } from "react-photo-album";
 import "react-photo-album/rows.css";
 import type { GalleryMedia } from "@/lib/gallery-api";
@@ -48,7 +49,7 @@ export function MediaOverlay({
 
       {media.type === "VIDEO" && media.duration != null && media.duration > 0 && (
         <div className="absolute bottom-1.5 right-1.5 pointer-events-none">
-          <span className="text-[11px] text-white font-medium tabular-nums drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+          <span className="text-[11px] text-white font-medium tabular-nums drop-shadow-[0_1px_2px_hsl(0_0%_0%/0.6)]">
             {formatDuration(media.duration)}
           </span>
         </div>
@@ -57,7 +58,7 @@ export function MediaOverlay({
       {selectionMode && (
         <div className="absolute top-1.5 left-1.5 z-10">
           <span
-            className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-[0_1px_3px_rgba(0,0,0,0.3)] ${
+            className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-[0_1px_3px_hsl(0_0%_0%/0.3)] ${
               selected
                 ? "bg-blue-500 text-white scale-100"
                 : "bg-white/80 backdrop-blur-sm border-2 border-white/60 scale-90"
@@ -70,7 +71,7 @@ export function MediaOverlay({
 
       {!selectionMode && (
         <div className="absolute top-1.5 left-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-white/80 backdrop-blur-sm border-2 border-white/60 shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
+          <span className="w-6 h-6 rounded-full flex items-center justify-center bg-white/80 backdrop-blur-sm border-2 border-white/60 shadow-[0_1px_3px_hsl(0_0%_0%/0.3)]" />
         </div>
       )}
 
@@ -90,10 +91,7 @@ function formatDuration(seconds: number): string {
 export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, onOpen }: MediaGridProps) {
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <Image className="w-10 h-10 text-dim/50 mb-3" />
-        <div className="text-[13px] text-dim font-mono">No media found</div>
-      </div>
+      <EmptyState icon={Image} title="No media found" className="h-64" />
     );
   }
 

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
-import { Circle, Pause, Play, RotateCw, Search, ChevronDown, ArrowUpRight } from "lucide-react";
+import { Circle, Pause, Play, RotateCw, Search, ChevronDown, ArrowUpRight, Loader2 } from "lucide-react";
 import { fmtDateTime } from "@/lib/utils";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // ── Types matching GET /api/monitor ────────────────────────────────────────
 
@@ -274,7 +275,7 @@ export default function Monitor() {
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <>
@@ -401,7 +402,7 @@ export default function Monitor() {
               </div>
 
               {filtered.length === 0 ? (
-                <div className="flex items-center justify-center h-32 text-[13px] text-dim font-mono">No channels found</div>
+                <EmptyState title="No channels found" className="h-32" />
               ) : (
                 <>
                   {/* Desktop Table */}
