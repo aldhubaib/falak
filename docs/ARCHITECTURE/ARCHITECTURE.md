@@ -586,6 +586,16 @@ A notification record — score changes, competitor activity, new viral videos.
 
 **Indexes:** `[channelId, isRead]`, `[channelId, createdAt DESC]`.
 
+#### AppSetting
+
+Simple key-value store for persistent application state (e.g., worker pause flags).
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `key` | String | Yes | — | Primary key (e.g., `articlePipelinePaused`) |
+| `value` | String | Yes | — | Setting value |
+| `updatedAt` | DateTime | Yes | auto | Last update |
+
 ### Config
 
 #### ApiKey
@@ -766,8 +776,9 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | GET | `/api/article-pipeline/:id/detail` | Yes | Full article detail with truncated content. |
 | GET | `/api/article-pipeline/:sourceId/articles` | Yes | Articles for a specific source. |
 | POST | `/api/article-pipeline/ingest` | editor+ | Trigger article ingestion. |
-| POST | `/api/article-pipeline/pause` | admin+ | Pause article worker. |
-| POST | `/api/article-pipeline/resume` | admin+ | Resume article worker. |
+| POST | `/api/article-pipeline/pause` | admin+ | Pause article worker (persisted in DB via `AppSetting`). |
+| POST | `/api/article-pipeline/resume` | admin+ | Resume article worker (persisted in DB via `AppSetting`). |
+| POST | `/api/article-pipeline/reset` | admin+ | Wipe all stories, articles, alerts, and score profiles. Resets source polling state. |
 | POST | `/api/article-pipeline/:id/retry` | editor+ | Retry failed article. |
 | POST | `/api/article-pipeline/:id/restart` | editor+ | Restart article from a stage. |
 | POST | `/api/article-pipeline/restart-stage` | editor+ | Bulk restart all articles in a stage. |
@@ -914,7 +925,8 @@ flowchart LR
 **Source polling:** Every 5 minutes, checks all active sources for new Apify runs
 and RSS items. Auto-imports new articles.
 
-**Pause/Resume:** Exposed via API endpoints. When paused, `tick()` returns immediately.
+**Pause/Resume:** Exposed via API endpoints. State is persisted in the `AppSetting` table
+(key `articlePipelinePaused`) so it survives process restarts. When paused, `tick()` returns immediately.
 
 ### Rescore Worker (`src/worker-rescore.js`)
 
