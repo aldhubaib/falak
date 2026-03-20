@@ -1486,33 +1486,15 @@ export default function Analytics() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
-          <h1 className="text-sm font-semibold">Analytics</h1>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 animate-spin text-dim" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="flex flex-col min-h-screen">
-        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
-          <h1 className="text-sm font-semibold">Analytics</h1>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-dim text-sm">No data available.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { universe, channels, topVideos, trend, growth, contentMix, engagementBreakdown, publishingPatterns, performanceDistribution } = data;
+  const channels = data?.channels ?? [];
+  const universe = data?.universe;
+  const topVideos = data?.topVideos ?? [];
+  const trend = data?.trend ?? { months: [], channels: [] };
+  const growth = data?.growth ?? {};
+  const contentMix = data?.contentMix ?? [];
+  const engagementBreakdown = data?.engagementBreakdown ?? [];
+  const publishingPatterns = data?.publishingPatterns ?? [];
+  const performanceDistribution = data?.performanceDistribution;
 
   const { ourChannels, competitorChannels, ourTotalSubs, topBySubs, topByViews, topByEngagement, topByUploads, ourPeriodViews, ourAvgEngagement, ourUploadsPerMonth } = useMemo(() => {
     const ours = channels.filter(isOurs);
@@ -1534,10 +1516,9 @@ export default function Analytics() {
   const ourVideoCount = ourChannels.reduce((s, c) => s + c.videoCount, 0);
   const compVideoCount = competitorChannels.reduce((s, c) => s + c.videoCount, 0);
 
-  // ── Rankings (memoised — channels is the only dependency)
   const rankingsMap = useMemo(() => {
-    const tabs: FieldTab[] = ["Subscribers", "Engagement", "Views", "Uploads"];
-    const map = {} as Record<FieldTab, { id: string; name: string; avatarUrl: string; isYou: boolean; rawVal: number; value: string; rank: number }[]>;
+    const tabs: FieldTab[] = ["Subscribers", "Engagement", "Views", "Upload rate"];
+    const map = {} as Record<FieldTab, { id: string; name: string; avatarUrl: string | null; isYou: boolean; rawVal: number; value: string; rank: number }[]>;
     for (const tab of tabs) {
       const entries = channels.map((ch) => {
         let rawVal = 0;
@@ -1562,15 +1543,14 @@ export default function Analytics() {
     return map;
   }, [channels]);
 
-  const rankings = rankingsMap[fieldTab];
+  const rankings = rankingsMap[fieldTab] ?? [];
 
-  // ── Comparison cards (derived from memoised rankings)
   const { engRank, subRank, marketAvgEng, viewsMultiplier, topViewCh, benchmarks } = useMemo(() => {
-    const engRanks = rankingsMap["Engagement"];
+    const engRanks = rankingsMap["Engagement"] ?? [];
     const firstOurEngIdx = engRanks.findIndex((r) => r.isYou);
     const _engRank = firstOurEngIdx >= 0 ? firstOurEngIdx + 1 : engRanks.length;
 
-    const subRanks = rankingsMap["Subscribers"];
+    const subRanks = rankingsMap["Subscribers"] ?? [];
     const firstOurSubIdx = subRanks.findIndex((r) => r.isYou);
     const _subRank = firstOurSubIdx >= 0 ? firstOurSubIdx + 1 : subRanks.length;
 
@@ -1578,7 +1558,7 @@ export default function Analytics() {
       ? channels.reduce((s, c) => s + c.avgEngagement, 0) / channels.length
       : 0;
 
-    const viewRanks = rankingsMap["Views"];
+    const viewRanks = rankingsMap["Views"] ?? [];
     const _topViewCh = viewRanks[0];
     const firstOurViewIdx = viewRanks.findIndex((r) => r.isYou);
     const ourTopViews = firstOurViewIdx >= 0 ? viewRanks[firstOurViewIdx] : null;
@@ -1588,7 +1568,7 @@ export default function Analytics() {
 
     const toBenchmark = (label: string, tab: FieldTab) => ({
       label,
-      items: rankingsMap[tab].map((r) => ({ rank: r.rank, name: r.name, avatarUrl: r.avatarUrl, channelId: r.id, value: r.value, isYou: r.isYou })),
+      items: (rankingsMap[tab] ?? []).map((r) => ({ rank: r.rank, name: r.name, avatarUrl: r.avatarUrl, channelId: r.id, value: r.value, isYou: r.isYou })),
     });
 
     return {
@@ -1604,6 +1584,32 @@ export default function Analytics() {
       ],
     };
   }, [rankingsMap, channels]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+          <h1 className="text-sm font-semibold">Analytics</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-5 h-5 animate-spin text-dim" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || !universe) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <div className="h-12 flex items-center px-6 border-b border-[#151619] shrink-0">
+          <h1 className="text-sm font-semibold">Analytics</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-dim text-sm">No data available.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
