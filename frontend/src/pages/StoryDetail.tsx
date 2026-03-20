@@ -10,8 +10,9 @@ import { useChannelPath } from "@/hooks/useChannelPath";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
-  RefreshCw, ExternalLink, Pencil, X, Copy, Check,
+  RefreshCw, ExternalLink, Pencil, X, Copy, Check, History,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { Stage } from "./Stories";
@@ -1142,7 +1143,7 @@ export default function StoryDetail() {
                     );
                   })
                 ) : (
-                  <div className="px-5 py-8 text-center text-dim text-[12px]">No re-evaluation history yet. Scores will update automatically every 24 hours.</div>
+                  <EmptyState icon={RefreshCw} title="No re-evaluation history yet" description="Scores will update automatically every 24 hours." />
                 )}
               </div>
             </div>
@@ -1195,7 +1196,7 @@ export default function StoryDetail() {
                     </div>
                   )})
                 ) : (
-                  <div className="px-5 py-8 text-center text-dim text-[12px]">No edit history yet.</div>
+                  <EmptyState icon={History} title="No edit history yet" />
                 )}
               </div>
             </div>

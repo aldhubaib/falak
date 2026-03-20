@@ -5,7 +5,8 @@ import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import type { Video } from "@/data/mock";
 import { VideoRightPanel } from "@/components/VideoRightPanel";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
-import { ArrowLeft, Info, SmilePlus, HelpCircle, Meh, CheckCircle2, XCircle, RotateCw, Clock, Loader2, Calendar } from "lucide-react";
+import { ArrowLeft, Info, SmilePlus, HelpCircle, Meh, CheckCircle2, XCircle, RotateCw, Clock, Loader2, Calendar, FileText, Hash, Tag, MessageSquare } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const tabList = ["Overview", "Sentiment", "Viral", "Comments", "Pipeline", "History"];
@@ -203,7 +204,7 @@ export default function VideoDetail() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-card">
-        <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin mb-3" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-3" />
         <p className="text-[13px] text-foreground">Loading video…</p>
       </div>
     );
@@ -380,7 +381,7 @@ export default function VideoDetail() {
                   <div className="bg-background px-4 py-3">
                     <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Transcript</div>
                     {(!analysis || analysis.transcript.length === 0) ? (
-                      <p className="text-[13px] text-dim py-2">No transcript available yet.</p>
+                      <EmptyState icon={FileText} title="No transcript available yet" />
                     ) : (
                       <div className="space-y-5">
                         {analysis.transcript.map((seg, i) => (
@@ -401,7 +402,7 @@ export default function VideoDetail() {
                       ? analysis.topics.map((t) => (
                           <span key={t} className="py-1 px-2.5 rounded-full bg-primary/10 border border-primary/15 text-primary text-xs font-mono">{t}</span>
                         ))
-                      : <span className="text-[13px] text-dim py-1">No topics yet.</span>
+                      : <EmptyState icon={Hash} title="No topics yet" />
                     }
                   </div>
                 </div>
@@ -413,7 +414,7 @@ export default function VideoDetail() {
                       ? analysis.keywords.map((k) => (
                           <span key={k} className="py-1 px-2.5 rounded-full bg-elevated border border-border text-sensor text-xs font-mono">{k}</span>
                         ))
-                      : <span className="text-[13px] text-dim py-1">No keywords yet.</span>
+                      : <EmptyState icon={Tag} title="No keywords yet" />
                     }
                   </div>
                 </div>
@@ -486,7 +487,7 @@ export default function VideoDetail() {
             {activeTab === "Comments" && (
               <div className="rounded-xl overflow-hidden border border-border">
                 {(!analysis || analysis.comments.length === 0) ? (
-                  <div className="bg-background px-4 py-6 text-center text-[13px] text-dim">No comments yet.</div>
+                  <EmptyState icon={MessageSquare} title="No comments yet" />
                 ) : (
                   analysis.comments.map((c, i) => (
                     <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">

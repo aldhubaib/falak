@@ -8,6 +8,7 @@ import {
   Globe, Loader2, Check, Send,
 } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { COUNTRIES, getCountryName } from "@/data/countries";
 import { fmtDate, fmtDateTime, parseDuration } from "@/lib/utils";
 
@@ -182,7 +183,7 @@ export default function ProfileHome() {
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center">
-        <div className="w-8 h-8 border-2 border-sensor border-t-transparent rounded-full animate-spin mb-3" />
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-3" />
         <p className="text-[13px] text-dim">Loading profile…</p>
       </div>
     );
@@ -516,8 +517,8 @@ export default function ProfileHome() {
               <svg viewBox="0 0 100 48" className="w-full h-[120px]" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={growthChart.change >= 0 ? "#22c55e" : "#ef4444"} stopOpacity="0.3" />
-                    <stop offset="100%" stopColor={growthChart.change >= 0 ? "#22c55e" : "#ef4444"} stopOpacity="0" />
+                    <stop offset="0%" stopColor={growthChart.change >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))"} stopOpacity="0.3" />
+                    <stop offset="100%" stopColor={growthChart.change >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))"} stopOpacity="0" />
                   </linearGradient>
                 </defs>
                 <polygon
@@ -527,7 +528,7 @@ export default function ProfileHome() {
                 <polyline
                   points={growthChart.polyline}
                   fill="none"
-                  stroke={growthChart.change >= 0 ? "#22c55e" : "#ef4444"}
+                  stroke={growthChart.change >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))"}
                   strokeWidth="1.5"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -538,9 +539,7 @@ export default function ProfileHome() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-[120px] text-[12px] text-dim">
-              No growth data yet
-            </div>
+            <EmptyState icon={TrendingUp} title="No growth data yet" />
           )}
 
           {/* Content Mix */}
@@ -581,7 +580,7 @@ export default function ProfileHome() {
           </div>
           <div className="flex flex-col gap-2">
             {recentVideos.length === 0 && (
-              <div className="text-[12px] text-dim py-6 text-center">No videos yet</div>
+              <EmptyState icon={Video} title="No videos yet" />
             )}
             {recentVideos.slice(0, 6).map((v) => {
               const title = v.titleEn || v.titleAr || "Untitled";

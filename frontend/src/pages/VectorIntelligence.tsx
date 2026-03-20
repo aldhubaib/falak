@@ -8,6 +8,7 @@ import {
   ChevronRight, Layers, Cpu, BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /* ─── Types ─── */
 
@@ -97,7 +98,7 @@ export default function VectorIntelligence() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -329,11 +330,7 @@ export default function VectorIntelligence() {
               )}
             </>
           ) : (
-            <div className="rounded-xl border border-border bg-background p-6 text-center">
-              <Brain className="w-6 h-6 text-dim mx-auto mb-2" />
-              <p className="text-[13px] text-dim">No learning profile yet.</p>
-              <p className="text-[11px] text-dim font-mono mt-1">Needs at least 5 decisions and 3 outcomes with YouTube stats to start learning.</p>
-            </div>
+            <EmptyState icon={Brain} title="No learning profile yet" description="Needs at least 5 decisions and 3 outcomes with YouTube stats to start learning." />
           )}
         </div>
 
@@ -352,9 +349,7 @@ export default function VectorIntelligence() {
             </div>
             <div className="bg-background">
               {data.topSimilarity.length === 0 ? (
-                <div className="flex items-center justify-center h-20 text-[11px] text-dim font-mono">
-                  No competition matches found yet — embeddings will be compared during next rescore cycle
-                </div>
+                <EmptyState icon={Target} title="No competition matches found yet" description="Embeddings will be compared during next rescore cycle." />
               ) : (
                 <div className="divide-y divide-border">
                   {data.topSimilarity.map((s, i) => (
@@ -409,7 +404,7 @@ export default function VectorIntelligence() {
               </div>
               <div className="flex-1 overflow-y-auto bg-background">
                 {data.recentRescores.length === 0 ? (
-                  <div className="flex items-center justify-center h-20 text-[11px] text-dim font-mono">No re-scores yet</div>
+                  <EmptyState icon={Activity} title="No re-scores yet" />
                 ) : (
                   data.recentRescores.map((s) => {
                     const before = s.latestEntry?.before?.compositeScore;

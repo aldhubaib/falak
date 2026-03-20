@@ -5,9 +5,10 @@ import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
   Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2, Info,
-  RotateCcw,
+  Loader2, RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FLOW_DEFS } from "@/constants/flowDefs";
 
 /* ─── Types ─── */
@@ -248,7 +249,7 @@ export default function ArticleDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="w-6 h-6 border-2 border-sensor border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -1019,7 +1020,7 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
   const analysis = article.analysis;
 
   if (!analysis) {
-    return <div className="p-4 text-[12px] text-dim font-mono">No classification data yet.</div>;
+    return <EmptyState icon={Brain} title="No classification data yet" />;
   }
 
   if (analysis.parseError) {
@@ -1088,7 +1089,7 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
 
   const hasAny = similarityLog || aiLog || scoreLog;
   if (!hasAny) {
-    return <div className="p-4 text-[12px] text-dim font-mono">No scoring data yet.</div>;
+    return <EmptyState icon={Sparkles} title="No scoring data yet" />;
   }
 
   const relevance = (aiLog?.relevance ?? scoreLog?.relevance) ?? 0;

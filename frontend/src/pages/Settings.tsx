@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
-import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper, Brain } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -638,7 +639,7 @@ export default function Settings() {
             <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
 
             {usageInitialLoaded && usageLogs.length === 0 ? (
-              <p className="text-[13px] text-dim">No API calls recorded yet for this project.</p>
+              <EmptyState icon={Activity} title="No API calls recorded yet for this project" />
             ) : (
               <>
                 <div className="rounded-xl border border-border overflow-hidden max-sm:hidden">
