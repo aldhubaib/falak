@@ -1586,4 +1586,35 @@ Changes applied in the second infrastructure audit iteration:
 
 ---
 
+## Section 14 — Dead API Cleanup & Performance Hardening (2026-03-20, Iteration 4)
+
+### Dead Route Deletion
+- **Deleted `brain.js`**: Loaded up to 4,000 video rows into memory per request. Zero frontend consumers — the Brain page logic was removed.
+- **Deleted `alerts.js`**: Standalone alerts API was never called by the frontend. Alerts are returned inline via `GET /api/vector-intelligence/status`.
+- **Deleted `dialects.js`**: HTTP API had zero consumers. Dialect logic is still used internally via `src/lib/dialects.js` in stories.js.
+- **Removed admin router from `misc.js`**: All 5 admin endpoints (`GET/POST/PATCH/DELETE /users`, `POST /retranscribe-all`) had zero frontend consumers — `Admin.tsx` uses hardcoded mock data. Removed 106 lines.
+- **Unmounted 4 dead routes** from `server.js`: `/api/brain`, `/api/alerts`, `/api/dialects`, `/api/admin`.
+- **Total**: 729 lines deleted across 15 files.
+
+### Backend Performance
+- **BigInt serialization**: Added `bigintJson` middleware to `/api/videos` and `/api/pipeline` — prevents `TypeError: BigInt value can't be serialized` for video view/like/comment counts.
+- **Parallelized DB queries in `settings.js`**: `GET /api/settings` (2 queries) and `GET /api/settings/embedding-status` (3 queries) now use `Promise.all()` instead of sequential awaits.
+- **Fixed `sessionCache.set(token, null)`**: Replaced with `sessionCache.delete(token)` in `auth.js` — setting null kept the key in the Map, leaking memory.
+- **Capped PROFILE_CACHE**: Added max size of 50 entries with oldest-first eviction in `articleFeedback.js` — previously unbounded Map that grew indefinitely.
+- **Bull queue concurrency**: Increased from 1 to 5 in `worker.js` — allows 5 pipeline jobs to process simultaneously when Redis is available.
+
+### Database Indexes
+Added 3 missing composite indexes via migration `20260320100000_add_missing_indexes`:
+- `Comment(videoId, likeCount DESC)` — top comments query on video detail page
+- `Story(channelId, lastRescoredAt)` — rescore worker channel scanning
+- `Article(channelId, createdAt DESC)` — article listing sorted by newest
+
+### Frontend Performance
+- **Analytics.tsx**: Memoized `buildRankings` — was called 8 times per render (once per field tab + 4 for comparison cards + 3 for benchmarks). Now computed once via `useMemo` keyed on `channels`, producing a map of all 4 tab rankings.
+- **Stories.tsx**: Wrapped stage filter + composite score sort in `useMemo` keyed on `[stories, activeStage]`.
+- **Admin.tsx**: Wrapped user search filter in `useMemo` keyed on `[users, searchQuery]`.
+- **VideoTable.tsx**: Wrapped in `React.memo` to skip re-renders when parent state changes but videos don't. Added `loading="lazy"` to all 3 thumbnail `<img>` tags (desktop + 2 mobile).
+
+---
+
 *Last updated: 2026-03-20*
