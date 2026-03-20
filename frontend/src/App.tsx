@@ -27,6 +27,7 @@ const ArticleDetail = lazy(() => import("./pages/ArticleDetail"));
 const ProfileHome = lazy(() => import("./pages/ProfileHome"));
 const Gallery = lazy(() => import("./pages/Gallery"));
 const AlbumDetail = lazy(() => import("./pages/AlbumDetail"));
+const DesignSystem = lazy(() => import("./pages/DesignSystem"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -89,6 +90,7 @@ const App = () => (
           <Suspense fallback={<PageFallback />}>
           <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/design-system" element={<DesignSystem />} />
           <Route path="/" element={<ProfilePicker />} />
           <Route path="/c/:channelId" element={<ChannelLayout />}>
             <Route element={<AppLayout />}>
