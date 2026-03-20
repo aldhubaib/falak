@@ -56,7 +56,10 @@ async function needsResearch(article) {
     return { needed: false, reason: `Content type "${analysis.contentType}" does not benefit from research` }
   }
 
-  return { needed: true, reason: 'Classified article ready for research' }
+  const topic = analysis.topic || article.title || 'unknown topic'
+  const contentType = analysis.contentType ? `${analysis.contentType} article` : 'article'
+  const region = analysis.region ? ` in ${analysis.region}` : ''
+  return { needed: true, reason: `Research needed: ${contentType}${region} about "${topic}"` }
 }
 
 /**
