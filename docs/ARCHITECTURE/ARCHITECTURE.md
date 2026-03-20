@@ -1617,4 +1617,31 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 
 ---
 
+## Section 15 — Critical Fixes (2026-03-20, Iteration 5)
+
+### Worker Race Condition — Atomic Claim
+- **Problem**: Both `worker.js` and `worker-articles.js` used a read-then-write pattern: `findMany(status: 'queued')` then `update(status: 'running')`. Two workers polling simultaneously could claim the same item, causing duplicate processing.
+- **Fix**: Replaced with atomic claim pattern — `findMany` (select only IDs) → `updateMany` with `WHERE status = 'queued'` (only rows still queued get claimed) → `findMany` (fetch only the successfully claimed items with full includes).
+
+### Analytics Memory — DB-Level Aggregation
+- **Problem**: `GET /api/analytics` loaded up to 50,000 video rows into memory (`take: 50000`) then grouped and aggregated everything in JavaScript. High memory pressure and large response payloads.
+- **Fix**: Replaced with 5 parallel DB queries using `Promise.all`:
+  - `groupBy(channelId)` for per-channel aggregate stats (views, likes, comments, count)
+  - `groupBy(channelId, videoType)` for content mix (videos vs shorts)
+  - `findMany(orderBy: viewCount desc, take: 10)` for top videos
+  - Lightweight `findMany` with minimal select (6 fields) for trend/pattern computation
+  - `channelSnapshot.findMany` for growth data (runs in parallel)
+- Monthly trend now pre-computes `viewData` and `likeData` arrays server-side (all 3 tabs: Videos/Views/Likes), eliminating the need to send raw video arrays to the frontend.
+- `ch.videos` removed from response payload — frontend updated to use pre-computed trend data.
+
+### Cache API — Missing `delete()` Method
+- **Problem**: `sessionCache.delete(token)` in `auth.js` called an undefined method. The cache API (`createCache` in `cache.js`) only had `get`, `set`, `flush`, `size` — no `delete`. Expired sessions were never evicted on access, leaking memory.
+- **Fix**: Added `delete(key)` method to the cache API.
+
+### Stories.tsx — Undefined Variable Reference
+- **Problem**: After the previous `useMemo` refactor renamed `stageStories` to `stageStoriesSorted`, two JSX references (stage count display and empty-state check) still used the old name, causing a runtime crash.
+- **Fix**: Updated both references to `stageStoriesSorted`.
+
+---
+
 *Last updated: 2026-03-20*
