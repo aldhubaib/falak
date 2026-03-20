@@ -52,7 +52,7 @@ interface TopVideo {
 
 interface TrendData {
   months: string[];
-  channels: { id: string; name: string; type: string; data: number[] }[];
+  channels: { id: string; name: string; type: string; data: number[]; viewData?: number[]; likeData?: number[] }[];
 }
 
 interface Universe {
@@ -1014,26 +1014,10 @@ function TrendChart({
 }) {
   const chMap = new Map(channels.map((c) => [c.id, c]));
 
-  const getChannelMonthData = (trendCh: { id: string; data: number[] }) => {
-    if (trendTab === "Videos") return trendCh.data;
-
-    const ch = chMap.get(trendCh.id);
-    if (!ch) return trendCh.data.map(() => 0);
-
-    return trend.months.map((label) => {
-      return (ch.videos || [])
-        .filter((v) => {
-          if (!v.publishedAt) return false;
-          const pd = new Date(v.publishedAt);
-          const bucket = pd.toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "Asia/Riyadh" });
-          return bucket === label;
-        })
-        .reduce((sum, v) => {
-          if (trendTab === "Views") return sum + v.viewCount;
-          if (trendTab === "Likes") return sum + v.likeCount;
-          return sum + 1;
-        }, 0);
-    });
+  const getChannelMonthData = (trendCh: { id: string; data: number[]; viewData?: number[]; likeData?: number[] }) => {
+    if (trendTab === "Views" && trendCh.viewData) return trendCh.viewData;
+    if (trendTab === "Likes" && trendCh.likeData) return trendCh.likeData;
+    return trendCh.data;
   };
 
   const ourChannels = trend.channels.filter((c) => {

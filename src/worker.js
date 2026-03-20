@@ -22,21 +22,25 @@ const STAGES = ['import', 'transcribe', 'comments', 'analyzing']
 
 async function pickItems(stage) {
   const limit = stage === 'analyzing' ? BATCH_ANALYZING : BATCH_PER_STAGE
-  return db.pipelineItem.findMany({
-    where: {
-      stage,
-      status: 'queued',
-      retries: { lt: MAX_RETRIES },
-    },
-    include: {
-      video: {
-        include: {
-          channel: true,
-        },
-      },
-    },
+  // Atomic claim: find candidates then conditionally update only those still queued
+  const candidates = await db.pipelineItem.findMany({
+    where: { stage, status: 'queued', retries: { lt: MAX_RETRIES } },
+    select: { id: true },
     orderBy: { createdAt: 'asc' },
     take: limit,
+  })
+  if (!candidates.length) return []
+
+  const ids = candidates.map(c => c.id)
+  const now = new Date()
+  await db.pipelineItem.updateMany({
+    where: { id: { in: ids }, status: 'queued' },
+    data: { status: 'running', startedAt: now, error: null, lastStage: stage },
+  })
+
+  return db.pipelineItem.findMany({
+    where: { id: { in: ids }, status: 'running', startedAt: now },
+    include: { video: { include: { channel: true } } },
   })
 }
 
@@ -45,11 +49,6 @@ async function processItem(item) {
   if (!video?.channel) return
   const channel = video.channel
   if (channel.status === 'paused') return
-
-  await db.pipelineItem.update({
-    where: { id: item.id },
-    data: { status: 'running', startedAt: new Date(), error: null, lastStage: item.stage },
-  })
 
   try {
     let out

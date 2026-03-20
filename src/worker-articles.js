@@ -34,19 +34,25 @@ function setPaused(v) { paused = !!v }
 
 async function pickItems(stage) {
   const limit = AI_STAGES.has(stage) ? BATCH_AI : BATCH_FAST
-  return db.article.findMany({
-    where: {
-      stage,
-      status: 'queued',
-      retries: { lt: MAX_RETRIES },
-    },
-    include: {
-      source: {
-        include: { channel: true },
-      },
-    },
+  // Atomic claim: find candidates then conditionally update only those still queued
+  const candidates = await db.article.findMany({
+    where: { stage, status: 'queued', retries: { lt: MAX_RETRIES } },
+    select: { id: true },
     orderBy: { createdAt: 'asc' },
     take: limit,
+  })
+  if (!candidates.length) return []
+
+  const ids = candidates.map(c => c.id)
+  const now = new Date()
+  await db.article.updateMany({
+    where: { id: { in: ids }, status: 'queued' },
+    data: { status: 'running', startedAt: now, error: null },
+  })
+
+  return db.article.findMany({
+    where: { id: { in: ids }, status: 'running', startedAt: now },
+    include: { source: { include: { channel: true } } },
   })
 }
 
@@ -54,11 +60,6 @@ async function processItem(article) {
   const channel = article.source?.channel
   if (!channel) return
   if (channel.status === 'paused') return
-
-  await db.article.update({
-    where: { id: article.id },
-    data: { status: 'running', startedAt: new Date(), error: null },
-  })
 
   try {
     let out

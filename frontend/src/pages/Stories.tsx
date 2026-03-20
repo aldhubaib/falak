@@ -339,7 +339,7 @@ export default function Stories() {
               <span className="text-[13px] font-semibold">
                 {activeStage === "all" ? "All" : STAGES.find((s) => s.key === activeStage)?.label}
               </span>
-              <span className="text-[12px] text-dim font-mono">({stageStories.length})</span>
+              <span className="text-[12px] text-dim font-mono">({stageStoriesSorted.length})</span>
             </div>
 
             {/* Items */}
@@ -353,7 +353,7 @@ export default function Stories() {
                 }
               }}
             >
-              {stageStories.length === 0 ? (
+              {stageStoriesSorted.length === 0 ? (
                 <div className="flex items-center justify-center h-32 text-[12px] text-dim font-mono">
                   No stories in this stage
                 </div>

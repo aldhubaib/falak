@@ -36,6 +36,9 @@ function createCache(ttlMs, maxSize = 500) {
       }
       store.set(key, { value, expiresAt: Date.now() + ttlMs })
     },
+    delete(key) {
+      store.delete(key)
+    },
     flush() {
       store.clear()
     },
