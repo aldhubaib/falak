@@ -916,7 +916,15 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
         const { label, icon } = STEP_DISPLAY[stepId] || { label: stepId, icon: Languages };
         let body: React.ReactNode = null;
         if (stepId === "detect_language" && entry) {
-          body = <span className={entry.detected === "ar" ? "text-success font-semibold" : "text-blue"}>{(entry.detected || "unknown").toUpperCase()}</span>;
+          const isArabic = entry.detected === "ar";
+          body = (
+            <div className="flex items-center gap-2">
+              <span className={isArabic ? "text-success font-semibold" : "text-blue font-semibold"}>{(entry.detected || "unknown").toUpperCase()}</span>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isArabic ? "bg-success/10 text-success" : "bg-blue/10 text-blue"}`}>
+                {isArabic ? "No translation needed" : "Translation required"}
+              </span>
+            </div>
+          );
         } else if (stepId === "translate_content" && entry) {
           body = (
             <>
