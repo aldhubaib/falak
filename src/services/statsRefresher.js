@@ -112,6 +112,7 @@ async function fetchOwnVideoStats(channelId) {
   })
 
   let updated = 0
+  const pendingUpdates = []
 
   for (const story of doneStories) {
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
@@ -137,16 +138,19 @@ async function fetchOwnVideoStats(channelId) {
         comments: Number(meta.commentCount),
         statsUpdatedAt: new Date().toISOString(),
       }
-      await db.story.update({
-        where: { id: story.id },
-        data: { brief: newBrief },
-      })
+      pendingUpdates.push({ id: story.id, brief: newBrief })
       updated++
     } catch (e) {
       logger.warn({ storyId: story.id, error: e.message }, '[stats-refresh] own video stats fetch failed')
     }
 
     await sleep(500)
+  }
+
+  if (pendingUpdates.length > 0) {
+    await db.$transaction(
+      pendingUpdates.map(u => db.story.update({ where: { id: u.id }, data: { brief: u.brief } }))
+    )
   }
 
   logger.info({ channelId, updated }, '[stats-refresh] own video stats refreshed')

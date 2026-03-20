@@ -5,6 +5,9 @@ const logger = require('../lib/logger')
 const ALGORITHM = 'aes-256-gcm'
 
 if (!config.ENCRYPTION_KEY) {
+  if (config.NODE_ENV === 'production') {
+    throw new Error('[crypto] ENCRYPTION_KEY must be set in production. All stored API keys would be decryptable with the fallback key.')
+  }
   logger.warn('[crypto] ENCRYPTION_KEY is not set — using insecure fallback. Set ENCRYPTION_KEY in production!')
 }
 const KEY = Buffer.from(config.ENCRYPTION_KEY || 'dev_only_insecure_fallback_key!!', 'utf8').slice(0, 32)

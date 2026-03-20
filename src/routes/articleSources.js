@@ -249,44 +249,34 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
     const searchConfig = source.config?.search || null
     const { passed } = applyKeywordGate(rawArticles, searchConfig)
 
-    let inserted = 0
     let dupes = 0
     let runDupes = 0
     const seenInRun = new Set()
+    const toInsert = []
 
     for (const raw of passed) {
       const url = canonicalizeArticleUrl(raw.url)
       if (!url) { dupes++; continue }
-
       if (seenInRun.has(url)) { runDupes++; continue }
       seenInRun.add(url)
-
-      const exists = await db.article.findUnique({
-        where: { channelId_url: { channelId: source.channelId, url } },
-        select: { id: true },
+      toInsert.push({
+        channelId: source.channelId,
+        sourceId: source.id,
+        url,
+        title: raw.title || null,
+        description: raw.description || null,
+        content: raw.content || null,
+        publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
+        language: raw.language || source.language || 'en',
+        stage: 'imported',
+        status: 'queued',
       })
-      if (exists) { dupes++; continue }
-
-      try {
-        await db.article.create({
-          data: {
-            channelId: source.channelId,
-            sourceId: source.id,
-            url,
-            title: raw.title || null,
-            description: raw.description || null,
-            content: raw.content || null,
-            publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
-            language: raw.language || source.language || 'en',
-            stage: 'imported',
-            status: 'queued',
-          },
-        })
-        inserted++
-      } catch (e) {
-        if (e.code === 'P2002') dupes++
-        else dupes++
-      }
+    }
+    let inserted = 0
+    if (toInsert.length > 0) {
+      const result = await db.article.createMany({ data: toInsert, skipDuplicates: true })
+      inserted = result.count
+      dupes += toInsert.length - result.count
     }
 
     await db.apifyRun.update({

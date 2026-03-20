@@ -225,6 +225,14 @@ export default function Stories() {
     );
   }
 
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of stories) {
+      counts[s.stage] = (counts[s.stage] || 0) + 1;
+    }
+    return counts;
+  }, [stories]);
+
   const stageStoriesSorted = useMemo(() => {
     const filtered = activeStage === "all" ? stories : stories.filter((s) => s.stage === activeStage);
     return [...filtered].sort((a, b) => {
@@ -309,9 +317,7 @@ export default function Stories() {
             >
               All ({stories.length})
             </button>
-            {STAGES.map((s) => {
-              const count = stories.filter((st) => st.stage === s.key).length;
-              return (
+            {STAGES.map((s) => (
                 <button
                   key={s.key}
                   onClick={() => setActiveStage(s.key)}
@@ -321,10 +327,9 @@ export default function Stories() {
                       : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
                   }`}
                 >
-                  {s.label} ({count})
+                  {s.label} ({stageCounts[s.key] || 0})
                 </button>
-              );
-            })}
+              ))}
           </div>
         </div>
 

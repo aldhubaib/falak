@@ -459,40 +459,30 @@ async function ingestApifySourceWithRunTracking(source, channel, { force = false
 }
 
 async function insertArticles(channelId, sourceId, source, passed) {
-  let inserted = 0
-  let dupes = 0
   const seenInBatch = new Set()
+  const toInsert = []
+  let dupes = 0
   for (const raw of passed) {
     const canonicalUrl = canonicalizeArticleUrl(raw.url)
     if (!canonicalUrl) { dupes++; continue }
     if (seenInBatch.has(canonicalUrl)) { dupes++; continue }
     seenInBatch.add(canonicalUrl)
-    try {
-      await db.article.create({
-        data: {
-          channelId,
-          sourceId,
-          url: canonicalUrl,
-          title: raw.title || null,
-          description: raw.description || null,
-          content: raw.content || null,
-          publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
-          language: raw.language || source.language || 'en',
-          stage: 'imported',
-          status: 'queued',
-        },
-      })
-      inserted++
-    } catch (e) {
-      if (e.code === 'P2002') {
-        dupes++
-      } else {
-        logger.error({ sourceId, url: canonicalUrl, error: e.message }, '[articlePipeline] insert failed')
-        dupes++
-      }
-    }
+    toInsert.push({
+      channelId,
+      sourceId,
+      url: canonicalUrl,
+      title: raw.title || null,
+      description: raw.description || null,
+      content: raw.content || null,
+      publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
+      language: raw.language || source.language || 'en',
+      stage: 'imported',
+      status: 'queued',
+    })
   }
-  return { inserted, dupes }
+  if (toInsert.length === 0) return { inserted: 0, dupes }
+  const { count } = await db.article.createMany({ data: toInsert, skipDuplicates: true })
+  return { inserted: count, dupes: dupes + (toInsert.length - count) }
 }
 
 async function appendFetchLog(sourceId, entry) {

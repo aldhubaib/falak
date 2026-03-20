@@ -141,7 +141,7 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 50, channelId) {
     playlistId: uploadsId,
     maxResults,
   }, channelId)
-  const videoIds = plData.items.map(i => i.contentDetails.videoId).join(',')
+  const videoIds = (plData.items || []).map(i => i.contentDetails.videoId).join(',')
   if (!videoIds) return []
 
   // 3. Get full video details
@@ -150,7 +150,7 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 50, channelId) {
     id: videoIds,
   }, channelId)
 
-  return Promise.all(vData.items.map(async v => ({
+  return Promise.all((vData.items || []).map(async v => ({
     youtubeId:    v.id,
     titleAr:      v.snippet.title,
     titleEn:      v.snippet.title,
@@ -174,7 +174,7 @@ async function fetchComments(youtubeVideoId, maxResults = 100, channelId) {
       maxResults,
       order: 'relevance',
     }, channelId)
-    return data.items.map(i => ({
+    return (data.items || []).map(i => ({
       youtubeId:   i.id,
       text:        i.snippet.topLevelComment.snippet.textDisplay,
       authorName:  i.snippet.topLevelComment.snippet.authorDisplayName,

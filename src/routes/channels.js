@@ -170,10 +170,12 @@ async function importVideosForChannel(channelId) {
       batch.map(v => db.pipelineItem.create({ data: { videoId: v.id } }))
     )
     if (queue) {
-      for (const v of batch) {
-        const created = await db.pipelineItem.findFirst({ where: { videoId: v.id }, orderBy: { createdAt: 'desc' } })
-        if (created) await addJob(created.id, 'import')
-      }
+      const created = await db.pipelineItem.findMany({
+        where: { videoId: { in: batch.map(v => v.id) } },
+        orderBy: { createdAt: 'desc' },
+        distinct: ['videoId'],
+      })
+      for (const item of created) await addJob(item.id, 'import')
     }
   }
   return { added: videos.length }

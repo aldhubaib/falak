@@ -274,6 +274,15 @@ async function main() {
   server.on('upgrade', (req, socket, head) => {
     if (req.url?.startsWith('/collab')) {
       try {
+        const token = new URL(req.url, 'http://localhost').searchParams.get('token')
+          || (req.headers.cookie || '').match(/token=([^;]+)/)?.[1]
+        if (!token) {
+          logger.warn('[collab] WebSocket rejected — no auth token')
+          socket.destroy()
+          return
+        }
+        const jwt = require('jsonwebtoken')
+        jwt.verify(token, config.JWT_SECRET)
         hocuspocus.handleUpgrade(req, socket, head)
       } catch (e) {
         logger.error(e, '[collab] WebSocket upgrade failed')

@@ -26,6 +26,7 @@ const PER_STAGE_CAP = 100
 
 // ── GET /api/pipeline?limit=1000&stage=xxx&channelId=xxx — pipeline state, optional channel scope
 router.get('/', async (req, res) => {
+  try {
   const { limit, stage, channelId } = parseQuery(req.query, pipelineQuerySchema)
   const baseWhere = {}
   if (channelId) {
@@ -78,6 +79,10 @@ router.get('/', async (req, res) => {
   }
 
   res.json({ stats, byStage, paused: pausedCount > 0 })
+  } catch (e) {
+    if (e.statusCode) return res.status(e.statusCode).json({ error: { code: e.code, message: e.message } })
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ── POST /api/pipeline/process — enqueue one job (if Redis) or run one step in-process
@@ -131,18 +136,21 @@ router.post('/retry-all-failed', strictRateLimit, requireRole('owner', 'admin', 
   try {
     const failed = await db.pipelineItem.findMany({ where: { stage: 'failed' }, take: 500 })
     const queue = getQueue()
-    let retried = 0
-    for (const item of failed) {
-      if (item.retries >= MAX_RETRIES * 3) continue
-      const stage = item.lastStage || 'import'
-      await db.pipelineItem.update({
-        where: { id: item.id },
-        data: { status: 'queued', stage, error: null },
-      })
-      if (queue) await addJob(item.id, stage)
-      retried++
+    const eligible = failed.filter(item => item.retries < MAX_RETRIES * 3)
+    if (eligible.length > 0) {
+      await db.$transaction(
+        eligible.map(item => db.pipelineItem.update({
+          where: { id: item.id },
+          data: { status: 'queued', stage: item.lastStage || 'import', error: null },
+        }))
+      )
+      if (queue) {
+        for (const item of eligible) {
+          await addJob(item.id, item.lastStage || 'import')
+        }
+      }
     }
-    res.json({ retried })
+    res.json({ retried: eligible.length })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

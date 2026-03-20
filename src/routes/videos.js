@@ -4,7 +4,7 @@ const { z } = require('zod')
 const db = require('../lib/db')
 const { bigintJson } = require('../lib/serialise')
 const { requireAuth } = require('../middleware/auth')
-const { NotFound } = require('../middleware/errors')
+const { NotFound, asyncWrap } = require('../middleware/errors')
 const { parseBody } = require('../lib/validate')
 const { fetchComments } = require('../services/youtube')
 const { fetchTranscript } = require('../services/transcript')
@@ -25,7 +25,7 @@ const STAGE_NAMES = {
 }
 
 // ── GET /api/videos/:id — single video for detail page (with channel, pipelineItem, analysisResult)
-router.get('/:id', async (req, res) => {
+router.get('/:id', asyncWrap(async (req, res) => {
   const video = await db.video.findUnique({
     where: { id: req.params.id },
     include: {
@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
   })
   if (!video) throw NotFound('Video not found')
   res.json(video)
-})
+}))
 
 // ── POST /api/videos/:id/refetch-comments — re-fetch top 100 comments from YouTube and upsert (strict rate limit)
 router.post('/:id/refetch-comments', strictRateLimit, async (req, res) => {
@@ -99,7 +99,7 @@ router.post('/:id/refetch-transcript', strictRateLimit, async (req, res) => {
 const omitFromAnalyticsBodySchema = z.object({ omit: z.boolean().optional() })
 
 // ── POST /api/videos/:id/omit-from-analytics — set omitFromAnalytics (body: { omit: true|false }, default toggle)
-router.post('/:id/omit-from-analytics', async (req, res) => {
+router.post('/:id/omit-from-analytics', asyncWrap(async (req, res) => {
   const video = await db.video.findUnique({ where: { id: req.params.id }, select: { id: true, omitFromAnalytics: true } })
   if (!video) throw NotFound('Video not found')
   const parsed = parseBody(req.body, omitFromAnalyticsBodySchema)
@@ -109,7 +109,7 @@ router.post('/:id/omit-from-analytics', async (req, res) => {
     data: { omitFromAnalytics: omit },
   })
   res.json({ omitFromAnalytics: omit })
-})
+}))
 
 // ── GET /api/videos/:id/logs — full pipeline stage logs for the video (all steps)
 router.get('/:id/logs', async (req, res) => {

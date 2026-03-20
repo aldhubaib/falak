@@ -49,6 +49,7 @@ async function rescoreActiveStories(channelId) {
   let evaluated = 0
   let changed = 0
   const alerts = []
+  const logEntries = []
 
   for (const story of stories) {
     const result = await rescoreStory(story, profile, confidence, channelAvgMap, channelId)
@@ -57,22 +58,18 @@ async function rescoreActiveStories(channelId) {
     if (result.changed) {
       changed++
 
-      // Create StoryLog entry for audit trail
       const scoreDelta = result.after.compositeScore - result.before.compositeScore
       const direction = scoreDelta > 0 ? '↑' : '↓'
-      await db.storyLog.create({
-        data: {
-          storyId: story.id,
-          action: 'auto_rescore',
-          note: `Score ${result.before.compositeScore.toFixed(1)} ${direction} ${result.after.compositeScore.toFixed(1)} | ` +
-            (result.factors.competitionMatches > 0
-              ? `${result.factors.competitionMatches} competition matches, `
-              : '') +
-            `confidence: ${Math.round(confidence * 100)}%`,
-        },
+      logEntries.push({
+        storyId: story.id,
+        action: 'auto_rescore',
+        note: `Score ${result.before.compositeScore.toFixed(1)} ${direction} ${result.after.compositeScore.toFixed(1)} | ` +
+          (result.factors.competitionMatches > 0
+            ? `${result.factors.competitionMatches} competition matches, `
+            : '') +
+          `confidence: ${Math.round(confidence * 100)}%`,
       })
 
-      // Generate alert if score changed significantly
       if (Math.abs(scoreDelta) >= 1.0) {
         alerts.push({
           storyId: story.id,
@@ -82,7 +79,6 @@ async function rescoreActiveStories(channelId) {
         })
       }
 
-      // Alert if competitor published on same topic
       if (result.factors.newCompetitorVideos > 0) {
         alerts.push({
           storyId: story.id,
@@ -94,19 +90,20 @@ async function rescoreActiveStories(channelId) {
     }
   }
 
-  // Persist alerts
-  for (const alert of alerts) {
-    try {
-      await db.alert.create({
-        data: {
-          channelId,
-          storyId: alert.storyId,
-          type: alert.type,
-          title: alert.title,
-          detail: alert.detail || null,
-        },
-      })
-    } catch (_) {}
+  if (logEntries.length > 0) {
+    await db.storyLog.createMany({ data: logEntries })
+  }
+  if (alerts.length > 0) {
+    await db.alert.createMany({
+      data: alerts.map(a => ({
+        channelId,
+        storyId: a.storyId,
+        type: a.type,
+        title: a.title,
+        detail: a.detail || null,
+      })),
+      skipDuplicates: true,
+    })
   }
 
   logger.info({ channelId, evaluated, changed, alerts: alerts.length, confidence }, '[rescorer] re-scored active stories')

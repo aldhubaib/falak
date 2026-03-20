@@ -102,7 +102,13 @@ router.get('/', async (req, res) => {
 
     const stories = await db.story.findMany({
       where,
-      include: { log: { orderBy: { createdAt: 'desc' }, take: 20 } },
+      select: {
+        id: true, headline: true, stage: true, compositeScore: true,
+        relevanceScore: true, viralScore: true, firstMoverScore: true,
+        coverageStatus: true, sourceName: true, sourceDate: true,
+        sourceUrl: true, createdAt: true, updatedAt: true,
+        channelId: true, brief: true,
+      },
       orderBy: [
         { compositeScore: 'desc' },
         { createdAt: 'desc' }

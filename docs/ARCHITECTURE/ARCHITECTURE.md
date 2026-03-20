@@ -1644,4 +1644,75 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 
 ---
 
+## Section 16 — Crash Fixes, Security Hardening & N+1 Elimination (2026-03-20, Iteration 6)
+
+### Crash Bug Fixes
+
+#### Unhandled Async Rejections in `videos.js`
+- **Problem**: `GET /api/videos/:id` and `POST /api/videos/:id/omit-from-analytics` used `throw NotFound(...)` inside async handlers. Express 4 does not catch async rejections — this triggered `unhandledRejection`, causing process exit.
+- **Fix**: Wrapped both handlers with `asyncWrap()` which catches async errors and forwards them to the Express error handler middleware.
+
+#### Unhandled Async Rejection in `pipeline.js`
+- **Problem**: `GET /api/pipeline` called `parseQuery(req.query, pipelineQuerySchema)` without try/catch. Invalid query params (e.g. `?stage=invalid`) threw `ValidationError` — unhandled rejection → process crash.
+- **Fix**: Wrapped handler body in try/catch; validation errors return proper 400 response.
+
+#### YouTube API Null Guard
+- **Problem**: `fetchRecentVideos` and `fetchComments` in `youtube.js` accessed `plData.items.map(...)`, `vData.items.map(...)`, and `data.items.map(...)` without guarding against `undefined`. If YouTube returns a response without `items`, these crash with `TypeError: Cannot read property 'map' of undefined`.
+- **Fix**: Changed to `(plData.items || []).map(...)`, `(vData.items || []).map(...)`, `(data.items || []).map(...)`.
+
+### Security Hardening
+
+#### ENCRYPTION_KEY Production Check
+- **Problem**: If `ENCRYPTION_KEY` env var is missing, `crypto.js` silently uses a hardcoded fallback key (`dev_only_insecure_fallback_key!!`). In production, all stored API keys would be decryptable with this known key.
+- **Fix**: Now throws at startup if `NODE_ENV === 'production'` and `ENCRYPTION_KEY` is not set. Dev still uses fallback with a warning.
+
+#### WebSocket Authentication
+- **Problem**: Hocuspocus WebSocket upgrade at `/collab` had no authentication. Anyone could connect and join any collaborative document.
+- **Fix**: WebSocket upgrade now extracts JWT from query string `?token=` or cookie `token=`, verifies it with `jwt.verify()`, and rejects the connection if invalid.
+
+#### R2 Signed URL Access Control
+- **Problem**: `GET /api/upload/signed-url/:key(*)` accepted any R2 key and returned a signed read URL. Any authenticated user could read any object in the bucket.
+- **Fix**: Added `requireRole('owner', 'admin', 'editor')` and path prefix validation. Only keys starting with `videos/`, `gallery/`, `thumbnails/`, or `media/` are allowed.
+
+### N+1 Query Elimination
+
+#### `pipeline.js` — Retry All Failed (up to 500 items)
+- **Before**: `for (const item of failed) { await db.pipelineItem.update(...) }` — up to 500 individual UPDATE queries.
+- **After**: Filters eligible items, then `db.$transaction(eligible.map(...))` — single transaction for all updates.
+
+#### `articlePipeline.js` — Insert Articles (10–100+ items)
+- **Before**: `for (const raw of passed) { await db.article.create(...) }` — one INSERT per article.
+- **After**: Builds array of valid articles, then `db.article.createMany({ data: toInsert, skipDuplicates: true })` — single bulk INSERT.
+
+#### `articleSources.js` — Reimport Run (find + create in loop)
+- **Before**: For each article: `await db.article.findUnique(...)` then `await db.article.create(...)` — 2 queries per article.
+- **After**: Builds array, then `db.article.createMany({ data: toInsert, skipDuplicates: true })` — single bulk INSERT.
+
+#### `rescorer.js` — StoryLog + Alert Creates (1–50 items)
+- **Before**: `await db.storyLog.create(...)` inside the story loop, and `await db.alert.create(...)` in a separate loop.
+- **After**: Collects all entries, then `db.storyLog.createMany({ data: logEntries })` and `db.alert.createMany({ data: alerts, skipDuplicates: true })`.
+
+#### `channels.js` — PipelineItem Lookup (25 per batch)
+- **Before**: `for (const v of batch) { await db.pipelineItem.findFirst({ where: { videoId: v.id } }) }` — one query per video.
+- **After**: `db.pipelineItem.findMany({ where: { videoId: { in: ids } }, distinct: ['videoId'] })` — single query for all.
+
+#### `statsRefresher.js` — Own Video Stats Batch Write
+- **Before**: `await db.story.update(...)` inside the loop after each YouTube fetch — one UPDATE per story.
+- **After**: Collects all updates, then `db.$transaction(pendingUpdates.map(...))` — single transaction at the end.
+
+### Stories Page Performance
+
+#### Backend — Lighter List Payload
+- **Before**: `GET /api/stories` returned all columns plus `include: { log: { take: 20 } }` — up to 500 stories × 20 logs = 10,000 log rows in the response.
+- **After**: Uses `select` with only the 14 fields needed for the list view. Logs excluded from list endpoint (only needed on StoryDetail).
+
+#### Frontend — Memoized Stage Counts
+- **Before**: Stage filter tabs computed `stories.filter((st) => st.stage === s.key).length` — 8 full array scans on every render.
+- **After**: Pre-computed via `useMemo` into a `stageCounts` map keyed on `stories`. Tabs read `stageCounts[s.key] || 0`.
+
+### Known Limitation — Channel-Level Access Control
+- `User.channelAccess` and `User.pageAccess` fields exist in the schema but are not enforced in any backend route. All authenticated users can access all channels' data. This is acceptable for a single-team app but would need middleware enforcement for multi-tenant use.
+
+---
+
 *Last updated: 2026-03-20*

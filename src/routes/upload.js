@@ -199,10 +199,14 @@ router.post('/complete', requireRole('owner', 'admin', 'editor'), async (req, re
 })
 
 // GET /api/upload/signed-url/:key(*) — get a temporary signed URL to read a private R2 object
-router.get('/signed-url/:key(*)', async (req, res) => {
+router.get('/signed-url/:key(*)', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const { key } = req.params
     if (!key) return res.status(400).json({ error: 'key is required' })
+    const ALLOWED_PREFIXES = ['videos/', 'gallery/', 'thumbnails/', 'media/']
+    if (!ALLOWED_PREFIXES.some(p => key.startsWith(p))) {
+      return res.status(403).json({ error: 'Access denied to this resource' })
+    }
     const url = await getSignedReadUrl(key, 3600)
     res.json({ url })
   } catch (e) {
