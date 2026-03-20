@@ -7,16 +7,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --background: #1b1b1d;
+    /* Surfaces — exact match with frontend/src/index.css */
+    --background: hsl(240 4% 6%);
     --foreground: hsl(0 0% 93%);
-    --card: #0e0e10;
+    --card: hsl(240 4% 6%);
     --card-foreground: hsl(0 0% 93%);
-    --primary: hsl(217 72% 56%);
-    --primary-foreground: hsl(0 0% 100%);
+    --popover: hsl(0 0% 7%);
+    --popover-foreground: hsl(0 0% 93%);
     --secondary: hsl(0 0% 10%);
     --secondary-foreground: hsl(0 0% 93%);
-    --hover: hsl(0 0% 10%);
+    --muted: hsl(0 0% 10%);
     --muted-foreground: hsl(0 0% 45%);
+    --accent: hsl(0 0% 10%);
+    --accent-foreground: hsl(0 0% 93%);
+    --elevated: hsl(0 0% 13%);
+    --hover: hsl(0 0% 10%);
+    --row-hover: hsl(0 0% 5%);
+
+    /* Brand / status */
+    --primary: hsl(217 72% 56%);
+    --primary-foreground: hsl(0 0% 100%);
     --destructive: hsl(0 72% 51%);
     --destructive-foreground: hsl(0 0% 100%);
     --success: hsl(142 50% 45%);
@@ -24,12 +34,23 @@
     --blue: hsl(217 72% 56%);
     --blue-foreground: hsl(0 0% 100%);
     --purple: hsl(258 60% 59%);
+    --purple-foreground: hsl(0 0% 100%);
     --orange: hsl(25 90% 55%);
     --orange-foreground: hsl(0 0% 100%);
-    --border: #151619;
+
+    /* Borders & rings */
+    --border: hsl(228 8% 9%);
+    --input: hsl(0 0% 13%);
     --ring: hsl(217 72% 56%);
+
+    /* Semantic text */
     --sensor: hsl(0 0% 60%);
     --dim: hsl(0 0% 40%);
+
+    /* Sidebar */
+    --sidebar: hsl(0 0% 4%);
+    --sidebar-foreground: hsl(0 0% 45%);
+    --sidebar-border: hsl(0 0% 12%);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -41,35 +62,141 @@
     line-height: 1.5;
   }
 
-  .page { max-width: 1100px; margin: 0 auto; padding: 48px 32px 80px; }
+  .page { max-width: 1100px; margin: 0 auto; padding: 64px 32px 120px; }
 
   .page-title {
     font-size: 28px; font-weight: 700; letter-spacing: -0.5px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
-  .page-subtitle { color: var(--sensor); font-size: 14px; margin-bottom: 48px; }
+  .page-subtitle { color: var(--sensor); font-size: 14px; margin-bottom: 32px; }
 
-  .section { margin-bottom: 56px; }
+  /* ── Tab navigation ── */
+  .tab-bar {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    margin-bottom: 56px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 90;
+    background: var(--background); padding-top: 12px;
+  }
+  body.editor-active .tab-bar { top: 52px; }
+  .tab-btn {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 12px; font-weight: 500; color: var(--muted-foreground);
+    background: none; border: none; cursor: pointer;
+    padding: 8px 14px; border-radius: 8px;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--foreground); background: var(--hover); }
+  .tab-btn.active {
+    color: var(--foreground); background: var(--secondary);
+    font-weight: 600;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .section { margin-bottom: 72px; }
   .section-label {
     font-size: 10px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.12em; color: var(--dim); font-family: 'JetBrains Mono', monospace;
-    margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
   }
-  .section-note { font-size: 12px; color: var(--dim); margin-bottom: 16px; }
+  .section-note { font-size: 12px; color: var(--dim); margin-bottom: 20px; }
 
   /* Color swatches */
-  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
   .swatch {
     border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
-    background: var(--card);
+    background: var(--card); position: relative;
   }
-  .swatch-color { height: 64px; }
+  .swatch-color { height: 64px; position: relative; }
   .swatch-info { padding: 10px 12px; }
   .swatch-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
   .swatch-var { font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
 
+  /* ── Editor mode ── */
+  .editor-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    background: hsl(0 0% 4% / 0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid hsl(0 0% 12%);
+    display: none; align-items: center; justify-content: space-between;
+    padding: 10px 24px; gap: 16px;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .editor-bar.active { display: flex; }
+  body.editor-active { padding-top: 52px; }
+  .editor-bar-left { display: flex; align-items: center; gap: 12px; }
+  .editor-bar-title {
+    font-size: 13px; font-weight: 600; color: hsl(0 0% 93%);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .editor-bar-title::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: hsl(142 50% 45%); animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .editor-bar-hint {
+    font-size: 11px; color: hsl(0 0% 45%);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .editor-bar-right { display: flex; align-items: center; gap: 8px; }
+  .editor-bar-changes {
+    font-size: 11px; color: hsl(25 90% 55%);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .editor-btn {
+    font-size: 12px; font-weight: 600; font-family: 'Inter', system-ui, sans-serif;
+    border: none; border-radius: 8px; cursor: pointer;
+    padding: 7px 14px; transition: all 0.15s;
+  }
+  .editor-btn-toggle {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9998;
+    background: hsl(258 60% 59%); color: white;
+    padding: 10px 18px; border-radius: 12px; font-size: 13px;
+    box-shadow: 0 4px 24px hsl(258 60% 30% / 0.4);
+  }
+  .editor-btn-toggle:hover { transform: translateY(-1px); box-shadow: 0 6px 28px hsl(258 60% 30% / 0.5); }
+  .editor-btn-toggle.active { background: hsl(0 0% 20%); box-shadow: 0 4px 16px hsl(0 0% 0% / 0.3); }
+
+  .editor-btn-reset {
+    background: hsl(0 0% 12%); color: hsl(0 0% 60%);
+  }
+  .editor-btn-reset:hover { background: hsl(0 0% 16%); color: hsl(0 0% 80%); }
+  .editor-btn-copy {
+    background: hsl(217 72% 56%); color: white;
+  }
+  .editor-btn-copy:hover { background: hsl(217 72% 62%); }
+
+  .swatch-picker {
+    display: none; position: absolute; top: 6px; right: 6px;
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 2px solid hsl(0 0% 100% / 0.3); cursor: pointer;
+    background: transparent; padding: 0; overflow: hidden;
+  }
+  .swatch-picker input[type="color"] {
+    width: 48px; height: 48px; border: none; padding: 0;
+    cursor: pointer; transform: translate(-8px, -8px);
+  }
+  body.editor-active .swatch-picker { display: block; }
+  body.editor-active .swatch { outline: 2px solid transparent; transition: outline 0.15s; }
+  body.editor-active .swatch.changed { outline: 2px solid hsl(25 90% 55%); }
+
+  .surface-picker {
+    display: none; position: absolute; bottom: 6px; right: 6px;
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 2px solid hsl(0 0% 100% / 0.2); cursor: pointer;
+    background: transparent; padding: 0; overflow: hidden;
+  }
+  .surface-picker input[type="color"] {
+    width: 40px; height: 40px; border: none; padding: 0;
+    cursor: pointer; transform: translate(-6px, -6px);
+  }
+  body.editor-active .surface-picker { display: block; }
+  body.editor-active .surface-block { position: relative; outline: 2px solid transparent; transition: outline 0.15s; }
+  body.editor-active .surface-block.changed { outline: 2px solid hsl(25 90% 55%); }
+
   /* Surface levels */
-  .surface-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .surface-row { display: flex; gap: 16px; flex-wrap: wrap; }
   .surface-block {
     flex: 1; min-width: 160px; height: 100px; border-radius: 12px;
     border: 1px solid var(--border); display: flex; flex-direction: column;
@@ -79,12 +206,12 @@
   .surface-token { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--dim); }
 
   /* Typography */
-  .type-row { margin-bottom: 16px; display: flex; align-items: baseline; gap: 16px; }
+  .type-row { margin-bottom: 20px; display: flex; align-items: baseline; gap: 16px; }
   .type-label { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--dim); min-width: 140px; flex-shrink: 0; }
   .type-sample { color: var(--foreground); }
 
   /* Text colors */
-  .text-color-row { display: flex; align-items: center; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .text-color-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
   .text-color-row:last-child { border-bottom: none; }
   .text-color-label { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--dim); min-width: 160px; }
 
@@ -99,7 +226,7 @@
   .link-demo:hover .link-arrow { opacity: 1; transform: translate(0, 0); }
 
   /* Buttons */
-  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500;
@@ -121,7 +248,7 @@
   .btn-link { background: transparent; color: var(--primary); text-decoration: underline; }
 
   /* Icon action buttons */
-  .icon-btn-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .icon-btn-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
   .icon-btn {
     position: relative;
     width: 36px; height: 36px; border-radius: 50%; border: none;
@@ -156,10 +283,10 @@
   .badge-orange { background: transparent; color: var(--orange); border: 1px solid var(--border); }
   .badge-dim { background: transparent; color: var(--dim); border: 1px solid var(--border); }
   .badge-sm { padding: 1px 7px; font-size: 10px; }
-  .badge-xs { padding: 1px 5px; font-size: 9px; font-weight: 700; }
+  .badge-xs { padding: 1px 5px; font-size: 9px; font-weight: 700; color: var(--foreground); }
 
   /* Inputs */
-  .input-demo { display: flex; flex-direction: column; gap: 12px; max-width: 400px; }
+  .input-demo { display: flex; flex-direction: column; gap: 16px; max-width: 400px; }
   .input, .textarea, .select-demo {
     background: var(--background); border: 1px solid var(--border); border-radius: 8px;
     color: var(--foreground); font-family: 'Inter', sans-serif; font-size: 14px;
@@ -239,7 +366,7 @@
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
   /* Toast preview */
-  .toast-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .toast-row { display: flex; gap: 16px; flex-wrap: wrap; }
   .toast-demo {
     display: flex; align-items: center; gap: 10px; padding: 12px 16px;
     border-radius: 8px; font-size: 13px; font-weight: 500; min-width: 200px;
@@ -248,7 +375,7 @@
   .toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
   /* Filter pills */
-  .pill-row { display: flex; gap: 8px; }
+  .pill-row { display: flex; gap: 10px; }
   .pill {
     padding: 6px 12px; border-radius: 9999px; font-size: 12px; font-weight: 500;
     background: transparent; color: var(--dim); border: none; cursor: pointer;
@@ -308,7 +435,7 @@
   }
   .kanban-section-title { font-size: 13px; font-weight: 600; color: var(--foreground); }
   .kanban-section-sub { font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
-  .kanban-grid { display: grid; gap: 12px; }
+  .kanban-grid { display: grid; gap: 16px; }
   .kanban-col {
     border-radius: 12px; border: 1px solid var(--border); overflow: hidden;
     display: flex; flex-direction: column; max-height: 320px;
@@ -352,8 +479,352 @@
     height: 64px; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace;
   }
 
+  /* Alert */
+  .alert-demo {
+    position: relative; width: 100%; border-radius: 8px; border: 1px solid var(--border);
+    padding: 16px; padding-left: 44px;
+  }
+  .alert-demo .alert-icon {
+    position: absolute; left: 16px; top: 16px; width: 16px; height: 16px;
+  }
+  .alert-demo-default { background: var(--background); color: var(--foreground); }
+  .alert-demo-destructive { border-color: var(--destructive); color: var(--destructive); }
+  .alert-title { font-weight: 500; margin-bottom: 4px; font-size: 14px; line-height: 1; letter-spacing: -0.01em; }
+  .alert-desc { font-size: 13px; color: var(--muted-foreground); line-height: 1.5; }
+  .alert-demo-destructive .alert-desc { color: var(--destructive); opacity: 0.8; }
+
+  /* Avatar */
+  .avatar-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .avatar {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; overflow: hidden; flex-shrink: 0;
+    background: var(--secondary); color: var(--muted-foreground);
+    font-weight: 600; font-size: 13px;
+  }
+  .avatar-sm { width: 24px; height: 24px; font-size: 9px; }
+  .avatar-md { width: 40px; height: 40px; font-size: 13px; }
+  .avatar-lg { width: 56px; height: 56px; font-size: 18px; }
+  .avatar-stack { display: flex; }
+  .avatar-stack .avatar { border: 2px solid var(--background); margin-left: -8px; }
+  .avatar-stack .avatar:first-child { margin-left: 0; }
+
+  /* Accordion */
+  .accordion-demo { border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: var(--card); }
+  .accordion-item { border-bottom: 1px solid var(--border); }
+  .accordion-item:last-child { border-bottom: none; }
+  .accordion-trigger {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; padding: 16px 20px; font-size: 14px; font-weight: 500;
+    background: none; border: none; color: var(--foreground); cursor: pointer;
+    text-align: left; font-family: inherit; transition: background 0.15s;
+  }
+  .accordion-trigger:hover { background: var(--hover); }
+  .accordion-trigger .chevron { width: 16px; height: 16px; color: var(--dim); transition: transform 0.2s; flex-shrink: 0; }
+  .accordion-item.open .accordion-trigger .chevron { transform: rotate(180deg); }
+  .accordion-body { padding: 0 20px 16px; font-size: 13px; color: var(--muted-foreground); display: none; }
+  .accordion-item.open .accordion-body { display: block; }
+
+  /* Menu */
+  .menu-demo {
+    min-width: 200px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); padding: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .menu-label { padding: 6px 8px; font-size: 12px; font-weight: 600; color: var(--foreground); }
+  .menu-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    font-size: 13px; color: var(--foreground); border-radius: 4px;
+    cursor: pointer; transition: background 0.1s;
+  }
+  .menu-item:hover { background: var(--hover); }
+  .menu-item-destructive { color: var(--destructive); }
+  .menu-item .shortcut { margin-left: auto; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
+  .menu-sep { height: 1px; background: var(--border); margin: 4px -4px; }
+
+  /* Command palette */
+  .command-demo {
+    width: 100%; max-width: 480px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--card); overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .command-input-row {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .command-input-row svg { width: 16px; height: 16px; color: var(--dim); flex-shrink: 0; }
+  .command-input-row input {
+    flex: 1; background: transparent; border: none; color: var(--foreground);
+    font-size: 14px; outline: none; font-family: inherit;
+  }
+  .command-input-row input::placeholder { color: var(--dim); }
+  .command-group-label {
+    padding: 8px 12px 4px; font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--dim); font-family: 'JetBrains Mono', monospace;
+  }
+  .command-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    font-size: 13px; color: var(--foreground); cursor: pointer; transition: background 0.1s;
+  }
+  .command-item:hover, .command-item.selected { background: var(--hover); }
+  .command-item svg { width: 14px; height: 14px; color: var(--dim); flex-shrink: 0; }
+
+  /* Overlay demos */
+  .overlay-row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .tooltip-demo-box {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    padding: 24px 32px; border-radius: 12px; border: 1px solid var(--border); background: var(--card);
+  }
+  .popover-demo {
+    width: 280px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  /* Toggle */
+  .toggle-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .toggle-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 40px; padding: 0 12px; border-radius: 6px; border: none;
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    background: transparent; color: var(--muted-foreground);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .toggle-btn:hover { background: var(--hover); color: var(--foreground); }
+  .toggle-btn.active { background: var(--hover); color: var(--foreground); }
+  .toggle-btn-outline { border: 1px solid var(--border); }
+
+  /* Radio */
+  .radio-group { display: flex; flex-direction: column; gap: 10px; }
+  .radio-item { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+  .radio-circle {
+    width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--dim);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: border-color 0.15s;
+  }
+  .radio-item.active .radio-circle { border-color: var(--primary); }
+  .radio-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+    transform: scale(0); transition: transform 0.15s;
+  }
+  .radio-item.active .radio-dot { transform: scale(1); }
+
+  /* Slider */
+  .slider-demo { width: 100%; max-width: 300px; position: relative; height: 20px; display: flex; align-items: center; }
+  .slider-track { width: 100%; height: 8px; border-radius: 9999px; background: var(--secondary); position: relative; }
+  .slider-fill { height: 100%; border-radius: 9999px; background: var(--primary); }
+  .slider-thumb {
+    width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--primary);
+    background: var(--background); position: absolute; top: 50%; transform: translateY(-50%);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  /* Separator */
+  .sep-h { height: 1px; width: 100%; background: var(--border); }
+  .sep-v { width: 1px; height: 40px; background: var(--border); }
+
+  /* Scroll area mock */
+  .scroll-demo {
+    height: 120px; width: 200px; border-radius: 8px; border: 1px solid var(--border);
+    overflow: hidden; position: relative; background: var(--card);
+  }
+  .scroll-content { padding: 12px; font-size: 13px; color: var(--muted-foreground); }
+  .scroll-thumb {
+    position: absolute; right: 2px; top: 8px; width: 6px; height: 40px;
+    border-radius: 9999px; background: var(--border);
+  }
+
+  /* Breadcrumb */
+  .breadcrumb-demo {
+    display: flex; align-items: center; gap: 6px; font-size: 14px;
+    color: var(--muted-foreground);
+  }
+  .breadcrumb-link { color: var(--muted-foreground); text-decoration: none; transition: color 0.15s; cursor: pointer; }
+  .breadcrumb-link:hover { color: var(--foreground); }
+  .breadcrumb-current { color: var(--foreground); font-weight: 400; }
+  .breadcrumb-sep { color: var(--dim); font-size: 12px; }
+
+  /* Pagination */
+  .pagination-demo { display: flex; align-items: center; gap: 4px; }
+  .page-btn {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; border: none; background: transparent; color: var(--foreground);
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s;
+    font-family: inherit;
+  }
+  .page-btn:hover { background: var(--hover); }
+  .page-btn.active { border: 1px solid var(--border); }
+  .page-btn.nav { color: var(--dim); }
+  .page-btn.nav:hover { color: var(--foreground); }
+
+  /* Sidebar mock */
+  .sidebar-demo {
+    display: flex; border-radius: 12px; border: 1px solid var(--border); overflow: hidden;
+    height: 320px;
+  }
+  .sidebar-mock {
+    width: 56px; background: var(--card); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px;
+  }
+  .sidebar-mock-expanded {
+    width: 200px; background: var(--card); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 12px 8px; gap: 2px;
+  }
+  .sidebar-nav-item {
+    width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; color: var(--dim); cursor: pointer; transition: all 0.15s;
+  }
+  .sidebar-nav-item:hover { background: var(--hover); color: var(--foreground); }
+  .sidebar-nav-item.active { background: var(--hover); color: var(--foreground); }
+  .sidebar-nav-expanded {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-radius: 9999px; color: var(--dim); font-size: 13px; cursor: pointer; transition: all 0.15s;
+  }
+  .sidebar-nav-expanded:hover { color: var(--foreground); }
+  .sidebar-nav-expanded.active { background: var(--hover); color: var(--foreground); }
+  .sidebar-content-area { flex: 1; background: var(--background); padding: 16px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--dim); }
+
+  /* Panel mock */
+  .panel-demo {
+    position: relative; border-radius: 12px; border: 1px solid var(--border);
+    overflow: hidden; height: 280px; background: var(--background);
+  }
+  .panel-float {
+    position: absolute; top: 8px; right: 8px; width: 240px;
+    border-radius: 12px; background: var(--card); border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3); overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  .panel-section-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--dim); font-family: 'JetBrains Mono', monospace;
+    padding: 8px 16px 4px;
+  }
+  .panel-info-row {
+    display: flex; justify-content: space-between; padding: 6px 16px;
+    border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .panel-info-row:last-child { border-bottom: none; }
+  .panel-info-key { color: var(--sensor); }
+  .panel-info-value { color: var(--foreground); }
+
+  /* Upload zone */
+  .upload-zone-demo {
+    border-radius: 12px; border: 2px dashed var(--border); padding: 40px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    text-align: center; transition: all 0.15s;
+  }
+  .upload-zone-demo:hover { border-color: var(--primary); background: rgba(56,113,220,0.03); }
+  .upload-indicator-demo {
+    width: 280px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--card); padding: 12px 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .upload-progress-bar { height: 4px; border-radius: 9999px; background: var(--secondary); margin-top: 6px; }
+  .upload-progress-fill { height: 100%; border-radius: 9999px; transition: width 0.3s; }
+
+  /* Gallery */
+  .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; border-radius: 12px; overflow: hidden; }
+  .gallery-cell {
+    aspect-ratio: 4/3; background: var(--secondary); position: relative;
+    cursor: pointer; transition: filter 0.15s;
+  }
+  .gallery-cell:hover { filter: brightness(0.85); }
+  .gallery-overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.15s;
+  }
+  .gallery-cell:hover .gallery-overlay { opacity: 1; }
+  .gallery-select {
+    position: absolute; top: 6px; left: 6px; width: 20px; height: 20px;
+    border-radius: 50%; border: 2px solid rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.2); backdrop-filter: blur(4px);
+  }
+  .gallery-select.selected { background: var(--primary); border-color: var(--primary); }
+  .album-card {
+    border-radius: 12px; overflow: hidden; background: var(--background);
+    transition: background 0.15s; cursor: pointer;
+  }
+  .album-card:hover { background: var(--card); }
+  .album-cover { aspect-ratio: 4/3; background: var(--secondary); position: relative; overflow: hidden; }
+  .album-gradient { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.4), transparent); }
+  .album-info { padding: 12px; }
+
+  /* Score bar */
+  .score-bar-row { display: flex; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .score-bar-cell { flex: 1; padding: 16px 20px; background: var(--background); }
+  .score-bar-cell + .score-bar-cell { border-left: 1px solid var(--border); }
+  .score-bar-track { height: 6px; border-radius: 9999px; background: var(--secondary); margin-top: 8px; }
+  .score-bar-fill { height: 100%; border-radius: 9999px; }
+
+  /* Editor mock */
+  .editor-demo {
+    border-radius: 12px; border: 1px solid var(--border); overflow: hidden;
+    background: var(--background);
+  }
+  .editor-toolbar {
+    display: inline-flex; align-items: center; gap: 2px; padding: 4px 6px;
+    background: var(--card); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; margin: 12px 16px;
+  }
+  .editor-toolbar-btn {
+    width: 28px; height: 28px; border-radius: 4px; border: none;
+    background: transparent; color: var(--dim); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-weight: 700; font-size: 13px; font-family: inherit;
+  }
+  .editor-toolbar-btn:hover { background: var(--hover); color: var(--foreground); }
+  .editor-toolbar-btn.active { color: var(--foreground); }
+  .editor-body { padding: 0 16px 24px; min-height: 120px; }
+  .script-block-demo {
+    margin-bottom: 12px; padding-left: 16px; border-left: 3px solid;
+  }
+  .script-block-label-demo {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;
+  }
+  .script-block-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .script-block-content-demo { font-size: 14px; color: var(--foreground); line-height: 1.7; }
+
+  /* Slash menu mock */
+  .slash-menu-demo {
+    width: 240px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); padding: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .slash-menu-item-demo {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border-radius: 6px; cursor: pointer; transition: background 0.1s;
+  }
+  .slash-menu-item-demo:hover, .slash-menu-item-demo.selected { background: var(--hover); }
+  .slash-menu-icon {
+    width: 28px; height: 28px; border-radius: 6px; background: var(--secondary);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .slash-menu-icon svg { width: 14px; height: 14px; color: var(--dim); }
+  .slash-menu-text-demo { font-size: 13px; font-weight: 500; }
+  .slash-menu-desc-demo { font-size: 11px; color: var(--dim); }
+
+  /* Error page mock */
+  .error-demo {
+    display: flex; align-items: center; justify-content: center; padding: 32px;
+    border-radius: 12px; border: 1px solid var(--border); background: var(--background);
+  }
+  .error-card {
+    max-width: 360px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--card); padding: 24px; text-align: center;
+  }
+  .error-icon {
+    width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: hsl(0 72% 51% / 0.1);
+  }
+  .error-icon svg { width: 24px; height: 24px; color: var(--destructive); }
+  .error-fingerprint {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--dim);
+    margin-top: 8px;
+  }
+  .error-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+
   /* Spacing demo */
-  .spacing-grid { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .spacing-grid { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .spacing-block { background: var(--primary); opacity: 0.7; border-radius: 4px; }
   .spacing-label { font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--dim); text-align: center; margin-top: 4px; }
 
@@ -392,13 +863,66 @@
   }
 
   .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* Group headings */
+  .group-heading {
+    margin-top: 96px; margin-bottom: 48px; padding-top: 40px;
+    border-top: 1px solid var(--border);
+  }
+  .group-heading:first-of-type, .group-heading-first { margin-top: 0; border-top: none; padding-top: 0; }
+  .group-heading-title {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+    color: var(--foreground); margin-bottom: 6px;
+  }
+  .group-heading-desc {
+    font-size: 12px; color: var(--dim); font-family: 'JetBrains Mono', monospace;
+  }
 </style>
 </head>
 <body>
 
+<!-- Editor bar (hidden until toggled) -->
+<div class="editor-bar" id="editorBar">
+  <div class="editor-bar-left">
+    <div class="editor-bar-title">Editor Mode</div>
+    <div class="editor-bar-hint">Click any color swatch to change it</div>
+  </div>
+  <div class="editor-bar-right">
+    <span class="editor-bar-changes" id="changeCount"></span>
+    <button class="editor-btn editor-btn-reset" onclick="resetColors()">Reset</button>
+    <button class="editor-btn editor-btn-copy" onclick="copyChanges()">Copy Changes</button>
+  </div>
+</div>
+
+<!-- Floating toggle button -->
+<button class="editor-btn editor-btn-toggle" id="editorToggle" onclick="toggleEditor()">Edit Colors</button>
+
 <div class="page">
   <h1 class="page-title">Falak DLS</h1>
-  <p class="page-subtitle">Design Language System — Visual Reference</p>
+  <p class="page-subtitle">Design Language System — Visual Reference · <a href="audit.html" style="color: var(--primary); text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 12px;">View Audit Report →</a></p>
+
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="foundation" onclick="switchTab('foundation')">Foundation</button>
+    <button class="tab-btn" data-tab="actions" onclick="switchTab('actions')">Actions</button>
+    <button class="tab-btn" data-tab="forms" onclick="switchTab('forms')">Forms & Input</button>
+    <button class="tab-btn" data-tab="content" onclick="switchTab('content')">Content</button>
+    <button class="tab-btn" data-tab="navigation" onclick="switchTab('navigation')">Navigation</button>
+    <button class="tab-btn" data-tab="dataviz" onclick="switchTab('dataviz')">Data Viz</button>
+    <button class="tab-btn" data-tab="feedback" onclick="switchTab('feedback')">Feedback</button>
+    <button class="tab-btn" data-tab="layout" onclick="switchTab('layout')">Layout</button>
+    <button class="tab-btn" data-tab="features" onclick="switchTab('features')">Features</button>
+  </div>
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Foundation                                            ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel active" id="tab-foundation">
+
+  <!-- ════════════════════ FOUNDATION — COLORS ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Foundation — Colors</div>
+    <div class="group-heading-desc">Page, Status, Button, Text colors</div>
+  </div>
 
   <!-- ═══════════════════ PAGE COLORS ═══════════════════ -->
   <div id="page-colors" class="section">
@@ -468,7 +992,7 @@
     <div class="section-label">Text Colors</div>
     <div>
       <div class="text-color-row">
-        <div class="text-color-label">White</div>
+        <div class="text-color-label">Foreground</div>
         <div style="color: var(--foreground); font-size: 14px;">Primary text — headings, active items, main content</div>
       </div>
       <div class="text-color-row">
@@ -480,6 +1004,13 @@
         <div><span class="link-demo">Interactive text<span class="link-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg></span></span> <span style="color: var(--muted-foreground); font-size: 12px; margin-left: 8px;">hover to see arrow</span></div>
       </div>
     </div>
+  </div>
+
+
+  <!-- ════════════════════ FOUNDATION — TYPOGRAPHY ════════════════════ -->
+  <div class="group-heading">
+    <div class="group-heading-title">Foundation — Typography</div>
+    <div class="group-heading-desc">Type scale</div>
   </div>
 
   <!-- ═══════════════════ TYPOGRAPHY ═══════════════════ -->
@@ -513,6 +1044,80 @@
       <div class="type-label">Mono body · 13px 400</div>
       <div class="type-sample mono" style="font-size: 13px; color: var(--sensor);">const data = await fetch("/api/stories")</div>
     </div>
+  </div>
+
+
+  <!-- ════════════════════ FOUNDATION — SPACING & BORDERS ════════════════════ -->
+  <div class="group-heading">
+    <div class="group-heading-title">Foundation — Spacing & Borders</div>
+    <div class="group-heading-desc">Spacing scale, Border radii</div>
+  </div>
+
+  <!-- ═══════════════════ SPACING ═══════════════════ -->
+  <div id="spacing" class="section">
+    <div class="section-label">Spacing Scale</div>
+    <div class="spacing-grid">
+      <div style="text-align: center">
+        <div class="spacing-block" style="width: 32px; height: 4px"></div>
+        <div class="spacing-label">4px<br>gap-1</div>
+      </div>
+      <div style="text-align: center">
+        <div class="spacing-block" style="width: 32px; height: 8px"></div>
+        <div class="spacing-label">8px<br>gap-2</div>
+      </div>
+      <div style="text-align: center">
+        <div class="spacing-block" style="width: 32px; height: 12px"></div>
+        <div class="spacing-label">12px<br>gap-3</div>
+      </div>
+      <div style="text-align: center">
+        <div class="spacing-block" style="width: 32px; height: 16px"></div>
+        <div class="spacing-label">16px<br>gap-4</div>
+      </div>
+      <div style="text-align: center">
+        <div class="spacing-block" style="width: 32px; height: 20px"></div>
+        <div class="spacing-label">20px<br>gap-5</div>
+      </div>
+      <div style="text-align: center">
+        <div class="spacing-block" style="width: 32px; height: 24px"></div>
+        <div class="spacing-label">24px<br>gap-6</div>
+      </div>
+      <div style="text-align: center">
+        <div class="spacing-block" style="width: 32px; height: 32px"></div>
+        <div class="spacing-label">32px<br>gap-8</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ BORDERS ═══════════════════ -->
+  <div id="borders" class="section">
+    <div class="section-label">Borders & Radius</div>
+    <div style="display: flex; gap: 16px; flex-wrap: wrap">
+      <div style="width: 120px; height: 80px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
+        sharp (0px)
+      </div>
+      <div style="width: 120px; height: 80px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
+        rounded-lg
+      </div>
+      <div style="width: 120px; height: 80px; border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
+        rounded-xl
+      </div>
+      <div style="width: 120px; height: 80px; border: 1px solid var(--border); border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
+        rounded-full
+      </div>
+    </div>
+
+  </div>
+  </div><!-- /tab-foundation -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Actions                                               ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-actions">
+
+  <!-- ════════════════════ ACTIONS ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Actions</div>
+    <div class="group-heading-desc">Buttons, Badges, Alerts</div>
   </div>
 
   <!-- ═══════════════════ BUTTONS ═══════════════════ -->
@@ -645,6 +1250,38 @@
     </div>
   </div>
 
+  <!-- ═══════════════════ ALERTS ═══════════════════ -->
+  <div id="alerts" class="section">
+    <div class="section-label">Alerts</div>
+    <div class="section-note">Inline banners. Default for info, destructive for errors.</div>
+    <div style="display: flex; flex-direction: column; gap: 16px; max-width: 540px;">
+      <div class="alert-demo alert-demo-default">
+        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <div class="alert-title">Heads up</div>
+        <div class="alert-desc">This channel has no API key configured.</div>
+      </div>
+      <div class="alert-demo alert-demo-destructive">
+        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        <div class="alert-title">Fetch failed</div>
+        <div class="alert-desc">Could not reach YouTube API after 3 retries.</div>
+      </div>
+    </div>
+  </div>
+
+
+  </div><!-- /tab-actions -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Forms & Input                                         ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-forms">
+
+  <!-- ════════════════════ FORMS & INPUT ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Forms & Input</div>
+    <div class="group-heading-desc">Form Elements, Advanced Controls (radio, slider, toggle)</div>
+  </div>
+
   <!-- ═══════════════════ INPUTS ═══════════════════ -->
   <div id="form-elements" class="section">
     <div class="section-label">Form Elements</div>
@@ -681,6 +1318,90 @@
           <span style="font-size: 11px; color: var(--destructive); margin-top: 2px">Invalid YouTube URL</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ FORMS ADVANCED ═══════════════════ -->
+  <div id="forms-advanced" class="section">
+    <div class="section-label">Forms — Advanced Controls</div>
+    <div class="section-note">Radio group, slider, toggle, and labels.</div>
+    <div style="display: flex; gap: 32px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+      <!-- Radio group -->
+      <div>
+        <div class="input-label" style="margin-bottom: 10px;">Video Format</div>
+        <div class="radio-group">
+          <div class="radio-item active" onclick="this.parentElement.querySelectorAll('.radio-item').forEach(r=>r.classList.remove('active'));this.classList.add('active');">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            Video (16:9)
+          </div>
+          <div class="radio-item" onclick="this.parentElement.querySelectorAll('.radio-item').forEach(r=>r.classList.remove('active'));this.classList.add('active');">
+            <div class="radio-circle"><div class="radio-dot"></div></div>
+            Short (9:16)
+          </div>
+        </div>
+      </div>
+
+      <!-- Slider -->
+      <div>
+        <div class="input-label" style="margin-bottom: 10px;">Duration (seconds)</div>
+        <div class="slider-demo">
+          <div class="slider-track">
+            <div class="slider-fill" style="width: 65%; border-radius: 9999px;"></div>
+          </div>
+          <div class="slider-thumb" style="left: calc(65% - 10px);"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace; max-width: 300px;">
+          <span>0</span><span>60</span><span>120</span>
+        </div>
+      </div>
+
+      <!-- Toggle group -->
+      <div>
+        <div class="input-label" style="margin-bottom: 10px;">Display Mode</div>
+        <div class="toggle-row">
+          <button class="toggle-btn active" onclick="this.parentElement.querySelectorAll('.toggle-btn').forEach(t=>t.classList.remove('active'));this.classList.add('active');">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </button>
+          <button class="toggle-btn" onclick="this.parentElement.querySelectorAll('.toggle-btn').forEach(t=>t.classList.remove('active'));this.classList.add('active');">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  </div><!-- /tab-forms -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Content Display                                       ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-content">
+
+  <!-- ════════════════════ CONTENT DISPLAY ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Content Display</div>
+    <div class="group-heading-desc">Avatars, Card, Data Table, Stat Row</div>
+  </div>
+
+  <!-- ═══════════════════ AVATARS ═══════════════════ -->
+  <div id="avatars" class="section">
+    <div class="section-label">Avatars</div>
+    <div class="section-note">Sizes: small (24), default (40), large (56). Fallback with initials.</div>
+    <div class="avatar-row">
+      <div class="avatar avatar-sm">A</div>
+      <div class="avatar avatar-md">AB</div>
+      <div class="avatar avatar-lg">AZ</div>
+      <div class="avatar avatar-md" style="background: var(--primary); color: var(--primary-foreground);">F</div>
+      <div class="avatar avatar-md" style="background: var(--success); color: var(--success-foreground);">OK</div>
+      <div class="avatar avatar-md" style="background: var(--orange); color: var(--orange-foreground);">JD</div>
+    </div>
+    <div class="section-note" style="margin-top: 16px;">Stacked — collaborators working on the same script.</div>
+    <div class="avatar-stack">
+      <div class="avatar avatar-sm" style="background: var(--primary); color: var(--primary-foreground);">A</div>
+      <div class="avatar avatar-sm" style="background: var(--success); color: var(--success-foreground);">B</div>
+      <div class="avatar avatar-sm" style="background: var(--orange); color: var(--orange-foreground);">C</div>
+      <div class="avatar avatar-sm" style="background: var(--blue); color: var(--blue-foreground);">D</div>
     </div>
   </div>
 
@@ -789,6 +1510,20 @@
     </div>
   </div>
 
+
+  </div><!-- /tab-content -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Navigation & Interaction                              ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-navigation">
+
+  <!-- ════════════════════ NAVIGATION & INTERACTION ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Navigation & Interaction</div>
+    <div class="group-heading-desc">Filter Pills, Breadcrumb / Pagination, Menus, Accordion, Overlays</div>
+  </div>
+
   <!-- ═══════════════════ FILTER PILLS ═══════════════════ -->
   <div id="filter-pills" class="section">
     <div class="section-label">Filter Pills & Tabs</div>
@@ -802,6 +1537,177 @@
         <button class="pill">Published <span style="margin-left: 6px; opacity: 0.5">29</span></button>
       </div>
     </div>
+  </div>
+
+  <!-- ═══════════════════ DATA NAVIGATION ═══════════════════ -->
+  <div id="data-navigation" class="section">
+    <div class="section-label">Data Navigation</div>
+    <div class="section-note">Breadcrumbs and pagination for multi-page data.</div>
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <!-- Breadcrumb -->
+      <div>
+        <div class="section-note">Breadcrumb</div>
+        <div class="breadcrumb-demo">
+          <span class="breadcrumb-link">Channels</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-link">TechChannel</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Videos</span>
+        </div>
+      </div>
+      <!-- Pagination -->
+      <div>
+        <div class="section-note">Pagination</div>
+        <div class="pagination-demo">
+          <button class="page-btn nav">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn" style="cursor:default; color: var(--dim);">…</button>
+          <button class="page-btn">12</button>
+          <button class="page-btn nav">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ MENUS ═══════════════════ -->
+  <div id="menus" class="section">
+    <div class="section-label">Menus</div>
+    <div class="section-note">Dropdown menu, context menu, and command palette.</div>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+      <!-- Dropdown -->
+      <div>
+        <div class="section-note">Dropdown Menu</div>
+        <div class="menu-demo">
+          <div class="menu-label">Actions</div>
+          <div class="menu-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            Edit
+            <span class="shortcut">⌘E</span>
+          </div>
+          <div class="menu-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            Duplicate
+          </div>
+          <div class="menu-sep"></div>
+          <div class="menu-item menu-item-destructive">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete
+            <span class="shortcut">⌘⌫</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Command palette -->
+      <div style="flex: 1; min-width: 300px;">
+        <div class="section-note">Command Palette</div>
+        <div class="command-demo">
+          <div class="command-input-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Type a command or search..." />
+          </div>
+          <div class="command-group-label">Actions</div>
+          <div class="command-item selected">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Story
+          </div>
+          <div class="command-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            Sync Channel
+          </div>
+          <div class="command-group-label">Navigation</div>
+          <div class="command-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Go to Pipeline
+          </div>
+          <div class="command-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            Settings
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ ACCORDIONS ═══════════════════ -->
+  <div id="accordions" class="section">
+    <div class="section-label">Accordion</div>
+    <div class="section-note">Expand/collapse sections. Click to toggle.</div>
+    <div class="accordion-demo" style="max-width: 480px;">
+      <div class="accordion-item open" onclick="this.classList.toggle('open')">
+        <button class="accordion-trigger">
+          Video Details
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="accordion-body">Metadata, tags, thumbnails, and description fields for the selected video.</div>
+      </div>
+      <div class="accordion-item" onclick="this.classList.toggle('open')">
+        <button class="accordion-trigger">
+          Transcript
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="accordion-body">Full transcript with timestamps generated by Whisper.</div>
+      </div>
+      <div class="accordion-item" onclick="this.classList.toggle('open')">
+        <button class="accordion-trigger">
+          Analytics
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="accordion-body">View count, watch time, and engagement metrics over time.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ OVERLAYS ═══════════════════ -->
+  <div id="overlays" class="section">
+    <div class="section-label">Overlays — Tooltip, Popover, Hover Card</div>
+    <div class="overlay-row">
+      <div>
+        <div class="section-note">Tooltip (hover the buttons above ↑)</div>
+        <div class="section-note">Same tooltip pattern used in the Buttons section. Small label on hover with <code style="font-size:11px; background:var(--secondary); padding:2px 6px; border-radius:4px;">bg-popover</code> surface.</div>
+      </div>
+      <div>
+        <div class="section-note">Popover</div>
+        <div class="popover-demo">
+          <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Filter options</div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+              <div style="width:14px; height:14px; border-radius:3px; border:1.5px solid var(--primary); display:flex; align-items:center; justify-content:center;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              Published
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+              <div style="width:14px; height:14px; border-radius:3px; border:1.5px solid var(--dim);"></div>
+              Filming
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+              <div style="width:14px; height:14px; border-radius:3px; border:1.5px solid var(--dim);"></div>
+              Draft
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  </div><!-- /tab-navigation -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Data Visualization                                    ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-dataviz">
+
+  <!-- ════════════════════ DATA VISUALIZATION ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Data Visualization</div>
+    <div class="group-heading-desc">Progress rings, Carousel & Chart</div>
   </div>
 
   <!-- ═══════════════════ PROGRESS ═══════════════════ -->
@@ -859,7 +1765,7 @@
       </div>
     </div>
 
-    <div class="section-label" style="margin-top: 32px">Progress — Small</div>
+    <div class="section-label" style="margin-top: 40px">Progress — Small</div>
     <div class="section-note">Percentage inside, label underneath.</div>
     <div class="progress-ring-row">
       <div class="progress-ring-wrapper">
@@ -901,6 +1807,590 @@
           <div class="center-text"><span class="center-value">45%</span></div>
         </div>
         <span class="progress-ring-label">Processing</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ MEDIA ═══════════════════ -->
+  <div id="media" class="section">
+    <div class="section-label">Media — Carousel & Chart</div>
+    <div class="section-note">Carousel for horizontal slide-through. Charts via Recharts wrapper.</div>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+      <!-- Carousel mock -->
+      <div style="flex: 1; min-width: 280px; position: relative;">
+        <div class="section-note">Carousel</div>
+        <div style="overflow: hidden; border-radius: 12px; border: 1px solid var(--border);">
+          <div style="display: flex;">
+            <div style="min-width: 100%; aspect-ratio: 16/9; background: var(--card); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--dim);">Slide 1 of 3</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+          <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--foreground);"></div>
+          <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--dim);"></div>
+          <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--dim);"></div>
+        </div>
+      </div>
+      <!-- Chart mock -->
+      <div style="flex: 1; min-width: 280px;">
+        <div class="section-note">Chart (bar)</div>
+        <div style="border-radius: 12px; border: 1px solid var(--border); background: var(--card); padding: 16px 20px; aspect-ratio: 16/9; display: flex; flex-direction: column; justify-content: flex-end;">
+          <div style="display: flex; align-items: flex-end; gap: 8px; height: 100%; padding-bottom: 8px;">
+            <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 60%; opacity: 0.8;"></div>
+            <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 80%; opacity: 0.8;"></div>
+            <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 45%; opacity: 0.8;"></div>
+            <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 90%; opacity: 0.8;"></div>
+            <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 70%; opacity: 0.8;"></div>
+            <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 55%; opacity: 0.8;"></div>
+            <div style="flex:1; background: var(--primary); border-radius: 4px 4px 0 0; height: 95%; opacity: 0.8;"></div>
+          </div>
+          <div style="display: flex; gap: 8px; font-size: 9px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">
+            <span style="flex:1; text-align:center;">Mon</span>
+            <span style="flex:1; text-align:center;">Tue</span>
+            <span style="flex:1; text-align:center;">Wed</span>
+            <span style="flex:1; text-align:center;">Thu</span>
+            <span style="flex:1; text-align:center;">Fri</span>
+            <span style="flex:1; text-align:center;">Sat</span>
+            <span style="flex:1; text-align:center;">Sun</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  </div><!-- /tab-dataviz -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Feedback                                              ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-feedback">
+
+  <!-- ════════════════════ FEEDBACK ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Feedback</div>
+    <div class="group-heading-desc">Toasts, Loading / Empty States, Error Page & Delete Modal</div>
+  </div>
+
+  <!-- ═══════════════════ TOASTS ═══════════════════ -->
+  <div id="toasts" class="section">
+    <div class="section-label">Toast Notifications</div>
+    <div class="toast-row">
+      <div class="toast-demo">
+        <div class="toast-dot" style="background: var(--success)"></div>
+        <span>Channel synced</span>
+      </div>
+      <div class="toast-demo">
+        <div class="toast-dot" style="background: var(--destructive)"></div>
+        <span>Failed to save script</span>
+      </div>
+      <div class="toast-demo">
+        <div class="toast-dot" style="background: var(--blue)"></div>
+        <span>Generating script…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ LOADING / EMPTY ═══════════════════ -->
+  <div id="loading-empty" class="section">
+    <div class="section-label">Loading & Empty States</div>
+    <div class="section-note">Loader: Lucide Loader2 with animate-spin. Empty: shared EmptyState component with icon, title, description.</div>
+    <div class="state-demo">
+      <div class="state-box">
+        <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <div style="font-size: 13px; color: var(--muted-foreground)">Loading channel data…</div>
+      </div>
+      <div class="state-box">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" opacity="0.5">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+        <div style="font-size: 13px; color: var(--dim); font-family: 'JetBrains Mono', monospace">No media found</div>
+      </div>
+      <div class="state-box">
+        <div style="width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: flex-start">
+          <div class="skeleton" style="height: 14px; width: 60%"></div>
+          <div class="skeleton" style="height: 14px; width: 100%"></div>
+          <div class="skeleton" style="height: 14px; width: 80%"></div>
+          <div class="skeleton" style="height: 14px; width: 45%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ FEEDBACK ═══════════════════ -->
+  <div id="feedback" class="section">
+    <div class="section-label">Feedback — Error Page & Delete Modal</div>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+      <!-- Error page -->
+      <div style="flex: 1; min-width: 280px;">
+        <div class="section-note">Page Error</div>
+        <div class="error-demo">
+          <div class="error-card">
+            <div class="error-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">Something went wrong</div>
+            <div style="font-size: 13px; color: var(--muted-foreground); margin-bottom: 8px;">Could not load channel data. The server returned an error.</div>
+            <div class="error-fingerprint">ID: fp_a1b2c3d4</div>
+            <div class="error-actions">
+              <button class="btn btn-outline btn-sm">Copy</button>
+              <button class="btn btn-default btn-sm">Retry</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Delete modal -->
+      <div style="flex: 1; min-width: 280px;">
+        <div class="section-note">Delete Confirmation (AlertDialog)</div>
+        <div class="dialog-demo">
+          <div class="dialog-title">Remove this channel?</div>
+          <div class="dialog-desc">This will permanently remove <span style="color: var(--foreground); font-weight: 500;">TechChannel</span> and all its data. This action cannot be undone.</div>
+          <div class="dialog-actions">
+            <button class="btn btn-outline btn-sm">Cancel</button>
+            <button class="btn btn-destructive btn-sm">Remove</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section-note" style="margin-top: 20px;">Video Type Icons</div>
+    <div style="display: flex; gap: 16px; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Video
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Short
+      </div>
+    </div>
+  </div>
+
+
+  </div><!-- /tab-feedback -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Layout                                                ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-layout">
+
+  <!-- ════════════════════ LAYOUT ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Layout</div>
+    <div class="group-heading-desc">Layout Utilities, Page Layout, Sidebar, Panels</div>
+  </div>
+
+  <!-- ═══════════════════ LAYOUT UTILITIES ═══════════════════ -->
+  <div id="layout-utilities" class="section">
+    <div class="section-label">Layout Utilities</div>
+    <div class="section-note">Separator, scroll area, aspect ratio containers.</div>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+      <!-- Separators -->
+      <div style="max-width: 240px; flex:1;">
+        <div class="section-note">Horizontal separator</div>
+        <div style="padding: 12px 0;">Some content above</div>
+        <div class="sep-h"></div>
+        <div style="padding: 12px 0; color: var(--muted-foreground); font-size: 13px;">Content below</div>
+        <div style="display: flex; align-items: center; gap: 16px; margin-top: 16px;">
+          <span style="font-size: 13px;">Left</span>
+          <div class="sep-v"></div>
+          <span style="font-size: 13px;">Right</span>
+        </div>
+      </div>
+      <!-- Scroll area -->
+      <div>
+        <div class="section-note">Scroll area (custom scrollbar)</div>
+        <div class="scroll-demo">
+          <div class="scroll-content">
+            Line 1 — Video metadata<br>Line 2 — Channel info<br>Line 3 — Pipeline status<br>
+            Line 4 — Analytics data<br>Line 5 — Score history<br>Line 6 — Comments<br>
+            Line 7 — Transcript segments<br>Line 8 — Related videos
+          </div>
+          <div class="scroll-thumb"></div>
+        </div>
+      </div>
+      <!-- Aspect ratio -->
+      <div>
+        <div class="section-note">Aspect ratios</div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <div style="width: 120px;">
+            <div style="aspect-ratio: 16/9; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">16:9</div>
+          </div>
+          <div style="width: 60px;">
+            <div style="aspect-ratio: 9/16; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">9:16</div>
+          </div>
+          <div style="width: 80px;">
+            <div style="aspect-ratio: 4/3; background: var(--secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">4:3</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PAGE LAYOUT ═══════════════════ -->
+  <div id="page-layout" class="section">
+    <div class="section-label">Page Layout — Top Bar + Content</div>
+    <div style="border: 1px solid var(--border); border-radius: 12px; overflow: hidden">
+      <div class="topbar-demo">
+        <div class="topbar-title">Stories</div>
+        <div class="topbar-spacer"></div>
+        <button class="icon-btn">
+          <span class="tooltip-text">Re-evaluate</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        </button>
+        <button class="icon-btn icon-btn-primary">
+          <span class="tooltip-text">Ready to publish</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        </button>
+      </div>
+      <div class="content-demo">
+        <div class="pill-row" style="margin-bottom: 16px">
+          <button class="pill pill-active" style="font-size: 11px">All 128</button>
+          <button class="pill" style="font-size: 11px">Liked 42</button>
+          <button class="pill" style="font-size: 11px">Approved 31</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1px">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border)">
+            <div style="width: 48px; height: 32px; background: var(--card); border-radius: 4px; flex-shrink: 0"></div>
+            <div style="flex: 1; min-width: 0">
+              <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Breaking: New Algorithm Changes Everything</div>
+              <div style="font-size: 11px; color: var(--dim)">2 hours ago</div>
+            </div>
+            <span class="badge badge-success" style="font-size: 10px">92</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border)">
+            <div style="width: 48px; height: 32px; background: var(--card); border-radius: 4px; flex-shrink: 0"></div>
+            <div style="flex: 1; min-width: 0">
+              <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">How Saudi Arabia is Leading AI Innovation</div>
+              <div style="font-size: 11px; color: var(--dim)">4 hours ago</div>
+            </div>
+            <span class="badge badge-blue" style="font-size: 10px">78</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0;">
+            <div style="width: 48px; height: 32px; background: var(--card); border-radius: 4px; flex-shrink: 0"></div>
+            <div style="flex: 1; min-width: 0">
+              <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">YouTube Shorts vs TikTok: The Data</div>
+              <div style="font-size: 11px; color: var(--dim)">6 hours ago</div>
+            </div>
+            <span class="badge badge-orange" style="font-size: 10px">65</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+  <div id="sidebar" class="section">
+    <div class="section-label">Sidebar</div>
+    <div class="section-note">Collapsed (icon-only) and expanded states. Active item uses bg-elevated.</div>
+    <div style="display: flex; gap: 24px;">
+      <!-- Collapsed -->
+      <div>
+        <div class="section-note">Collapsed (56px)</div>
+        <div class="sidebar-demo">
+          <div class="sidebar-mock">
+            <div class="avatar avatar-sm" style="background: var(--primary); color: var(--primary-foreground); margin-bottom: 12px;">F</div>
+            <div class="sidebar-nav-item active">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <div class="sidebar-nav-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+            <div class="sidebar-nav-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div class="sidebar-nav-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            </div>
+          </div>
+          <div class="sidebar-content-area">Page content</div>
+        </div>
+      </div>
+      <!-- Expanded -->
+      <div>
+        <div class="section-note">Expanded (220px)</div>
+        <div class="sidebar-demo">
+          <div class="sidebar-mock-expanded">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px;">
+              <div class="avatar avatar-sm" style="background: var(--primary); color: var(--primary-foreground);">F</div>
+              <span style="font-size: 13px; font-weight: 600;">Falak</span>
+            </div>
+            <div class="sidebar-nav-expanded active">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Dashboard
+            </div>
+            <div class="sidebar-nav-expanded">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              Pipeline
+            </div>
+            <div class="sidebar-nav-expanded">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Stories
+            </div>
+            <div class="sidebar-nav-expanded">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              Gallery
+            </div>
+          </div>
+          <div class="sidebar-content-area">Page content</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PANELS ═══════════════════ -->
+  <div id="panels" class="section">
+    <div class="section-label">Panels — Right Panel</div>
+    <div class="section-note">Floating panel for channel/video details. Absolute positioned over content.</div>
+    <div class="panel-demo">
+      <div style="padding: 16px; font-size: 12px; color: var(--dim);">Page content underneath the panel</div>
+      <div class="panel-float">
+        <div class="panel-header">
+          <span style="font-size: 13px; font-weight: 600;">Channel Info</span>
+          <button class="icon-btn" style="width: 24px; height: 24px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="panel-section-label">Overview</div>
+        <div class="panel-info-row"><span class="panel-info-key">Videos</span><span class="panel-info-value">142</span></div>
+        <div class="panel-info-row"><span class="panel-info-key">Subscribers</span><span class="panel-info-value">1.2M</span></div>
+        <div class="panel-info-row"><span class="panel-info-key">Country</span><span class="panel-info-value">SA</span></div>
+        <div class="panel-section-label">Actions</div>
+        <div style="display: flex; gap: 8px; padding: 4px 16px 12px;">
+          <button class="icon-btn" style="width: 28px; height: 28px;">
+            <span class="tooltip-text">Sync</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          </button>
+          <button class="icon-btn icon-btn-primary" style="width: 28px; height: 28px;">
+            <span class="tooltip-text">Analyze</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          <button class="icon-btn icon-btn-destructive" style="width: 28px; height: 28px;">
+            <span class="tooltip-text">Remove</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  </div><!-- /tab-layout -->
+
+  <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+  <!-- ║  TAB: Features                                              ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+  <div class="tab-panel" id="tab-features">
+
+  <!-- ════════════════════ FEATURES ════════════════════ -->
+  <div class="group-heading group-heading-first">
+    <div class="group-heading-title">Features</div>
+    <div class="group-heading-desc">Uploads, Gallery, Story Detail, Script Editor, Kanban Pipeline</div>
+  </div>
+
+  <!-- ═══════════════════ UPLOADS ═══════════════════ -->
+  <div id="uploads" class="section">
+    <div class="section-label">Uploads</div>
+    <div class="section-note">Upload zone (drag & drop) and progress indicators.</div>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+      <!-- Upload zone -->
+      <div style="flex: 1; min-width: 280px;">
+        <div class="section-note">Upload Zone</div>
+        <div class="upload-zone-demo">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div style="font-size: 13px; color: var(--dim);">Drag files here or click to browse</div>
+          <button class="btn btn-outline btn-sm">Browse Files</button>
+        </div>
+      </div>
+      <!-- Upload indicators -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="section-note">Upload Indicator — in progress</div>
+        <div class="upload-indicator-demo">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--foreground);">video-final-cut.mp4</span>
+            <span style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--blue);">67%</span>
+          </div>
+          <div class="upload-progress-bar">
+            <div class="upload-progress-fill" style="width: 67%; background: var(--blue);"></div>
+          </div>
+        </div>
+        <div class="section-note">Upload Indicator — completed</div>
+        <div class="upload-indicator-demo">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--foreground);">thumbnail.png</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="hsl(142 50% 45%)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="upload-progress-bar">
+            <div class="upload-progress-fill" style="width: 100%; background: var(--success);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ GALLERY ═══════════════════ -->
+  <div id="gallery" class="section">
+    <div class="section-label">Gallery</div>
+    <div class="section-note">Album cards and media grid with selection.</div>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+      <!-- Album cards -->
+      <div style="display: flex; gap: 12px;">
+        <div class="album-card" style="width: 160px;">
+          <div class="album-cover">
+            <div class="album-gradient"></div>
+          </div>
+          <div class="album-info">
+            <div style="font-size: 13px; font-weight: 500;">B-Roll</div>
+            <div style="font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">24 items</div>
+          </div>
+        </div>
+        <div class="album-card" style="width: 160px;">
+          <div class="album-cover" style="background: var(--card);">
+            <div class="album-gradient"></div>
+          </div>
+          <div class="album-info">
+            <div style="font-size: 13px; font-weight: 500;">Thumbnails</div>
+            <div style="font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace;">8 items</div>
+          </div>
+        </div>
+      </div>
+      <!-- Media grid -->
+      <div style="flex: 1; min-width: 240px;">
+        <div class="section-note">Media Grid with selection</div>
+        <div class="gallery-grid">
+          <div class="gallery-cell">
+            <div class="gallery-select selected"></div>
+            <div class="gallery-overlay">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </div>
+          </div>
+          <div class="gallery-cell" style="background: var(--card);">
+            <div class="gallery-select"></div>
+          </div>
+          <div class="gallery-cell">
+            <div class="gallery-select"></div>
+          </div>
+          <div class="gallery-cell" style="background: var(--card);">
+            <div class="gallery-select selected"></div>
+          </div>
+          <div class="gallery-cell">
+            <div class="gallery-select"></div>
+          </div>
+          <div class="gallery-cell" style="background: var(--card);">
+            <div class="gallery-select"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ STORY DETAIL ═══════════════════ -->
+  <div id="story-detail" class="section">
+    <div class="section-label">Story Detail — Score Bars</div>
+    <div class="section-note">Horizontal score bars for Relevance, Virality, and First Mover metrics.</div>
+    <div class="score-bar-row">
+      <div class="score-bar-cell">
+        <div class="stat-label">Relevance</div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 18px; font-weight: 600;">82%</span>
+        </div>
+        <div class="score-bar-track">
+          <div class="score-bar-fill" style="width: 82%; background: var(--purple);"></div>
+        </div>
+      </div>
+      <div class="score-bar-cell">
+        <div class="stat-label">Virality</div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 18px; font-weight: 600;">64%</span>
+        </div>
+        <div class="score-bar-track">
+          <div class="score-bar-fill" style="width: 64%; background: var(--blue);"></div>
+        </div>
+      </div>
+      <div class="score-bar-cell">
+        <div class="stat-label">First Mover</div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-size: 18px; font-weight: 600;">91%</span>
+        </div>
+        <div class="score-bar-track">
+          <div class="score-bar-fill" style="width: 91%; background: var(--success);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ EDITOR ═══════════════════ -->
+  <div id="editor" class="section">
+    <div class="section-label">Script Editor</div>
+    <div class="section-note">Tiptap editor with floating toolbar, script blocks, and slash command menu.</div>
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start;">
+      <!-- Editor mock -->
+      <div style="flex: 1; min-width: 320px;">
+        <div class="editor-demo">
+          <div class="editor-toolbar">
+            <button class="editor-toolbar-btn active">B</button>
+            <button class="editor-toolbar-btn"><em>I</em></button>
+            <button class="editor-toolbar-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </button>
+          </div>
+          <div class="editor-body">
+            <div class="script-block-demo" style="border-color: var(--orange);">
+              <div class="script-block-label-demo" style="color: var(--orange);">
+                <div class="script-block-dot" style="background: var(--orange);"></div>
+                Title
+              </div>
+              <div class="script-block-content-demo">Breaking: New Algorithm Changes Everything for Creators</div>
+            </div>
+            <div class="script-block-demo" style="border-color: var(--blue);">
+              <div class="script-block-label-demo" style="color: var(--blue);">
+                <div class="script-block-dot" style="background: var(--blue);"></div>
+                Hook
+              </div>
+              <div class="script-block-content-demo">YouTube just released their biggest algorithm update in years and it's going to change how every creator makes content.</div>
+            </div>
+            <div class="script-block-demo" style="border-color: var(--primary);">
+              <div class="script-block-label-demo" style="color: var(--primary);">
+                <div class="script-block-dot" style="background: var(--primary);"></div>
+                Script
+              </div>
+              <div class="script-block-content-demo" style="color: var(--muted-foreground);">Start writing the main script body here...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Slash menu -->
+      <div>
+        <div class="section-note">Slash command menu (/)</div>
+        <div class="slash-menu-demo">
+          <div class="slash-menu-item-demo selected">
+            <div class="slash-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+            </div>
+            <div>
+              <div class="slash-menu-text-demo">Script Block</div>
+              <div class="slash-menu-desc-demo">Add a script section</div>
+            </div>
+          </div>
+          <div class="slash-menu-item-demo">
+            <div class="slash-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M4 18h16"/><path d="M4 6h16"/></svg>
+            </div>
+            <div>
+              <div class="slash-menu-text-demo">Paragraph</div>
+              <div class="slash-menu-desc-demo">Plain text block</div>
+            </div>
+          </div>
+          <div class="slash-menu-item-demo">
+            <div class="slash-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"/><path d="M4 18h6"/><path d="M4 6h16"/></svg>
+            </div>
+            <div>
+              <div class="slash-menu-text-demo">Heading</div>
+              <div class="slash-menu-desc-demo">Section heading</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1098,162 +2588,27 @@
     </div>
   </div>
 
-  <!-- ═══════════════════ TOASTS ═══════════════════ -->
-  <div id="toasts" class="section">
-    <div class="section-label">Toast Notifications</div>
-    <div class="toast-row">
-      <div class="toast-demo">
-        <div class="toast-dot" style="background: var(--success)"></div>
-        <span>Channel synced</span>
-      </div>
-      <div class="toast-demo">
-        <div class="toast-dot" style="background: var(--destructive)"></div>
-        <span>Failed to save script</span>
-      </div>
-      <div class="toast-demo">
-        <div class="toast-dot" style="background: var(--blue)"></div>
-        <span>Generating script…</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════ LOADING / EMPTY ═══════════════════ -->
-  <div id="loading-empty" class="section">
-    <div class="section-label">Loading & Empty States</div>
-    <div class="section-note">Loader: Lucide Loader2 with animate-spin. Empty: shared EmptyState component with icon, title, description.</div>
-    <div class="state-demo">
-      <div class="state-box">
-        <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        <div style="font-size: 13px; color: var(--muted-foreground)">Loading channel data…</div>
-      </div>
-      <div class="state-box">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5" opacity="0.5">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <path d="M21 15l-5-5L5 21"/>
-        </svg>
-        <div style="font-size: 13px; color: var(--dim); font-family: 'JetBrains Mono', monospace">No media found</div>
-      </div>
-      <div class="state-box">
-        <div style="width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: flex-start">
-          <div class="skeleton" style="height: 14px; width: 60%"></div>
-          <div class="skeleton" style="height: 14px; width: 100%"></div>
-          <div class="skeleton" style="height: 14px; width: 80%"></div>
-          <div class="skeleton" style="height: 14px; width: 45%"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════ PAGE LAYOUT ═══════════════════ -->
-  <div id="page-layout" class="section">
-    <div class="section-label">Page Layout — Top Bar + Content</div>
-    <div style="border: 1px solid var(--border); border-radius: 12px; overflow: hidden">
-      <div class="topbar-demo">
-        <div class="topbar-title">Stories</div>
-        <div class="topbar-spacer"></div>
-        <button class="icon-btn">
-          <span class="tooltip-text">Re-evaluate</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-        </button>
-        <button class="icon-btn icon-btn-primary">
-          <span class="tooltip-text">Ready to publish</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        </button>
-      </div>
-      <div class="content-demo">
-        <div class="pill-row" style="margin-bottom: 16px">
-          <button class="pill pill-active" style="font-size: 11px">All 128</button>
-          <button class="pill" style="font-size: 11px">Liked 42</button>
-          <button class="pill" style="font-size: 11px">Approved 31</button>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 1px">
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border)">
-            <div style="width: 48px; height: 32px; background: var(--card); border-radius: 4px; flex-shrink: 0"></div>
-            <div style="flex: 1; min-width: 0">
-              <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Breaking: New Algorithm Changes Everything</div>
-              <div style="font-size: 11px; color: var(--dim)">2 hours ago</div>
-            </div>
-            <span class="badge badge-success" style="font-size: 10px">92</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border)">
-            <div style="width: 48px; height: 32px; background: var(--card); border-radius: 4px; flex-shrink: 0"></div>
-            <div style="flex: 1; min-width: 0">
-              <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">How Saudi Arabia is Leading AI Innovation</div>
-              <div style="font-size: 11px; color: var(--dim)">4 hours ago</div>
-            </div>
-            <span class="badge badge-blue" style="font-size: 10px">78</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0;">
-            <div style="width: 48px; height: 32px; background: var(--card); border-radius: 4px; flex-shrink: 0"></div>
-            <div style="flex: 1; min-width: 0">
-              <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">YouTube Shorts vs TikTok: The Data</div>
-              <div style="font-size: 11px; color: var(--dim)">6 hours ago</div>
-            </div>
-            <span class="badge badge-orange" style="font-size: 10px">65</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════ SPACING ═══════════════════ -->
-  <div id="spacing" class="section">
-    <div class="section-label">Spacing Scale</div>
-    <div class="spacing-grid">
-      <div style="text-align: center">
-        <div class="spacing-block" style="width: 32px; height: 4px"></div>
-        <div class="spacing-label">4px<br>gap-1</div>
-      </div>
-      <div style="text-align: center">
-        <div class="spacing-block" style="width: 32px; height: 8px"></div>
-        <div class="spacing-label">8px<br>gap-2</div>
-      </div>
-      <div style="text-align: center">
-        <div class="spacing-block" style="width: 32px; height: 12px"></div>
-        <div class="spacing-label">12px<br>gap-3</div>
-      </div>
-      <div style="text-align: center">
-        <div class="spacing-block" style="width: 32px; height: 16px"></div>
-        <div class="spacing-label">16px<br>gap-4</div>
-      </div>
-      <div style="text-align: center">
-        <div class="spacing-block" style="width: 32px; height: 20px"></div>
-        <div class="spacing-label">20px<br>gap-5</div>
-      </div>
-      <div style="text-align: center">
-        <div class="spacing-block" style="width: 32px; height: 24px"></div>
-        <div class="spacing-label">24px<br>gap-6</div>
-      </div>
-      <div style="text-align: center">
-        <div class="spacing-block" style="width: 32px; height: 32px"></div>
-        <div class="spacing-label">32px<br>gap-8</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════ BORDERS ═══════════════════ -->
-  <div id="borders" class="section">
-    <div class="section-label">Borders & Radius</div>
-    <div style="display: flex; gap: 16px; flex-wrap: wrap">
-      <div style="width: 120px; height: 80px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
-        sharp (0px)
-      </div>
-      <div style="width: 120px; height: 80px; border: 1px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
-        rounded-lg
-      </div>
-      <div style="width: 120px; height: 80px; border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
-        rounded-xl
-      </div>
-      <div style="width: 120px; height: 80px; border: 1px solid var(--border); border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--dim); font-family: 'JetBrains Mono', monospace">
-        rounded-full
-      </div>
-    </div>
-  </div>
+  </div><!-- /tab-features -->
 
 </div>
 
 <script>
+/* ═══════════════════ Tab switching ═══════════════════ */
+function switchTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  var panel = document.getElementById('tab-' + id);
+  var btn = document.querySelector('.tab-btn[data-tab="' + id + '"]');
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  history.replaceState(null, '', '#' + id);
+}
+(function() {
+  var hash = location.hash.replace('#', '');
+  if (hash && document.getElementById('tab-' + hash)) switchTab(hash);
+})();
+
 var arrowSvg = '<svg class="sort-arrow" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2v6"/><path d="M2.5 4.5 5 2l2.5 2.5"/></svg>';
 function sortCol(el) {
   var header = el.closest('.table-header');
@@ -1270,6 +2625,193 @@ function sortCol(el) {
   }
   el.insertAdjacentHTML('beforeend', arrowSvg);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Color Editor — visual token editing
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  var root = document.documentElement;
+  var originalTokens = {};
+  var currentChanges = {};
+
+  function hslToHex(hslStr) {
+    var tmp = document.createElement('div');
+    tmp.style.color = hslStr;
+    document.body.appendChild(tmp);
+    var rgb = getComputedStyle(tmp).color;
+    document.body.removeChild(tmp);
+    var m = rgb.match(/(\d+)/g);
+    if (!m) return '#000000';
+    return '#' + m.slice(0,3).map(function(v) {
+      return ('0' + parseInt(v).toString(16)).slice(-2);
+    }).join('');
+  }
+
+  function hexToHsl(hex) {
+    var r = parseInt(hex.slice(1,3), 16) / 255;
+    var g = parseInt(hex.slice(3,5), 16) / 255;
+    var b = parseInt(hex.slice(5,7), 16) / 255;
+    var max = Math.max(r,g,b), min = Math.min(r,g,b);
+    var h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch(max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+    return 'hsl(' + Math.round(h * 360) + ' ' + Math.round(s * 100) + '% ' + Math.round(l * 100) + '%)';
+  }
+
+  function captureOriginals() {
+    var style = getComputedStyle(root);
+    document.querySelectorAll('.swatch-var').forEach(function(el) {
+      var name = el.textContent.trim();
+      if (name.startsWith('--')) {
+        var val = style.getPropertyValue(name).trim();
+        if (val) originalTokens[name] = val;
+      }
+    });
+    document.querySelectorAll('.surface-token').forEach(function(el) {
+      var name = el.textContent.trim();
+      if (name.startsWith('--')) {
+        var val = style.getPropertyValue(name).trim();
+        if (val) originalTokens[name] = val;
+      }
+    });
+  }
+
+  function injectSwatchPickers() {
+    document.querySelectorAll('.swatch').forEach(function(swatch) {
+      var varEl = swatch.querySelector('.swatch-var');
+      if (!varEl) return;
+      var tokenName = varEl.textContent.trim();
+      if (!tokenName.startsWith('--')) return;
+
+      var colorDiv = swatch.querySelector('.swatch-color');
+      if (!colorDiv) return;
+
+      var currentColor = getComputedStyle(colorDiv).backgroundColor;
+      var hex = rgbToHex(currentColor);
+
+      var wrapper = document.createElement('div');
+      wrapper.className = 'swatch-picker';
+      var input = document.createElement('input');
+      input.type = 'color';
+      input.value = hex;
+      input.dataset.token = tokenName;
+      input.addEventListener('input', function(e) {
+        applyColor(tokenName, e.target.value, swatch);
+      });
+      wrapper.appendChild(input);
+      colorDiv.appendChild(wrapper);
+    });
+  }
+
+  function injectSurfacePickers() {
+    document.querySelectorAll('.surface-block').forEach(function(block) {
+      var tokenEl = block.querySelector('.surface-token');
+      if (!tokenEl) return;
+      var tokenName = tokenEl.textContent.trim();
+      if (!tokenName.startsWith('--')) return;
+
+      var currentColor = getComputedStyle(block).backgroundColor;
+      var hex = rgbToHex(currentColor);
+
+      var wrapper = document.createElement('div');
+      wrapper.className = 'surface-picker';
+      var input = document.createElement('input');
+      input.type = 'color';
+      input.value = hex;
+      input.dataset.token = tokenName;
+      input.addEventListener('input', function(e) {
+        applyColor(tokenName, e.target.value, block);
+      });
+      wrapper.appendChild(input);
+      block.appendChild(wrapper);
+    });
+  }
+
+  function rgbToHex(rgb) {
+    if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') return '#000000';
+    var m = rgb.match(/[\d.]+/g);
+    if (!m || m.length < 3) return '#000000';
+    return '#' + m.slice(0,3).map(function(v) {
+      var n = Math.round(parseFloat(v));
+      return ('0' + Math.min(255, Math.max(0, n)).toString(16)).slice(-2);
+    }).join('');
+  }
+
+  function applyColor(tokenName, hexVal, element) {
+    var hslVal = hexToHsl(hexVal);
+    root.style.setProperty(tokenName, hslVal);
+    currentChanges[tokenName] = hslVal;
+
+    if (element) element.classList.add('changed');
+    updateChangeCount();
+  }
+
+  function updateChangeCount() {
+    var count = Object.keys(currentChanges).length;
+    var el = document.getElementById('changeCount');
+    if (el) el.textContent = count > 0 ? count + ' change' + (count > 1 ? 's' : '') : '';
+  }
+
+  window.toggleEditor = function() {
+    var bar = document.getElementById('editorBar');
+    var btn = document.getElementById('editorToggle');
+    var active = document.body.classList.toggle('editor-active');
+    bar.classList.toggle('active', active);
+    btn.classList.toggle('active', active);
+    btn.textContent = active ? 'Exit Editor' : 'Edit Colors';
+  };
+
+  window.resetColors = function() {
+    Object.keys(originalTokens).forEach(function(name) {
+      root.style.removeProperty(name);
+    });
+    currentChanges = {};
+    document.querySelectorAll('.changed').forEach(function(el) {
+      el.classList.remove('changed');
+    });
+    document.querySelectorAll('.swatch-picker input, .surface-picker input').forEach(function(input) {
+      var token = input.dataset.token;
+      if (token && originalTokens[token]) {
+        input.value = hslToHex(originalTokens[token]);
+      }
+    });
+    updateChangeCount();
+  };
+
+  window.copyChanges = function() {
+    var count = Object.keys(currentChanges).length;
+    if (count === 0) {
+      alert('No changes to copy. Pick some colors first!');
+      return;
+    }
+    var lines = Object.keys(currentChanges).map(function(name) {
+      return name + ': ' + currentChanges[name] + ';';
+    });
+    var text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(function() {
+      var btn = document.querySelector('.editor-btn-copy');
+      var orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.style.background = 'hsl(142 50% 45%)';
+      setTimeout(function() {
+        btn.textContent = orig;
+        btn.style.background = '';
+      }, 1500);
+    });
+  };
+
+  captureOriginals();
+  injectSwatchPickers();
+  injectSurfacePickers();
+})();
 </script>
 </body>
 </html>

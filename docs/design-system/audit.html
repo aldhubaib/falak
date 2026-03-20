@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Falak DLS — Audit Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --background: hsl(240 4% 6%); --foreground: hsl(0 0% 93%); --card: hsl(240 4% 6%);
+    --primary: hsl(217 72% 56%); --destructive: hsl(0 72% 51%);
+    --success: hsl(142 50% 45%); --orange: hsl(25 90% 55%);
+    --border: hsl(228 8% 9%); --sensor: hsl(0 0% 60%); --dim: hsl(0 0% 40%);
+    --secondary: hsl(0 0% 10%); --elevated: hsl(0 0% 13%); --hover: hsl(0 0% 10%);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--background); color: var(--foreground); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; line-height: 1.5; }
+  .page { max-width: 1100px; margin: 0 auto; padding: 48px 32px 80px; }
+  .page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .page-subtitle { color: var(--sensor); font-size: 14px; margin-bottom: 8px; }
+  .timestamp { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--dim); margin-bottom: 32px; }
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .summary { display: flex; gap: 12px; margin-bottom: 40px; flex-wrap: wrap; }
+  .summary-card { flex: 1; min-width: 120px; padding: 16px 20px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); }
+  .summary-value { font-size: 28px; font-weight: 700; margin-bottom: 2px; }
+  .summary-label { font-size: 10px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); }
+
+  .severity-group { margin-bottom: 48px; }
+  .severity-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .severity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .rule-block { margin-bottom: 24px; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: var(--card); }
+  .rule-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; }
+  .rule-header:hover { background: var(--secondary); }
+  .rule-name { font-size: 14px; font-weight: 600; }
+  .rule-desc { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .rule-count { font-size: 12px; font-family: 'JetBrains Mono', monospace; padding: 2px 10px; border-radius: 9999px; border: 1px solid var(--border); flex-shrink: 0; }
+  .rule-pass { color: var(--success); border-color: currentColor; }
+  .rule-fail { color: var(--destructive); border-color: currentColor; }
+  .rule-warn { color: var(--orange); border-color: currentColor; }
+
+  .rule-body { display: none; border-top: 1px solid var(--border); }
+  .rule-block.open .rule-body { display: block; }
+  .finding-row { display: grid; grid-template-columns: minmax(200px, 1fr) 60px 1fr; padding: 8px 20px; border-bottom: 1px solid var(--border); font-size: 12px; gap: 12px; align-items: start; }
+  .finding-row:last-child { border-bottom: none; }
+  .finding-file { font-family: 'JetBrains Mono', monospace; color: var(--sensor); word-break: break-all; }
+  .finding-line { font-family: 'JetBrains Mono', monospace; color: var(--dim); text-align: center; }
+  .finding-code { font-family: 'JetBrains Mono', monospace; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .finding-match { background: hsl(0 72% 51% / 0.15); color: var(--destructive); padding: 0 4px; border-radius: 3px; }
+
+  .clean-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .clean-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--border); font-size: 12px; color: var(--success); }
+  .clean-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 class="page-title">DLS Audit Report</h1>
+  <p class="page-subtitle">Automated scan of the codebase against the Design Language System</p>
+  <p class="timestamp">Generated: 2026-03-20 04:05:31 UTC · <a href="preview.html">← Back to DLS Preview</a></p>
+
+  <div class="summary">
+    <div class="summary-card">
+      <div class="summary-value">309</div>
+      <div class="summary-label">Total Findings</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value" style="color: var(--destructive)">1</div>
+      <div class="summary-label">High</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value" style="color: var(--orange)">66</div>
+      <div class="summary-label">Medium</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value" style="color: var(--dim)">242</div>
+      <div class="summary-label">Low</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value" style="color: var(--success)">6/10</div>
+      <div class="summary-label">Rules Passing</div>
+    </div>
+  </div>
+  <div style="margin-bottom: 40px;">
+    <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--success);">Passing Rules</div>
+    <div class="clean-list">
+      <div class="clean-badge"><span class="clean-dot"></span>Hardcoded rgba() / rgb()</div>
+      <div class="clean-badge"><span class="clean-dot"></span>window.confirm() / window.alert()</div>
+      <div class="clean-badge"><span class="clean-dot"></span>Inline fontSize style</div>
+      <div class="clean-badge"><span class="clean-dot"></span>&lt;hr&gt; tag</div>
+      <div class="clean-badge"><span class="clean-dot"></span>Non-Lucide icon import</div>
+      <div class="clean-badge"><span class="clean-dot"></span>Non-shadcn component library import</div>
+    </div>
+  </div>
+
+  <div class="severity-group">
+    <div class="severity-title"><span class="severity-dot" style="background: var(--destructive)"></span>High Severity</div>
+    <div class="rule-block" onclick="this.classList.toggle('open')">
+      <div class="rule-header">
+        <div>
+          <div class="rule-name">Hardcoded hex color</div>
+          <div class="rule-desc">Use token classes (bg-primary, text-foreground, border-border) instead of raw hex.</div>
+        </div>
+        <span class="rule-count rule-fail">1</span>
+      </div>
+      <div class="rule-body">
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:443</span>
+          <span class="finding-code"><span class="finding-match">color: &quot;#888&quot;</span> : { name: &quot;Anonymous&quot;, color: &quot;#888&quot; },</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="severity-group">
+    <div class="severity-title"><span class="severity-dot" style="background: var(--orange)"></span>Medium Severity</div>
+    <div class="rule-block" onclick="this.classList.toggle('open')">
+      <div class="rule-header">
+        <div>
+          <div class="rule-name">Native title=&quot;&quot; attribute</div>
+          <div class="rule-desc">Use the shadcn Tooltip component instead of native title.</div>
+        </div>
+        <span class="rule-count rule-warn">66</span>
+      </div>
+      <div class="rule-body">
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:172</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Bold&quot;</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;bold&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor.c</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:175</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Italic&quot;</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;italic&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:178</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Underline&quot;</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;underline&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; edi</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:181</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Strikethrough&quot;</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;strike&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:184</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Inline code&quot;</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;code&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor.c</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:187</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Highlight&quot;</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;highlight&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; edi</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:191</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Link&quot;</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;link&quot;) ? active : &quot;text-white/70&quot;}`} onClick={setLink} title</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/VideoRightPanel.tsx</span>
+          <span class="finding-line">:64</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Re-analyze&quot;</span> &lt;button title=&quot;Re-analyze&quot; className=&quot;w-10 h-10 rounded-full flex items-center justify-center bg-primary/10 border borde</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/VideoRightPanel.tsx</span>
+          <span class="finding-line">:67</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Open on YouTube&quot;</span> &lt;button title=&quot;Open on YouTube&quot; className=&quot;w-10 h-10 rounded-full flex items-center justify-center bg-elevated border bo</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaGrid.tsx</span>
+          <span class="finding-line">:94</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No media found&quot;</span> &lt;EmptyState icon={Image} title=&quot;No media found&quot; className=&quot;h-64&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:121</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;File&quot;</span> &lt;MetadataSection title=&quot;File&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:221</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Timestamp&quot;</span> &lt;MetadataSection title=&quot;Timestamp&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:228</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Location&quot;</span> &lt;MetadataSection title=&quot;Location&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:245</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Camera&quot;</span> &lt;MetadataSection title=&quot;Camera&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:253</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Settings&quot;</span> &lt;MetadataSection title=&quot;Settings&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:263</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Video&quot;</span> &lt;MetadataSection title=&quot;Video&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:271</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Audio&quot;</span> &lt;MetadataSection title=&quot;Audio&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:279</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Software&quot;</span> &lt;MetadataSection title=&quot;Software&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaViewer.tsx</span>
+          <span class="finding-line">:285</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Color&quot;</span> &lt;MetadataSection title=&quot;Color&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailTopBar.tsx</span>
+          <span class="finding-line">:136</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Score History&quot;</span> title=&quot;Score History&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/AlbumDetail.tsx</span>
+          <span class="finding-line">:197</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;This album is empty&quot;</span> &lt;EmptyState icon={Plus} title=&quot;This album is empty&quot; className=&quot;h-64&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1627</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Bust cache and reload&quot;</span> title=&quot;Bust cache and reload&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:608</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Show details&quot;</span> title=&quot;Show details&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:1023</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No classification data yet&quot;</span> return &lt;EmptyState icon={Brain} title=&quot;No classification data yet&quot; /&gt;;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:1092</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No scoring data yet&quot;</span> return &lt;EmptyState icon={Sparkles} title=&quot;No scoring data yet&quot; /&gt;;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:713</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Needs Attention&quot;</span> &lt;SectionHeader icon={AlertTriangle} title=&quot;Needs Attention&quot; subtitle=&quot;Review and failed articles&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Competitions.tsx</span>
+          <span class="finding-line">:210</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No competitor channels yet&quot;</span> &lt;EmptyState title=&quot;No competitor channels yet&quot; description=&quot;Add your first competitor above.&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:534</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No albums yet&quot;</span> &lt;EmptyState icon={FolderPlus} title=&quot;No albums yet&quot; className=&quot;h-64&quot;&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:405</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No channels found&quot;</span> &lt;EmptyState title=&quot;No channels found&quot; className=&quot;h-32&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ProfileHome.tsx</span>
+          <span class="finding-line">:542</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No growth data yet&quot;</span> &lt;EmptyState icon={TrendingUp} title=&quot;No growth data yet&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ProfileHome.tsx</span>
+          <span class="finding-line">:583</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No videos yet&quot;</span> &lt;EmptyState icon={Video} title=&quot;No videos yet&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:766</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Retry if stuck&quot;</span> title=&quot;Retry if stuck&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:642</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No API calls recorded yet for this project&quot;</span> &lt;EmptyState icon={Activity} title=&quot;No API calls recorded yet for this project&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:164</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No sources yet&quot;</span> &lt;EmptyState icon={Package} title=&quot;No sources yet&quot; description=&quot;Add an RSS feed or Apify actor to get started.&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:354</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Re-import this run&quot;</span> &lt;button onClick={handleFetch} disabled={fetching} title=&quot;Re-import this run&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:475</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Check for new articles&quot;</span> className=&quot;w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-success hover:bg-success/10 transitio</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:479</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Test connection&quot;</span> className=&quot;w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transiti</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:483</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Edit&quot;</span> className=&quot;w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transiti</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:492</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Delete&quot;</span> className=&quot;w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-red-400 hover:bg-red-400/10 transitio</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:226</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Could not load stories&quot;</span> title=&quot;Could not load stories&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:265</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Refresh competition stats, learn from decisions, and re-score all active stories&quot;</span> title=&quot;Refresh competition stats, learn from decisions, and re-score all active stories&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:363</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No stories in this stage&quot;</span> &lt;EmptyState title=&quot;No stories in this stage&quot; className=&quot;h-32&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/StoryDetail.tsx</span>
+          <span class="finding-line">:1146</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No re-evaluation history yet&quot;</span> &lt;EmptyState icon={RefreshCw} title=&quot;No re-evaluation history yet&quot; description=&quot;Scores will update automatically every 24</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/StoryDetail.tsx</span>
+          <span class="finding-line">:1199</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No edit history yet&quot;</span> &lt;EmptyState icon={History} title=&quot;No edit history yet&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:172</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Data Collection&quot;</span> title=&quot;Data Collection&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:188</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Embedding&quot;</span> title=&quot;Embedding&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:203</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Self-Learning&quot;</span> title=&quot;Self-Learning&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:218</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Re-scoring&quot;</span> title=&quot;Re-scoring&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:236</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Embedding Coverage&quot;</span> &lt;SectionHeader icon={Database} title=&quot;Embedding Coverage&quot; subtitle=&quot;Vector storage status for competition videos and sto</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:240</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Competition Videos&quot;</span> title=&quot;Competition Videos&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:249</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Stories&quot;</span> title=&quot;Stories&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:263</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Self-Learning Profile&quot;</span> &lt;SectionHeader icon={Brain} title=&quot;Self-Learning Profile&quot; subtitle=&quot;AI accuracy calibration and learned content signals&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:305</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Content Type Signals&quot;</span> title=&quot;Content Type Signals&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:314</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Tag Signals&quot;</span> title=&quot;Tag Signals&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:325</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Region Signals&quot;</span> title=&quot;Region Signals&quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:333</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No learning profile yet&quot;</span> &lt;EmptyState icon={Brain} title=&quot;No learning profile yet&quot; description=&quot;Needs at least 5 decisions and 3 outcomes with You</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:340</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Competition Intelligence&quot;</span> &lt;SectionHeader icon={Target} title=&quot;Competition Intelligence&quot; subtitle=&quot;Stories matched against competitor videos via se</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:352</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No competition matches found yet&quot;</span> &lt;EmptyState icon={Target} title=&quot;No competition matches found yet&quot; description=&quot;Embeddings will be compared during next </span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:391</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Score Changes &amp; Alerts&quot;</span> &lt;SectionHeader icon={Activity} title=&quot;Score Changes &amp; Alerts&quot; subtitle=&quot;Recent re-scoring activity and intelligence noti</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:407</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No re-scores yet&quot;</span> &lt;EmptyState icon={Activity} title=&quot;No re-scores yet&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:510</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;Scoring Formula&quot;</span> &lt;SectionHeader icon={Cpu} title=&quot;Scoring Formula&quot; subtitle=&quot;How the composite score is computed during re-evaluation&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:547</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;System Status&quot;</span> &lt;SectionHeader icon={Shield} title=&quot;System Status&quot; subtitle=&quot;Worker health and operational details&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:384</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No transcript available yet&quot;</span> &lt;EmptyState icon={FileText} title=&quot;No transcript available yet&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:405</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No topics yet&quot;</span> : &lt;EmptyState icon={Hash} title=&quot;No topics yet&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:417</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No keywords yet&quot;</span> : &lt;EmptyState icon={Tag} title=&quot;No keywords yet&quot; /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:490</span>
+          <span class="finding-code"><span class="finding-match">title=&quot;No comments yet&quot;</span> &lt;EmptyState icon={MessageSquare} title=&quot;No comments yet&quot; /&gt;</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="severity-group">
+    <div class="severity-title"><span class="severity-dot" style="background: var(--dim)"></span>Low Severity</div>
+    <div class="rule-block" onclick="this.classList.toggle('open')">
+      <div class="rule-header">
+        <div>
+          <div class="rule-name">Inline borderRadius style</div>
+          <div class="rule-desc">Use Tailwind rounded-* classes instead of inline borderRadius.</div>
+        </div>
+        <span class="rule-count ">3</span>
+      </div>
+      <div class="rule-body">
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Competitions.tsx</span>
+          <span class="finding-line">:165</span>
+          <span class="finding-code"><span class="finding-match">borderRadius: &quot;20</span> style={{ borderRadius: &quot;20px&quot; }}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Competitions.tsx</span>
+          <span class="finding-line">:189</span>
+          <span class="finding-code"><span class="finding-match">borderRadius: &quot;20</span> style={{ borderRadius: &quot;20px&quot; }}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Competitions.tsx</span>
+          <span class="finding-line">:195</span>
+          <span class="finding-code"><span class="finding-match">borderRadius: &quot;20</span> style={{ borderRadius: &quot;20px&quot; }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="rule-block" onclick="this.classList.toggle('open')">
+      <div class="rule-header">
+        <div>
+          <div class="rule-name">className string concatenation</div>
+          <div class="rule-desc">Use cn() from @/lib/utils for className composition, not template literals or +.</div>
+        </div>
+        <span class="rule-count ">239</span>
+      </div>
+      <div class="rule-body">
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/AppLayout.tsx</span>
+          <span class="finding-line">:106</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`fixed top-0 left-0 w-[260px] h-screen bg-background border-r border-border z-[600] transition-transform dura</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/AppLayout.tsx</span>
+          <span class="finding-line">:115</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;main className={`flex-1 min-w-0 bg-card relative z-10 ${isDesktop ? &quot;pt-0 rounded-l-2xl&quot; : &quot;pt-12&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/AppSidebar.tsx</span>
+          <span class="finding-line">:68</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`flex flex-col bg-sidebar transition-all duration-200 ${isMobile ? &quot;h-full&quot; : `${sidebarWidth} h-screen </span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/AppSidebar.tsx</span>
+          <span class="finding-line">:118</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/AppSidebar.tsx</span>
+          <span class="finding-line">:152</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full flex items-center ${collapsed ? &quot;justify-center&quot; : &quot;&quot;} gap-2.5 ${collapsed ? &quot;px-0 py-2&quot; : &quot;px-2.5 py</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/AppSidebar.tsx</span>
+          <span class="finding-line">:183</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full flex items-center ${collapsed ? &quot;justify-center&quot; : &quot;&quot;} gap-2.5 ${collapsed ? &quot;px-0 py-2&quot; : &quot;px-2.5 py</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/AppSidebar.tsx</span>
+          <span class="finding-line">:209</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-3 flex items-center gap-2.5 bg-sidebar hover:bg-elevated/60 transition-colors w-full text-left ${col</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ChannelRightPanel.tsx</span>
+          <span class="finding-line">:213</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono font-medium ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ChannelRightPanel.tsx</span>
+          <span class="finding-line">:230</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ChannelRightPanel.tsx</span>
+          <span class="finding-line">:240</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ChannelRightPanel.tsx</span>
+          <span class="finding-line">:294</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RefreshCw className={`w-4 h-4 ${syncing ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:172</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;bold&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor.c</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:175</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;italic&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:178</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;underline&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; edi</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:181</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;strike&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:184</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;code&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; editor.c</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:187</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;highlight&quot;) ? active : &quot;text-white/70&quot;}`} onClick={() =&gt; edi</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ScriptEditorTiptap.tsx</span>
+          <span class="finding-line">:191</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;button type=&quot;button&quot; className={`${btn} ${editor.isActive(&quot;link&quot;) ? active : &quot;text-white/70&quot;}`} onClick={setLink} title</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/VideoTable.tsx</span>
+          <span class="finding-line">:72</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> {(() =&gt; { const s = statusIcon[v.status]; return &lt;s.icon className={`w-4 h-4 ${s.className}`} title={s.title} /&gt;; })()}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/VideoTable.tsx</span>
+          <span class="finding-line">:80</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`bg-background hover:bg-card transition-colors group ${onVideoClick || href ? &quot;cursor-pointer&quot; : &quot;&quot;}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/VideoTable.tsx</span>
+          <span class="finding-line">:117</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> {(() =&gt; { const s = statusIcon[v.status]; return &lt;s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} /&gt;; })</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/VideoTable.tsx</span>
+          <span class="finding-line">:127</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`bg-background flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/VideoTable.tsx</span>
+          <span class="finding-line">:145</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> {(() =&gt; { const s = statusIcon[v.status]; return &lt;s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} /&gt;; })</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/MediaGrid.tsx</span>
+          <span class="finding-line">:61</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-[0_1px_3px_hsl(0_0%_0%/0.3)] ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/gallery/UploadZone.tsx</span>
+          <span class="finding-line">:97</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/ScoreBar.tsx</span>
+          <span class="finding-line">:9</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailArticle.tsx</span>
+          <span class="finding-line">:120</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full ${badge.colorClass}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailArticle.tsx</span>
+          <span class="finding-line">:188</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Wand2 className={`w-3 h-3 shrink-0 ${isCleaning ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailChannelSelector.tsx</span>
+          <span class="finding-line">:54</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-4 h-4 text-dim shrink-0 transition-transform ${open ? &quot;rotate-180&quot; : &quot;&quot;}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailChannelSelector.tsx</span>
+          <span class="finding-line">:64</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-card ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailScriptSection.tsx</span>
+          <span class="finding-line">:88</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailScriptSection.tsx</span>
+          <span class="finding-line">:100</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors border-l border-border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailScriptSection.tsx</span>
+          <span class="finding-line">:212</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> {!readOnly &amp;&amp; &lt;ChevronDown className={`w-2.5 h-2.5 text-dim transition-transform ${channelDropOpen ? &quot;rotate-180&quot; : &quot;&quot;}`</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailScriptSection.tsx</span>
+          <span class="finding-line">:229</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-elevated ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailScriptSection.tsx</span>
+          <span class="finding-line">:296</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailStagePublish.tsx</span>
+          <span class="finding-line">:286</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:t</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailTopBar.tsx</span>
+          <span class="finding-line">:159</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`font-mono truncate ${colorClass}`}&gt;{displayLabel}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailTopBar.tsx</span>
+          <span class="finding-line">:160</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;ChevronDown className={`w-3 h-3 text-dim/40 transition-transform shrink-0 ${actionDropOpen ? &quot;rotate-180&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/StoryDetailTopBar.tsx</span>
+          <span class="finding-line">:174</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;SkipForward className={`w-3.5 h-3.5 shrink-0 ${nextStageIconColor}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:155</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex ${statusColor || &quot;text-dim&quot;}`}&gt;{statusIcon}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:163</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? &quot;bg-purple/15 text-p</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:199</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`relative shrink-0 p-3 ${thumbW}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:200</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`w-full ${thumbAspect} rounded-xl bg-elevated flex items-center justify-center relative overflow-hidden`</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:257</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`relative shrink-0 p-3 ${thumbW}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:258</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`w-full ${thumbAspect} rounded-xl bg-red-500/5 flex items-center justify-center`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:317</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`relative shrink-0 p-3 ${thumbW}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:324</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:329</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:351</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`w-full ${thumbAspect} rounded-xl bg-elevated flex items-center justify-center`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:395</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? &quot;bg-purple/15 text-p</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:437</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`relative shrink-0 p-3 ${thumbW}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:447</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Upload className={`w-5 h-5 transition-colors ${dragOver ? &quot;text-blue&quot; : &quot;text-dim&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/story-detail/VideoUpload.tsx</span>
+          <span class="finding-line">:481</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? &quot;bg-purple/15 text-p</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/tiptap/MentionSuggestion.tsx</span>
+          <span class="finding-line">:65</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`mention-menu-item ${index === selectedIndex ? &quot;is-selected&quot; : &quot;&quot;}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/tiptap/SlashCommand.tsx</span>
+          <span class="finding-line">:70</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`slash-menu-item ${index === selectedIndex ? &quot;is-selected&quot; : &quot;&quot;}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/components/ui/empty-state.tsx</span>
+          <span class="finding-line">:20</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex flex-col items-center justify-center text-center gap-3 py-12 ${className}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Admin.tsx</span>
+          <span class="finding-line">:179</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`w-10 h-10 rounded-full ${user.color} flex items-center justify-center text-[13px] font-semibold text-fo</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Admin.tsx</span>
+          <span class="finding-line">:209</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[10px] font-mono px-2.5 py-1 rounded-full transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Admin.tsx</span>
+          <span class="finding-line">:223</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[11px] font-mono font-medium px-2.5 py-1 rounded-full border ${roleColors[user.role]}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Admin.tsx</span>
+          <span class="finding-line">:281</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div key={r.role} className={`rounded-xl border p-4 ${r.color}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Admin.tsx</span>
+          <span class="finding-line">:284</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[13px] font-semibold ${r.textColor}`}&gt;{r.role}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:189</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`shrink-0 no-underline ${channelId ? &quot;cursor-pointer&quot; : &quot;&quot;}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:196</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`${px} rounded-full object-cover hover:ring-2 hover:ring-blue transition-all`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:200</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`${px} ${textPx} rounded-full bg-elevated flex items-center justify-center text-dim font-mono font-bold upper</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:231</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-2xl font-semibold font-mono tracking-tight ${color || &quot;&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:261</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[11px] font-mono ${noteColor}`}&gt;{note}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:287</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex items-center gap-2 text-[11px] font-mono px-2.5 py-1 rounded-full cursor-pointer transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:310</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-mono hover:bg-card/50 transition-colors text-lef</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:447</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`grid grid-cols-[1fr_90px_90px_90px] gap-4 px-5 py-3 items-center ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:453</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-medium truncate ${isOurs(g.ch) ? &quot;text-blue&quot; : &quot;&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:458</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono text-right ${g.subGrowth &gt;= 0 ? &quot;text-success&quot; : &quot;text-destructive&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:461</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono text-right ${g.viewGrowth &gt;= 0 ? &quot;text-success&quot; : &quot;text-destructive&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:464</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono text-right ${g.engDelta &gt;= 0 ? &quot;text-success&quot; : &quot;text-destructive&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:586</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[11px] font-mono truncate ${isUs ? &quot;text-blue&quot; : &quot;text-dim&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:778</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-lg font-semibold font-mono ${item.color}`}&gt;{fmtNum(item.value)}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:912</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[10px] font-mono px-2 py-0.5 border rounded-full ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:938</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`grid grid-cols-[1fr_100px_120px_50px] gap-4 px-5 py-3.5 items-center ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:944</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[13px] font-mono font-semibold text-right ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1248</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[11px] font-mono ${hovered.tone === &quot;you&quot; ? &quot;text-blue&quot; : &quot;text-sensor&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1266</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex items-center gap-1.5 text-[11px] font-mono rounded-md px-1.5 py-0.5 transition-colors ${active ? &quot;bg-bl</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1281</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex items-center gap-1.5 text-[11px] font-mono text-dim rounded-md px-1.5 py-0.5 transition-colors ${active</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1629</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RotateCw className={`w-3 h-3 ${flushing ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1638</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1 text-[11px] font-mono rounded-full transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1710</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1761</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-6 text-right text-[12px] font-mono shrink-0 ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1777</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`h-full rounded-full ${entry.isYou ? &quot;bg-blue&quot; : &quot;bg-dim/40&quot;}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1782</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[12px] font-mono shrink-0 w-16 text-right ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1872</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[11px] font-mono w-5 text-right ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1886</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[12px] font-mono ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1915</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Analytics.tsx</span>
+          <span class="finding-line">:1996</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full shrink-0 mt-0.5 ${insight.color}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:282</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:315</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`px-1.5 py-0.5 rounded font-bold ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:418</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RotateCcw className={`w-3 h-3 ${restarting ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:471</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`absolute left-[15px] top-[32px] bottom-0 w-[2px] ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:477</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`relative z-10 mt-1 w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:480</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Icon className={`w-3.5 h-3.5 ${reached ? stage.color : &quot;text-dim/40&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:484</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`flex-1 pb-6 ${!reached ? &quot;opacity-40&quot; : &quot;&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:594</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`px-3 py-2.5 rounded-lg border space-y-2 ${skipped ? &quot;bg-card/20 border-border/50 opacity-60&quot; : &quot;bg-card</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:623</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`mt-2 px-2.5 py-2 rounded-md text-[11px] font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-a</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:744</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${color}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:806</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold ${color}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:1450</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[13px] font-medium ${color || &quot;text-foreground&quot;}`} dir={dir}&gt;{value}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:1465</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[13px] font-mono font-bold ${color}`}&gt;{v.toFixed(2)}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticleDetail.tsx</span>
+          <span class="finding-line">:1468</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`h-full rounded-full ${bgColor}`} style={{ width: `${pct}%` }} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:315</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`relative h-full px-4 text-[13px] font-medium transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:477</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:500</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RotateCw className={`w-3 h-3 ${retryingAll ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:559</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:593</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`px-1.5 py-0.5 rounded ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:743</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`flex-1 px-4 py-3.5 bg-background ${!last ? &quot;border-r border-border&quot; : &quot;&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:744</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-xl font-semibold font-mono tracking-tight ${color || &quot;&quot;}`}&gt;{value}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:763</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Icon className={`w-3.5 h-3.5 ${sub.color}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:833</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`px-1.5 py-0.5 rounded font-bold ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:1101</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:1114</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RotateCw className={`w-3 h-3 inline mr-1 ${retryingAll ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;Retry all</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:1121</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RotateCw className={`w-3.5 h-3.5 ${retryingAll ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:1208</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span key={i} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ArticlePipeline.tsx</span>
+          <span class="finding-line">:1231</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`px-1 py-0.5 rounded text-[9px] font-bold ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ChannelDetail.tsx</span>
+          <span class="finding-line">:310</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-5 py-4 bg-background border-r border-b border-border last:border-r-0 ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ChannelDetail.tsx</span>
+          <span class="finding-line">:341</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Competitions.tsx</span>
+          <span class="finding-line">:186</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full pl-3 pr-3 py-2 bg-background border text-foreground text-[13px] font-sans outline-none transition-col</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:206</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`relative h-full px-4 text-[13px] font-medium transition-colors capitalize ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:265</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:279</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-colors</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:302</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[12px] transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:419</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex flex-col items-center justify-center py-24 mx-auto max-w-lg rounded-2xl border-2 border-dashed transiti</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:426</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`rounded-full p-4 mb-4 transition-colors ${emptyDrag ? &quot;bg-primary/10&quot; : &quot;bg-elevated&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Gallery.tsx</span>
+          <span class="finding-line">:427</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;UploadCloud className={`w-8 h-8 transition-colors ${emptyDrag ? &quot;text-primary&quot; : &quot;text-dim&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Login.tsx</span>
+          <span class="finding-line">:133</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div key={pass} className={`flex flex-col gap-3 ${pass === 0 ? &quot;pb-3&quot; : &quot;&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Login.tsx</span>
+          <span class="finding-line">:135</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div key={`${pass}-${i}`} className={`rounded-xl overflow-hidden shrink-0 w-full ${item.isShort ? &quot;aspect-[9/16]&quot; : &quot;asp</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Login.tsx</span>
+          <span class="finding-line">:186</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-elevated border border-border rounded-xl text</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:254</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${paused ? &quot;bg-orang</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:297</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-xl font-semibold font-mono tracking-tight ${s.color}`}&gt;{s.val}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:314</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:382</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:436</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-2.5 h-2.5 rounded-full ${STATUS_COLOR[ch.status]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:439</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono ${ch.isStale ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;{ch.lastVideo}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:462</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_COLOR[ch.status]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:475</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[12px] font-mono ${ch.isStale ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;{ch.lastVideo}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:483</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[12px] font-mono ${ch.cadenceType === &quot;owned&quot; ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;{ch.cadence}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Monitor.tsx</span>
+          <span class="finding-line">:491</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[11px] font-mono ${ch.cadenceType === &quot;owned&quot; ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:209</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`relative h-full px-4 text-[13px] font-medium transition-colors capitalize ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:295</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:307</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RotateCw className={`w-3 h-3 ${retryingAll ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:335</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-2xl font-semibold font-mono tracking-tight ${stage.color}`}&gt;{count}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:453</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${paused ? &quot;bg-orang</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:487</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-xl font-semibold font-mono tracking-tight ${s.color}`}&gt;{s.val}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:503</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:566</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:620</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-2.5 h-2.5 rounded-full ${STATUS_COLOR[ch.status]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:623</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono ${ch.isStale ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;{ch.lastVideo}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:646</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_COLOR[ch.status]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:659</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[12px] font-mono ${ch.isStale ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;{ch.lastVideo}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:667</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[12px] font-mono ${ch.cadenceType === &quot;owned&quot; ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;{ch.cadence}&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:675</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[11px] font-mono ${ch.cadenceType === &quot;owned&quot; ? &quot;text-orange&quot; : &quot;text-dim&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:720</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:730</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;RotateCw className={`w-3 h-3 ${retryingAll ? &quot;animate-spin&quot; : &quot;&quot;}`} /&gt; Retry all</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Pipeline.tsx</span>
+          <span class="finding-line">:768</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`block px-4 py-3 border-t border-border hover:bg-card/50 transition-colors group no-underline ${video?.id ? &quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ProfileHome.tsx</span>
+          <span class="finding-line">:416</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-[11px] font-mono flex items-center gap-1 ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ProfileHome.tsx</span>
+          <span class="finding-line">:447</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Icon className={`w-4 h-4 ${ql.color} shrink-0`} strokeWidth={1.5} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ProfileHome.tsx</span>
+          <span class="finding-line">:483</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`${s.color} rounded-full`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ProfileHome.tsx</span>
+          <span class="finding-line">:510</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[11px] font-mono ${growthChart.change &gt;= 0 ? &quot;text-success&quot; : &quot;text-destructive&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/ProfilePicker.tsx</span>
+          <span class="finding-line">:273</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-8 h-8 rounded-full transition-all ${editColor === c ? &quot;ring-2 ring-foreground ring-offset-2 ring-offset-ba</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:497</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${dragOver ? &quot;bg-blue/20&quot; : &quot;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:498</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Upload className={`w-6 h-6 transition-colors ${dragOver ? &quot;text-blue&quot; : &quot;text-dim&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:542</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:570</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`text-[10px] text-dim font-mono uppercase tracking-wider ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:593</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`group grid grid-cols-[1fr_100px_100px_160px_100px] max-md:grid-cols-[1fr_100px_100px] gap-0 px-4 py-3 border</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:607</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${meta.bg}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:611</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Loader2 className={`w-3.5 h-3.5 animate-spin ${meta.color}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/PublishQueue.tsx</span>
+          <span class="finding-line">:693</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${meta.color}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:456</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:458</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? </span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:517</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${embeddin</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:610</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:612</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? </span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:660</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div key={log.id} className={`grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-3 items-center ${i &lt; usageLogs.length</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:663</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;LogIcon className={`w-4 h-4 ${iconColorMap[log.apiIcon]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:664</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-medium ${nameColor}`}&gt;{log.apiName}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:669</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full ${log.st</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:701</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;LogIcon className={`w-3.5 h-3.5 ${iconColorMap[log.apiIcon]}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:702</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-medium ${nameColor}`}&gt;{log.apiName}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Settings.tsx</span>
+          <span class="finding-line">:704</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${log.status</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:249</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> return &lt;img src={image} alt=&quot;&quot; className={`${dim} rounded-full object-cover shrink-0`} /&gt;;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:253</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`${dim} rounded-full bg-orange/15 flex items-center justify-center shrink-0`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:254</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Rss className={`${iconDim} text-orange`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:260</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`${dim} rounded-full bg-[#00d68a]/15 flex items-center justify-center shrink-0`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:261</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;ApifyLogo className={`${iconDim} text-[#00d68a]`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:266</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`${dim} rounded-full bg-elevated flex items-center justify-center shrink-0`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:267</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Package className={`${iconDim} text-dim`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:284</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.color} ${cfg.bg}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:364</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`rounded-lg px-3 py-2 text-[11px] font-mono ${error ? &quot;bg-red-500/5 border border-red-500/20&quot; : result ?</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:447</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`rounded-xl border transition-all ${s.isActive ? &quot;border-border bg-background&quot; : &quot;border-border/50 bg-ba</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:465</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${s.hasApiKey ? &quot;bg-emerald-500/10 text-emerald-400&quot; :</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:487</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${s.isActive ? &quot;text-blue hover:bg-blu</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:640</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12px] font-medium transition-all border ${type</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Source.tsx</span>
+          <span class="finding-line">:837</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[9px] font-mono ${source.hasApiKey ? &quot;text-emerald-400&quot; : &quot;text-red-400&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:89</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`h-full rounded-full ${s.bar}`} style={{ width: `${s.val}%` }} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:91</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[10px] font-mono font-medium ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:313</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-4 py-1.5 rounded-full text-[12px] font-medium transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:325</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-4 py-1.5 rounded-full text-[12px] font-medium transition-colors ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:382</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full ${stageInfo.pillClass}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:410</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> if (badge) return &lt;span className={`${badge.color}`}&gt;{badge.label}&lt;/span&gt;;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/Stories.tsx</span>
+          <span class="finding-line">:420</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono font-bold shrink-0 ml-auto ${story.compositeScore == null ? &quot;text-dim&quot; : &quot;&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/StoryDetail.tsx</span>
+          <span class="finding-line">:342</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/StoryDetail.tsx</span>
+          <span class="finding-line">:354</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`h-px flex-1 min-w-2 ${isComplete ? &quot;bg-success/30&quot; : &quot;bg-border&quot;}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/StoryDetail.tsx</span>
+          <span class="finding-line">:1125</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono font-semibold ${delta &gt; 0 ? &quot;text-green-400&quot; : delta &lt; 0 ? &quot;text-red-400&quot; : &quot;tex</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:273</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-2xl font-mono font-semibold ${confidence &gt;= 0.6 ? &quot;text-success&quot; : confidence &gt;= 0.3 ? &quot;text-orang</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:420</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono font-semibold shrink-0 ${delta &gt; 0 ? &quot;text-success&quot; : delta &lt; 0 ? &quot;text-destruct</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:477</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div key={a.id} className={`px-4 py-3 border-t border-border ${a.isRead ? &quot;&quot; : &quot;bg-orange/[0.03]&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:480</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:588</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`flex-1 rounded-xl border border-border bg-background p-4 relative ${!isFirst ? &quot;max-lg:ml-0 ml-0&quot; : &quot;&quot;}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:590</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`w-6 h-6 rounded-full ${bgColor}/15 flex items-center justify-center text-[10px] font-bold ${color}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:602</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[11px] font-mono font-semibold ${color}`}&gt;{item.value}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:626</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;Icon className={`w-4 h-4 ${color}`} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:629</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[20px] font-mono font-semibold ${color}`}&gt;{pct}%&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:632</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`h-full rounded-full ${bgColor} transition-all duration-500`} style={{ width: `${pct}%` }} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:650</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-2xl font-mono font-semibold ${color}`}&gt;{pct}%&lt;/div&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:652</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`h-full rounded-full ${bgColor} transition-all duration-500`} style={{ width: `${pct}%` }} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:679</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span key={key} className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VectorIntelligence.tsx</span>
+          <span class="finding-line">:704</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`flex-1 px-3 py-3 bg-background ${!last ? &quot;border-r border-border&quot; : &quot;&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:260</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`relative shrink-0 p-3 ${video.type === &quot;short&quot; ? &quot;w-[200px] max-md:w-full&quot; : &quot;w-[380px] max-md:w-full&quot;}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:267</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`w-full object-cover rounded-xl ${video.type === &quot;short&quot; ? &quot;aspect-[9/16]&quot; : &quot;aspect-video&quot;}`}</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:295</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:314</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${video.type === &quot;short&quot; ? &quot;bg-p</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:338</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-5 py-4 bg-background border-r border-b border-border last:border-r-0 ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:344</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${video.type === &quot;short&quot; ? &quot;bg-p</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:365</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:436</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`h-full rounded-full ${s.cls}`} style={{ width: `${s.val}%` }} /&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:452</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-3xl font-semibold font-mono tracking-tight ${(analysis?.viral.score ?? 0) &gt;= 6 ? &quot;text-success&quot; :</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:459</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> className={`h-full rounded-full transition-all ${(analysis?.viral.score ?? 0) &gt;= 6 ? &quot;bg-success&quot; : (analysis?.viral.sco</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:469</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.hookStrong ? &quot;text-success&quot; : analysi</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:478</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.trending ? &quot;text-success&quot; : &quot;text-dim</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:506</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:536</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;div className={`w-2 h-2 rounded-full ${</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:541</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[13px] ${step.status === &quot;failed&quot; ? &quot;text-destructive&quot; : &quot;text-foreground&quot;}`}&gt;{step.name}&lt;/span&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:557</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`text-[12px] font-mono ${step.status === &quot;failed&quot; ? &quot;text-destructive/60&quot; : &quot;text-dim&quot;}`}&gt;</span>
+        </div>
+        <div class="finding-row">
+          <span class="finding-file">frontend/src/pages/VideoDetail.tsx</span>
+          <span class="finding-line">:581</span>
+          <span class="finding-code"><span class="finding-match">template literal className</span> &lt;span className={`inline-flex items-center justify-center ${</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

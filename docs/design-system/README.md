@@ -39,6 +39,27 @@ Each doc below references which `preview.html#section` to jump to.
 | [loading-states.md](./loading-states.md) | Spinners, skeletons, empty states, error states |
 | [progress.md](./progress.md) | Progress bars, score bars |
 | [navigation.md](./navigation.md) | Filter pills, tab bar, link styles |
+| [alerts.md](./alerts.md) | Alert inline banners (default, destructive) |
+| [avatars.md](./avatars.md) | Avatar, fallback, sizes, stacked collaborators |
+| [accordions.md](./accordions.md) | Accordion, Collapsible |
+| [menus.md](./menus.md) | Dropdown Menu, Context Menu, Menubar, Command palette |
+| [overlays.md](./overlays.md) | Tooltip, Popover, Hover Card |
+| [forms-advanced.md](./forms-advanced.md) | Form, Label, Radio Group, Slider, Toggle, Toggle Group, Input OTP |
+| [layout-utilities.md](./layout-utilities.md) | Separator, Scroll Area, Resizable, Aspect Ratio |
+| [data-navigation.md](./data-navigation.md) | Breadcrumb, Pagination, Navigation Menu, Calendar |
+| [media.md](./media.md) | Carousel, Chart (Recharts wrapper) |
+
+## Composite Docs
+
+| Doc | What It Covers |
+|-----|----------------|
+| [sidebar.md](./sidebar.md) | AppSidebar — collapsed/expanded, nav items, mobile overlay |
+| [panels.md](./panels.md) | ChannelRightPanel, VideoRightPanel, ChannelLayout |
+| [uploads.md](./uploads.md) | UploadZone, VideoUpload, UploadIndicator, GalleryUploadIndicator |
+| [gallery.md](./gallery.md) | AlbumCard, MediaGrid, MediaViewer |
+| [story-detail.md](./story-detail.md) | TopBar, Article, ScoreBar, ChannelSelector, ScriptSection, stages |
+| [editor.md](./editor.md) | ScriptEditorTiptap, ScriptBlock, SlashCommand, MentionSuggestion |
+| [feedback.md](./feedback.md) | PageError, DeleteChannelModal, VideoTypeIcon |
 
 ## Foundation Docs
 
