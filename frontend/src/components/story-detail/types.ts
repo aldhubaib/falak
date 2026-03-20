@@ -85,3 +85,10 @@ export interface StoryBrief {
   /** Timestamped transcript segments from Whisper. */
   transcriptSegments?: { text: string; start: number; end: number }[];
 }
+
+export interface ScriptField {
+  key: string;
+  label: string;
+  placeholder: string;
+  type: "input" | "textarea";
+}

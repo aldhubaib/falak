@@ -11,7 +11,6 @@ import { ChannelLayout } from "@/components/ChannelLayout";
 
 const Login = lazy(() => import("./pages/Login"));
 const ProfilePicker = lazy(() => import("./pages/ProfilePicker"));
-const OurChannels = lazy(() => import("./pages/OurChannels"));
 const Competitions = lazy(() => import("./pages/Competitions"));
 const ChannelDetail = lazy(() => import("./pages/ChannelDetail"));
 const VideoDetail = lazy(() => import("./pages/VideoDetail"));
@@ -54,7 +53,7 @@ class AppErrorBoundary extends Component<
     if (this.state.hasError) {
       const err = this.state.error;
       return (
-        <div className="min-h-screen flex items-center justify-center bg-surface p-6">
+        <div className="min-h-screen flex items-center justify-center bg-card p-6">
           <PageError
             title="Something went wrong"
             message={err?.message ?? "An unexpected error occurred. Try refreshing the page."}
