@@ -409,7 +409,7 @@ export default function DesignSystem() {
           <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-dim/15 text-dim border-dim/20">Pending</span>
         </div>
 
-        {/* --- Status badges (bg-*/10 variant) --- */}
+        {/* --- Status badges (bg-color/10 variant) --- */}
         <DLSLabel name="Status badge (bg-*/10)" files="Admin, AlbumDetail, ArticleDetail, ArticlePipeline, ChannelDetail, Competitions, Gallery, ProfileHome, PublishQueue, Settings" />
         <div className="flex flex-wrap gap-2">
           <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-success/10 text-success border-transparent">Connected</span>
