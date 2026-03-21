@@ -1060,7 +1060,23 @@ finalScore = clamp(rawScore × 0.60 + preferenceBias × 0.40 - competitionPenalt
 - −0.1 for avoided contentType match
 - +0.15 for preferred region match
 
+### Score Conversion Helpers (`src/lib/scoringConfig.js`)
+
+All conversions between `finalScore` (0–1) and `compositeScore` (0–10) go through
+two shared functions so there is a single source of truth:
+
+```
+finalScoreToComposite(f)  → round(clamp(f, 0, 1) × 100) / 10   # 0–1 → 0–10 (1 decimal)
+compositeToFinalScore(c)  → round(clamp(c, 0, 10) × 10) / 100  # 0–10 → 0–1 (2 decimals)
+```
+
+Used by: article promotion, niche-rescore routes, and the rescore worker.
+
 ### Story Composite Score (on creation)
+
+At promotion time, `compositeScore = finalScoreToComposite(article.finalScore)`.
+The simple composite formula (used by PATCH and batch recalculation) lives in
+`computeSimpleComposite()` in `src/lib/scoringConfig.js`:
 
 ```
 compositeScore = round((relevanceScore×0.35 + viralScore×0.40 + firstMoverScore×0.25) / 10, 1)
@@ -1089,7 +1105,8 @@ The rescore worker computes a 7-factor composite for each active story:
 
 7. Base Score = relevance×0.25 + correctedViral×0.25 + adjustedFirstMover×0.15 + freshness×100×0.10
    Learned Boost = provenViralBoost×0.10 + ownBoost×0.05 + tagBoost×100×0.05 + ctBoost×100×0.03 + regionBoost×100×0.02
-   Final = clamp(baseScore + learnedBoost × confidence, 0, 100)
+   rawComposite = clamp(baseScore + learnedBoost × confidence, 0, 100)
+   compositeScore = finalScoreToComposite(rawComposite / 100)
 ```
 
 ### ScoreProfile Self-Learning
