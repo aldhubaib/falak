@@ -135,18 +135,26 @@ const TAB2_SECTIONS = [
   { id: "typography", label: "Typography Scale" },
 ] as const;
 
-const COLOR_TOKENS = [
-  { id: "--background", hsl: "hsl(240,4%,6%)" }, { id: "--foreground", hsl: "hsl(0,0%,93%)" },
-  { id: "--card", hsl: "hsl(240,4%,6%)" }, { id: "--popover", hsl: "hsl(0,0%,7%)" },
-  { id: "--secondary", hsl: "hsl(0,0%,10%)" }, { id: "--muted", hsl: "hsl(0,0%,10%)" },
-  { id: "--accent", hsl: "hsl(0,0%,10%)" }, { id: "--elevated", hsl: "hsl(0,0%,13%)" },
-  { id: "--row-hover", hsl: "hsl(0,0%,5%)" }, { id: "--dim", hsl: "hsl(0,0%,40%)" },
-  { id: "--sensor", hsl: "hsl(0,0%,60%)" }, { id: "--muted-foreground", hsl: "hsl(0,0%,45%)" },
-  { id: "--primary", hsl: "hsl(217,72%,56%)" }, { id: "--destructive", hsl: "hsl(0,72%,51%)" },
-  { id: "--success", hsl: "hsl(142,50%,45%)" }, { id: "--blue", hsl: "hsl(217,72%,56%)" },
-  { id: "--purple", hsl: "hsl(258,60%,59%)" }, { id: "--orange", hsl: "hsl(25,90%,55%)" },
-  { id: "--border", hsl: "hsl(228,8%,9%)" }, { id: "--input", hsl: "hsl(0,0%,13%)" },
-  { id: "--ring", hsl: "hsl(217,72%,56%)" },
+const COLOR_GROUPS = [
+  { label: "Surfaces", tokens: [
+    { id: "--background", hsl: "hsl(240,4%,6%)" }, { id: "--card", hsl: "hsl(240,4%,6%)" },
+    { id: "--popover", hsl: "hsl(0,0%,7%)" }, { id: "--secondary", hsl: "hsl(0,0%,10%)" },
+    { id: "--muted", hsl: "hsl(0,0%,10%)" }, { id: "--accent", hsl: "hsl(0,0%,10%)" },
+    { id: "--elevated", hsl: "hsl(0,0%,13%)" }, { id: "--row-hover", hsl: "hsl(0,0%,5%)" },
+  ]},
+  { label: "Text", tokens: [
+    { id: "--foreground", hsl: "hsl(0,0%,93%)" }, { id: "--muted-foreground", hsl: "hsl(0,0%,45%)" },
+    { id: "--dim", hsl: "hsl(0,0%,40%)" }, { id: "--sensor", hsl: "hsl(0,0%,60%)" },
+  ]},
+  { label: "Status", tokens: [
+    { id: "--primary", hsl: "hsl(217,72%,56%)" }, { id: "--destructive", hsl: "hsl(0,72%,51%)" },
+    { id: "--success", hsl: "hsl(142,50%,45%)" }, { id: "--blue", hsl: "hsl(217,72%,56%)" },
+    { id: "--purple", hsl: "hsl(258,60%,59%)" }, { id: "--orange", hsl: "hsl(25,90%,55%)" },
+  ]},
+  { label: "Border & Form", tokens: [
+    { id: "--border", hsl: "hsl(228,8%,9%)" }, { id: "--input", hsl: "hsl(0,0%,13%)" },
+    { id: "--ring", hsl: "hsl(217,72%,56%)" },
+  ]},
 ];
 const RADIUS_TOKENS = [
   { id: "--radius-sm", rem: "0.125rem", px: "2px", tw: "rounded-sm" },
@@ -552,17 +560,22 @@ export default function DesignSystem() {
             <>
               <SectionHeader id="colors" label="Color Tokens" />
               <div id="cid-color-tokens" data-cid="color-tokens" className="mb-8">
-                <div className="grid grid-cols-4 gap-3">
-                  {COLOR_TOKENS.map((t) => (
-                    <div key={t.id} className="flex items-center gap-3 cursor-pointer group" onClick={() => copyCid(t.id)}>
-                      <div className="w-10 h-10 rounded-lg border border-border shrink-0" style={{ background: t.hsl }} />
-                      <div>
-                        <div className="font-mono text-[11px] text-foreground group-hover:text-primary transition-colors">{t.id}</div>
-                        <div className="font-mono text-[10px] text-dim">{t.hsl}</div>
-                      </div>
+                {COLOR_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-dim mt-6 mb-3 first:mt-0">{group.label}</div>
+                    <div className="grid grid-cols-4 gap-3">
+                      {group.tokens.map((t) => (
+                        <div key={t.id} className="flex items-center gap-3 cursor-pointer group" onClick={() => copyCid(t.id)}>
+                          <div className="w-10 h-10 rounded-lg border border-border shrink-0" style={{ background: t.hsl }} />
+                          <div>
+                            <div className="font-mono text-[11px] text-foreground group-hover:text-primary transition-colors">{t.id}</div>
+                            <div className="font-mono text-[10px] text-dim">{t.hsl}</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
 
               <SectionHeader id="radius" label="Radius Scale" />
