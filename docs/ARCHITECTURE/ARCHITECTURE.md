@@ -1412,6 +1412,7 @@ router.post('/:id/action',
 | `src/lib/logger.js` | Pino logger instance. |
 | `src/lib/serialise.js` | BigInt → string serializer (applied globally via Prisma middleware). |
 | `src/lib/subtitles.js` | Timestamped script text → SRT subtitle converter. |
+| `src/lib/scoringConfig.js` | Single source of truth for all scoring weights (rescore base, learned boost, simple composite). Consumed by rescorer, articleProcessor, stories route, and served to the frontend via the vector-intelligence status API. |
 
 ### Frontend Conventions
 
