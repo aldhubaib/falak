@@ -405,7 +405,7 @@ export default function ArticleDetailPage() {
             {article.finalScore != null && (
               <div className="mt-3 flex items-center gap-4 text-[11px] font-mono">
                 <span className="text-foreground font-semibold">Score: {article.finalScore.toFixed(2)}</span>
-                <span className="text-muted-foreground">→ {(Math.round(article.finalScore * 10 * 10) / 10).toFixed(1)}/10</span>
+                <span className="text-muted-foreground">→ {(Math.round(article.finalScore * 100) / 10).toFixed(1)}/10</span>
                 {article.relevanceScore != null && <span className="text-muted-foreground">Relevance: {article.relevanceScore.toFixed(2)}</span>}
                 {article.rankReason && <span className="text-muted-foreground">{article.rankReason}</span>}
               </div>
@@ -957,7 +957,7 @@ function DisplayBlockItem({ block }: { block: DisplayBlockDef }) {
       const adjustments = block.adjustments ?? [];
       const finalVal = typeof block.final === "number" ? block.final : 0;
       const weighted = rawVal * 0.60;
-      const compositeOut10 = (Math.round(finalVal * 10 * 10) / 10).toFixed(1);
+      const compositeOut10 = (Math.round(finalVal * 100) / 10).toFixed(1);
       return (
         <div className="text-[11px] font-mono mt-1 space-y-1">
           <div className="text-muted-foreground">
@@ -1425,34 +1425,29 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
             </>
           );
         } else if (stepId === "score") {
-          const rawScore = relevance * 0.35 + viral * 0.30 + freshness * 0.35;
-          const weighted = rawScore * 0.60;
-          const biasContrib = prefBias * 0.40;
-          const compositeOut10 = (Math.round(finalScore * 10 * 10) / 10).toFixed(1);
+          const compositeOut10 = (Math.round(finalScore * 100) / 10).toFixed(1);
           body = (
-            <>
-              <div className="space-y-1">
-                <ScoreRow label="Relevance" value={relevance} weight={0.35} result={relevance * 0.35} />
-                <ScoreRow label="Viral" value={viral} weight={0.30} result={viral * 0.30} />
-                <ScoreRow label="Freshness" value={freshness} weight={0.35} result={freshness * 0.35} />
+            <div className="text-[11px] font-mono space-y-1">
+              <div className="flex items-center gap-3">
+                <ScoreGauge label="Relevance" value={relevance} />
+                <ScoreGauge label="Viral" value={viral} />
+                <ScoreGauge label="Freshness" value={freshness} />
               </div>
-              <div className="text-[11px] font-mono mt-2 space-y-1">
+              {prefBias !== 0 && (
                 <div className="text-muted-foreground">
-                  Weighted sum = {rawScore.toFixed(3)}
+                  Pref bias: {prefBias > 0 ? "+" : ""}{prefBias.toFixed(2)}
                 </div>
+              )}
+              {competitionPenalty > 0 && (
                 <div className="text-muted-foreground">
-                  {rawScore.toFixed(3)} × 0.60 = {weighted.toFixed(3)}
-                  {prefBias !== 0 && <>{" + "}{prefBias.toFixed(2)} × 0.40 = {(weighted + biasContrib).toFixed(3)}</>}
-                  {competitionPenalty > 0 && <>{" − "}{competitionPenalty.toFixed(2)} = {(weighted + biasContrib - competitionPenalty).toFixed(3)}</>}
+                  Competition penalty: −{competitionPenalty.toFixed(2)}
                 </div>
-                <div>
-                  {"→ "}<span className="font-bold text-success">Final {finalScore.toFixed(2)}</span>
-                </div>
-                <div className="pt-1 border-t border-border mt-1">
-                  {finalScore.toFixed(2)} × 10 = <span className="font-bold text-foreground">{compositeOut10}/10</span>
-                </div>
+              )}
+              <div className="pt-1 border-t border-border">
+                {"→ "}<span className="font-bold text-success">Final {finalScore.toFixed(2)}</span>
+                {" = "}<span className="font-bold text-foreground">{compositeOut10}/10</span>
               </div>
-            </>
+            </div>
           );
         } else {
           body = (

@@ -9,7 +9,7 @@ const { getDialectForCountry } = require('../lib/dialects')
 const { fetchTranscript } = require('../services/transcript')
 const { transcribeFromR2 } = require('../services/whisper')
 const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
-const { computeSimpleComposite, SIMPLE_COMPOSITE } = require('../lib/scoringConfig')
+const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = require('../lib/scoringConfig')
 const { getNicheEmbedding } = require('../services/embeddings')
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
@@ -204,7 +204,7 @@ router.post('/rescore-all', requireRole('owner', 'admin', 'editor'), async (req,
       }
       nicheScore = Math.max(0, Math.min(1, nicheScore))
       const finalScore = Math.round(nicheScore * 100) / 100
-      const compositeScore = Math.round(nicheScore * 10 * 10) / 10
+      const compositeScore = finalScoreToComposite(nicheScore)
       updates.push(db.story.update({
         where: { id: row.id },
         data: { compositeScore, finalScore, lastRescoredAt: new Date() },
@@ -242,7 +242,7 @@ router.post('/:id/rescore', requireRole('owner', 'admin', 'editor'), async (req,
     nicheScore = Math.max(0, Math.min(1, nicheScore))
 
     const finalScore = Math.round(nicheScore * 100) / 100
-    const compositeScore = Math.round(nicheScore * 10 * 10) / 10
+    const compositeScore = finalScoreToComposite(nicheScore)
 
     await db.story.update({
       where: { id: story.id },
@@ -1006,6 +1006,7 @@ router.post('/re-evaluate', requireRole('owner', 'admin'), async (req, res) => {
 })
 
 // ── POST /api/stories/recalculate-scores — admin-only batch recalculation
+// SQL mirrors computeSimpleComposite() from lib/scoringConfig.js — keep weights in sync
 router.post('/recalculate-scores', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const wR = SIMPLE_COMPOSITE.relevance

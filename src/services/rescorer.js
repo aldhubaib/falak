@@ -9,7 +9,7 @@ const logger = require('../lib/logger')
 const { getOrCreateProfile, getConfidence } = require('./scoreLearner')
 const { findSimilarVideos, findSimilarOwnStories } = require('./embeddings')
 const { getChannelStats } = require('./statsRefresher')
-const { w } = require('../lib/scoringConfig')
+const { w, finalScoreToComposite, compositeToFinalScore } = require('../lib/scoringConfig')
 
 const ACTIVE_STAGES = ['suggestion', 'liked', 'scripting', 'filmed', 'publish']
 
@@ -272,8 +272,8 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
 
   // Blend base AI score with learned adjustments based on confidence
   const rawComposite = baseScore + learnedBoost * confidence
-  // compositeScore = 0–10 scale (multiply by 10 from 0–1 rawComposite)
-  const newCompositeScore = Math.round(Math.max(0, Math.min(100, rawComposite)) / 10 * 10) / 10
+  const clampedRaw = Math.max(0, Math.min(100, rawComposite)) / 100
+  const newCompositeScore = finalScoreToComposite(clampedRaw)
 
   const after = {
     relevanceScore: story.relevanceScore || 0,
@@ -322,7 +322,7 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
           viralScore: correctedViral,
           firstMoverScore: adjustedFirstMover,
           compositeScore: newCompositeScore,
-          finalScore: Math.round(newCompositeScore / 10 * 100) / 100,
+          finalScore: compositeToFinalScore(newCompositeScore),
           lastRescoredAt: new Date(),
           rescoreLog: updatedLog,
         },

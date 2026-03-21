@@ -16,7 +16,7 @@ const { callAnthropic } = require('./pipelineProcessor')
 const { needsResearch, researchStory } = require('./storyResearcher')
 const { getDialectForCountry } = require('../lib/dialects')
 const logger = require('../lib/logger')
-const { computeSimpleComposite } = require('../lib/scoringConfig')
+const { computeSimpleComposite, finalScoreToComposite } = require('../lib/scoringConfig')
 
 const MIN_CONTENT_LENGTH = 300
 const ARABIC_CHAR_REGEX = /[\u0600-\u06FF]/g
@@ -1148,9 +1148,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
   const relevanceScore = Math.round(relevance * 100)
   const viralScore = Math.round(viralPotential * 100)
   const firstMoverScore = analysis.isBreaking ? 80 : 40
-  // compositeScore is finalScore on a 0–10 scale
-  // finalScore already incorporates nicheScore, topicDemand, relevance, viralPotential
-  const compositeScore = Math.round(finalScore * 10 * 10) / 10
+  const compositeScore = finalScoreToComposite(finalScore)
 
   const brief = {
     articleContent: article.contentAr || article.contentClean,

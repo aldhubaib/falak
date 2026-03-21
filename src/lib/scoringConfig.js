@@ -35,6 +35,16 @@ function computeSimpleComposite(relevanceScore, viralScore, firstMoverScore) {
   return Math.round(raw / 10 * 10) / 10
 }
 
+/** Convert a 0–1 finalScore to a 0–10 compositeScore (1 decimal). */
+function finalScoreToComposite(finalScore) {
+  return Math.round(Math.max(0, Math.min(1, finalScore || 0)) * 100) / 10
+}
+
+/** Convert a 0–10 compositeScore to a 0–1 finalScore (2 decimals). */
+function compositeToFinalScore(compositeScore) {
+  return Math.round(Math.max(0, Math.min(10, compositeScore || 0)) * 10) / 100
+}
+
 function w(key) {
   return (RESCORE_BASE.find(r => r.key === key) || RESCORE_LEARNED.find(r => r.key === key))?.weight ?? 0
 }
@@ -44,5 +54,7 @@ module.exports = {
   RESCORE_LEARNED,
   SIMPLE_COMPOSITE,
   computeSimpleComposite,
+  finalScoreToComposite,
+  compositeToFinalScore,
   w,
 }
