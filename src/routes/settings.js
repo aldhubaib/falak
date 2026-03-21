@@ -1,7 +1,7 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { encrypt } = require('../services/crypto')
+const { encrypt, decrypt } = require('../services/crypto')
 const router = express.Router()
 router.use(requireAuth)
 
@@ -212,5 +212,135 @@ router.get('/embedding-status', requireRole('owner', 'admin'), async (req, res) 
     })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
+
+// ── POST /api/settings/test-key — lightweight test for any API key ──────
+router.post('/test-key', requireRole('owner', 'admin'), async (req, res) => {
+  const { service } = req.body
+  if (!service) return res.status(400).json({ error: 'service required' })
+
+  try {
+    let apiKey
+
+    // Multi-key services: pick the first active key from dedicated table
+    if (service === 'youtube') {
+      const row = await db.youtubeApiKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
+      if (!row?.encryptedKey) return res.json({ ok: false, error: 'No active YouTube key found' })
+      apiKey = decrypt(row.encryptedKey)
+    } else if (service === 'google_search') {
+      const row = await db.googleSearchKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
+      if (!row?.encryptedKey) return res.json({ ok: false, error: 'No active Google Search key found' })
+      apiKey = decrypt(row.encryptedKey)
+    } else {
+      const row = await db.apiKey.findUnique({ where: { service } })
+      if (!row?.encryptedKey) return res.json({ ok: false, error: `No key set for ${service}` })
+      apiKey = decrypt(row.encryptedKey)
+    }
+
+    const result = await testServiceKey(service, apiKey)
+    res.json(result)
+  } catch (e) {
+    res.json({ ok: false, error: e.message || 'Test failed' })
+  }
+})
+
+async function testServiceKey(service, apiKey) {
+  const start = Date.now()
+
+  switch (service) {
+    case 'anthropic': {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 5,
+          messages: [{ role: 'user', content: 'Say "ok"' }],
+        }),
+      })
+      const data = await r.json()
+      if (!r.ok) return { ok: false, error: data.error?.message || `HTTP ${r.status}`, ms: Date.now() - start }
+      return { ok: true, detail: `Model: ${data.model}`, ms: Date.now() - start }
+    }
+
+    case 'embedding': {
+      const r = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'text-embedding-3-small', input: 'test', dimensions: 16 }),
+      })
+      const data = await r.json()
+      if (!r.ok) return { ok: false, error: data.error?.message || `HTTP ${r.status}`, ms: Date.now() - start }
+      return { ok: true, detail: `${data.data?.[0]?.embedding?.length || '?'}-dim embedding`, ms: Date.now() - start }
+    }
+
+    case 'youtube': {
+      const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=id&mine=false&id=UC_x5XG1OV2P6uZZ5FSM9Ttw&key=${apiKey}`)
+      const data = await r.json()
+      if (data.error) return { ok: false, error: data.error.message || `HTTP ${r.status}`, ms: Date.now() - start }
+      return { ok: true, detail: `${data.items?.length || 0} channel(s) returned`, ms: Date.now() - start }
+    }
+
+    case 'transcript': {
+      const r = await fetch('https://www.youtube-transcript.io/api/transcript?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      })
+      if (r.status === 401 || r.status === 403) return { ok: false, error: 'Invalid or expired key', ms: Date.now() - start }
+      return { ok: true, detail: `HTTP ${r.status}`, ms: Date.now() - start }
+    }
+
+    case 'google_search': {
+      const cxRow = await db.apiKey.findUnique({ where: { service: 'google_search_cx' } })
+      const cx = cxRow?.encryptedKey ? decrypt(cxRow.encryptedKey) : null
+      if (!cx) return { ok: false, error: 'CX ID not set — save it first', ms: Date.now() - start }
+      const r = await fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=test&num=1`)
+      const data = await r.json()
+      if (data.error) return { ok: false, error: data.error.message || `HTTP ${r.status}`, ms: Date.now() - start }
+      return { ok: true, detail: `${data.searchInformation?.totalResults || 0} results`, ms: Date.now() - start }
+    }
+
+    case 'google_search_cx': {
+      const gsRow = await db.googleSearchKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
+      if (!gsRow?.encryptedKey) return { ok: false, error: 'Add a Google Search API key first', ms: Date.now() - start }
+      const gsKey = decrypt(gsRow.encryptedKey)
+      const r = await fetch(`https://www.googleapis.com/customsearch/v1?key=${gsKey}&cx=${apiKey}&q=test&num=1`)
+      const data = await r.json()
+      if (data.error) return { ok: false, error: data.error.message || `HTTP ${r.status}`, ms: Date.now() - start }
+      return { ok: true, detail: `${data.searchInformation?.totalResults || 0} results`, ms: Date.now() - start }
+    }
+
+    case 'firecrawl': {
+      const r = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'https://example.com', formats: ['markdown'], onlyMainContent: true }),
+      })
+      const data = await r.json()
+      if (!r.ok && !data.success) return { ok: false, error: data.error || `HTTP ${r.status}`, ms: Date.now() - start }
+      return { ok: true, detail: `${data.data?.markdown?.length || 0} chars scraped`, ms: Date.now() - start }
+    }
+
+    case 'perplexity': {
+      const r = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'sonar',
+          messages: [{ role: 'user', content: 'Say ok' }],
+          max_tokens: 5,
+        }),
+      })
+      const data = await r.json()
+      if (!r.ok) return { ok: false, error: data.error?.message || `HTTP ${r.status}`, ms: Date.now() - start }
+      return { ok: true, detail: `Model: ${data.model || 'sonar'}`, ms: Date.now() - start }
+    }
+
+    default:
+      return { ok: false, error: `No test available for "${service}"` }
+  }
+}
 
 module.exports = router

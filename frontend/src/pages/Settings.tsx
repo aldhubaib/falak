@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
-import { X, ExternalLink, Lock, Bot, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity, Search } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity, Search, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -152,6 +152,9 @@ export default function Settings() {
   const [newMultiValue, setNewMultiValue] = useState<Record<string, string>>({});
   const [addingMulti, setAddingMulti] = useState<Record<string, boolean>>({});
   const [removingMulti, setRemovingMulti] = useState<Record<string, boolean>>({});
+  // Test key state
+  const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; detail?: string; error?: string; ms?: number }>>({});
   // Embedding key (project-scoped, for vector intelligence)
   const [embeddingKeySet, setEmbeddingKeySet] = useState(false);
   const [embeddingKeyInput, setEmbeddingKeyInput] = useState("");
@@ -423,6 +426,51 @@ export default function Settings() {
       .finally(() => setRemovingMulti((p) => ({ ...p, [id]: false })));
   };
 
+  const handleTestKey = (service: string) => {
+    setTesting((p) => ({ ...p, [service]: true }));
+    setTestResult((p) => { const n = { ...p }; delete n[service]; return n; });
+    fetch("/api/settings/test-key", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { ok: boolean; detail?: string; error?: string; ms?: number }) => {
+        setTestResult((p) => ({ ...p, [service]: d }));
+        if (d.ok) toast.success(`Test passed${d.ms ? ` (${d.ms}ms)` : ""}`);
+        else toast.error(d.error || "Test failed");
+      })
+      .catch(() => {
+        setTestResult((p) => ({ ...p, [service]: { ok: false, error: "Request failed" } }));
+        toast.error("Test request failed");
+      })
+      .finally(() => setTesting((p) => ({ ...p, [service]: false })));
+  };
+
+  const renderTestButton = (service: string, isSet: boolean) => {
+    const isTesting = testing[service];
+    const result = testResult[service];
+    return (
+      <div className="flex items-center gap-2 mt-2">
+        <button
+          type="button"
+          onClick={() => handleTestKey(service)}
+          disabled={!isSet || isTesting}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {isTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+          Test
+        </button>
+        {result && (
+          <span className={`text-[11px] font-mono ${result.ok ? "text-success" : "text-destructive"}`}>
+            {result.ok ? `✓ ${result.detail || "OK"}` : `✗ ${result.error || "Failed"}`}
+            {result.ms ? ` · ${result.ms}ms` : ""}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const renderSingleKey = (def: ApiKeyDef) => {
     const isSet = !!keyStatus[def.service];
     const isEd = editing[def.service] !== undefined;
@@ -520,9 +568,13 @@ export default function Settings() {
                             {addingMulti[def.service] && <Loader2 className="w-3 h-3 animate-spin" />} Add Key
                           </button>
                         </div>
+                        {renderTestButton(def.service, keys.length > 0)}
                       </div>
                     ) : (
-                      renderSingleKey(def)
+                      <>
+                        {renderSingleKey(def)}
+                        {renderTestButton(def.service, !!keyStatus[def.service])}
+                      </>
                     )}
 
                     {def.companionField && (
@@ -535,6 +587,7 @@ export default function Settings() {
                         </div>
                         <p className="text-[11px] text-muted-foreground mb-2">{def.companionField.description}</p>
                         {renderSingleKey({ service: def.companionField.service, name: def.companionField.label, description: "", icon: def.icon, placeholder: def.companionField.placeholder })}
+                        {renderTestButton(def.companionField.service, !!keyStatus[def.companionField.service])}
                       </div>
                     )}
 
@@ -594,6 +647,7 @@ export default function Settings() {
                 {embeddingKeyClearing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
               </button>
             </div>
+            {renderTestButton("embedding", embeddingKeySet)}
 
             <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-purple font-mono mt-2 hover:opacity-80 transition-opacity">
               platform.openai.com/api-keys ↗ <ExternalLink className="w-2.5 h-2.5" />
@@ -660,6 +714,7 @@ export default function Settings() {
                     </div>
                     <p className="text-[11px] text-muted-foreground mb-2.5">{def.description}</p>
                     {renderSingleKey(def)}
+                    {renderTestButton(def.service, isSet)}
                     {def.link && (
                       <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary font-mono mt-2 hover:opacity-80 transition-opacity">
                         {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
