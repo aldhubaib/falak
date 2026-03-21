@@ -1,4 +1,4 @@
-import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Filter, Target, ImageIcon } from "lucide-react";
+import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Target, ImageIcon } from "lucide-react";
 
 export interface FlowDef {
   id: string;
@@ -82,14 +82,6 @@ export const FLOW_DEFS: FlowDef[] = [
     icon: ImageIcon,
     color: "text-primary",
     bgColor: "bg-primary",
-  },
-  {
-    id: "filtered",
-    name: "Filtered",
-    subtitle: "Score below dynamic threshold — filtered out before research and translation.",
-    icon: Filter,
-    color: "text-muted-foreground",
-    bgColor: "bg-muted",
   },
   {
     id: "promote",

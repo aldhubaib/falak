@@ -206,7 +206,7 @@ const TIMELINE_STAGES: TimelineStage[] = FLOW_DEFS.map((f) => ({
   bgColor: f.bgColor,
 }));
 
-const STAGE_ORDER = ["imported", "content", "classify", "title_translate", "score", "research", "translated", "done"];
+const STAGE_ORDER = ["imported", "content", "classify", "title_translate", "score", "research", "translated", "images", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
