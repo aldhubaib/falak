@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
-import { X, ExternalLink, Lock, Bot, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity, Search, Zap } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity, Search, Zap, Plus, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ interface UsageLog {
   status: "Pass" | "Fail";
 }
 
-// ── Static key definitions (metadata only, no values) ─────────────────────
+// ── Static key definitions ─────────────────────────────────────────────────
 
 const CORE_KEYS: ApiKeyDef[] = [
   {
@@ -70,7 +71,7 @@ const CORE_KEYS: ApiKeyDef[] = [
   {
     service: "google_search",
     name: "Google Custom Search",
-    description: "Web search for article research — finds related articles and context. Add multiple API keys for quota rotation (100 queries/day per key).",
+    description: "Web search for article research. Add multiple API keys for quota rotation (100 queries/day per key).",
     icon: "search",
     multiKey: true,
     multiKeyEndpoint: "google-search-keys",
@@ -85,7 +86,6 @@ const CORE_KEYS: ApiKeyDef[] = [
     },
   },
 ];
-
 
 const LEGACY_KEYS: ApiKeyDef[] = [
   {
@@ -102,7 +102,7 @@ const LEGACY_KEYS: ApiKeyDef[] = [
   {
     service: "perplexity",
     name: "Perplexity Sonar",
-    description: "Legacy — story search now uses news APIs. Keep if you have existing integrations.",
+    description: "Legacy — story search now uses news APIs.",
     icon: "search",
     placeholder: "pplx-...",
   },
@@ -134,28 +134,33 @@ function mapService(api: string): { name: string; icon: "ai" | "data" | "search"
   return { name: api, icon: "data" };
 }
 
+function Tip({ children, label }: { children: React.ReactNode; label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" className="text-[11px]">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function Settings() {
   const { channelId } = useParams();
 
-  // Which services have a key set (from GET /api/settings)
   const [keyStatus, setKeyStatus] = useState<Record<string, boolean>>({});
-  // Multi-keys per service (keyed by service name)
   const [multiKeys, setMultiKeys] = useState<Record<string, MultiKey[]>>({});
-  // Inline edit state for single keys
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [clearing, setClearing] = useState<Record<string, boolean>>({});
-  // New multi-key form (keyed by service)
   const [newMultiLabel, setNewMultiLabel] = useState<Record<string, string>>({});
   const [newMultiValue, setNewMultiValue] = useState<Record<string, string>>({});
   const [addingMulti, setAddingMulti] = useState<Record<string, boolean>>({});
   const [removingMulti, setRemovingMulti] = useState<Record<string, boolean>>({});
-  // Test key state
+  const [showAddForm, setShowAddForm] = useState<Record<string, boolean>>({});
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; detail?: string; error?: string; ms?: number }>>({});
-  // Embedding key (project-scoped, for vector intelligence)
+
   const [embeddingKeySet, setEmbeddingKeySet] = useState(false);
   const [embeddingKeyInput, setEmbeddingKeyInput] = useState("");
   const [embeddingKeySaving, setEmbeddingKeySaving] = useState(false);
@@ -167,7 +172,6 @@ export default function Settings() {
     scoreProfile?: { totalOutcomes: number; totalDecisions: number; aiViralAccuracy: number; lastLearnedAt?: string | null } | null;
   }>({});
 
-  // Usage logs — paginated (50 per page, infinite scroll)
   const [usageLogs, setUsageLogs] = useState<UsageLog[]>([]);
   const [usageCursor, setUsageCursor] = useState<string | null>(null);
   const [usageHasMore, setUsageHasMore] = useState(false);
@@ -177,6 +181,8 @@ export default function Settings() {
   const usageLoadingRef = useRef(false);
   const usageCursorRef = useRef<string | null>(null);
 
+  // ── Data fetching ──────────────────────────────────────────────────────
+
   const fetchUsagePage = useCallback(async (cursor: string | null, replace: boolean) => {
     if (!channelId || usageLoadingRef.current) return;
     usageLoadingRef.current = true;
@@ -185,52 +191,35 @@ export default function Settings() {
       const url = `/api/profiles/${channelId}/usage?limit=50${cursor ? `&cursor=${cursor}` : ""}`;
       const r = await fetch(url, { credentials: "include" });
       const data = await r.json();
-      const rows: { id: string; ts: string; api: string; action: string; tokens: number | null; status: string }[] =
-        data.rows ?? [];
+      const rows: { id: string; ts: string; api: string; action: string; tokens: number | null; status: string }[] = data.rows ?? [];
       const mapped: UsageLog[] = rows.map((r) => {
         const { name, icon } = mapService(r.api || "");
-        return {
-          id: r.id,
-          time: r.ts ? fmtDateTime(r.ts) : "—",
-          apiName: name, apiIcon: icon,
-          action: r.action || "—",
-          tokens: r.tokens ?? null,
-          status: r.status === "ok" ? "Pass" : "Fail",
-        };
+        return { id: r.id, time: r.ts ? fmtDateTime(r.ts) : "—", apiName: name, apiIcon: icon, action: r.action || "—", tokens: r.tokens ?? null, status: r.status === "ok" ? "Pass" : "Fail" };
       });
       setUsageLogs((prev) => replace ? mapped : [...prev, ...mapped]);
       const nextCursor = data.nextCursor ?? null;
       setUsageCursor(nextCursor);
       usageCursorRef.current = nextCursor;
       setUsageHasMore(data.hasMore ?? false);
-    } catch {
-      // silent
-    } finally {
+    } catch { /* silent */ } finally {
       usageLoadingRef.current = false;
       setUsageLoading(false);
       setUsageInitialLoaded(true);
     }
   }, [channelId]);
 
-  // Initial load
-  useEffect(() => {
-    if (channelId) fetchUsagePage(null, true);
-  }, [channelId, fetchUsagePage]);
+  useEffect(() => { if (channelId) fetchUsagePage(null, true); }, [channelId, fetchUsagePage]);
 
-  // Infinite scroll: when user hits bottom of the 500px container, load next page
   useEffect(() => {
     const el = usageScrollRef.current;
     if (!el) return;
     const onScroll = () => {
-      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && !usageLoadingRef.current) {
-        fetchUsagePage(usageCursorRef.current, false);
-      }
+      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && !usageLoadingRef.current) fetchUsagePage(usageCursorRef.current, false);
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, [fetchUsagePage]);
 
-  // Load key status + multi-keys (global /api/settings) and project keys (for firecrawl)
   useEffect(() => {
     fetch("/api/settings", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
@@ -239,131 +228,74 @@ export default function Settings() {
         const status: Record<string, boolean> = {};
         for (const k of d.keys) status[k.service] = k.hasKey;
         setKeyStatus(status);
-        setMultiKeys({
-          youtube: d.youtubeKeys || [],
-          google_search: d.googleSearchKeys || [],
-        });
-      })
-      .catch(() => {});
+        setMultiKeys({ youtube: d.youtubeKeys || [], google_search: d.googleSearchKeys || [] });
+      }).catch(() => {});
   }, []);
 
-  // Merge channel-scoped key status when channelId is set
   useEffect(() => {
     if (!channelId) return;
     fetch(`/api/profiles/${channelId}/keys`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: Record<string, boolean> | null) => {
         if (!d) return;
-        setKeyStatus((prev) => ({
-          ...prev,
-          ...(d.hasFirecrawlKey !== undefined && { firecrawl: d.hasFirecrawlKey }),
-        }));
-      })
-      .catch(() => {});
-    // Fetch embedding intelligence status
+        setKeyStatus((prev) => ({ ...prev, ...(d.hasFirecrawlKey !== undefined && { firecrawl: d.hasFirecrawlKey }) }));
+      }).catch(() => {});
     fetch(`/api/settings/embedding-status?channelId=${encodeURIComponent(channelId)}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
         setEmbeddingKeySet(!!d.hasEmbeddingKey);
-        setEmbeddingStatus({
-          lastStatsRefreshAt: d.lastStatsRefreshAt,
-          rescoreIntervalHours: d.rescoreIntervalHours,
-          scoreProfile: d.scoreProfile,
-        });
-      })
-      .catch(() => {});
+        setEmbeddingStatus({ lastStatsRefreshAt: d.lastStatsRefreshAt, rescoreIntervalHours: d.rescoreIntervalHours, scoreProfile: d.scoreProfile });
+      }).catch(() => {});
   }, [channelId]);
 
-  // Save single key (project-scoped for services with bodyField, else global /api/settings/keys)
+  // ── Handlers ───────────────────────────────────────────────────────────
+
   const handleSave = (service: string, name: string) => {
     const val = editing[service]?.trim();
     if (!val) { toast.error("Please enter a key value"); return; }
     setSaving((p) => ({ ...p, [service]: true }));
-
     const def = KEY_DEFS.find((d) => d.service === service);
     if (def?.projectScoped && def.bodyField && channelId) {
-      fetch(`/api/profiles/${channelId}/keys`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [def.bodyField]: val }),
-      })
+      fetch(`/api/profiles/${channelId}/keys`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [def.bodyField]: val }) })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then(() => {
-          setKeyStatus((p) => ({ ...p, [service]: true }));
-          setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
-          toast.success(`${name} key saved`);
-        })
+        .then(() => { setKeyStatus((p) => ({ ...p, [service]: true })); setEditing((p) => { const n = { ...p }; delete n[service]; return n; }); toast.success(`${name} saved`); })
         .catch(() => toast.error("Failed to save key"))
         .finally(() => setSaving((p) => ({ ...p, [service]: false })));
       return;
     }
-
-    fetch("/api/settings/keys", {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ service, key: val }),
-    })
+    fetch("/api/settings/keys", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, key: val }) })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(() => {
-        setKeyStatus((p) => ({ ...p, [service]: true }));
-        setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
-        toast.success(`${name} key saved`);
-      })
+      .then(() => { setKeyStatus((p) => ({ ...p, [service]: true })); setEditing((p) => { const n = { ...p }; delete n[service]; return n; }); toast.success(`${name} saved`); })
       .catch(() => toast.error("Failed to save key"))
       .finally(() => setSaving((p) => ({ ...p, [service]: false })));
   };
 
-  // Clear single key (project-scoped for services with bodyField, else global DELETE)
   const handleClear = (service: string, name: string) => {
     setClearing((p) => ({ ...p, [service]: true }));
-
     const def = KEY_DEFS.find((d) => d.service === service);
     if (def?.projectScoped && def.bodyField && channelId) {
-      fetch(`/api/profiles/${channelId}/keys`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [def.bodyField]: null }),
-      })
+      fetch(`/api/profiles/${channelId}/keys`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [def.bodyField]: null }) })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then(() => {
-          setKeyStatus((p) => ({ ...p, [service]: false }));
-          setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
-          toast(`${name} key cleared`);
-        })
+        .then(() => { setKeyStatus((p) => ({ ...p, [service]: false })); setEditing((p) => { const n = { ...p }; delete n[service]; return n; }); toast(`${name} cleared`); })
         .catch(() => toast.error("Failed to clear key"))
         .finally(() => setClearing((p) => ({ ...p, [service]: false })));
       return;
     }
-
     fetch(`/api/settings/keys/${service}`, { method: "DELETE", credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(() => {
-        setKeyStatus((p) => ({ ...p, [service]: false }));
-        setEditing((p) => { const n = { ...p }; delete n[service]; return n; });
-        toast(`${name} key cleared`);
-      })
+      .then(() => { setKeyStatus((p) => ({ ...p, [service]: false })); setEditing((p) => { const n = { ...p }; delete n[service]; return n; }); toast(`${name} cleared`); })
       .catch(() => toast.error("Failed to clear key"))
       .finally(() => setClearing((p) => ({ ...p, [service]: false })));
   };
 
-  // Save embedding key (project-scoped)
   const handleSaveEmbeddingKey = () => {
     const val = embeddingKeyInput.trim();
     if (!val || !channelId) { toast.error("Please enter your OpenAI API key"); return; }
     setEmbeddingKeySaving(true);
-    fetch("/api/settings/embedding-key", {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ channelId, key: val }),
-    })
+    fetch("/api/settings/embedding-key", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channelId, key: val }) })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(() => {
-        setEmbeddingKeySet(true);
-        setEmbeddingKeyInput("");
-        setEmbeddingKeyEditing(false);
-        toast.success("OpenAI embedding key saved — vector intelligence active");
-      })
+      .then(() => { setEmbeddingKeySet(true); setEmbeddingKeyInput(""); setEmbeddingKeyEditing(false); toast.success("Embedding key saved"); })
       .catch(() => toast.error("Failed to save embedding key"))
       .finally(() => setEmbeddingKeySaving(false));
   };
@@ -371,45 +303,32 @@ export default function Settings() {
   const handleClearEmbeddingKey = () => {
     if (!channelId) return;
     setEmbeddingKeyClearing(true);
-    fetch("/api/settings/embedding-key", {
-      method: "DELETE", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ channelId }),
-    })
+    fetch("/api/settings/embedding-key", { method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channelId }) })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then(() => {
-        setEmbeddingKeySet(false);
-        setEmbeddingKeyEditing(false);
-        toast("Embedding key cleared");
-      })
+      .then(() => { setEmbeddingKeySet(false); setEmbeddingKeyEditing(false); toast("Embedding key cleared"); })
       .catch(() => toast.error("Failed to clear key"))
       .finally(() => setEmbeddingKeyClearing(false));
   };
 
-  // Add multi-key (generic for youtube, google_search, etc.)
   const handleAddMulti = (service: string, endpoint: string, serviceName: string) => {
     const label = (newMultiLabel[service] || "").trim();
     const value = (newMultiValue[service] || "").trim();
     if (!value) { toast.error("Please enter the API key"); return; }
     setAddingMulti((p) => ({ ...p, [service]: true }));
-    fetch(`/api/settings/${endpoint}`, {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: value, label: label || undefined }),
-    })
+    fetch(`/api/settings/${endpoint}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: value, label: label || undefined }) })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((k: MultiKey) => {
         setMultiKeys((p) => ({ ...p, [service]: [...(p[service] || []), k] }));
         setKeyStatus((p) => ({ ...p, [service]: true }));
         setNewMultiLabel((p) => ({ ...p, [service]: "" }));
         setNewMultiValue((p) => ({ ...p, [service]: "" }));
+        setShowAddForm((p) => ({ ...p, [service]: false }));
         toast.success(`${serviceName} key added`);
       })
       .catch(() => toast.error("Failed to add key"))
       .finally(() => setAddingMulti((p) => ({ ...p, [service]: false })));
   };
 
-  // Remove multi-key
   const handleRemoveMulti = (service: string, endpoint: string, id: string, serviceName: string) => {
     setRemovingMulti((p) => ({ ...p, [id]: true }));
     fetch(`/api/settings/${endpoint}/${id}`, { method: "DELETE", credentials: "include" })
@@ -429,411 +348,436 @@ export default function Settings() {
   const handleTestKey = (service: string) => {
     setTesting((p) => ({ ...p, [service]: true }));
     setTestResult((p) => { const n = { ...p }; delete n[service]; return n; });
-    fetch("/api/settings/test-key", {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ service }),
-    })
+    fetch("/api/settings/test-key", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service }) })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { ok: boolean; detail?: string; error?: string; ms?: number }) => {
         setTestResult((p) => ({ ...p, [service]: d }));
         if (d.ok) toast.success(`Test passed${d.ms ? ` (${d.ms}ms)` : ""}`);
         else toast.error(d.error || "Test failed");
       })
-      .catch(() => {
-        setTestResult((p) => ({ ...p, [service]: { ok: false, error: "Request failed" } }));
-        toast.error("Test request failed");
-      })
+      .catch(() => { setTestResult((p) => ({ ...p, [service]: { ok: false, error: "Request failed" } })); toast.error("Test request failed"); })
       .finally(() => setTesting((p) => ({ ...p, [service]: false })));
   };
 
-  const renderTestButton = (service: string, isSet: boolean) => {
-    const isTesting = testing[service];
-    const result = testResult[service];
+  // ── Render helpers ─────────────────────────────────────────────────────
+
+  const StatusDot = ({ active }: { active: boolean }) => (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
+      ● {active ? "SET" : "EMPTY"}
+    </span>
+  );
+
+  const IconBtn = ({ tip, onClick, disabled, variant = "default", children }: { tip: string; onClick: () => void; disabled?: boolean; variant?: "default" | "save" | "danger" | "test"; children: React.ReactNode }) => {
+    const styles = {
+      default: "border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20",
+      save: "bg-primary text-primary-foreground hover:opacity-90",
+      danger: "bg-destructive/10 text-destructive hover:bg-destructive/20",
+      test: "border border-border text-muted-foreground hover:text-primary hover:border-primary/40",
+    };
     return (
-      <div className="flex items-center gap-2 mt-2">
-        <button
-          type="button"
-          onClick={() => handleTestKey(service)}
-          disabled={!isSet || isTesting}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {isTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-          Test
+      <Tip label={tip}>
+        <button type="button" onClick={onClick} disabled={disabled}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${styles[variant]}`}>
+          {children}
         </button>
-        {result && (
-          <span className={`text-[11px] font-mono ${result.ok ? "text-success" : "text-destructive"}`}>
-            {result.ok ? `✓ ${result.detail || "OK"}` : `✗ ${result.error || "Failed"}`}
-            {result.ms ? ` · ${result.ms}ms` : ""}
-          </span>
-        )}
-      </div>
+      </Tip>
     );
   };
 
-  const renderSingleKey = (def: ApiKeyDef) => {
+  const TestResult = ({ service }: { service: string }) => {
+    const result = testResult[service];
+    if (!result) return null;
+    return (
+      <span className={`text-[11px] font-mono ${result.ok ? "text-success" : "text-destructive"}`}>
+        {result.ok ? `✓ ${result.detail || "OK"}` : `✗ ${result.error || "Failed"}`}
+        {result.ms ? ` · ${result.ms}ms` : ""}
+      </span>
+    );
+  };
+
+  // ── Single key card ────────────────────────────────────────────────────
+
+  const renderKeyCard = (def: ApiKeyDef) => {
     const isSet = !!keyStatus[def.service];
     const isEd = editing[def.service] !== undefined;
-    const isSav = saving[def.service];
-    const isClr = clearing[def.service];
+    const Icon = iconMap[def.icon];
     return (
-      <div className="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
-        {isSet && !isEd ? (
-          <div
-            onClick={() => setEditing((p) => ({ ...p, [def.service]: "" }))}
-            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-muted-foreground font-mono cursor-pointer hover:border-primary/40 transition-colors"
-          >
-            ••••••••••••••••  (click to replace)
+      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-muted ${iconColorMap[def.icon]}`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-[13px] font-semibold leading-tight">{def.name}</div>
+              <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">{def.description}</div>
+            </div>
           </div>
-        ) : (
-          <input
-            type="password"
-            value={editing[def.service] || ""}
-            onChange={(e) => setEditing((p) => ({ ...p, [def.service]: e.target.value }))}
-            placeholder={def.placeholder || "Paste your API key..."}
-            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/40"
-            autoFocus={isEd}
-          />
-        )}
-        <button onClick={() => handleSave(def.service, def.name)} disabled={isSav}
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:opacity-90 transition-opacity shrink-0 disabled:opacity-50">
-          {isSav ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-        </button>
-        <button onClick={() => handleClear(def.service, def.name)} disabled={isClr}
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0 disabled:opacity-50">
-          {isClr ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
-        </button>
+          <StatusDot active={isSet} />
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {isSet && !isEd ? (
+            <div onClick={() => setEditing((p) => ({ ...p, [def.service]: "" }))}
+              className="flex-1 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-muted-foreground font-mono flex items-center cursor-pointer hover:border-foreground/20 transition-colors">
+              ••••••••••••••••
+            </div>
+          ) : (
+            <input type="password" value={editing[def.service] || ""} onChange={(e) => setEditing((p) => ({ ...p, [def.service]: e.target.value }))}
+              placeholder={def.placeholder || "Paste API key..."} autoFocus={isEd}
+              className="flex-1 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
+          )}
+          <IconBtn tip="Save" onClick={() => handleSave(def.service, def.name)} disabled={saving[def.service]} variant="save">
+            {saving[def.service] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          </IconBtn>
+          <IconBtn tip="Remove" onClick={() => handleClear(def.service, def.name)} disabled={clearing[def.service]} variant="danger">
+            {clearing[def.service] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+          </IconBtn>
+          <IconBtn tip="Test connection" onClick={() => handleTestKey(def.service)} disabled={!isSet || testing[def.service]} variant="test">
+            {testing[def.service] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+          </IconBtn>
+        </div>
+
+        <div className="flex items-center justify-between min-h-[18px]">
+          <TestResult service={def.service} />
+          {def.link && (
+            <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary font-mono hover:opacity-80 transition-opacity ml-auto">
+              {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          )}
+        </div>
       </div>
     );
   };
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold">Settings</h1>
-          <span className="text-[11px] text-muted-foreground font-mono">API keys and usage monitoring</span>
+  // ── Multi-key card ─────────────────────────────────────────────────────
+
+  const renderMultiKeyCard = (def: ApiKeyDef) => {
+    const keys = multiKeys[def.service] || [];
+    const isSet = keys.length > 0;
+    const Icon = iconMap[def.icon];
+    const endpoint = def.multiKeyEndpoint || "";
+    const formOpen = showAddForm[def.service] || false;
+
+    return (
+      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-muted ${iconColorMap[def.icon]}`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-[13px] font-semibold leading-tight">{def.name}</div>
+              <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">{def.description}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isSet && <span className="text-[10px] font-mono text-success">{keys.length} key{keys.length !== 1 ? "s" : ""}</span>}
+            <StatusDot active={isSet} />
+          </div>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-auto">
-        <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
+        {/* Existing keys */}
+        {keys.length > 0 && (
+          <div className="space-y-1.5">
+            {keys.map((k) => (
+              <div key={k.id} className="flex items-center justify-between h-9 px-3 bg-muted/50 border border-border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-medium">{k.label}</span>
+                  <span className="text-[12px] font-mono text-muted-foreground">••••••••</span>
+                  {k.usageCount > 0 && <span className="text-[10px] text-muted-foreground font-mono">{k.usageCount.toLocaleString()} calls</span>}
+                </div>
+                <IconBtn tip="Remove key" onClick={() => handleRemoveMulti(def.service, endpoint, k.id, def.name)} disabled={removingMulti[k.id]} variant="danger">
+                  {removingMulti[k.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                </IconBtn>
+              </div>
+            ))}
+          </div>
+        )}
 
-          {/* ── Section 1: Core Services ───────────────────────────────────── */}
-          <div className="rounded-lg bg-card p-5">
-            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">CORE SERVICES</div>
-            <p className="text-[12px] text-muted-foreground mb-5">Required for pipeline, analysis, and channel sync.</p>
+        {/* Add form (toggled by + button) */}
+        {formOpen ? (
+          <div className="flex items-center gap-1.5">
+            <input type="text" placeholder="Label" value={newMultiLabel[def.service] || ""} onChange={(e) => setNewMultiLabel((p) => ({ ...p, [def.service]: e.target.value }))}
+              className="w-24 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
+            <input type="text" placeholder={def.placeholder || "Paste key..."} value={newMultiValue[def.service] || ""} onChange={(e) => setNewMultiValue((p) => ({ ...p, [def.service]: e.target.value }))} autoFocus
+              className="flex-1 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
+            <IconBtn tip="Save key" onClick={() => handleAddMulti(def.service, endpoint, def.name)} disabled={addingMulti[def.service]} variant="save">
+              {addingMulti[def.service] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            </IconBtn>
+            <IconBtn tip="Cancel" onClick={() => { setShowAddForm((p) => ({ ...p, [def.service]: false })); setNewMultiLabel((p) => ({ ...p, [def.service]: "" })); setNewMultiValue((p) => ({ ...p, [def.service]: "" })); }}>
+              <X className="w-3.5 h-3.5" />
+            </IconBtn>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowAddForm((p) => ({ ...p, [def.service]: true }))}
+            className="w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-[12px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors">
+            <Plus className="w-3.5 h-3.5" /> Add key
+          </button>
+        )}
 
-            <div className="space-y-5">
-              {CORE_KEYS.map((def, idx) => {
-                const keys = multiKeys[def.service] || [];
-                const isSet = def.multiKey ? keys.length > 0 : !!keyStatus[def.service];
-                const Icon = iconMap[def.icon];
-                const endpoint = def.multiKeyEndpoint || "";
-                return (
-                  <div key={def.service}>
-                    <div className="flex items-center gap-2.5 mb-1">
-                      <Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} />
-                      <span className="text-[13px] font-semibold">{def.name}</span>
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
-                        ● {isSet ? "SET" : "EMPTY"}
-                      </span>
-                      {def.multiKey && keys.length > 0 && (
-                        <span className="text-[10px] font-mono text-success">{keys.length} key{keys.length !== 1 ? "s" : ""}</span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mb-2.5">{def.description}</p>
+        {/* Test + link row */}
+        <div className="flex items-center justify-between min-h-[18px]">
+          <div className="flex items-center gap-2">
+            <IconBtn tip="Test connection" onClick={() => handleTestKey(def.service)} disabled={!isSet || testing[def.service]} variant="test">
+              {testing[def.service] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            </IconBtn>
+            <TestResult service={def.service} />
+          </div>
+          {def.link && (
+            <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary font-mono hover:opacity-80 transition-opacity">
+              {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          )}
+        </div>
 
-                    {def.multiKey ? (
-                      <div className="space-y-2 mb-1">
-                        {keys.map((k) => (
-                          <div key={k.id} className="flex items-center justify-between px-4 py-2 bg-card rounded-lg">
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-[12px] font-medium">{k.label}</span>
-                              {k.usageCount > 0 && <span className="text-[10px] text-muted-foreground font-mono">{k.usageCount.toLocaleString()} calls</span>}
-                            </div>
-                            <button onClick={() => handleRemoveMulti(def.service, endpoint, k.id, def.name)} disabled={removingMulti[k.id]}
-                              className="w-6 h-6 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50">
-                              {removingMulti[k.id] ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-3 h-3" />}
-                            </button>
-                          </div>
-                        ))}
-                        <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
-                          <input type="text" placeholder="Label (e.g. Key 2)" value={newMultiLabel[def.service] || ""} onChange={(e) => setNewMultiLabel((p) => ({ ...p, [def.service]: e.target.value }))}
-                            className="w-[160px] max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
-                          <input type="text" placeholder={def.placeholder || "Paste key..."} value={newMultiValue[def.service] || ""} onChange={(e) => setNewMultiValue((p) => ({ ...p, [def.service]: e.target.value }))}
-                            className="flex-1 max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
-                          <button onClick={() => handleAddMulti(def.service, endpoint, def.name)} disabled={addingMulti[def.service]}
-                            className="px-4 py-2 text-[12px] font-semibold bg-primary text-primary-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50 flex items-center gap-1.5">
-                            {addingMulti[def.service] && <Loader2 className="w-3 h-3 animate-spin" />} Add Key
-                          </button>
-                        </div>
-                        {renderTestButton(def.service, keys.length > 0)}
+        {/* Companion field (e.g. CX ID) */}
+        {def.companionField && (
+          <div className="pt-3 border-t border-border/50 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-[12px] font-medium">{def.companionField.label}</div>
+              <StatusDot active={!!keyStatus[def.companionField.service]} />
+            </div>
+            <p className="text-[11px] text-muted-foreground">{def.companionField.description}</p>
+            {(() => {
+              const cs = def.companionField.service;
+              const csSet = !!keyStatus[cs];
+              const csEd = editing[cs] !== undefined;
+              return (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    {csSet && !csEd ? (
+                      <div onClick={() => setEditing((p) => ({ ...p, [cs]: "" }))}
+                        className="flex-1 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-muted-foreground font-mono flex items-center cursor-pointer hover:border-foreground/20 transition-colors">
+                        ••••••••••••••••
                       </div>
                     ) : (
-                      <>
-                        {renderSingleKey(def)}
-                        {renderTestButton(def.service, !!keyStatus[def.service])}
-                      </>
+                      <input type="text" value={editing[cs] || ""} onChange={(e) => setEditing((p) => ({ ...p, [cs]: e.target.value }))}
+                        placeholder={def.companionField.placeholder} autoFocus={csEd}
+                        className="flex-1 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
                     )}
-
-                    {def.companionField && (
-                      <div className="mt-3 pt-3 border-t border-border/50">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[12px] font-medium text-muted-foreground">{def.companionField.label}</span>
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${keyStatus[def.companionField.service] ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
-                            ● {keyStatus[def.companionField.service] ? "SET" : "EMPTY"}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mb-2">{def.companionField.description}</p>
-                        {renderSingleKey({ service: def.companionField.service, name: def.companionField.label, description: "", icon: def.icon, placeholder: def.companionField.placeholder })}
-                        {renderTestButton(def.companionField.service, !!keyStatus[def.companionField.service])}
-                      </div>
-                    )}
-
-                    {def.link && (
-                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary font-mono mt-2 hover:opacity-80 transition-opacity">
-                        {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    )}
-
-                    {idx < CORE_KEYS.length - 1 && <div className="border-b border-border mt-5" />}
+                    <IconBtn tip="Save" onClick={() => handleSave(cs, def.companionField!.label)} disabled={saving[cs]} variant="save">
+                      {saving[cs] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    </IconBtn>
+                    <IconBtn tip="Remove" onClick={() => handleClear(cs, def.companionField!.label)} disabled={clearing[cs]} variant="danger">
+                      {clearing[cs] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    </IconBtn>
+                    <IconBtn tip="Test CX ID" onClick={() => handleTestKey(cs)} disabled={!csSet || testing[cs]} variant="test">
+                      {testing[cs] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                    </IconBtn>
                   </div>
-                );
-              })}
-            </div>
+                  <TestResult service={cs} />
+                </>
+              );
+            })()}
           </div>
+        )}
+      </div>
+    );
+  };
 
-          {/* ── Section 2: Vector Intelligence ───────────────────────────── */}
-          <div className="rounded-lg bg-card p-5">
-            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">VECTOR INTELLIGENCE</div>
-            <p className="text-[12px] text-muted-foreground mb-5">Powers semantic search, competition matching, and self-learning score adjustments.</p>
+  // ── Main render ────────────────────────────────────────────────────────
 
-            <div className="flex items-center gap-2.5 mb-1">
-              <Brain className="w-4 h-4 text-purple" />
-              <span className="text-[13px] font-semibold">OpenAI Embeddings</span>
-              <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${embeddingKeySet ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
-                ● {embeddingKeySet ? "ACTIVE" : "NOT SET"}
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mb-2.5">
-              text-embedding-3-small (1536d) — generates vector representations for stories and competition videos. Enables semantic similarity search via pgvector.
-            </p>
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div className="flex flex-col min-h-screen">
+        {/* Header */}
+        <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-sm font-semibold">Settings</h1>
+            <span className="text-[11px] text-muted-foreground font-mono">API keys & integrations</span>
+          </div>
+        </div>
 
-            <div className="flex items-center gap-2 max-sm:flex-col max-sm:items-stretch">
-              {embeddingKeySet && !embeddingKeyEditing ? (
-                <div
-                  onClick={() => setEmbeddingKeyEditing(true)}
-                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-muted-foreground font-mono cursor-pointer hover:border-purple/40 transition-colors"
-                >
-                  ••••••••••••••••  (click to replace)
-                </div>
-              ) : (
-                <input
-                  type="password"
-                  value={embeddingKeyInput}
-                  onChange={(e) => setEmbeddingKeyInput(e.target.value)}
-                  placeholder="sk-..."
-                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-purple/40"
-                  autoFocus={embeddingKeyEditing}
-                />
-              )}
-              <button onClick={handleSaveEmbeddingKey} disabled={embeddingKeySaving}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-purple text-white hover:opacity-90 transition-opacity shrink-0 disabled:opacity-50">
-                {embeddingKeySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-              </button>
-              <button onClick={handleClearEmbeddingKey} disabled={embeddingKeyClearing}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors shrink-0 disabled:opacity-50">
-                {embeddingKeyClearing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-            {renderTestButton("embedding", embeddingKeySet)}
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-3xl mx-auto px-6 pt-6 pb-10 max-lg:px-4 space-y-8">
 
-            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-purple font-mono mt-2 hover:opacity-80 transition-opacity">
-              platform.openai.com/api-keys ↗ <ExternalLink className="w-2.5 h-2.5" />
-            </a>
-
-            {embeddingKeySet && (
-              <div className="mt-4 pt-4 border-t border-border space-y-2">
-                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-2">INTELLIGENCE STATUS</div>
-                <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
-                  <div className="px-3 py-2.5 bg-card rounded-lg">
-                    <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Last Stats Refresh</div>
-                    <div className="text-[12px] font-mono text-foreground">
-                      {embeddingStatus.lastStatsRefreshAt ? fmtDateTime(embeddingStatus.lastStatsRefreshAt) : "Never"}
-                    </div>
-                  </div>
-                  <div className="px-3 py-2.5 bg-card rounded-lg">
-                    <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Auto Re-score Interval</div>
-                    <div className="text-[12px] font-mono text-foreground">{embeddingStatus.rescoreIntervalHours ?? 24}h</div>
-                  </div>
-                  {embeddingStatus.scoreProfile && (
-                    <>
-                      <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Decisions Learned</div>
-                        <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalDecisions}</div>
-                      </div>
-                      <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Outcomes Tracked</div>
-                        <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalOutcomes}</div>
-                      </div>
-                      <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">AI Viral Accuracy</div>
-                        <div className="text-[12px] font-mono text-foreground">{(embeddingStatus.scoreProfile.aiViralAccuracy * 100).toFixed(0)}%</div>
-                      </div>
-                      <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Last Learning</div>
-                        <div className="text-[12px] font-mono text-foreground">
-                          {embeddingStatus.scoreProfile.lastLearnedAt ? fmtDateTime(embeddingStatus.scoreProfile.lastLearnedAt) : "Never"}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+            {/* ── Section: Core Services ─────────────────────────────────── */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-[13px] font-semibold">Core Services</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Required for pipeline, analysis, and channel sync.</p>
               </div>
-            )}
-          </div>
+              <div className="space-y-3">
+                {CORE_KEYS.map((def) => def.multiKey ? renderMultiKeyCard(def) : renderKeyCard(def))}
+              </div>
+            </section>
 
-          {/* ── Section 3: Legacy / Scraping ───────────────────────────────── */}
-          <div className="rounded-lg bg-card p-5">
-            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">SCRAPING & LEGACY</div>
-            <p className="text-[12px] text-muted-foreground mb-5">Optional project-scoped keys for scraping or older integrations.</p>
+            {/* ── Section: Vector Intelligence ───────────────────────────── */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-[13px] font-semibold">Vector Intelligence</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Semantic search, competition matching, and self-learning score adjustments.</p>
+              </div>
 
-            <div className="space-y-5">
-              {LEGACY_KEYS.map((def, idx) => {
-                const isSet = !!keyStatus[def.service];
-                const Icon = iconMap[def.icon];
-                return (
-                  <div key={def.service}>
-                    <div className="flex items-center gap-2.5 mb-1">
-                      <Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} />
-                      <span className="text-[13px] font-semibold">{def.name}</span>
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
-                        ● {isSet ? "SET" : "EMPTY"}
-                      </span>
+              <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted text-purple">
+                      <Brain className="w-4 h-4" />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mb-2.5">{def.description}</p>
-                    {renderSingleKey(def)}
-                    {renderTestButton(def.service, isSet)}
-                    {def.link && (
-                      <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary font-mono mt-2 hover:opacity-80 transition-opacity">
-                        {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    )}
-                    {idx < LEGACY_KEYS.length - 1 && <div className="border-b border-border mt-5" />}
+                    <div>
+                      <div className="text-[13px] font-semibold leading-tight">OpenAI Embeddings</div>
+                      <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">text-embedding-3-small (1536d) — vectors for similarity search via pgvector.</div>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
+                  <StatusDot active={embeddingKeySet} />
+                </div>
 
-            <div className="flex items-start gap-2 mt-5 pt-4 border-t border-border">
-              <Lock className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                All keys are encrypted at rest using AES-256-GCM. Never returned to the browser — only decrypted server-side when making API calls.
-              </p>
-            </div>
-          </div>
+                <div className="flex items-center gap-1.5">
+                  {embeddingKeySet && !embeddingKeyEditing ? (
+                    <div onClick={() => setEmbeddingKeyEditing(true)}
+                      className="flex-1 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-muted-foreground font-mono flex items-center cursor-pointer hover:border-foreground/20 transition-colors">
+                      ••••••••••••••••
+                    </div>
+                  ) : (
+                    <input type="password" value={embeddingKeyInput} onChange={(e) => setEmbeddingKeyInput(e.target.value)}
+                      placeholder="sk-..." autoFocus={embeddingKeyEditing}
+                      className="flex-1 h-9 px-3 text-[12px] bg-muted/50 border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-purple/40" />
+                  )}
+                  <IconBtn tip="Save" onClick={handleSaveEmbeddingKey} disabled={embeddingKeySaving} variant="save">
+                    {embeddingKeySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  </IconBtn>
+                  <IconBtn tip="Remove" onClick={handleClearEmbeddingKey} disabled={embeddingKeyClearing} variant="danger">
+                    {embeddingKeyClearing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  </IconBtn>
+                  <IconBtn tip="Test connection" onClick={() => handleTestKey("embedding")} disabled={!embeddingKeySet || testing["embedding"]} variant="test">
+                    {testing["embedding"] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  </IconBtn>
+                </div>
 
-          {/* ── Section 4: Usage Dashboard ─────────────────────────────────── */}
-          <div className="rounded-lg bg-card p-5">
-            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
+                <div className="flex items-center justify-between min-h-[18px]">
+                  <TestResult service="embedding" />
+                  <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-purple font-mono hover:opacity-80 transition-opacity ml-auto">
+                    platform.openai.com ↗ <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
 
-            {usageInitialLoaded && usageLogs.length === 0 ? (
-              <EmptyState icon={Activity} title="No API calls recorded yet for this project" />
-            ) : (
-              <>
-                <div className="rounded-lg border border-border overflow-hidden max-sm:hidden">
-                  <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-card/20 border-b border-border sticky top-0 z-10">
-                    {["TIME", "API NAME", "ACTION", "TOKENS / UNITS", "STATUS"].map((h) => (
-                      <span key={h} className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{h}</span>
-                    ))}
+                {embeddingKeySet && embeddingStatus.scoreProfile && (
+                  <div className="pt-3 border-t border-border/50">
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-2">INTELLIGENCE STATUS</div>
+                    <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-2">
+                      {[
+                        { label: "Decisions", value: embeddingStatus.scoreProfile.totalDecisions },
+                        { label: "Outcomes", value: embeddingStatus.scoreProfile.totalOutcomes },
+                        { label: "AI Accuracy", value: `${(embeddingStatus.scoreProfile.aiViralAccuracy * 100).toFixed(0)}%` },
+                        { label: "Re-score", value: `${embeddingStatus.rescoreIntervalHours ?? 24}h` },
+                        { label: "Stats Refresh", value: embeddingStatus.lastStatsRefreshAt ? fmtDateTime(embeddingStatus.lastStatsRefreshAt) : "Never" },
+                        { label: "Last Learning", value: embeddingStatus.scoreProfile.lastLearnedAt ? fmtDateTime(embeddingStatus.scoreProfile.lastLearnedAt) : "Never" },
+                      ].map((s) => (
+                        <div key={s.label} className="px-2.5 py-2 bg-muted/50 rounded-lg">
+                          <div className="text-[9px] text-muted-foreground font-mono uppercase">{s.label}</div>
+                          <div className="text-[12px] font-mono text-foreground mt-0.5">{s.value}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div ref={usageScrollRef} className="overflow-y-auto" style={{ maxHeight: 500 }}
-                    onScroll={() => {
-                      const el = usageScrollRef.current;
-                      if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) fetchUsagePage(usageCursor, false);
+                )}
+              </div>
+            </section>
+
+            {/* ── Section: Legacy / Scraping ─────────────────────────────── */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-[13px] font-semibold">Scraping & Legacy</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Optional project-scoped keys for scraping or older integrations.</p>
+              </div>
+              <div className="space-y-3">
+                {LEGACY_KEYS.map((def) => renderKeyCard(def))}
+              </div>
+              <div className="flex items-start gap-2 mt-4 px-1">
+                <Lock className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  All keys encrypted at rest (AES-256-GCM). Never returned to the browser.
+                </p>
+              </div>
+            </section>
+
+            {/* ── Section: Usage Dashboard ───────────────────────────────── */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-[13px] font-semibold">Usage Dashboard</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Recent API calls for this project.</p>
+              </div>
+
+              {usageInitialLoaded && usageLogs.length === 0 ? (
+                <EmptyState icon={Activity} title="No API calls recorded yet" />
+              ) : (
+                <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
+                  {/* Desktop table */}
+                  <div className="max-sm:hidden">
+                    <div className="grid grid-cols-[180px_130px_1fr_100px_80px] px-4 py-2.5 border-b border-border bg-muted/30">
+                      {["TIME", "API", "ACTION", "TOKENS", "STATUS"].map((h) => (
+                        <span key={h} className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">{h}</span>
+                      ))}
+                    </div>
+                    <div ref={usageScrollRef} className="overflow-y-auto" style={{ maxHeight: 440 }}>
+                      {usageLogs.map((log, i) => {
+                        const LogIcon = iconMap[log.apiIcon];
+                        const nameColor = apiNameColorMap[log.apiName] || "text-muted-foreground";
+                        return (
+                          <div key={log.id} className={`grid grid-cols-[180px_130px_1fr_100px_80px] px-4 py-2.5 items-center ${i < usageLogs.length - 1 ? "border-b border-border/50" : ""}`}>
+                            <span className="text-[11px] text-muted-foreground font-mono">{log.time}</span>
+                            <div className="flex items-center gap-1.5">
+                              <LogIcon className={`w-3.5 h-3.5 ${iconColorMap[log.apiIcon]}`} />
+                              <span className={`text-[11px] font-medium ${nameColor}`}>{log.apiName}</span>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground font-mono truncate pr-2">{log.action}</span>
+                            <span className="text-[11px] text-muted-foreground font-mono text-right pr-3">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
+                            <div className="flex justify-end">
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
+                                ● {log.status}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {usageLoading && (
+                        <div className="flex items-center justify-center py-4 border-t border-border/50">
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="sm:hidden space-y-0 divide-y divide-border/50 overflow-y-auto" style={{ maxHeight: 440 }}
+                    onScroll={(e) => {
+                      const el = e.currentTarget;
+                      if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) fetchUsagePage(usageCursor, false);
                     }}>
-                    {usageLogs.map((log, i) => {
+                    {usageLogs.map((log) => {
                       const LogIcon = iconMap[log.apiIcon];
                       const nameColor = apiNameColorMap[log.apiName] || "text-muted-foreground";
                       return (
-                        <div key={log.id} className={`grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-3 items-center ${i < usageLogs.length - 1 ? "border-b border-border" : ""}`}>
-                          <span className="text-[12px] text-muted-foreground font-mono">{log.time}</span>
-                          <div className="flex items-center gap-2">
-                            <LogIcon className={`w-4 h-4 ${iconColorMap[log.apiIcon]}`} />
-                            <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
-                          </div>
-                          <span className="text-[12px] text-muted-foreground font-mono">{log.action}</span>
-                          <span className="text-[12px] text-muted-foreground font-mono text-right pr-4">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
-                          <div className="flex items-center justify-end">
-                            <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
+                        <div key={log.id} className="p-3.5">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <LogIcon className={`w-3 h-3 ${iconColorMap[log.apiIcon]}`} />
+                              <span className={`text-[11px] font-medium ${nameColor}`}>{log.apiName}</span>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
                               ● {log.status}
                             </span>
                           </div>
+                          <div className="text-[10px] text-muted-foreground font-mono">{log.time} · {log.action} · {log.tokens !== null ? `${log.tokens.toLocaleString()} tok` : "—"}</div>
                         </div>
                       );
                     })}
                     {usageLoading && (
-                      <div className="flex items-center justify-center py-4 border-t border-border">
+                      <div className="flex items-center justify-center py-4">
                         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                    {!usageLoading && usageHasMore && (
-                      <div className="flex items-center justify-center py-3 border-t border-border">
-                        <span className="text-[11px] text-muted-foreground font-mono">Scroll down to load more</span>
                       </div>
                     )}
                   </div>
                 </div>
+              )}
+            </section>
 
-                <div className="sm:hidden space-y-2 overflow-y-auto" style={{ maxHeight: 500 }}
-                  onScroll={(e) => {
-                    const el = e.currentTarget;
-                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80 && usageHasMore && !usageLoading) fetchUsagePage(usageCursor, false);
-                  }}>
-                  {usageLogs.map((log) => {
-                    const LogIcon = iconMap[log.apiIcon];
-                    const nameColor = apiNameColorMap[log.apiName] || "text-muted-foreground";
-                    return (
-                      <div key={log.id} className="rounded-lg border border-border p-3.5">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <LogIcon className={`w-3.5 h-3.5 ${iconColorMap[log.apiIcon]}`} />
-                            <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
-                          </div>
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
-                            ● {log.status}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-y-1.5">
-                          <div>
-                            <div className="text-[9px] text-muted-foreground font-mono uppercase">Time</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">{log.time}</div>
-                          </div>
-                          <div>
-                            <div className="text-[9px] text-muted-foreground font-mono uppercase">Action</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">{log.action}</div>
-                          </div>
-                          <div>
-                            <div className="text-[9px] text-muted-foreground font-mono uppercase">Tokens</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {usageLoading && (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
           </div>
-
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
