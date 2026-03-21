@@ -90,7 +90,6 @@ const App = () => (
           <Suspense fallback={<PageFallback />}>
           <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/design-system" element={<DesignSystem />} />
           <Route path="/" element={<ProfilePicker />} />
           <Route path="/c/:channelId" element={<ChannelLayout />}>
             <Route element={<AppLayout />}>
@@ -109,6 +108,7 @@ const App = () => (
               <Route path="gallery" element={<Gallery />} />
               <Route path="gallery/album/:albumId" element={<AlbumDetail />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="design-system" element={<DesignSystem />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
