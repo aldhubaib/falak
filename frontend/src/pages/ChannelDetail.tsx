@@ -596,7 +596,7 @@ export default function ChannelDetail() {
               {stats.map((s, i) => (
                 <div
                   key={s.label}
-                  className={`px-5 py-4 bg-background border-r border-b border-border last:border-r-0 ${
+                  className={`px-5 py-4 bg-card border-r border-b border-border last:border-r-0 ${
                     i === stats.length - 1 ? "max-lg:col-span-2 max-lg:border-r-0" : ""
                   }`}
                 >
