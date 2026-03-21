@@ -150,6 +150,12 @@ const COLOR_GROUPS = [
   { label: "Border", tokens: [
     { id: "--border", hsl: "hsl(228,8%,9%)" },
   ]},
+  { label: "Sidebar", tokens: [
+    { id: "--sidebar-background", hsl: "hsl(0,0%,4%)" },
+    { id: "--sidebar-foreground", hsl: "hsl(0,0%,45%)" },
+    { id: "--sidebar-primary", hsl: "hsl(258,60%,59%)" },
+    { id: "--sidebar-border", hsl: "hsl(0,0%,12%)" },
+  ]},
 ];
 const RADIUS_TOKENS = [
   { id: "--radius-lg", rem: "0.5rem", px: "8px", tw: "rounded-lg" },
