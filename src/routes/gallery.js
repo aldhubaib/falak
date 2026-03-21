@@ -340,8 +340,9 @@ router.patch('/:channelId/albums/:albumId', requireRole('owner', 'admin', 'edito
 router.delete('/:channelId/albums/:albumId', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const { channelId, albumId } = req.params
-    const existing = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId }, select: { id: true } })
+    const existing = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId }, select: { id: true, isLocked: true } })
     if (!existing) return res.status(404).json({ error: 'Album not found' })
+    if (existing.isLocked) return res.status(403).json({ error: 'This album is locked and cannot be deleted' })
 
     await db.$transaction([
       db.galleryMedia.updateMany({ where: { channelId, albumId }, data: { albumId: null } }),
@@ -379,6 +380,9 @@ router.post('/:channelId/albums/:albumId/remove', requireRole('owner', 'admin', 
     const { channelId, albumId } = req.params
     const mediaIds = Array.isArray(req.body?.mediaIds) ? req.body.mediaIds.filter(Boolean) : []
     if (mediaIds.length === 0) return res.status(400).json({ error: 'mediaIds is required' })
+
+    const album = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId }, select: { id: true, isLocked: true } })
+    if (album?.isLocked) return res.status(403).json({ error: 'This album is locked — media cannot be removed' })
 
     const result = await db.galleryMedia.updateMany({
       where: { channelId, albumId, id: { in: mediaIds } },

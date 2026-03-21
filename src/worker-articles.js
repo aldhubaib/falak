@@ -1,6 +1,6 @@
 /**
  * Article pipeline worker: polls for queued articles and processes them through stages.
- * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done
  *
  * Mirrors the video pipeline worker pattern (worker.js).
  */
@@ -16,6 +16,7 @@ const {
   doStageScore,
   doStageResearch,
   doStageTranslated,
+  doStageImages,
 } = require('./services/articleProcessor')
 
 const POLL_MS = 10_000
@@ -26,7 +27,7 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
+const STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
 
 const AI_STAGES = new Set(['classify', 'title_translate', 'score', 'research', 'translated'])
 
@@ -110,6 +111,9 @@ async function processItem(article, { force = false } = {}) {
         break
       case 'translated':
         out = await doStageTranslated(article, channel)
+        break
+      case 'images':
+        out = await doStageImages(article, channel)
         break
       default:
         return

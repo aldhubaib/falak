@@ -2,7 +2,7 @@
  * Article pipeline stage processors.
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
- * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done
  *
  * Key design: classify runs on ORIGINAL language content. Title translate provides
  * a lightweight Arabic translation for scoring/niche matching. Score runs early
@@ -49,6 +49,7 @@ const STEP_META = {
   score_ai_analysis:  { stage: 'score',       label: 'AI Scoring',       icon: 'brain',         subtitle: 'Relevance & viral scores' },
   score:              { stage: 'score',       label: 'Final Score',      icon: 'sparkles',      subtitle: 'Composite score' },
   threshold_gate:     { stage: 'score',       label: 'Threshold Gate',   icon: 'target',        subtitle: 'Dynamic score threshold check' },
+  images:             { stage: 'images',      label: 'Image Search',     icon: 'image',         subtitle: 'SerpAPI Google Images' },
   promote:            { stage: 'promote',     label: 'Promote',          icon: 'check-circle' },
 }
 
@@ -501,7 +502,7 @@ async function doStageTranslated(article, project) {
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
     })
     await promoteAfterTranslation(article, arAnalysis, log)
-    return { nextStage: 'done' }
+    return { nextStage: 'images' }
   }
 
   const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
@@ -660,7 +661,7 @@ async function doStageTranslated(article, project) {
   })
 
   await promoteAfterTranslation(article, arAnalysis, log)
-  return { nextStage: 'done' }
+  return { nextStage: 'images' }
 }
 
 async function promoteAfterTranslation(article, analysis, log) {
@@ -1310,6 +1311,177 @@ function parseAutoScript(text) {
   }
 }
 
+// ── Stage: images → done ────────────────────────────────────────────────────
+// Searches SerpAPI Google Images Light for article-related images,
+// saves results to analysis.images, and downloads originals into a
+// locked "Stories" gallery album per channel.
+
+async function getOrCreateStoriesAlbum(channelId) {
+  let album = await db.galleryAlbum.findFirst({
+    where: { channelId, name: 'Stories', isLocked: true },
+    select: { id: true, createdById: true },
+  })
+  if (album) return album
+
+  const admin = await db.user.findFirst({
+    where: { isActive: true, role: { in: ['owner', 'admin'] } },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  })
+  if (!admin) return null
+
+  album = await db.galleryAlbum.create({
+    data: {
+      channelId,
+      name: 'Stories',
+      description: 'Auto-generated images from the article pipeline',
+      isLocked: true,
+      createdById: admin.id,
+    },
+    select: { id: true, createdById: true },
+  })
+  return album
+}
+
+async function saveImagesToGallery(channelId, images, articleTitle) {
+  const { v4: uuidv4 } = require('uuid')
+  const { putObject } = require('./r2')
+
+  const album = await getOrCreateStoriesAlbum(channelId)
+  if (!album) return 0
+
+  let saved = 0
+  for (const img of images) {
+    const imageUrl = img.original || img.thumbnail
+    if (!imageUrl) continue
+
+    try {
+      const resp = await fetch(imageUrl, { signal: AbortSignal.timeout(15000) })
+      if (!resp.ok) continue
+
+      const contentType = resp.headers.get('content-type') || 'image/jpeg'
+      const buffer = Buffer.from(await resp.arrayBuffer())
+      if (buffer.length < 500) continue
+
+      const ext = contentType.includes('png') ? 'png'
+        : contentType.includes('webp') ? 'webp'
+        : contentType.includes('gif') ? 'gif'
+        : 'jpg'
+      const r2Key = `gallery/${channelId}/${uuidv4()}.${ext}`
+      const r2Url = await putObject(r2Key, buffer, contentType)
+
+      await db.galleryMedia.create({
+        data: {
+          channelId,
+          albumId: album.id,
+          type: 'PHOTO',
+          fileName: `${(articleTitle || 'image').slice(0, 80)}.${ext}`,
+          fileSize: BigInt(buffer.length),
+          mimeType: contentType,
+          r2Key,
+          r2Url,
+          uploadedById: album.createdById,
+          metadata: { source: img.source, link: img.link, title: img.title },
+        },
+      })
+      saved++
+    } catch (e) {
+      logger.warn({ imageUrl, error: e.message }, '[articleProcessor] gallery image download failed (non-fatal)')
+    }
+  }
+  return saved
+}
+
+async function doStageImages(article, project) {
+  const log = getLog(article)
+
+  const title = article.title
+  if (!title || !title.trim()) {
+    log.push(lp('images', { status: 'skipped', reason: 'No title for image search' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'done' }
+  }
+
+  const keys = await db.googleSearchKey.findMany({
+    where: { isActive: true },
+    orderBy: [{ lastUsedAt: { sort: 'asc', nulls: 'first' } }, { sortOrder: 'asc' }],
+  })
+
+  if (!keys.length) {
+    log.push(lp('images', { status: 'skipped', reason: 'No active Google Search API key configured' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'done' }
+  }
+
+  const keyEntry = keys[0]
+  const apiKey = decrypt(keyEntry.encryptedKey)
+
+  await db.googleSearchKey.update({
+    where: { id: keyEntry.id },
+    data: { lastUsedAt: new Date(), usageCount: { increment: 1 } },
+  })
+
+  try {
+    const url = new URL('https://serpapi.com/search')
+    url.searchParams.set('engine', 'google_images_light')
+    url.searchParams.set('q', title.trim())
+    url.searchParams.set('api_key', apiKey)
+
+    const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(30000) })
+    if (!resp.ok) {
+      throw new Error(`SerpAPI responded ${resp.status}: ${resp.statusText}`)
+    }
+    const data = await resp.json()
+
+    const rawImages = (data.images_results || []).slice(0, 10)
+    const images = rawImages.map(img => ({
+      thumbnail: img.thumbnail || null,
+      original: img.original || null,
+      title: img.title || null,
+      source: img.source || null,
+      link: img.link || null,
+    }))
+
+    const freshArticle = await db.article.findUnique({ where: { id: article.id } })
+    const analysis = { ...(freshArticle?.analysis || article.analysis || {}), images }
+
+    log.push(lp('images', {
+      status: 'ok',
+      processor: 'api',
+      service: 'SerpAPI Google Images Light',
+      query: title.trim(),
+      resultCount: images.length,
+      keyLabel: keyEntry.label,
+    }))
+
+    await db.article.update({
+      where: { id: article.id },
+      data: { analysis, processingLog: log },
+    })
+
+    if (images.length > 0) {
+      try {
+        const gallerySaved = await saveImagesToGallery(article.channelId, images, article.title)
+        logger.info({ articleId: article.id, gallerySaved }, '[articleProcessor] images saved to gallery')
+      } catch (e) {
+        logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] gallery save failed (non-fatal)')
+      }
+    }
+
+    return { nextStage: 'done' }
+  } catch (e) {
+    log.push(lp('images', {
+      status: 'error',
+      error: e.message,
+      processor: 'api',
+      service: 'SerpAPI Google Images Light',
+    }))
+    await saveLog(article.id, log)
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] images stage failed (non-fatal)')
+    return { nextStage: 'done' }
+  }
+}
+
 module.exports = {
   doStageImported,
   doStageContent,
@@ -1318,6 +1490,7 @@ module.exports = {
   doStageScore,
   doStageResearch,
   doStageTranslated,
+  doStageImages,
   STEP_META,
   computeDynamicThreshold,
 }

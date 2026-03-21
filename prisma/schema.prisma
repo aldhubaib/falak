@@ -234,6 +234,7 @@ model GalleryAlbum {
   channel     Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
   name        String
   description String?
+  isLocked    Boolean       @default(false)
   coverMediaId String?
   coverMedia  GalleryMedia? @relation("GalleryAlbumCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   media       GalleryMedia[]
