@@ -44,7 +44,7 @@ From a user perspective the workflow is:
    sources, classifies them with AI, translates to Arabic, scores relevance,
    promotes all scored articles to stories, and auto-generates a draft script
    (Claude Sonnet) with branded hooks and research context for team evaluation.
-5. **Editorial Workspace** — each story has a Tiptap collaborative editor with
+5. **Editorial Workspace** — each story has a plain-text script editor with
    AI script generation, video upload, transcription (Whisper), title / description /
    tag generation, and an SRT subtitle builder.
 6. **Publish Queue** — bulk video upload with an automated pipeline
@@ -56,15 +56,13 @@ From a user perspective the workflow is:
 ### How Backend and Frontend Interact
 
 The **frontend** is a React SPA (Vite + TypeScript + Tailwind + shadcn/ui). In
-development, Vite dev-server on `:5173` proxies `/api` to Express on `:3000` and
-`/collab` to the Hocuspocus WebSocket. In production, the SPA is built to
-`frontend/dist` and served as static files by the same Express process — a single
-Railway service handles everything.
+development, Vite dev-server on `:5173` proxies `/api` to Express on `:3000`. In
+production, the SPA is built to `frontend/dist` and served as static files by the
+same Express process — a single Railway service handles everything.
 
 All data flows through REST endpoints under `/api/*`. Auth uses an HTTP-only JWT
 cookie set during Google OAuth login — the frontend sends `credentials: "include"`
-with every `fetch` call. Real-time collaborative editing uses a Yjs CRDT via
-WebSocket on the `/collab` path.
+with every `fetch` call.
 
 ### How Background Jobs Fit In
 
@@ -125,7 +123,6 @@ flowchart TB
 
     subgraph Railway["Railway Service"]
         API["Express API<br/>:3000"]
-        WS["Hocuspocus / WS<br/>(inline in server.js)"]
         W1["Worker — video pipeline"]
         W2["Worker — articles"]
         W3["Worker — rescore"]
@@ -149,7 +146,6 @@ flowchart TB
     end
 
     FE -- "REST /api/*" --> API
-    FE -- "WebSocket /collab" --> WS
     API --> PG
     API --> RD
     API --> R2
@@ -182,7 +178,6 @@ flowchart TB
 | **Database** | PostgreSQL (via Prisma 5) + pgvector | Primary data store; 1536-dim vector embeddings | `prisma/schema.prisma`, `src/lib/db.js` |
 | **Queue** | Redis + Bull 4 | Background job queue (optional — polling fallback) | `src/queue/pipeline.js`, `src/worker.js` |
 | **Object storage** | Cloudflare R2 (S3-compat) | Media uploads, thumbnails, video files | `src/services/r2.js`, `src/routes/upload.js` |
-| **Realtime** | Hocuspocus + Yjs | Tiptap collaborative editing | `src/server.js` (inline), `src/ws-server.js` |
 | **Auth** | Google OAuth 2.0 + JWT | Login, session cookies (30-day expiry) | `src/routes/auth.js`, `src/middleware/auth.js` |
 | **AI — analysis** | Anthropic Claude (Haiku + Sonnet) | Video analysis, classification, translation, scoring | `src/services/pipelineProcessor.js` |
 | **AI — embeddings** | OpenAI text-embedding-3-small | Semantic similarity search | `src/services/embeddings.js` |
@@ -1138,8 +1133,6 @@ Requires ≥3 outcomes.
 - **Tailwind CSS** with `tailwindcss-animate` + `@tailwindcss/typography`
 - **shadcn/ui** (Radix primitives, 48 components in `components/ui/`)
 - **TanStack Query** for gallery data fetching/caching
-- **Yjs + y-websocket** for collaborative editing
-- **Tiptap** for the rich text editor
 - **Sonner** for toast notifications
 - **Lucide** for icons
 
@@ -1546,7 +1539,6 @@ There is **one environment** — production on Railway. Local development uses
 | `R2_SECRET_ACCESS_KEY` | — | R2 secret key |
 | `R2_BUCKET_NAME` | `falak-uploads` | R2 bucket |
 | `R2_PUBLIC_URL` | — | Public CDN URL for R2 objects |
-| `WS_PORT` | `1234` | Hocuspocus WebSocket port |
 
 ---
 
@@ -1746,9 +1738,6 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 - **Problem**: If `ENCRYPTION_KEY` env var is missing, `crypto.js` silently uses a hardcoded fallback key (`dev_only_insecure_fallback_key!!`). In production, all stored API keys would be decryptable with this known key.
 - **Fix**: Now throws at startup if `NODE_ENV === 'production'` and `ENCRYPTION_KEY` is not set. Dev still uses fallback with a warning.
 
-#### WebSocket Authentication
-- **Problem**: Hocuspocus WebSocket upgrade at `/collab` had no authentication. Anyone could connect and join any collaborative document.
-- **Fix**: WebSocket upgrade now extracts JWT from query string `?token=` or cookie `token=`, verifies it with `jwt.verify()`, and rejects the connection if invalid.
 
 #### R2 Signed URL Access Control
 - **Problem**: `GET /api/upload/signed-url/:key(*)` accepted any R2 key and returned a signed read URL. Any authenticated user could read any object in the bucket.
