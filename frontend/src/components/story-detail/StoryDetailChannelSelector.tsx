@@ -22,7 +22,7 @@ export function StoryDetailChannelSelector({
 }: StoryDetailChannelSelectorProps) {
   const selected = channels.find((c) => c.id === selectedId);
   return (
-    <div className="rounded-lg bg-background p-5">
+    <div className="rounded-lg bg-card p-5">
       <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">
         Assign to Channel
       </div>

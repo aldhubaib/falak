@@ -194,7 +194,7 @@ export function VideoUpload({
       : "";
 
     return (
-      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-background">
+      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-card">
         {/* Thumbnail area — progress animation */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           <div className={`w-full ${thumbAspect} rounded-lg bg-card flex items-center justify-center relative overflow-hidden`}>
@@ -253,7 +253,7 @@ export function VideoUpload({
   // ── Failed ────────────────────────────────────────────────────
   if (isFailed && task) {
     return (
-      <div className="rounded-lg overflow-hidden border border-destructive/20 flex max-md:flex-col bg-background">
+      <div className="rounded-lg overflow-hidden border border-destructive/20 flex max-md:flex-col bg-card">
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           <div className={`w-full ${thumbAspect} rounded-lg bg-red-500/5 flex items-center justify-center`}>
             <div className="flex flex-col items-center gap-2">
@@ -312,7 +312,7 @@ export function VideoUpload({
     const ext = getExtension(name);
 
     return (
-      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-background">
+      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-card">
         {/* Thumbnail left — video preview */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           {(videoThumbnailR2Url || url) ? (
@@ -426,7 +426,7 @@ export function VideoUpload({
       onDrop={onDrop}
       onClick={() => fileInputRef.current?.click()}
       className={`
-        rounded-lg overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-background
+        rounded-lg overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-card
         ${dragOver
           ? "border-primary shadow-[inset_0_0_20px_hsl(var(--blue)/0.05)]"
           : "border-dashed border-border hover:border-primary/30"

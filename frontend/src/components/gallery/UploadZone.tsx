@@ -95,7 +95,7 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
           void processFiles(Array.from(e.dataTransfer.files));
         }}
         className={`rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
-          dragOver ? "border-primary bg-primary/5" : "border-border bg-background"
+          dragOver ? "border-primary bg-primary/5" : "border-border bg-card"
         }`}
       >
         <UploadCloud className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
@@ -130,7 +130,7 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
       )}
 
       {queue.length > 0 && (
-        <div className="rounded-lg border border-border p-3 bg-background">
+        <div className="rounded-lg border border-border p-3 bg-card">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium">Uploads</div>
             <Button size="sm" variant="outline" onClick={clearFinished}>Clear finished</Button>

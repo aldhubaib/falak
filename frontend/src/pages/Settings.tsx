@@ -442,7 +442,7 @@ export default function Settings() {
         <div className="px-6 pt-5 max-lg:px-4 space-y-5 pb-8">
 
           {/* ── Section 1: Core Services ───────────────────────────────────── */}
-          <div className="rounded-lg bg-background p-5">
+          <div className="rounded-lg bg-card p-5">
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">CORE SERVICES</div>
             <p className="text-[12px] text-muted-foreground mb-5">Required for pipeline, analysis, and channel sync.</p>
 
@@ -507,7 +507,7 @@ export default function Settings() {
           </div>
 
           {/* ── Section 2: Vector Intelligence ───────────────────────────── */}
-          <div className="rounded-lg bg-background p-5">
+          <div className="rounded-lg bg-card p-5">
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">VECTOR INTELLIGENCE</div>
             <p className="text-[12px] text-muted-foreground mb-5">Powers semantic search, competition matching, and self-learning score adjustments.</p>
 
@@ -596,7 +596,7 @@ export default function Settings() {
           </div>
 
           {/* ── Section 3: Legacy / Scraping ───────────────────────────────── */}
-          <div className="rounded-lg bg-background p-5">
+          <div className="rounded-lg bg-card p-5">
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">SCRAPING & LEGACY</div>
             <p className="text-[12px] text-muted-foreground mb-5">Optional project-scoped keys for scraping or older integrations.</p>
 
@@ -635,7 +635,7 @@ export default function Settings() {
           </div>
 
           {/* ── Section 4: Usage Dashboard ─────────────────────────────────── */}
-          <div className="rounded-lg bg-background p-5">
+          <div className="rounded-lg bg-card p-5">
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
 
             {usageInitialLoaded && usageLogs.length === 0 ? (

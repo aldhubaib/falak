@@ -129,7 +129,7 @@ export function PageError({
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">
-      <div className="max-w-lg w-full rounded-lg border border-border bg-background p-6">
+      <div className="max-w-lg w-full rounded-lg border border-border bg-card p-6">
         <div className="flex items-start gap-4 mb-4">
           <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
             <AlertCircle className="w-5 h-5 text-destructive" />

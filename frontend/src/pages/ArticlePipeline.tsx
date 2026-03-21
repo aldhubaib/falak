@@ -757,7 +757,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: typeof FileText;
 
 function StatBox({ label, value, color, sub, last }: { label: string; value: number; color?: string; sub?: string; last?: boolean }) {
   return (
-    <div className={`flex-1 px-4 py-3.5 bg-background ${!last ? "border-r border-border" : ""}`}>
+    <div className={`flex-1 px-4 py-3.5 bg-card ${!last ? "border-r border-border" : ""}`}>
       <div className={`text-xl font-semibold font-mono tracking-tight ${color || ""}`}>{value}</div>
       <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5">{label}</div>
       {sub && <div className="text-[10px] text-muted-foreground font-mono mt-1">{sub}</div>}
@@ -775,7 +775,7 @@ function SubStepColumn({
   const Icon = sub.icon;
   return (
     <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
-      <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border space-y-1">
+      <div className="px-3 py-2.5 bg-card shrink-0 border-b border-border space-y-1">
         <div className="flex items-center gap-2">
           <Icon className={`w-3.5 h-3.5 ${sub.color}`} />
           <span className="text-[12px] font-semibold">{sub.label}</span>
@@ -785,7 +785,7 @@ function SubStepColumn({
           <div className="text-[10px] text-muted-foreground font-mono leading-tight pl-5.5">{sub.subtitle}</div>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto bg-background">
+      <div className="flex-1 overflow-y-auto bg-card">
         {articles.length === 0 ? (
           <div className="flex items-center justify-center h-16 text-[11px] text-muted-foreground font-mono">—</div>
         ) : (
@@ -1112,7 +1112,7 @@ function StageColumn({
 
   return (
     <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
-      <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border space-y-1">
+      <div className="px-3 py-2.5 bg-card shrink-0 border-b border-border space-y-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${
@@ -1143,7 +1143,7 @@ function StageColumn({
           <div className="text-[10px] text-muted-foreground font-mono leading-tight pl-7">{stage.subtitle}</div>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto bg-background">
+      <div className="flex-1 overflow-y-auto bg-card">
         {items.length === 0 ? (
           <div className="flex items-center justify-center h-16 text-[11px] text-muted-foreground font-mono">Empty</div>
         ) : (
@@ -1288,7 +1288,7 @@ function ActiveArticleRow({
         <div className="mt-2 p-2.5 rounded-lg border border-purple/20 bg-purple/5">
           <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)}
             placeholder="Paste article content…"
-            className="w-full h-20 bg-background border border-border rounded-lg p-2 text-[11px] font-mono resize-none focus:outline-none focus:border-purple/50" />
+            className="w-full h-20 bg-card border border-border rounded-lg p-2 text-[11px] font-mono resize-none focus:outline-none focus:border-purple/50" />
           <div className="flex items-center justify-between mt-1.5">
             <span className="text-[10px] text-muted-foreground font-mono">{pasteText.length} chars</span>
             <div className="flex items-center gap-2">

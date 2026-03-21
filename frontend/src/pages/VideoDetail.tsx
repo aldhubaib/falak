@@ -255,7 +255,7 @@ export default function VideoDetail() {
         <div>
           {/* Hero */}
           <div className="px-6 py-6 max-lg:px-4">
-            <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-background">
+            <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-card">
               {/* Thumbnail left */}
               <div className={`relative shrink-0 p-3 ${video.type === "short" ? "w-[200px] max-md:w-full" : "w-[380px] max-md:w-full"}`}>
                 {(() => {
@@ -335,7 +335,7 @@ export default function VideoDetail() {
               {stats.map((s, i) => (
                 <div
                   key={s.label}
-                  className={`px-5 py-4 bg-background border-r border-b border-border last:border-r-0 ${
+                  className={`px-5 py-4 bg-card border-r border-b border-border last:border-r-0 ${
                     i === stats.length - 1 ? "max-lg:col-span-2 max-lg:border-r-0" : ""
                   }`}
                 >
@@ -378,7 +378,7 @@ export default function VideoDetail() {
               <div>
                 {/* Transcript */}
                 <div className="rounded-lg overflow-hidden border border-border">
-                  <div className="bg-background px-4 py-3">
+                  <div className="bg-card px-4 py-3">
                     <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Transcript</div>
                     {(!analysis || analysis.transcript.length === 0) ? (
                       <EmptyState icon={FileText} title="No transcript available yet" />
@@ -397,7 +397,7 @@ export default function VideoDetail() {
 
                 <SectionDivider label="Topics" />
                 <div className="rounded-lg overflow-hidden border border-border">
-                  <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
+                  <div className="bg-card px-4 py-3 flex flex-wrap gap-1.5">
                     {analysis && analysis.topics.length > 0
                       ? analysis.topics.map((t) => (
                           <span key={t} className="py-1 px-2.5 rounded-full bg-primary/10 border border-primary/15 text-primary text-xs font-mono">{t}</span>
@@ -409,7 +409,7 @@ export default function VideoDetail() {
 
                 <SectionDivider label="Keywords" />
                 <div className="rounded-lg overflow-hidden border border-border">
-                  <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
+                  <div className="bg-card px-4 py-3 flex flex-wrap gap-1.5">
                     {analysis && analysis.keywords.length > 0
                       ? analysis.keywords.map((k) => (
                           <span key={k} className="py-1 px-2.5 rounded-full bg-card border border-border text-muted-foreground text-xs font-mono">{k}</span>
@@ -430,7 +430,7 @@ export default function VideoDetail() {
                     { label: "Negative", val: analysis?.sentiment.negative ?? 0, cls: "bg-destructive" },
                     { label: "Neutral", val: analysis?.sentiment.neutral ?? 0, cls: "bg-dim" },
                   ].map((s) => (
-                    <div key={s.label} className="flex items-center gap-3 bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
+                    <div key={s.label} className="flex items-center gap-3 bg-card px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <span className="text-xs text-muted-foreground w-[72px]">{s.label}</span>
                       <div className="flex-1 h-1.5 bg-card rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${s.cls}`} style={{ width: `${s.val}%` }} />
@@ -446,7 +446,7 @@ export default function VideoDetail() {
               <div>
                 <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
                   {/* Viral Score */}
-                  <div className="rounded-lg border border-border bg-background px-5 py-4">
+                  <div className="rounded-lg border border-border bg-card px-5 py-4">
                     <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-2">Viral Score</div>
                     <div className="flex items-end gap-2">
                       <span className={`text-3xl font-semibold font-mono tracking-tight ${(analysis?.viral.score ?? 0) >= 6 ? "text-success" : (analysis?.viral.score ?? 0) >= 4 ? "text-muted-foreground" : "text-muted-foreground"}`}>
@@ -464,7 +464,7 @@ export default function VideoDetail() {
                   </div>
 
                   {/* Hook Strength */}
-                  <div className="rounded-lg border border-border bg-background px-5 py-4">
+                  <div className="rounded-lg border border-border bg-card px-5 py-4">
                     <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-2">Hook Strength</div>
                     <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.hookStrong ? "text-success" : analysis?.viral.hookLabel === "Weak" ? "text-destructive" : "text-muted-foreground"}`}>
                       {analysis?.viral.hookLabel ?? "—"}
@@ -473,7 +473,7 @@ export default function VideoDetail() {
                   </div>
 
                   {/* Trending */}
-                  <div className="rounded-lg border border-border bg-background px-5 py-4">
+                  <div className="rounded-lg border border-border bg-card px-5 py-4">
                     <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-2">Trending</div>
                     <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.trending ? "text-success" : "text-muted-foreground"}`}>
                       {analysis?.viral.trending ? "Yes" : "No"}
@@ -490,7 +490,7 @@ export default function VideoDetail() {
                   <EmptyState icon={MessageSquare} title="No comments yet" />
                 ) : (
                   analysis.comments.map((c, i) => (
-                    <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
+                    <div key={i} className="bg-card px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center mb-1.5">
                         <span className="text-[13px] font-medium">{c.author}</span>
                         <span className="text-[11px] text-muted-foreground font-mono ml-auto">{c.date}</span>
@@ -531,7 +531,7 @@ export default function VideoDetail() {
                 <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Pipeline</div>
                 <div className="rounded-lg overflow-hidden border border-border">
                   {video.pipeline.map((step) => (
-                    <div key={step.name} className="flex items-center justify-between bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
+                    <div key={step.name} className="flex items-center justify-between bg-card px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center gap-2.5">
                         <div className={`w-2 h-2 rounded-full ${
                           step.status === "done" ? "bg-success" :
@@ -572,7 +572,7 @@ export default function VideoDetail() {
                     { time: "Mar 8, 14:22", name: "Full Analysis", status: "success" as const, badge: "Completed" },
                     { time: "Mar 7, 09:15", name: "Comment Refresh", status: "failed" as const, badge: "Failed", error: "API rate limit exceeded. Retry after 60 minutes." },
                   ].map((item, i) => (
-                    <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
+                    <div key={i} className="bg-card px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[13px] font-medium">{item.name}</span>
                         <TooltipProvider delayDuration={200}>

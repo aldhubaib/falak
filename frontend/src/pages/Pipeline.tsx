@@ -319,7 +319,7 @@ function PipelineTab() {
           {/* Stats row */}
           <div className="px-6 max-lg:px-4 mb-5">
             <div className="flex rounded-lg overflow-hidden border border-border">
-              <div className="px-5 py-4 bg-background border-r border-border min-w-[140px]">
+              <div className="px-5 py-4 bg-card border-r border-border min-w-[140px]">
                 <div className="text-2xl font-semibold font-mono tracking-tight">{totalVideos}</div>
                 <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Total Videos</div>
                 <div className="flex items-center gap-2 mt-2 text-[11px] text-muted-foreground font-mono">
@@ -330,7 +330,7 @@ function PipelineTab() {
               {STAGE_DEFS.filter(s => s.id !== "failed").map((stage) => {
                 const count = data?.stats[stage.id as keyof typeof data.stats] ?? 0;
                 return (
-                  <div key={stage.id} className="flex-1 px-5 py-4 bg-background border-r border-border last:border-r-0">
+                  <div key={stage.id} className="flex-1 px-5 py-4 bg-card border-r border-border last:border-r-0">
                     <div className="flex items-baseline gap-2">
                       <span className={`text-2xl font-semibold font-mono tracking-tight ${stage.color}`}>{count}</span>
                     </div>
@@ -338,7 +338,7 @@ function PipelineTab() {
                   </div>
                 );
               })}
-              <div className="px-5 py-4 bg-background min-w-[120px]">
+              <div className="px-5 py-4 bg-card min-w-[120px]">
                 <span className="text-2xl font-semibold font-mono tracking-tight text-destructive">{failedCount}</span>
                 <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Failed</div>
               </div>
@@ -472,7 +472,7 @@ function MonitorTab() {
         <>
           {/* Cards row */}
           <div className="px-6 max-lg:px-4 grid grid-cols-2 max-md:grid-cols-1 gap-4 mb-5">
-            <div className="rounded-lg bg-background overflow-hidden">
+            <div className="rounded-lg bg-card overflow-hidden">
               <div className="px-4 py-3">
                 <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Channel Health</div>
                 <div className="grid grid-cols-5 max-sm:grid-cols-3 gap-3 max-sm:gap-y-3">
@@ -514,7 +514,7 @@ function MonitorTab() {
               </div>
             </div>
 
-            <div className="rounded-lg bg-background overflow-hidden">
+            <div className="rounded-lg bg-card overflow-hidden">
               <div className="px-4 py-3">
                 <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Channels Overview</div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -591,7 +591,7 @@ function MonitorTab() {
               <>
                 {/* Desktop Table */}
                 <div className="rounded-lg border border-border overflow-hidden max-sm:hidden">
-                  <div className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-2.5 bg-background border-b border-border">
+                  <div className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-2.5 bg-card border-b border-border">
                     {["CHANNEL", "STATUS", "LAST CHECK", "LAST VIDEO", "NEXT CHECK"].map((h) => (
                       <span key={h} className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{h}</span>
                     ))}
@@ -600,7 +600,7 @@ function MonitorTab() {
                     <Link
                       key={ch.id}
                       to={channelPath(`/channel/${ch.id}`)}
-                      className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-background border-b border-border last:border-b-0 hover:bg-card transition-colors cursor-pointer group items-center no-underline"
+                      className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-3 bg-card border-b border-border last:border-b-0 hover:bg-card transition-colors cursor-pointer group items-center no-underline"
                     >
                       <div className="flex items-center gap-2.5">
                         {ch.avatarUrl ? (
@@ -632,7 +632,7 @@ function MonitorTab() {
                     <Link
                       key={ch.id}
                       to={channelPath(`/channel/${ch.id}`)}
-                      className="block rounded-lg bg-background p-4 cursor-pointer active:bg-card transition-colors no-underline"
+                      className="block rounded-lg bg-card p-4 cursor-pointer active:bg-card transition-colors no-underline"
                     >
                       <div className="flex items-center gap-3 mb-3">
                         {ch.avatarUrl ? (
@@ -714,7 +714,7 @@ function StageColumn({
 
   return (
     <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ height: "420px" }}>
-      <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
+      <div className="px-4 py-3 bg-card shrink-0 border-b border-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold ${
@@ -732,7 +732,7 @@ function StageColumn({
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto bg-background">
+      <div className="flex-1 overflow-y-auto bg-card">
         {items.length === 0 ? (
           <div className="flex items-center justify-center h-24 text-[12px] text-muted-foreground font-mono">Empty</div>
         ) : (

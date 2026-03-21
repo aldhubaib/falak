@@ -62,7 +62,7 @@ export function UploadIndicator() {
   const uploadingCount = active.filter((t) => t.status === "uploading").length;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-72 bg-background border border-border rounded-lg shadow-2xl overflow-hidden">
+    <div className="fixed bottom-4 right-4 z-50 w-72 bg-card border border-border rounded-lg shadow-2xl overflow-hidden">
       <div className="px-3 py-2 border-b border-border flex items-center gap-2">
         <Upload className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-[11px] font-medium">

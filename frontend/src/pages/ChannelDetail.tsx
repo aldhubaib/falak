@@ -247,7 +247,7 @@ function ContentDNASection({ channelId }: { channelId: string }) {
 
   return (
     <div className="px-6 pt-5 max-lg:px-4">
-      <div className="rounded-lg border border-border bg-background overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center gap-2">
           <Tag className="w-4 h-4 text-muted-foreground" />
           <div>
@@ -363,7 +363,7 @@ function ContentDNASection({ channelId }: { channelId: string }) {
             <button
               onClick={handleGenerate}
               disabled={generating}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full border border-border bg-background text-foreground hover:bg-card transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full border border-border bg-card text-foreground hover:bg-card transition-colors disabled:opacity-50"
             >
               <Zap className="w-3 h-3" />
               {embStatus?.hasEmbedding ? "Regenerate" : "Generate Embedding"}

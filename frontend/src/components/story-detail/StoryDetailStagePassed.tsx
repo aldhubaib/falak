@@ -4,7 +4,7 @@ export interface StoryDetailStagePassedProps {
 
 export function StoryDetailStagePassed({ onMoveBack }: StoryDetailStagePassedProps) {
   return (
-    <div className="rounded-lg bg-background p-5">
+    <div className="rounded-lg bg-card p-5">
       <p className="text-[13px] text-muted-foreground mb-4">
         You passed on this story. It won't appear in your active pipeline.
       </p>

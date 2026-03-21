@@ -415,7 +415,7 @@ function ManualStoryWorkflow({
       />
 
       {/* Step 3: Title */}
-      <div className="rounded-lg bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-card border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-muted-foreground font-medium">Title</span>
           <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ function ManualStoryWorkflow({
       </div>
 
       {/* Step 4: Description */}
-      <div className="rounded-lg bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-card border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-muted-foreground font-medium">Description</span>
           <div className="flex items-center gap-2">
@@ -499,7 +499,7 @@ function ManualStoryWorkflow({
       </div>
 
       {/* Step 5: Tags */}
-      <div className="rounded-lg bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-card border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-muted-foreground font-medium">Tags</span>
           <div className="flex items-center gap-2">
@@ -578,7 +578,7 @@ function ManualStoryWorkflow({
 
       {/* SRT Download */}
       {brief.subtitlesSRT && (
-        <div className="rounded-lg bg-background border border-border overflow-hidden">
+        <div className="rounded-lg bg-card border border-border overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between">
             <span className="text-[12px] text-muted-foreground font-medium">Subtitles (SRT)</span>
             <div className="flex items-center gap-3">
@@ -607,7 +607,7 @@ function ManualStoryWorkflow({
       )}
 
       {/* YouTube URL */}
-      <div className="rounded-lg bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-card border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-muted-foreground font-medium">YouTube URL</span>
           {brief.youtubeUrl && (
@@ -1102,7 +1102,7 @@ export default function StoryDetail() {
         {scoreHistoryOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setScoreHistoryOpen(false)}>
             <div
-              className="w-full max-w-2xl rounded-lg bg-background border border-border overflow-hidden shadow-2xl mx-4"
+              className="w-full max-w-2xl rounded-lg bg-card border border-border overflow-hidden shadow-2xl mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
@@ -1154,7 +1154,7 @@ export default function StoryDetail() {
         {historyOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setHistoryOpen(false)}>
             <div
-              className="w-full max-w-lg rounded-lg bg-background border border-border overflow-hidden shadow-2xl mx-4"
+              className="w-full max-w-lg rounded-lg bg-card border border-border overflow-hidden shadow-2xl mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
@@ -1443,7 +1443,7 @@ export default function StoryDetail() {
                     ].map((m) => (
                       <div
                         key={m.label}
-                        className="flex-1 px-4 py-3 bg-background border-r border-background last:border-r-0"
+                        className="flex-1 px-4 py-3 bg-card border-r border-background last:border-r-0"
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <m.icon className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1460,7 +1460,7 @@ export default function StoryDetail() {
                 </div>
 
                 {brief.youtubeUrl && (
-                  <div className="rounded-lg bg-background p-5">
+                  <div className="rounded-lg bg-card p-5">
                     <div className="flex items-center justify-between mb-3">
                       <label className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
                         YouTube Video URL
@@ -1515,7 +1515,7 @@ export default function StoryDetail() {
                   const canLong = !produced.includes("long");
                   if (!canShort && !canLong) return null;
                   return (
-                    <div className="rounded-lg bg-background p-5 space-y-3">
+                    <div className="rounded-lg bg-card p-5 space-y-3">
                       <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
                         Produce Another Format
                       </div>

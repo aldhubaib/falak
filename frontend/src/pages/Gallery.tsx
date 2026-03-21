@@ -237,11 +237,11 @@ export default function Gallery() {
           {/* Stats row */}
           <div className="px-6 pt-4 max-lg:px-4 mb-4">
             <div className="flex rounded-lg overflow-hidden border border-border">
-              <div className="flex-1 px-5 py-4 bg-background border-r border-border">
+              <div className="flex-1 px-5 py-4 bg-card border-r border-border">
                 <div className="text-2xl font-semibold font-mono tracking-tight">{total.toLocaleString()}</div>
                 <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Total Media</div>
               </div>
-              <div className="flex-1 px-5 py-4 bg-background">
+              <div className="flex-1 px-5 py-4 bg-card">
                 <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{albums.length}</div>
                 <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Albums</div>
               </div>
@@ -284,7 +284,7 @@ export default function Gallery() {
                   Sort
                 </button>
                 {showSort && (
-                  <div className="absolute top-full left-0 mt-1.5 z-20 rounded-lg border border-border bg-background shadow-xl p-2 min-w-[160px]">
+                  <div className="absolute top-full left-0 mt-1.5 z-20 rounded-lg border border-border bg-card shadow-xl p-2 min-w-[160px]">
                     {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
@@ -599,7 +599,7 @@ export default function Gallery() {
                 value={albumName}
                 onChange={(e) => setAlbumName(e.target.value)}
                 placeholder="Enter album name..."
-                className="w-full px-3 py-2 bg-background border border-border text-foreground text-[13px] rounded-lg outline-none focus:border-primary/50 transition-colors placeholder:text-muted-foreground"
+                className="w-full px-3 py-2 bg-card border border-border text-foreground text-[13px] rounded-lg outline-none focus:border-primary/50 transition-colors placeholder:text-muted-foreground"
                 onKeyDown={(e) => e.key === "Enter" && handleCreateAlbum()}
               />
             </div>

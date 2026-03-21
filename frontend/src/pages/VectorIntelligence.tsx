@@ -106,7 +106,7 @@ export default function VectorIntelligence() {
   if (!data?.hasEmbeddingKey) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="rounded-lg border border-border bg-background p-8 text-center max-w-md">
+        <div className="rounded-lg border border-border bg-card p-8 text-center max-w-md">
           <div className="w-12 h-12 rounded-full bg-purple/10 flex items-center justify-center mx-auto mb-4">
             <Zap className="w-6 h-6 text-purple" />
           </div>
@@ -268,7 +268,7 @@ export default function VectorIntelligence() {
               <div className="grid grid-cols-6 gap-3 max-lg:grid-cols-3 max-sm:grid-cols-2">
                 <AccuracyGauge label="AI Viral Accuracy" value={sp.aiViralAccuracy} description="How well AI predicts viral potential vs actual YouTube performance" />
                 <AccuracyGauge label="AI Relevance Accuracy" value={sp.aiRelevanceAccuracy} description="How well AI predicts content relevance to your audience" />
-                <div className="rounded-lg border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-card p-4">
                   <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Confidence Level</div>
                   <div className={`text-2xl font-mono font-semibold ${confidence >= 0.6 ? "text-success" : confidence >= 0.3 ? "text-orange" : "text-muted-foreground"}`}>
                     {Math.round(confidence * 100)}%
@@ -280,17 +280,17 @@ export default function VectorIntelligence() {
                      "Bootstrapping — more data needed"}
                   </div>
                 </div>
-                <div className="rounded-lg border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-card p-4">
                   <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Decisions</div>
                   <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalDecisions}</div>
                   <div className="text-[10px] text-muted-foreground font-mono mt-1">liked / passed / omit</div>
                 </div>
-                <div className="rounded-lg border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-card p-4">
                   <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Outcomes</div>
                   <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalOutcomes}</div>
                   <div className="text-[10px] text-muted-foreground font-mono mt-1">stories with YouTube stats</div>
                 </div>
-                <div className="rounded-lg border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-card p-4">
                   <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Last Learned</div>
                   <div className="text-lg font-mono font-semibold text-foreground">
                     {sp.lastLearnedAt ? fmtShortAgo(sp.lastLearnedAt) : "Never"}
@@ -340,14 +340,14 @@ export default function VectorIntelligence() {
         <SectionHeader icon={Target} title="Competition Intelligence" subtitle="Stories matched against competitor videos via semantic similarity" />
         <div className="px-6 max-lg:px-4 mb-6">
           <div className="rounded-lg border border-border overflow-hidden">
-            <div className="px-4 py-3 bg-background border-b border-border flex items-center justify-between">
+            <div className="px-4 py-3 bg-card border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Target className="w-3.5 h-3.5 text-orange" />
                 <span className="text-[12px] font-semibold">Top Competition Matches</span>
                 <span className="text-[11px] text-muted-foreground font-mono">({data.topSimilarity.length} stories with competition overlap)</span>
               </div>
             </div>
-            <div className="bg-background">
+            <div className="bg-card">
               {data.topSimilarity.length === 0 ? (
                 <EmptyState icon={Target} title="No competition matches found yet" description="Embeddings will be compared during next rescore cycle." />
               ) : (
@@ -394,7 +394,7 @@ export default function VectorIntelligence() {
 
             {/* Recent Re-scores */}
             <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
-              <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
+              <div className="px-4 py-3 bg-card shrink-0 border-b border-border">
                 <div className="flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-success" />
                   <span className="text-[12px] font-semibold">Recent Score Changes</span>
@@ -402,7 +402,7 @@ export default function VectorIntelligence() {
                 </div>
                 <div className="text-[10px] text-muted-foreground font-mono mt-0.5">Stories whose composite score changed during re-evaluation</div>
               </div>
-              <div className="flex-1 overflow-y-auto bg-background">
+              <div className="flex-1 overflow-y-auto bg-card">
                 {data.recentRescores.length === 0 ? (
                   <EmptyState icon={Activity} title="No re-scores yet" />
                 ) : (
@@ -456,7 +456,7 @@ export default function VectorIntelligence() {
 
             {/* Alerts */}
             <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
-              <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
+              <div className="px-4 py-3 bg-card shrink-0 border-b border-border">
                 <div className="flex items-center gap-2">
                   <Bell className="w-3.5 h-3.5 text-orange" />
                   <span className="text-[12px] font-semibold">Intelligence Alerts</span>
@@ -469,7 +469,7 @@ export default function VectorIntelligence() {
                 </div>
                 <div className="text-[10px] text-muted-foreground font-mono mt-0.5">Significant score changes, competitor coverage, and trending topics</div>
               </div>
-              <div className="flex-1 overflow-y-auto bg-background">
+              <div className="flex-1 overflow-y-auto bg-card">
                 {data.alerts.items.length === 0 ? (
                   <div className="flex items-center justify-center h-20 text-[11px] text-muted-foreground font-mono">No alerts — all quiet</div>
                 ) : (
@@ -509,7 +509,7 @@ export default function VectorIntelligence() {
         ═══════════════════════════════════════════════════ */}
         <SectionHeader icon={Cpu} title="Scoring Formula" subtitle="How the composite score is computed during re-evaluation" />
         <div className="px-6 max-lg:px-4 mb-6">
-          <div className="rounded-lg border border-border bg-background p-4">
+          <div className="rounded-lg border border-border bg-card p-4">
             <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
               {/* Base Score */}
               <div>
@@ -585,7 +585,7 @@ function PipelineStage({
 }) {
   return (
     <div className="flex items-stretch">
-      <div className={`flex-1 rounded-lg border border-border bg-background p-4 relative ${!isFirst ? "max-lg:ml-0 ml-0" : ""}`}>
+      <div className={`flex-1 rounded-lg border border-border bg-card p-4 relative ${!isFirst ? "max-lg:ml-0 ml-0" : ""}`}>
         <div className="flex items-center gap-2 mb-3">
           <span className={`w-6 h-6 rounded-full ${bgColor}/15 flex items-center justify-center text-[10px] font-bold ${color}`}>
             {number}
@@ -620,7 +620,7 @@ function CoverageCard({
   embedded: number; total: number; pct: number;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Icon className={`w-4 h-4 ${color}`} />
@@ -645,7 +645,7 @@ function AccuracyGauge({ label, value, description }: { label: string; value: nu
   const color = pct >= 80 ? "text-success" : pct >= 50 ? "text-orange" : "text-destructive";
   const bgColor = pct >= 80 ? "bg-success" : pct >= 50 ? "bg-orange" : "bg-destructive";
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">{label}</div>
       <div className={`text-2xl font-mono font-semibold ${color}`}>{pct}%</div>
       <div className="w-full h-1.5 bg-border rounded-full mt-2 overflow-hidden">
@@ -666,7 +666,7 @@ function SignalCard({
   const maxAbs = Math.max(...sorted.map(([, v]) => Math.abs(v)), 0.01);
 
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-1">
         <div className="text-[11px] font-mono font-semibold text-foreground">{title}</div>
         <span className="text-[10px] text-muted-foreground font-mono">{sorted.length} signals{limit && sorted.length > limit ? ` (showing ${limit})` : ""}</span>
@@ -701,7 +701,7 @@ function FormulaRow({ label, weight, description }: { label: string; weight: str
 
 function StatusBox({ label, value, sub, last }: { label: string; value: string; sub?: string; last?: boolean }) {
   return (
-    <div className={`flex-1 px-3 py-3 bg-background ${!last ? "border-r border-border" : ""}`}>
+    <div className={`flex-1 px-3 py-3 bg-card ${!last ? "border-r border-border" : ""}`}>
       <div className="text-[13px] font-semibold font-mono tracking-tight text-foreground">{value}</div>
       <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5">{label}</div>
       {sub && <div className="text-[9px] text-muted-foreground font-mono mt-0.5 leading-relaxed">{sub}</div>}

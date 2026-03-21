@@ -226,7 +226,7 @@ function StatCard({
   sub: string;
 }) {
   return (
-    <div className="bg-background px-5 py-4">
+    <div className="bg-card px-5 py-4">
       <div className="flex items-baseline justify-between mb-0.5">
         <span className={`text-2xl font-semibold font-mono tracking-tight ${color || ""}`}>
           {value}
@@ -254,7 +254,7 @@ function ComparisonCard({
   noteColor: string;
 }) {
   return (
-    <div className="bg-background px-5 py-4">
+    <div className="bg-card px-5 py-4">
       <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-2">{label}</div>
       <div className="text-2xl font-semibold font-mono tracking-tight mb-1">{value}</div>
       <div className="text-[11px] text-muted-foreground font-mono mb-2">{sub}</div>
@@ -299,7 +299,7 @@ function ChannelDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-background border border-border rounded-lg shadow-lg py-1 min-w-[220px]">
+          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[220px]">
             {options.map((ch) => (
               <button
                 key={ch.id}
@@ -365,7 +365,7 @@ function GrowthMomentumSection({
 
   if (channelGrowth.length === 0) {
     return (
-      <div className="rounded-lg bg-background p-5">
+      <div className="rounded-lg bg-card p-5">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp className="w-4 h-4 text-success" />
           <span className="text-[13px] font-semibold">Growth & Momentum</span>
@@ -382,7 +382,7 @@ function GrowthMomentumSection({
   const declining = sorted.filter((c) => c.momentum < -5);
 
   return (
-    <div className="rounded-lg bg-background overflow-hidden">
+    <div className="rounded-lg bg-card overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <TrendingUp className="w-4 h-4 text-success" />
         <span className="text-[13px] font-semibold">Growth & Momentum</span>
@@ -495,7 +495,7 @@ function ContentMixSection({
     : 0;
 
   return (
-    <div className="rounded-lg bg-background overflow-hidden">
+    <div className="rounded-lg bg-card overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <Layers className="w-4 h-4 text-purple" />
         <span className="text-[13px] font-semibold">Content Mix</span>
@@ -503,7 +503,7 @@ function ContentMixSection({
       </div>
 
       <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-[1px] bg-border mx-5 mb-4 rounded-lg overflow-hidden">
-        <div className="bg-background px-5 py-4">
+        <div className="bg-card px-5 py-4">
           <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">LONG-FORM VIDEOS</div>
           <div className="text-2xl font-semibold font-mono tracking-tight text-purple">{totalVideos}</div>
           <div className="text-[11px] text-muted-foreground font-mono mt-1">
@@ -514,7 +514,7 @@ function ContentMixSection({
           </div>
           <div className="text-[10px] text-muted-foreground font-mono mt-1">{videoPct.toFixed(0)}% of content</div>
         </div>
-        <div className="bg-background px-5 py-4">
+        <div className="bg-card px-5 py-4">
           <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">SHORTS</div>
           <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{totalShorts}</div>
           <div className="text-[11px] text-muted-foreground font-mono mt-1">
@@ -567,7 +567,7 @@ function EngagementDecompositionSection({
   const highLikers = sorted.filter((e) => e.likeRate > avgLikeRate * 1.3 && e.commentRate < avgCommentRate);
 
   return (
-    <div className="rounded-lg bg-background overflow-hidden">
+    <div className="rounded-lg bg-card overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <MessageSquare className="w-4 h-4 text-primary" />
         <span className="text-[13px] font-semibold">Engagement Breakdown</span>
@@ -678,7 +678,7 @@ function PublishingPatternsSection({
   const peakHourLabel = `${peakHour}:00–${peakHour + 1}:00`;
 
   return (
-    <div className="rounded-lg bg-background overflow-hidden">
+    <div className="rounded-lg bg-card overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <Calendar className="w-4 h-4 text-orange" />
         <span className="text-[13px] font-semibold">Publishing Patterns</span>
@@ -757,7 +757,7 @@ function PerformanceDistributionSection({
   const maxBucket = Math.max(...dist.buckets.map((b) => b.count), 1);
 
   return (
-    <div className="rounded-lg bg-background overflow-hidden">
+    <div className="rounded-lg bg-card overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <BarChart3 className="w-4 h-4 text-success" />
         <span className="text-[13px] font-semibold">Video Performance Distribution</span>
@@ -773,7 +773,7 @@ function PerformanceDistributionSection({
           { label: "P10", value: dist.p10, color: "text-muted-foreground" },
           { label: "MAX", value: dist.max, color: "text-orange" },
         ].map((item) => (
-          <div key={item.label} className="bg-background px-4 py-3">
+          <div key={item.label} className="bg-card px-4 py-3">
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">{item.label}</div>
             <div className={`text-lg font-semibold font-mono ${item.color}`}>{fmtNum(item.value)}</div>
           </div>
@@ -828,7 +828,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
 
   if (!yourCh || !theirCh) {
     return (
-      <div className="rounded-lg bg-background p-5">
+      <div className="rounded-lg bg-card p-5">
         <p className="text-[13px] font-medium mb-1">Channel Analysis</p>
         <p className="text-[12px] text-muted-foreground font-mono leading-relaxed">
           {ourChannels.length === 0
@@ -886,7 +886,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
   const winning = metrics.filter((m) => m.winning);
 
   return (
-    <div className="rounded-lg bg-background overflow-hidden">
+    <div className="rounded-lg bg-card overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
         <span className="text-[13px] font-semibold">Channel Analysis</span>
         <span className="text-[11px] font-mono text-muted-foreground">—</span>
@@ -1238,7 +1238,7 @@ function TrendChart({
 
         {hovered && (
           <div
-            className="absolute z-10 pointer-events-none rounded-lg border border-border/60 bg-background/95 px-2.5 py-1.5 shadow-lg"
+            className="absolute z-10 pointer-events-none rounded-lg border border-border/60 bg-card/95 px-2.5 py-1.5 shadow-lg"
             style={{
               left: Math.min(Math.max(hovered.x + 12, 8), svgWidth - 190),
               top: Math.max(hovered.y - 56, 8),
@@ -1692,7 +1692,7 @@ export default function Analytics() {
 
         {/* You vs the Field */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-lg bg-background overflow-hidden">
+          <div className="rounded-lg bg-card overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-orange" />
@@ -1851,14 +1851,14 @@ export default function Analytics() {
 
         {/* Channel Benchmarks */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-lg bg-background overflow-hidden">
+          <div className="rounded-lg bg-card overflow-hidden">
             <div className="px-5 py-4 flex items-center gap-2">
               <Circle className="w-3.5 h-3.5 text-primary fill-primary" />
               <span className="text-[13px] font-semibold">Channel Benchmarks</span>
             </div>
             <div className="grid grid-cols-3 max-lg:grid-cols-1 gap-[1px] bg-border">
               {benchmarks.map((cat) => (
-                <div key={cat.label} className="bg-background px-5 py-4">
+                <div key={cat.label} className="bg-card px-5 py-4">
                   <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">
                     {cat.label}
                   </div>
@@ -1899,7 +1899,7 @@ export default function Analytics() {
 
         {/* Monthly Trend */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-lg bg-background overflow-hidden">
+          <div className="rounded-lg bg-card overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <span className="text-[13px] font-semibold">Monthly Trend — Last 12 Months</span>
@@ -1938,7 +1938,7 @@ export default function Analytics() {
 
         {/* Top Videos */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-lg bg-background overflow-hidden">
+          <div className="rounded-lg bg-card overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between">
               <span className="text-[13px] font-semibold">Top Videos by Views</span>
               <span className="text-[11px] text-muted-foreground font-mono">
@@ -1982,7 +1982,7 @@ export default function Analytics() {
 
         {/* Key Insights — Enhanced */}
         <div className="px-6 max-lg:px-4 mb-8">
-          <div className="rounded-lg bg-background overflow-hidden">
+          <div className="rounded-lg bg-card overflow-hidden">
             <div className="px-5 py-4 flex items-center gap-3">
               <span className="text-[13px] font-semibold">Key Insights</span>
               <span className="text-[11px] text-muted-foreground font-mono px-2 py-0.5 border border-border rounded-full">

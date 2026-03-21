@@ -340,7 +340,7 @@ export default function ProfileHome() {
       <div className="px-6 max-lg:px-4 pb-1">
         <div className="grid grid-cols-3 max-lg:grid-cols-1 gap-3">
           {/* Country */}
-          <div className="rounded-lg border border-border bg-background p-4">
+          <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 mb-2.5">
               <Globe className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Country / Dialect</span>
@@ -360,7 +360,7 @@ export default function ProfileHome() {
           </div>
 
           {/* Start Hook */}
-          <div className="rounded-lg border border-border bg-background p-4">
+          <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Start Hook</span>
             </div>
@@ -376,7 +376,7 @@ export default function ProfileHome() {
           </div>
 
           {/* End Hook */}
-          <div className="rounded-lg border border-border bg-background p-4">
+          <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">End Hook</span>
               <button
@@ -407,7 +407,7 @@ export default function ProfileHome() {
           {statCards.map((s) => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="rounded-lg border border-border bg-background p-4 flex flex-col gap-2">
+              <div key={s.label} className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{s.label}</span>
                   <Icon className="w-3.5 h-3.5 text-muted-foreground/50" strokeWidth={1.5} />
@@ -433,7 +433,7 @@ export default function ProfileHome() {
       <div className="px-6 py-5 grid grid-cols-3 max-lg:grid-cols-1 gap-4 max-lg:px-4">
 
         {/* Quick Navigation */}
-        <div className="col-span-1 rounded-lg border border-border bg-background p-4">
+        <div className="col-span-1 rounded-lg border border-border bg-card p-4">
           <h3 className="text-[12px] text-muted-foreground font-medium uppercase tracking-wider mb-3">Quick Access</h3>
           <div className="grid grid-cols-2 gap-2">
             {quickLinks.map((ql) => {
@@ -503,7 +503,7 @@ export default function ProfileHome() {
         </div>
 
         {/* Growth Chart */}
-        <div className="col-span-1 rounded-lg border border-border bg-background p-4">
+        <div className="col-span-1 rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[12px] text-muted-foreground font-medium uppercase tracking-wider">Subscriber Growth</h3>
             {growthChart && (
@@ -571,7 +571,7 @@ export default function ProfileHome() {
         </div>
 
         {/* Recent Videos */}
-        <div className="col-span-1 rounded-lg border border-border bg-background p-4">
+        <div className="col-span-1 rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[12px] text-muted-foreground font-medium uppercase tracking-wider">Latest Videos</h3>
             <Link to={channelPath(`/channel/${channelId}`)} className="text-[11px] text-muted-foreground hover:text-foreground no-underline">

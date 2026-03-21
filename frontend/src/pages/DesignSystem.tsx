@@ -210,9 +210,9 @@ export default function DesignSystem() {
   const activeSection = useActiveSection(sections);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-card text-foreground">
       {/* Top bar */}
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
+      <div className="sticky top-0 z-50 bg-card/95 backdrop-blur border-b border-border">
         <div className="max-w-[1120px] mx-auto px-6 flex items-center justify-between h-12">
           <span className="text-sm font-semibold tracking-tight">Falak DLS</span>
           <span className="font-mono text-[10px] text-muted-foreground">/design-system</span>
@@ -316,7 +316,7 @@ export default function DesignSystem() {
                     <h1 className="text-sm font-semibold">Pipeline Monitor</h1>
                     <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium"><Search className="w-3 h-3" /> Search</button>
                   </div>
-                  <div className="h-24 bg-background" />
+                  <div className="h-24 bg-card" />
                 </div>
               </CidBlock>
 

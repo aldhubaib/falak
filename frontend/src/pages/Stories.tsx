@@ -341,7 +341,7 @@ export default function Stories() {
             style={{ maxHeight: "calc(100vh - 300px)" }}
           >
             {/* Header */}
-            <div className="px-4 py-3 bg-background shrink-0 flex items-center gap-2">
+            <div className="px-4 py-3 bg-card shrink-0 flex items-center gap-2">
               <span className="text-[13px] font-semibold">
                 {activeStage === "all" ? "All" : STAGES.find((s) => s.key === activeStage)?.label}
               </span>
@@ -351,7 +351,7 @@ export default function Stories() {
             {/* Items */}
             <div
               ref={storyListScrollRef}
-              className="flex-1 overflow-auto bg-background"
+              className="flex-1 overflow-auto bg-card"
               onScroll={() => {
                 const el = storyListScrollRef.current;
                 if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80 && hasMoreStories) {

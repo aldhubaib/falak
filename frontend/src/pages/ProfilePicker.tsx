@@ -150,7 +150,7 @@ export default function ProfilePicker() {
             {menuOpen === p.id && (
               <>
                 <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setMenuOpen(null); }} />
-                <div className="absolute top-10 right-2 z-50 bg-background border border-border rounded-lg shadow-lg py-1 min-w-[130px]">
+                <div className="absolute top-10 right-2 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[130px]">
                   <button
                     onClick={(e) => { e.stopPropagation(); openEdit(p); }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-muted-foreground hover:text-muted-foreground hover:bg-card/60 transition-colors"
@@ -206,7 +206,7 @@ export default function ProfilePicker() {
 
       {/* Add dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-background border-border">
+        <DialogContent className="sm:max-w-[400px] bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-[15px]">Add profile</DialogTitle>
             <DialogDescription className="text-[12px] text-muted-foreground">
@@ -243,7 +243,7 @@ export default function ProfilePicker() {
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-background border-border">
+        <DialogContent className="sm:max-w-[400px] bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-[15px]">Edit profile</DialogTitle>
             <DialogDescription className="text-[12px] text-muted-foreground">

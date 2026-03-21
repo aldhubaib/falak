@@ -327,7 +327,7 @@ export default function ArticleDetailPage() {
         <div className="max-w-4xl mx-auto px-6 py-6 max-lg:px-4">
 
           {/* Article header card */}
-          <div className="rounded-lg border border-border bg-background p-5 mb-6">
+          <div className="rounded-lg border border-border bg-card p-5 mb-6">
             <div className="flex items-start justify-between gap-3 mb-3">
               <h2 className="text-[16px] font-semibold text-foreground leading-snug" dir="auto">
                 {article.title || "Untitled"}
@@ -470,7 +470,7 @@ function RestartControl({
           <ChevronDown className="w-3 h-3" />
         </button>
         {showPicker && (
-          <div className="absolute top-full left-0 mt-1 z-50 min-w-[140px] rounded-lg border border-border bg-background shadow-lg py-1">
+          <div className="absolute top-full left-0 mt-1 z-50 min-w-[140px] rounded-lg border border-border bg-card shadow-lg py-1">
             {RESTARTABLE_STAGES.map((s) => (
               <button
                 key={s.id}
@@ -508,7 +508,7 @@ function StageSection({
 
   return (
     <div className={`rounded-lg border overflow-hidden ${
-      isWaiting ? "border-border/50 bg-background/60" : "border-border bg-background"
+      isWaiting ? "border-border/50 bg-card/60" : "border-border bg-card"
     }`}>
       <button
         onClick={() => !isWaiting && setExpanded(!expanded)}
@@ -687,7 +687,7 @@ function ResultCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="px-3 py-2.5 rounded-lg border border-border/80 bg-background/80 space-y-2">
+    <div className="px-3 py-2.5 rounded-lg border border-border/80 bg-card/80 space-y-2">
       <div className="flex items-center gap-2">
         {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground" />}
         <span className="text-[11px] font-semibold text-foreground">{label}</span>

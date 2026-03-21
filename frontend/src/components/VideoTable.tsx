@@ -77,7 +77,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
                 <tr
                   key={v.id}
                   onClick={() => onVideoClick?.(v.id)}
-                  className={`bg-background hover:bg-card transition-colors group ${onVideoClick || href ? "cursor-pointer" : ""}`}
+                  className={`bg-card hover:bg-card transition-colors group ${onVideoClick || href ? "cursor-pointer" : ""}`}
                 >
                   {rowContent}
                 </tr>
@@ -96,7 +96,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
               <Link
                 key={v.id}
                 to={href}
-                className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 cursor-pointer no-underline"
+                className="bg-card flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 cursor-pointer no-underline"
               >
                 <div className="w-10 h-7 rounded-lg bg-card shrink-0 overflow-hidden">
                   {v.thumbnail ? (
@@ -124,7 +124,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
             <div
               key={v.id}
               onClick={() => onVideoClick?.(v.id)}
-              className={`bg-background flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 ${onVideoClick ? "cursor-pointer" : ""}`}
+              className={`bg-card flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 ${onVideoClick ? "cursor-pointer" : ""}`}
             >
               <div className="w-10 h-7 rounded-lg bg-card shrink-0 overflow-hidden">
                 {v.thumbnail ? (

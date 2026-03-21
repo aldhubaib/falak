@@ -161,7 +161,7 @@ export default function Competitions() {
                 <select
                   value={nationality}
                   onChange={(e) => setNationality(e.target.value)}
-                  className="appearance-none pl-3 pr-8 py-2 bg-background border border-border text-foreground text-[13px] font-sans outline-none transition-colors focus:border-border cursor-pointer min-w-[180px]"
+                  className="appearance-none pl-3 pr-8 py-2 bg-card border border-border text-foreground text-[13px] font-sans outline-none transition-colors focus:border-border cursor-pointer min-w-[180px]"
                   style={{ borderRadius: "20px" }}
                 >
                   <option value="">Select country</option>
@@ -183,7 +183,7 @@ export default function Competitions() {
                   setInputError("");
                 }}
                 placeholder="@handle or channel ID..."
-                className={`w-full pl-3 pr-3 py-2 bg-background border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-muted-foreground ${
+                className={`w-full pl-3 pr-3 py-2 bg-card border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-muted-foreground ${
                   inputError ? "border-destructive/50" : "border-border focus:border-border"
                 }`}
                 style={{ borderRadius: "20px" }}
@@ -213,7 +213,7 @@ export default function Competitions() {
               {channels.map((ch) => (
                 <div
                   key={ch.id}
-                  className="bg-background flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors group border-b border-border last:border-b-0"
+                  className="bg-card flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors group border-b border-border last:border-b-0"
                 >
                   <div className="relative shrink-0">
                     <img

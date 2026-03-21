@@ -182,7 +182,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
       )}
 
       {testResults && (
-        <div className="mt-4 rounded-lg border border-border bg-background p-4">
+        <div className="mt-4 rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[12px] font-medium">Test Results <span className="text-muted-foreground font-mono ml-1">{testResults.length} articles</span></span>
             <button onClick={() => setTestResults(null)} className="text-muted-foreground hover:text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
@@ -444,7 +444,7 @@ function SourceCard({
   const progressPct = runs.length > 0 ? Math.round((imported / runs.length) * 100) : 0;
 
   return (
-    <div className={`rounded-lg border transition-all ${s.isActive ? "border-border bg-background" : "border-border/50 bg-background/50 opacity-60"}`}>
+    <div className={`rounded-lg border transition-all ${s.isActive ? "border-border bg-card" : "border-border/50 bg-card/50 opacity-60"}`}>
       {/* Header */}
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between gap-3">
@@ -626,7 +626,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-[480px] bg-background border-border max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[480px] bg-card border-border max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[15px]">Add Source</DialogTitle>
           <DialogDescription className="text-[12px] text-muted-foreground">Add an RSS feed or Apify actor.</DialogDescription>
@@ -781,7 +781,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-[480px] bg-background border-border max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[480px] bg-card border-border max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[15px]">Edit Source</DialogTitle>
           <DialogDescription className="text-[12px] text-muted-foreground">Update configuration for {source.label}.</DialogDescription>

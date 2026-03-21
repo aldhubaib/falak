@@ -4,7 +4,7 @@ export interface StoryDetailStageOmitProps {
 
 export function StoryDetailStageOmit({ onMoveBack }: StoryDetailStageOmitProps) {
   return (
-    <div className="rounded-lg bg-background p-5">
+    <div className="rounded-lg bg-card p-5">
       <p className="text-[13px] text-muted-foreground mb-4">
         Not enough data to produce this video. Omitted from pipeline.
       </p>

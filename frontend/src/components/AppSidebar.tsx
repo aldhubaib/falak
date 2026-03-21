@@ -230,7 +230,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
 
       {/* Logout dialog */}
       <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
-        <DialogContent className="sm:max-w-[360px] bg-background border-border">
+        <DialogContent className="sm:max-w-[360px] bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-[15px]">Sign out</DialogTitle>
             <DialogDescription className="text-[12px] text-muted-foreground">

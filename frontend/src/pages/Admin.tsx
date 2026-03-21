@@ -123,7 +123,7 @@ export default function Admin() {
           </div>
 
           {/* Add Allowed User */}
-          <div className="rounded-lg bg-background p-5">
+          <div className="rounded-lg bg-card p-5">
             <div className="mb-1">
               <span className="text-[14px] font-semibold">Add Allowed User</span>
             </div>
@@ -148,7 +148,7 @@ export default function Admin() {
           </div>
 
           {/* Allowed Users */}
-          <div className="rounded-lg bg-background p-5">
+          <div className="rounded-lg bg-card p-5">
             <div className="flex items-center justify-between mb-4 max-sm:flex-col max-sm:items-start max-sm:gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="text-[14px] font-semibold">Allowed Users</span>
@@ -252,7 +252,7 @@ export default function Admin() {
           </div>
 
           {/* Role Permissions */}
-          <div className="rounded-lg bg-background p-5">
+          <div className="rounded-lg bg-card p-5">
             <span className="text-[14px] font-semibold mb-4 block">Role Permissions</span>
             <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
               {[
