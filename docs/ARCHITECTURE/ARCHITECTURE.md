@@ -74,7 +74,7 @@ Three worker loops start in-process inside `server.js` after boot:
   transcribe → comments → AI analysis). If Redis is available, it consumes a
   Bull queue; otherwise it polls the database every 10 seconds.
 - **Article pipeline worker** — polls every 10 seconds for articles to process
-  through 7 stages (content → classify → title_translate → score → research → translate → done).
+  through 8 stages (content → classify → title_translate → score → research → translated → images → done).
   A dynamic threshold gate after scoring filters out low-scoring articles before
   expensive research and translation. Also polls article sources every 5 minutes for new imports.
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
@@ -408,7 +408,7 @@ optional per-source API key.
 #### Article
 
 An article fetched from a source, processed through the pipeline
-(imported → content → classify → title_translate → score → [threshold gate] → research → translated → done).
+(imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done).
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -438,7 +438,7 @@ An article fetched from a source, processed through the pipeline
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Stages:** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `done`. Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`.
+**Stages:** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `images` → `done`. Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
 
 #### ApifyRun
@@ -509,6 +509,7 @@ An album within a channel's media gallery.
 | `channelId` | String | Yes | — | FK → Channel |
 | `name` | String | Yes | — | Album name |
 | `description` | String | No | — | Album description |
+| `isLocked` | Boolean | Yes | `false` | Prevents deletion/removal of media (used by auto-generated "Stories" album) |
 | `coverMediaId` | String | No | — | FK → GalleryMedia (album cover) |
 | `createdById` | String | Yes | — | FK → User |
 | `createdAt` | DateTime | Yes | `now()` | — |
@@ -942,7 +943,7 @@ reset to `queued`.
 ```mermaid
 flowchart LR
     IM["imported"] --> CO["content"] --> CL["classify"] --> TT["title_translate"] --> SC["score"]
-    SC -->|above threshold| RE["research"] --> TR["translated"] --> DO["done"]
+    SC -->|above threshold| RE["research"] --> TR["translated"] --> IMG["images"] --> DO["done"]
     SC -->|below threshold| FI["filtered"]
     CO -.->|needs review| RV["review"]
     IM -.->|failure| F["failed"]
@@ -951,6 +952,7 @@ flowchart LR
     SC -.->|failure| F
     RE -.->|failure| F
     TR -.->|failure| F
+    IMG -.->|failure| F
 ```
 
 **Execution mode:** Polling only (10s interval). No Bull queue support.
@@ -964,6 +966,7 @@ flowchart LR
 | **score** | Generates embedding from Arabic title translation → similarity search → AI scoring (Haiku on original content) → final score formula → dynamic threshold gate. Articles below threshold are set to `filtered`. | OpenAI Embeddings, Anthropic Haiku | `Article.finalScore`, `Article.stage` (→ `filtered` or `research`) |
 | **research** | Multi-source research: Firecrawl search (5 related articles) → Perplexity context → Claude synthesis into structured brief. Non-fatal on failure. Only runs for articles above threshold. | Firecrawl, Perplexity, Anthropic Sonnet | `Article.analysis.research` |
 | **translated** | Translates content + fields + research brief to Arabic via Haiku. Promotes to Story at end. Skips translation if source is already Arabic. | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar`, creates `Story` |
+| **images** | Searches SerpAPI Google Images Light using the article's original title. Downloads up to 10 images to R2 and saves them in a locked "Stories" gallery album per channel. Results stored in `analysis.images`. Non-fatal on failure. | SerpAPI | `Article.analysis.images`, creates `GalleryMedia` in "Stories" `GalleryAlbum` |
 
 **Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
 
@@ -1322,6 +1325,19 @@ guard) → Page.
 | **Timeout** | 60s |
 | **Fallback** | Failure is non-fatal in research pipeline |
 | **Used by** | Article research (background context) |
+
+### SerpAPI Google Images
+
+| Item | Detail |
+|---|---|
+| **Service file** | `src/services/articleProcessor.js` (`doStageImages`) |
+| **Engine** | `google_images_light` |
+| **Endpoint** | `GET https://serpapi.com/search?engine=google_images_light` |
+| **Key storage** | `GoogleSearchKey` table (multiple keys), rotated by `lastUsedAt ASC` |
+| **Rate limit handling** | Key rotation (least-recently-used first). `lastUsedAt` and `usageCount` updated on each call. |
+| **Result limit** | 10 images per article |
+| **Fallback** | Failure is non-fatal — article continues to `done` stage |
+| **Used by** | Article images stage — fetches related images, downloads to R2, saves in locked "Stories" gallery album |
 
 ### Apify
 
