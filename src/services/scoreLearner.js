@@ -3,7 +3,7 @@
  * Builds a per-channel ScoreProfile that evolves over time.
  *
  * Two learning signals:
- *   1. Decisions: which stories did the user like/pass/omit?
+ *   1. Decisions: which stories did the user like/skip/trash?
  *   2. Outcomes: how did published (done) stories actually perform on YouTube?
  */
 const db = require('../lib/db')
@@ -34,14 +34,14 @@ async function getOrCreateProfile(channelId) {
 }
 
 /**
- * Learn from user decisions (liked/passed/omit story stage transitions).
+ * Learn from user decisions (liked/skip/trash story stage transitions).
  * Builds tagSignals, contentTypeSignals, regionSignals from what the user chose.
  */
 async function learnFromDecisions(channelId) {
   const profile = await getOrCreateProfile(channelId)
 
   const positiveStages = ['liked', 'scripting', 'filmed', 'publish', 'done']
-  const negativeStages = ['passed', 'omit']
+  const negativeStages = ['skip', 'trash']
 
   const stories = await db.story.findMany({
     where: {

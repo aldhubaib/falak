@@ -1,7 +1,7 @@
 /**
  * Article Feedback Service
  *
- * Learns from user decisions on stories (liked, passed, omit) to build a
+ * Learns from user decisions on stories (liked, skip, trash) to build a
  * preference profile per channel. The profile is used by articleProcessor
  * to bias future article scores toward what the user actually wants.
  *
@@ -42,13 +42,13 @@ async function refreshPreferenceProfile(channelId) {
  * Build the preference profile from story decisions.
  *
  * Positive signals: stories in 'liked', 'scripting', 'filmed', 'publish', 'done'
- * Negative signals: stories in 'passed', 'omit'
+ * Negative signals: stories in 'skip', 'trash'
  */
 async function buildPreferenceProfile(channelId) {
   const stories = await db.story.findMany({
     where: {
       channelId,
-      stage: { in: ['liked', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit'] },
+      stage: { in: ['liked', 'scripting', 'filmed', 'publish', 'done', 'skip', 'trash'] },
       brief: { not: null },
     },
     select: { stage: true, brief: true },
@@ -69,9 +69,9 @@ async function buildPreferenceProfile(channelId) {
     const region = brief.region || null
 
     const isPositive = ['liked', 'scripting', 'filmed', 'publish', 'done'].includes(story.stage)
-    const isNegative = ['omit'].includes(story.stage)
-    // 'passed' is weak negative — we count it but with lower weight
-    const isPassed = story.stage === 'passed'
+    const isNegative = ['trash'].includes(story.stage)
+    // 'skip' is weak negative — we count it but with lower weight
+    const isPassed = story.stage === 'skip'
 
     const bucket = isPositive ? 'liked' : 'omit'
 

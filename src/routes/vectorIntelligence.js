@@ -85,7 +85,7 @@ router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (
       WHERE s."channelId" = ${channelId}
         AND s."rescoreLog" IS NOT NULL
         AND jsonb_array_length(s."rescoreLog"::jsonb) > 0
-        AND s.stage NOT IN ('done', 'omit')
+        AND s.stage NOT IN ('done', 'trash')
       ORDER BY (s."rescoreLog"::jsonb->-1->'factors'->>'provenViralBoost')::float DESC NULLS LAST
       LIMIT 10
     `

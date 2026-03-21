@@ -164,7 +164,7 @@ router.get('/summary', async (req, res) => {
       db.story.count({ where }),
     ])
 
-    const stages = ['suggestion', 'liked', 'scripting', 'filmed', 'publish', 'done', 'passed', 'omit']
+    const stages = ['suggestion', 'liked', 'scripting', 'filmed', 'publish', 'done', 'skip', 'trash']
     const counts = {}
     for (const s of stages) counts[s] = 0
     for (const row of stageCounts) counts[row.stage] = row._count
@@ -968,7 +968,7 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
       await addLog(story.id, req.user.id, 'stage_change', `Status changed to ${stageLabel}`)
 
       // Refresh article preference profile when user makes a decision
-      const feedbackStages = ['liked', 'passed', 'omit', 'scripting', 'filmed', 'publish', 'done']
+      const feedbackStages = ['liked', 'skip', 'trash', 'scripting', 'filmed', 'publish', 'done']
       if (feedbackStages.includes(req.body.stage) && story.channelId) {
         try {
           const { refreshPreferenceProfile } = require('../services/articleFeedback')
