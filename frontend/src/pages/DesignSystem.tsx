@@ -316,7 +316,7 @@ export default function DesignSystem() {
 
               <CidBlock cid="story-detail-top-bar" name="StoryDetailTopBar" source="StoryDetail.tsx">
                 <div className="rounded-lg border border-border overflow-hidden">
-                  <StoryDetailTopBar stageLabel="Scripting" activeStage="scripting" stages={MOCK_STAGES} nextStageKey="filming" nextStageLabel="Filming" onBack={NOOP} onMoveToNextStage={NOOP} onPass={NOOP} onRestart={NOOP} onOmit={NOOP} onHistoryClick={NOOP} onScoreHistoryClick={NOOP} prevNext={{ currentIndex: 2, total: 8, onPrev: NOOP, onNext: NOOP }} />
+                  <StoryDetailTopBar stageLabel="Scripting" activeStage="scripting" stages={MOCK_STAGES} nextStageKey="filming" nextStageLabel="Filming" onBack={NOOP} onMoveToNextStage={NOOP} onPass={NOOP} onRestart={NOOP} onOmit={NOOP} onHistoryClick={NOOP} prevNext={{ currentIndex: 2, total: 8, onPrev: NOOP, onNext: NOOP }} />
                 </div>
               </CidBlock>
 

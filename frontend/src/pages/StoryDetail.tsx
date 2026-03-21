@@ -861,7 +861,6 @@ export default function StoryDetail() {
   const editingYoutubeUrl = false;
   const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [scoreHistoryOpen, setScoreHistoryOpen] = useState(false);
   const [articleOpen, setArticleOpen] = useState(true);
   const [stageStories, setStageStories] = useState<{ id: string; stage: string; createdAt: string }[]>([]);
 
@@ -1062,7 +1061,6 @@ export default function StoryDetail() {
           onRestart={() => moveToStage("suggestion")}
           onOmit={() => moveToStage("omit")}
           onHistoryClick={() => setHistoryOpen(true)}
-          onScoreHistoryClick={() => setScoreHistoryOpen(true)}
           prevNext={showStageNav ? {
             currentIndex: withinStageIndex >= 0 ? withinStageIndex + 1 : stageIndex + 1,
             total: sameStageStories.length > 0 ? sameStageStories.length : stageStories.length,
@@ -1072,58 +1070,6 @@ export default function StoryDetail() {
             hasNext: !!nextStory,
           } : undefined}
         />
-
-        {/* Score History modal */}
-        {scoreHistoryOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setScoreHistoryOpen(false)}>
-            <div
-              className="w-full max-w-2xl rounded-lg bg-card border border-border overflow-hidden shadow-2xl mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-5 py-4 flex items-center justify-between border-b border-border">
-                <span className="text-[13px] font-medium">Score Re-evaluation History</span>
-                <button type="button" onClick={() => setScoreHistoryOpen(false)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="max-h-[500px] overflow-y-auto">
-                {Array.isArray(story.rescoreLog) && story.rescoreLog.length > 0 ? (
-                  [...story.rescoreLog].reverse().map((entry: any, i: number) => {
-                    const delta = (entry.after?.compositeScore ?? 0) - (entry.before?.compositeScore ?? 0);
-                    const direction = delta > 0 ? "+" : "";
-                    return (
-                      <div key={i} className="px-5 py-3 border-b border-border last:border-b-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-muted-foreground text-[11px]">
-                            {entry.at ? formatDistanceToNow(new Date(entry.at), { addSuffix: true }) : "—"}
-                          </span>
-                          <span className={`text-[12px] font-mono font-semibold ${delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
-                            {entry.before?.compositeScore?.toFixed(1)} → {entry.after?.compositeScore?.toFixed(1)} ({direction}{delta.toFixed(1)})
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground font-mono">
-                          <span>confidence: {Math.round((entry.confidence ?? 0) * 100)}%</span>
-                          {entry.factors?.competitionMatches > 0 && <span>competition: {entry.factors.competitionMatches} matches</span>}
-                          {entry.factors?.newCompetitorVideos > 0 && <span className="text-amber-400">new competitors: {entry.factors.newCompetitorVideos}</span>}
-                          {entry.factors?.provenViralBoost !== 0 && <span>viral boost: {entry.factors?.provenViralBoost > 0 ? "+" : ""}{entry.factors?.provenViralBoost}</span>}
-                          {entry.factors?.ownChannelBoost !== 0 && <span>own channel: {entry.factors?.ownChannelBoost > 0 ? "+" : ""}{entry.factors?.ownChannelBoost}</span>}
-                          <span>freshness: {Math.round((entry.factors?.freshness ?? 0) * 100)}%</span>
-                        </div>
-                        {entry.factors?.topCompetitor && (
-                          <div className="mt-1.5 text-[10px] text-amber-400/80 font-mono">
-                            top match: {entry.factors.topCompetitor.channelName} — {Number(entry.factors.topCompetitor.viewCount).toLocaleString()} views ({Math.round(entry.factors.topCompetitor.similarity * 100)}% similar)
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <EmptyState icon={RefreshCw} title="No re-evaluation history yet" description="Scores will update automatically every 24 hours." />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Edit History modal */}
         {historyOpen && (
