@@ -665,9 +665,7 @@ function PipelineTabContent() {
             <SectionHeader icon={getFlowDef("title_translate")!.icon} title={getFlowDef("title_translate")!.name} subtitle={getFlowDef("title_translate")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                {(data?.byStage.title_translate ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.title_translate ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                )}
+                <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.title_translate ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
 
