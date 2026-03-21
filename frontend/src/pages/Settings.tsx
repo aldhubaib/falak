@@ -70,8 +70,8 @@ const CORE_KEYS: ApiKeyDef[] = [
   },
   {
     service: "google_search",
-    name: "SerpAPI (Google Search)",
-    description: "Web search for article research. Scrapes Google results via SerpAPI. 100 searches/month free.",
+    name: "SerpAPI (Google Images Light)",
+    description: "Image search via SerpAPI's Google Images Light engine. 100 searches/month free.",
     icon: "search",
     multiKey: true,
     multiKeyEndpoint: "google-search-keys",

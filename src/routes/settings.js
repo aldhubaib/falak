@@ -296,10 +296,11 @@ async function testServiceKey(service, apiKey) {
     }
 
     case 'google_search': {
-      const r = await fetch(`https://serpapi.com/search.json?engine=google&q=test&num=1&api_key=${apiKey}`)
+      const r = await fetch(`https://serpapi.com/search.json?engine=google_images_light&q=test&api_key=${apiKey}`)
       const data = await r.json()
       if (data.error) return { ok: false, error: data.error, ms: Date.now() - start }
-      return { ok: true, detail: `${data.search_information?.total_results || 0} results`, ms: Date.now() - start }
+      const count = data.images_results?.length || 0
+      return { ok: true, detail: `${count} image results`, ms: Date.now() - start }
     }
 
     case 'firecrawl': {
