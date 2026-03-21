@@ -3,6 +3,7 @@
  * https://docs.firecrawl.dev — API key is per project (Settings → API Keys).
  */
 const fetch = require('node-fetch')
+const registry = require('../lib/serviceRegistry')
 
 const FIRECRAWL_SCRAPE_URL = 'https://api.firecrawl.dev/v2/scrape'
 const SCRAPE_TIMEOUT_MS = 30000
@@ -160,4 +161,10 @@ async function searchNews(apiKey, query, opts = {}) {
   }
 }
 
-module.exports = { scrapeUrl, preClean, searchNews }
+const SERVICE_DESCRIPTOR = {
+  name: 'firecrawl',
+  displayName: 'Firecrawl',
+  keySource: 'apiKey',
+}
+
+module.exports = { scrapeUrl, preClean, searchNews, SERVICE_DESCRIPTOR }

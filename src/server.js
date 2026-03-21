@@ -298,6 +298,10 @@ async function main() {
 
   server.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, 'Falak running')
+
+    // Auto-discover service descriptors for the service registry.
+    try { require('./lib/serviceRegistry').autoDiscover() } catch (_) {}
+
     // Start the video pipeline worker in-process.
     // Railway runs a single service via `npm start` — there is no separate worker dyno.
     // Requiring here (not at top) avoids any circular-dep issues at module load time.

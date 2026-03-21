@@ -12,6 +12,8 @@ const {
   doStageAnalyzing,
 } = require('./services/pipelineProcessor')
 const { getQueue, addJob, processJob } = require('./queue/pipeline')
+const registry = require('./lib/serviceRegistry')
+const { preflight, blockDependents, unblockReady } = require('./lib/pipelinePreflight')
 
 const POLL_MS = 10_000
 const BATCH_PER_STAGE = 3          // import / transcribe / comments: 3 concurrent is fine
@@ -50,6 +52,19 @@ async function processItem(item) {
   const channel = video.channel
   if (channel.status === 'paused') return
 
+  // Preflight: check required services before running the stage
+  const check = await preflight('video', item.stage)
+  if (!check.canRun) {
+    await db.pipelineItem.update({
+      where: { id: item.id },
+      data: {
+        status: 'blocked',
+        error: `Waiting for: ${check.missing.join(', ')}`,
+      },
+    })
+    return
+  }
+
   try {
     let out
     switch (item.stage) {
@@ -80,6 +95,18 @@ async function processItem(item) {
     })
   } catch (err) {
     const errorMsg = (err && err.message) || String(err)
+
+    // Non-retryable service errors → block (don't burn retries)
+    if (err.isServiceError && !err.retryable) {
+      await db.pipelineItem.update({
+        where: { id: item.id },
+        data: { status: 'blocked', error: errorMsg, finishedAt: new Date() },
+      })
+      await blockDependents(err.service)
+      return
+    }
+
+    // Transient / unknown errors → normal retry logic
     const updated = await db.pipelineItem.update({
       where: { id: item.id },
       data: {
@@ -131,6 +158,7 @@ async function rescueStuckItems() {
 
 async function tick() {
   await rescueStuckItems()
+  await unblockReady()
   for (const stage of STAGES) {
     await runStage(stage)
   }
@@ -159,6 +187,7 @@ async function runPollingWorker() {
 }
 
 async function main() {
+  registry.autoDiscover()
   if (getQueue()) {
     await runQueueWorker()
   } else {

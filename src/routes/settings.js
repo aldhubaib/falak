@@ -2,6 +2,8 @@ const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { encrypt, decrypt } = require('../services/crypto')
+const registry = require('../lib/serviceRegistry')
+const { unblockReady } = require('../lib/pipelinePreflight')
 const router = express.Router()
 router.use(requireAuth)
 
@@ -48,6 +50,9 @@ router.post('/keys', requireRole('owner', 'admin'), async (req, res) => {
       create: { service, encryptedKey, isActive: true },
       update: { encryptedKey, isActive: true }
     })
+    registry.invalidateHealth(service)
+    registry.markUp(service)
+    unblockReady().catch(() => {})
     res.json({ ok: true, service: result.service })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -87,6 +92,9 @@ router.post('/youtube-keys', requireRole('owner', 'admin'), async (req, res) => 
         sortOrder: count
       }
     })
+    registry.invalidateHealth('youtube')
+    registry.markUp('youtube')
+    unblockReady().catch(() => {})
     res.json({ id: row.id, label: row.label, isActive: row.isActive })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -136,6 +144,9 @@ router.post('/google-search-keys', requireRole('owner', 'admin'), async (req, re
         sortOrder: count
       }
     })
+    registry.invalidateHealth('google_search')
+    registry.markUp('google_search')
+    unblockReady().catch(() => {})
     res.json({ id: row.id, label: row.label, isActive: row.isActive })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -171,6 +182,9 @@ router.post('/embedding-key', requireRole('owner', 'admin'), async (req, res) =>
       create: { service: 'embedding', encryptedKey: encrypt(key), isActive: true },
       update: { encryptedKey: encrypt(key), isActive: true },
     })
+    registry.invalidateHealth('embedding')
+    registry.markUp('embedding')
+    unblockReady().catch(() => {})
     res.json({ ok: true })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -210,6 +224,32 @@ router.get('/embedding-status', requireRole('owner', 'admin'), async (req, res) 
       rescoreIntervalHours: channel?.rescoreIntervalHours ?? 24,
       scoreProfile: profile,
     })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ── GET /api/settings/service-health — live health of all registered services ──
+router.get('/service-health', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    registry.autoDiscover()
+    const statuses = await registry.checkAllHealth()
+    const [blockedVideos, blockedArticles] = await Promise.all([
+      db.pipelineItem.count({ where: { status: 'blocked' } }),
+      db.article.count({ where: { status: 'blocked' } }),
+    ])
+    res.json({ services: statuses, blockedVideos, blockedArticles })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ── POST /api/settings/unblock — manually trigger unblock sweep ─────────
+router.post('/unblock', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    registry.invalidateAllHealth()
+    await unblockReady()
+    const [blockedVideos, blockedArticles] = await Promise.all([
+      db.pipelineItem.count({ where: { status: 'blocked' } }),
+      db.article.count({ where: { status: 'blocked' } }),
+    ])
+    res.json({ ok: true, blockedVideos, blockedArticles })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 

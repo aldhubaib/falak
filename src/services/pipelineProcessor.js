@@ -8,6 +8,8 @@ const { decrypt } = require('./crypto')
 const { fetchVideoMetadata, fetchComments } = require('./youtube')
 const { fetchTranscript } = require('./transcript')
 const { trackUsage } = require('./usageTracker')
+const registry = require('../lib/serviceRegistry')
+const { classifyHttpError } = registry
 const MAX_ANTHROPIC_TOKENS = 4096
 const ANTHROPIC_TIMEOUT_MS = 120_000
 const ANTHROPIC_RETRY_DELAYS_MS = [10_000, 30_000, 60_000] // on 429: wait 10s, 30s, 60s
@@ -98,11 +100,7 @@ async function doStageComments(item, video, channel) {
 // ── Analyzing: Part A (Haiku) classify + Part B (Sonnet) insights, save to Video.analysisResult ──
 // Part C (Haiku): batch sentiment classification for every comment ──────────────────────────────
 async function doStageAnalyzing(item, video, channel) {
-  const keyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (!keyRow?.encryptedKey) {
-    throw new Error('Anthropic API key not configured. Go to Settings and add it.')
-  }
-  const apiKey = decrypt(keyRow.encryptedKey)
+  const apiKey = await registry.requireKey('anthropic')
 
   // segmentsToText handles both JSON-segments and legacy plain-string transcriptions.
   const transcript = segmentsToText(video.transcription).slice(0, 50000)
@@ -189,8 +187,8 @@ Comments (sample):\n${commentsSample}`,
   })
 
   // Generate vector embedding for similarity search (non-blocking, fail-open)
-  const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
-  if (embKey?.encryptedKey) {
+  const embAvailable = await registry.hasKey('embedding')
+  if (embAvailable) {
     try {
       const { generateEmbedding, buildEmbeddingText, storeVideoEmbedding } = require('./embeddings')
       const text = buildEmbeddingText({
@@ -356,10 +354,18 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, chann
     }
     clearTimeout(timeout)
 
-    if (res.status === 429) {
-      trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: '429' })
-      if (attempt < ANTHROPIC_RETRY_DELAYS_MS.length) {
-        // Honour the Retry-After header if present, else use our schedule
+    if (!res.ok) {
+      const t = await res.text()
+      trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
+
+      const typed = classifyHttpError('anthropic', res.status, t, res.headers)
+      if (!typed.retryable) {
+        registry.markDown('anthropic', typed.code, typed.message)
+        throw typed
+      }
+
+      // Retryable 429 — honour Retry-After or use our backoff schedule
+      if (res.status === 429 && attempt < ANTHROPIC_RETRY_DELAYS_MS.length) {
         const retryAfter = res.headers.get('retry-after')
         const waitMs = retryAfter
           ? Math.min(parseInt(retryAfter, 10) * 1000, 120_000)
@@ -368,19 +374,15 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, chann
         await sleep(waitMs)
         continue
       }
-      throw new Error(`Anthropic API: 429 rate limit exceeded after ${attempt} retries`)
-    }
 
-    if (!res.ok) {
-      const t = await res.text()
-      trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
-      throw new Error(`Anthropic API: ${res.status} ${t}`)
+      throw typed
     }
 
     const data = await res.json()
     const usage = data.usage || {}
     const tokensUsed = (usage.input_tokens || 0) + (usage.output_tokens || 0)
     trackUsage({ channelId, service: 'anthropic', action, tokensUsed, status: 'ok' })
+    registry.markUp('anthropic')
     const block = data.content && data.content[0]
     const text = block && block.text ? block.text.trim() : ''
     // Store last usage for callers that need it
@@ -432,7 +434,9 @@ async function * callAnthropicStream(apiKey, model, messages, { system, maxToken
     clearTimeout(timeout)
     const t = await res.text()
     trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: `${res.status}` })
-    throw new Error(`Anthropic API: ${res.status} ${t}`)
+    const typed = classifyHttpError('anthropic', res.status, t, res.headers)
+    if (!typed.retryable) registry.markDown('anthropic', typed.code, typed.message)
+    throw typed
   }
 
   try {
@@ -467,6 +471,12 @@ async function * callAnthropicStream(apiKey, model, messages, { system, maxToken
   }
 }
 
+const SERVICE_DESCRIPTOR = {
+  name: 'anthropic',
+  displayName: 'Anthropic Claude',
+  keySource: 'apiKey',
+}
+
 module.exports = {
   doStageImport,
   doStageTranscribe,
@@ -474,4 +484,5 @@ module.exports = {
   doStageAnalyzing,
   callAnthropic,
   callAnthropicStream,
+  SERVICE_DESCRIPTOR,
 }

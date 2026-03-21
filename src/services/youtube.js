@@ -2,6 +2,7 @@ const fetch = require('node-fetch')
 const db = require('../lib/db')
 const { decrypt } = require('./crypto')
 const { trackUsage } = require('./usageTracker')
+const registry = require('../lib/serviceRegistry')
 
 const BASE = 'https://www.googleapis.com/youtube/v3'
 const FETCH_TIMEOUT_MS = 30_000
@@ -53,15 +54,7 @@ async function detectVideoType(youtubeId, duration) {
 }
 
 async function getApiKey() {
-  const keys = await db.youtubeApiKey.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: 'asc' },
-  })
-  if (keys.length === 0) {
-    throw new Error('YouTube Data API v3 key not configured. Go to Settings and add it.')
-  }
-  const entry = keys[Math.floor(Math.random() * keys.length)]
-  return decrypt(entry.encryptedKey)
+  return registry.requireKey('youtube')
 }
 
 async function ytFetch(endpoint, params, channelId) {
@@ -75,9 +68,12 @@ async function ytFetch(endpoint, params, channelId) {
     const err = await res.json().catch(() => ({}))
     const msg = err?.error?.message || String(res.status)
     trackUsage({ channelId, service: 'youtube-data', action: endpoint, status: 'fail', error: msg })
-    throw new Error(`YouTube API error: ${msg}`)
+    const typed = registry.classifyHttpError('youtube', res.status, msg, res.headers)
+    if (!typed.retryable) registry.markDown('youtube', typed.code, typed.message)
+    throw typed
   }
   trackUsage({ channelId, service: 'youtube-data', action: endpoint, status: 'ok' })
+  registry.markUp('youtube')
   return res.json()
 }
 
@@ -188,4 +184,10 @@ async function fetchComments(youtubeVideoId, maxResults = 100, channelId) {
   }
 }
 
-module.exports = { fetchChannel, fetchRecentVideos, fetchComments, fetchVideoMetadata, isYouTubeShort }
+const SERVICE_DESCRIPTOR = {
+  name: 'youtube',
+  displayName: 'YouTube Data API v3',
+  keySource: 'youtubeApiKey',
+}
+
+module.exports = { fetchChannel, fetchRecentVideos, fetchComments, fetchVideoMetadata, isYouTubeShort, SERVICE_DESCRIPTOR }

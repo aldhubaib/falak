@@ -7,6 +7,7 @@ const db = require('../lib/db')
 const { decrypt } = require('./crypto')
 const { trackUsage } = require('./usageTracker')
 const logger = require('../lib/logger')
+const registry = require('../lib/serviceRegistry')
 
 const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings'
 const DEFAULT_MODEL = 'text-embedding-3-small'
@@ -19,11 +20,7 @@ const DIMENSIONS = 1536
  * @returns {number[]} Float array of length 1536
  */
 async function generateEmbedding(text, channelId) {
-  const keyRow = await db.apiKey.findUnique({ where: { service: 'embedding' } })
-  if (!keyRow?.encryptedKey) {
-    throw new Error('OpenAI embedding API key not configured. Go to Settings and add it.')
-  }
-  const apiKey = decrypt(keyRow.encryptedKey)
+  const apiKey = await registry.requireKey('embedding')
   const input = text.slice(0, 8000)
 
   const controller = new AbortController()
@@ -47,7 +44,9 @@ async function generateEmbedding(text, channelId) {
     const err = await res.json().catch(() => ({}))
     const msg = err?.error?.message || `OpenAI API ${res.status}`
     trackUsage({ channelId, service: 'openai-embedding', action: 'embed', status: 'fail', error: msg })
-    throw new Error(`Embedding failed: ${msg}`)
+    const typed = registry.classifyHttpError('embedding', res.status, msg, res.headers)
+    if (!typed.retryable) registry.markDown('embedding', typed.code, typed.message)
+    throw typed
   }
 
   const data = await res.json()
@@ -63,6 +62,7 @@ async function generateEmbedding(text, channelId) {
     tokensUsed: data.usage?.total_tokens,
     status: 'ok',
   })
+  registry.markUp('embedding')
 
   return embedding
 }
@@ -228,6 +228,12 @@ async function getNicheEmbedding(channelId) {
   }
 }
 
+const SERVICE_DESCRIPTOR = {
+  name: 'embedding',
+  displayName: 'OpenAI Embeddings',
+  keySource: 'apiKey',
+}
+
 module.exports = {
   generateEmbedding,
   buildEmbeddingText,
@@ -239,4 +245,5 @@ module.exports = {
   generateNicheEmbedding,
   getNicheEmbedding,
   DIMENSIONS,
+  SERVICE_DESCRIPTOR,
 }

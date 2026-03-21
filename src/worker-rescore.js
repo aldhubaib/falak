@@ -13,6 +13,7 @@
 try { require('dotenv').config() } catch (_) {}
 const db = require('./lib/db')
 const logger = require('./lib/logger')
+const registry = require('./lib/serviceRegistry')
 const { refreshCompetitionData, fetchOwnVideoStats } = require('./services/statsRefresher')
 const { learnFromDecisions, learnFromOutcomes } = require('./services/scoreLearner')
 const { rescoreActiveStories } = require('./services/rescorer')
@@ -129,6 +130,7 @@ async function tick() {
 }
 
 async function runPollingWorker() {
+  registry.autoDiscover()
   logger.info({ checkIntervalMs: CHECK_INTERVAL_MS }, '[rescore-worker] started (polling)')
   for (;;) {
     try {

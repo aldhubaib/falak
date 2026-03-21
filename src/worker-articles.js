@@ -8,6 +8,8 @@ try { require('dotenv').config() } catch (_) {}
 const db = require('./lib/db')
 const logger = require('./lib/logger')
 const articleEvents = require('./lib/articleEvents')
+const registry = require('./lib/serviceRegistry')
+const { preflight, blockDependents, unblockReady } = require('./lib/pipelinePreflight')
 const {
   doStageImported,
   doStageContent,
@@ -88,6 +90,20 @@ async function processItem(article, { force = false } = {}) {
   if (!channel) return
   if (!force && channel.status === 'paused') return
 
+  // Preflight: check required services before running the stage
+  const check = await preflight('article', article.stage)
+  if (!check.canRun) {
+    await db.article.update({
+      where: { id: article.id },
+      data: {
+        status: 'blocked',
+        error: `Waiting for: ${check.missing.join(', ')}`,
+      },
+    })
+    articleEvents.emit(`article:${article.id}`, { stage: article.stage, status: 'blocked' })
+    return
+  }
+
   try {
     let out
     switch (article.stage) {
@@ -145,6 +161,19 @@ async function processItem(article, { force = false } = {}) {
     articleEvents.emit(`article:${article.id}`, { stage: out.nextStage, status: isTerminal ? out.nextStage : 'queued' })
   } catch (err) {
     const errorMsg = (err && err.message) || String(err)
+
+    // Non-retryable service errors → block (don't burn retries)
+    if (err.isServiceError && !err.retryable) {
+      await db.article.update({
+        where: { id: article.id },
+        data: { status: 'blocked', error: errorMsg, finishedAt: new Date() },
+      })
+      articleEvents.emit(`article:${article.id}`, { stage: article.stage, status: 'blocked' })
+      await blockDependents(err.service)
+      return
+    }
+
+    // Transient / unknown errors → normal retry logic
     const updated = await db.article.update({
       where: { id: article.id },
       data: {
@@ -200,6 +229,7 @@ async function rescueStuckItems() {
 async function tick() {
   if (paused) return
   await rescueStuckItems()
+  await unblockReady()
   for (const stage of STAGES) {
     if (paused) return
     await runStage(stage)
@@ -235,6 +265,7 @@ async function pollSources() {
 }
 
 async function runPollingWorker() {
+  registry.autoDiscover()
   await loadPausedState()
   logger.info({ pollMs: POLL_MS, sourcePollMs: SOURCE_POLL_MS, paused }, '[article-worker] started (polling)')
   for (;;) {

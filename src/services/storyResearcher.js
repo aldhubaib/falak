@@ -20,6 +20,7 @@ const { searchNews } = require('./firecrawl')
 const { queryPerplexity } = require('./perplexity')
 const { callAnthropic } = require('./pipelineProcessor')
 const logger = require('../lib/logger')
+const registry = require('../lib/serviceRegistry')
 
 const FIRECRAWL_RESULT_LIMIT = 5
 const PERPLEXITY_MAX_TOKENS = 2048
@@ -30,14 +31,11 @@ const SYNTHESIS_MAX_TOKENS = 4096
  * Called after classify (analysis exists) but before translation.
  */
 async function needsResearch(article) {
-  const [fcKey, pxKey, anKey] = await Promise.all([
-    db.apiKey.findUnique({ where: { service: 'firecrawl' } }),
-    db.apiKey.findUnique({ where: { service: 'perplexity' } }),
-    db.apiKey.findUnique({ where: { service: 'anthropic' } }),
+  const [hasFirecrawl, hasPerplexity, hasAnthropic] = await Promise.all([
+    registry.hasKey('firecrawl'),
+    registry.hasKey('perplexity'),
+    registry.hasKey('anthropic'),
   ])
-  const hasFirecrawl = !!fcKey?.encryptedKey
-  const hasPerplexity = !!pxKey?.encryptedKey
-  const hasAnthropic = !!anKey?.encryptedKey
 
   if (!hasFirecrawl && !hasPerplexity) {
     return { needed: false, reason: 'No research API keys (Firecrawl/Perplexity) configured' }
@@ -85,10 +83,9 @@ async function researchStory(article, channelId) {
 
   // ── Step 1: Firecrawl Search (original language) ──
   let firecrawlResults = []
-  const fcKey = await db.apiKey.findUnique({ where: { service: 'firecrawl' } })
-  if (fcKey?.encryptedKey) {
+  const fcApiKey = await registry.getKey('firecrawl')
+  if (fcApiKey) {
     try {
-      const fcApiKey = decrypt(fcKey.encryptedKey)
       const lang = (article.language === 'ar') ? 'ar' : 'en'
       const result = await searchNews(fcApiKey, searchQuery, {
         limit: FIRECRAWL_RESULT_LIMIT,
@@ -119,10 +116,9 @@ async function researchStory(article, channelId) {
   // ── Step 2: Perplexity Background Context ──
   let perplexityContext = null
   let perplexityCitations = []
-  const pxKey = await db.apiKey.findUnique({ where: { service: 'perplexity' } })
-  if (pxKey?.encryptedKey) {
+  const pxApiKey = await registry.getKey('perplexity')
+  if (pxApiKey) {
     try {
-      const pxApiKey = decrypt(pxKey.encryptedKey)
       const bgPrompt = buildBackgroundPrompt(topic, tags, region, analysis.summary)
       const result = await queryPerplexity(pxApiKey, bgPrompt, { maxTokens: PERPLEXITY_MAX_TOKENS })
       perplexityContext = result.text || null
@@ -151,10 +147,9 @@ async function researchStory(article, channelId) {
 
   // ── Step 3: Claude Synthesis ──
   let researchBrief = null
-  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (anKey?.encryptedKey) {
+  const anthropicKey = await registry.getKey('anthropic')
+  if (anthropicKey) {
     try {
-      const anthropicKey = decrypt(anKey.encryptedKey)
       const synthesisPrompt = buildSynthesisPrompt({
         topic,
         summary: analysis.summary,

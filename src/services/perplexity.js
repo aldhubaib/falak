@@ -3,6 +3,7 @@
  * Uses POST https://api.perplexity.ai/chat/completions (OpenAI-compatible).
  */
 const fetch = require('node-fetch')
+const registry = require('../lib/serviceRegistry')
 
 const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions'
 const PERPLEXITY_TIMEOUT_MS = 60_000
@@ -51,8 +52,11 @@ async function queryPerplexity(apiKey, userPrompt, opts = {}) {
 
   if (!res.ok) {
     const errBody = await res.text()
-    throw new Error(`Perplexity API error ${res.status}: ${errBody.slice(0, 300)}`)
+    const typed = registry.classifyHttpError('perplexity', res.status, errBody.slice(0, 300), res.headers)
+    if (!typed.retryable) registry.markDown('perplexity', typed.code, typed.message)
+    throw typed
   }
+  registry.markUp('perplexity')
 
   const data = await res.json()
   const choice = data.choices?.[0]
@@ -167,4 +171,10 @@ function fallbackParseHeadlines(text) {
   return out.slice(0, 15)
 }
 
-module.exports = { queryPerplexity, fetchStorySuggestions, parseStoriesFromResponse }
+const SERVICE_DESCRIPTOR = {
+  name: 'perplexity',
+  displayName: 'Perplexity',
+  keySource: 'apiKey',
+}
+
+module.exports = { queryPerplexity, fetchStorySuggestions, parseStoriesFromResponse, SERVICE_DESCRIPTOR }

@@ -11,6 +11,7 @@ const {
   doStageComments,
   doStageAnalyzing,
 } = require('../services/pipelineProcessor')
+const { preflight, blockDependents } = require('../lib/pipelinePreflight')
 
 const QUEUE_NAME = 'falak-pipeline'
 const MAX_RETRIES = 3
@@ -67,6 +68,16 @@ async function processJob(job) {
     return
   }
 
+  // Preflight: check required services before running the stage
+  const check = await preflight('video', stage)
+  if (!check.canRun) {
+    await db.pipelineItem.update({
+      where: { id: item.id },
+      data: { status: 'blocked', error: `Waiting for: ${check.missing.join(', ')}` },
+    })
+    return
+  }
+
   await db.pipelineItem.update({
     where: { id: item.id },
     data: { status: 'running', startedAt: new Date(), error: null, lastStage: stage },
@@ -106,14 +117,23 @@ async function processJob(job) {
     }
   } catch (err) {
     const errorMsg = (err && err.message) || String(err)
+
+    // Non-retryable service errors → block (don't burn retries)
+    if (err.isServiceError && !err.retryable) {
+      await db.pipelineItem.update({
+        where: { id: item.id },
+        data: { status: 'blocked', error: errorMsg, finishedAt: new Date() },
+      })
+      await blockDependents(err.service)
+      return
+    }
+
     const updated = await db.pipelineItem.update({
       where: { id: item.id },
       data: {
         error: errorMsg,
         retries: { increment: 1 },
         finishedAt: new Date(),
-        // Keep the original stage and re-queue if retries remain;
-        // only move to 'failed' when retries are exhausted.
         stage,
         status: 'queued',
       },

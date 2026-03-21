@@ -3,6 +3,7 @@ const db = require('../lib/db')
 const { decrypt } = require('./crypto')
 const { transcriptCache } = require('../lib/cache')
 const { trackUsage } = require('./usageTracker')
+const registry = require('../lib/serviceRegistry')
 
 const YT_TRANSCRIPT_IO_URL = 'https://www.youtube-transcript.io/api/transcripts'
 const MAX_RETRIES = 4
@@ -27,11 +28,7 @@ async function fetchTranscript(youtubeVideoId, channelId) {
   const cached = transcriptCache.get(id)
   if (cached !== undefined) return cached
 
-  const keyRow = await db.apiKey.findUnique({ where: { service: 'yt-transcript' } })
-  if (!keyRow?.encryptedKey) {
-    throw new Error('YouTube Transcript API key not configured. Go to Settings and add it.')
-  }
-  const token = decrypt(keyRow.encryptedKey)
+  const token = await registry.requireKey('yt-transcript')
   let lastErr
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -39,6 +36,7 @@ async function fetchTranscript(youtubeVideoId, channelId) {
       const result = text !== null ? text : ''
       transcriptCache.set(id, result)
       trackUsage({ channelId, service: 'yttranscript', action: 'transcribe', status: 'ok' })
+      registry.markUp('yt-transcript')
       return result
     } catch (e) {
       lastErr = e
@@ -88,19 +86,13 @@ async function fetchFromYoutubeTranscriptIo(videoId, apiToken) {
     let body = ''
     try { body = (await res.text()).slice(0, 500) } catch (_) {}
     console.error(`[transcript] youtube-transcript.io ${res.status} for ${videoId}:`, body || '(empty body)')
-    let message
-    if (res.status === 401) {
-      message = `youtube-transcript.io 401 Unauthorized — check the API key in Settings. Body: ${body}`
-    } else if (res.status === 429) {
-      message = `youtube-transcript.io 429 rate limit — Retry-After: ${retryAfter ?? 'not set'}. Will retry.`
-    } else {
-      message = `youtube-transcript.io ${res.status}: ${body || '(no body)'}`
+    const typed = registry.classifyHttpError('yt-transcript', res.status, body, res.headers)
+    if (!typed.retryable) {
+      registry.markDown('yt-transcript', typed.code, typed.message)
     }
-    const err = new Error(message)
-    err.status = res.status
-    err.retryable = res.status === 429 || res.status >= 500
-    if (retryAfterMs) err.retryAfterMs = retryAfterMs
-    throw err
+    typed.status = res.status
+    typed.retryAfterMs = retryAfterMs
+    throw typed
   }
   let data
   try { data = await res.json() } catch { return null }
@@ -124,4 +116,10 @@ async function fetchFromYoutubeTranscriptIo(videoId, apiToken) {
   return text ? String(text).replace(/\s+/g, ' ').trim() : null
 }
 
-module.exports = { fetchTranscript }
+const SERVICE_DESCRIPTOR = {
+  name: 'yt-transcript',
+  displayName: 'YouTube Transcript API',
+  keySource: 'apiKey',
+}
+
+module.exports = { fetchTranscript, SERVICE_DESCRIPTOR }

@@ -11,6 +11,7 @@ const db = require('../lib/db')
 const { decrypt } = require('./crypto')
 const { getSignedReadUrl } = require('./r2')
 const { trackUsage } = require('./usageTracker')
+const registry = require('../lib/serviceRegistry')
 
 const execFileAsync = promisify(execFile)
 
@@ -22,13 +23,8 @@ const WHISPER_TIMEOUT_MS = 5 * 60 * 1000
 async function transcribeFromR2(r2Key, channelId) {
   if (!r2Key) throw new Error('No video file to transcribe')
 
-  const keyRow = await db.apiKey.findFirst({
-    where: { OR: [{ service: 'openai' }, { service: 'embedding' }] },
-  })
-  if (!keyRow?.encryptedKey) {
-    throw new Error('OpenAI API key not configured. Add it in Settings → API Keys (service: openai or embedding).')
-  }
-  const apiKey = decrypt(keyRow.encryptedKey)
+  // Whisper uses the same key as embeddings (OpenAI key)
+  const apiKey = await registry.requireKey('embedding')
 
   const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'falak-whisper-'))
   const ext = (r2Key.split('.').pop() || 'mp4').toLowerCase()
@@ -125,7 +121,9 @@ async function callWhisper(apiKey, filePath, channelId) {
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     trackUsage({ channelId, service: 'openai', action: 'whisper', status: 'fail', error: `${res.status}: ${body.slice(0, 200)}` })
-    throw new Error(`Whisper API error ${res.status}: ${body.slice(0, 300)}`)
+    const typed = registry.classifyHttpError('embedding', res.status, body, res.headers)
+    if (!typed.retryable) registry.markDown('embedding', typed.code, typed.message)
+    throw typed
   }
 
   const data = await res.json()

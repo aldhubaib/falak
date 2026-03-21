@@ -18,6 +18,7 @@ const { callAnthropic } = require('./pipelineProcessor')
 const { needsResearch, researchStory } = require('./storyResearcher')
 const logger = require('../lib/logger')
 const { computeSimpleComposite, finalScoreToComposite } = require('../lib/scoringConfig')
+const registry = require('../lib/serviceRegistry')
 
 const MIN_CONTENT_LENGTH = 300
 const ARABIC_CHAR_REGEX = /[\u0600-\u06FF]/g
@@ -132,10 +133,10 @@ async function doStageContent(article, project) {
   }
 
   let fetchedText = null
-  const fcKey = await db.apiKey.findUnique({ where: { service: 'firecrawl' } })
-  if (fcKey?.encryptedKey) {
+  const fcApiKey = await registry.getKey('firecrawl')
+  if (fcApiKey) {
     try {
-      const apiKey = decrypt(fcKey.encryptedKey)
+      const apiKey = fcApiKey
       const result = await scrapeUrl(apiKey, article.url)
       if (result.text) {
         fetchedText = preClean(result.text)
@@ -192,12 +193,8 @@ async function doStageContent(article, project) {
 // Classifies in the article's ORIGINAL language. Arabic translation happens later.
 
 async function doStageClassify(article, project) {
-  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (!anKey?.encryptedKey) {
-    throw new Error('Anthropic API key not configured. Go to Settings to add it.')
-  }
+  const apiKey = await registry.requireKey('anthropic')
   const log = getLog(article)
-  const apiKey = decrypt(anKey.encryptedKey)
 
   const articleText = (article.contentClean || article.content || '').slice(0, 20000)
   const title = article.title || ''
@@ -343,15 +340,15 @@ async function doStageTitleTranslate(article, project) {
     return { nextStage: 'score' }
   }
 
-  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (!anKey?.encryptedKey) {
+  const ttApiKey = await registry.getKey('anthropic')
+  if (!ttApiKey) {
     log.push(lp('title_translate', { processor: 'server', status: 'skipped', reason: 'No Anthropic API key' }))
     await saveLog(article.id, log)
     return { nextStage: 'score' }
   }
 
   try {
-    const apiKey = decrypt(anKey.encryptedKey)
+    const apiKey = ttApiKey
     const prompt = `Translate this news article title and opening to Arabic.\n` +
       `Preserve all names, dates, and facts exactly.\n` +
       `Output the Arabic text only, no commentary.\n\n` +
@@ -505,11 +502,7 @@ async function doStageTranslated(article, project) {
     return { nextStage: 'images' }
   }
 
-  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (!anKey?.encryptedKey) {
-    throw new Error('Anthropic API key not configured. Go to Settings to add it.')
-  }
-  const apiKey = decrypt(anKey.encryptedKey)
+  const apiKey = await registry.requireKey('anthropic')
 
   // ── Step A: Translate article content ──
   const truncated = text.slice(0, 30000)
@@ -726,8 +719,8 @@ async function doStageScore(article, project) {
   let sentiment = 'neutral'
 
   // ── Sub-step A: score_similarity (using title_translate Arabic for embedding) ──
-  const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
-  if (embKey?.encryptedKey) {
+  const embAvailable = await registry.hasKey('embedding')
+  if (embAvailable) {
     try {
       const { generateEmbedding, buildEmbeddingText, findSimilarVideos } = require('./embeddings')
       const titleTranslateAr = analysis.titleTranslateAr || ''
@@ -859,10 +852,10 @@ async function doStageScore(article, project) {
 
   // ── Sub-step B: score_ai_analysis (AI scoring on original content — runs before full translation) ──
   const contentForScoring = art.contentClean || art.content || ''
-  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (anKey?.encryptedKey && contentForScoring.trim().length > 50) {
+  const scoreApiKey = await registry.getKey('anthropic')
+  if (scoreApiKey && contentForScoring.trim().length > 50) {
     try {
-      const apiKey = decrypt(anKey.encryptedKey)
+      const apiKey = scoreApiKey
       const competitionContext = similarVideos.length > 0
         ? '\n\nCompetition (similar Arabic videos already in DB):\n' +
           similarVideos.map(v => `- "${v.title}" (similarity: ${v.similarity})`).join('\n')
@@ -1225,8 +1218,8 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
       const { storeStoryEmbedding } = require('./embeddings')
       await storeStoryEmbedding(story.id, scoreEmbedding)
     } else {
-      const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
-      if (embKey?.encryptedKey) {
+      const embKeyAvailable = await registry.hasKey('embedding')
+      if (embKeyAvailable) {
         const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
         const text = buildEmbeddingText({
           topic: analysis.topicAr || analysis.topic,
@@ -1482,6 +1475,12 @@ async function doStageImages(article, project) {
   }
 }
 
+const SERVICE_DESCRIPTOR = {
+  name: 'google_search',
+  displayName: 'SerpAPI (Google Images Light)',
+  keySource: 'googleSearchKey',
+}
+
 module.exports = {
   doStageImported,
   doStageContent,
@@ -1493,4 +1492,5 @@ module.exports = {
   doStageImages,
   STEP_META,
   computeDynamicThreshold,
+  SERVICE_DESCRIPTOR,
 }
