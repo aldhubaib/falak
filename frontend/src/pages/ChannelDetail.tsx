@@ -5,7 +5,7 @@ import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { getCountryName } from "@/data/countries";
-import { ArrowLeft, Info, Loader2, Tag, X } from "lucide-react";
+import { ArrowLeft, Info, Loader2, Tag, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { Video } from "@/data/mock";
 
