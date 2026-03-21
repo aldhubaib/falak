@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import {
@@ -221,17 +221,28 @@ export default function ArticleDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
 
-  const fetchArticle = () => {
+  const fetchArticle = useCallback((silent = false) => {
     if (!id) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     fetch(`/api/article-pipeline/${id}/detail`, { credentials: "include" })
       .then((r) => { if (!r.ok) throw new Error("Not found"); return r.json(); })
       .then((d) => setArticle(d))
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  };
+      .catch((e) => { if (!silent) setError(e.message); })
+      .finally(() => { if (!silent) setLoading(false); });
+  }, [id]);
 
-  useEffect(() => { fetchArticle(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchArticle(); }, [fetchArticle]);
+
+  const TERMINAL_STATES = useRef(new Set(["done", "failed", "review"]));
+  const isProcessing = article != null
+    && !TERMINAL_STATES.current.has(article.stage)
+    && !TERMINAL_STATES.current.has(article.status);
+
+  useEffect(() => {
+    if (!isProcessing) return;
+    const handle = setInterval(() => fetchArticle(true), 4000);
+    return () => clearInterval(handle);
+  }, [isProcessing, fetchArticle]);
 
   const handleRestart = async (stage?: string) => {
     if (!id || restarting) return;
