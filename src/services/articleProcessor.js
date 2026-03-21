@@ -806,9 +806,12 @@ async function doStageScore(article, project) {
         ? await findSimilarVideosWithStats(scoreEmbedding, article.channelId, 5)
         : []
 
-      if (rawSimilar.length > 0) {
-        topicDemandVideos = rawSimilar
-        const channelIds = [...new Set(rawSimilar.map(v => v.channelId))]
+      const MIN_SIMILARITY = 0.50
+      const genuinelySimilar = rawSimilar.filter(v => Number(v.similarity) >= MIN_SIMILARITY)
+
+      if (genuinelySimilar.length > 0) {
+        topicDemandVideos = genuinelySimilar
+        const channelIds = [...new Set(genuinelySimilar.map(v => v.channelId))]
         const avgViewsMap = {}
         await Promise.all(channelIds.map(async (cid) => {
           const agg = await db.video.aggregate({
@@ -818,7 +821,7 @@ async function doStageScore(article, project) {
           avgViewsMap[cid] = Number(agg._avg?.viewCount || 0) || 1
         }))
 
-        const ratios = rawSimilar.map(v => {
+        const ratios = genuinelySimilar.map(v => {
           const avg = avgViewsMap[v.channelId] || 1
           return Number(v.viewCount) / avg
         })
@@ -830,16 +833,16 @@ async function doStageScore(article, project) {
           processor: 'server',
           service: 'competitor performance analysis',
           status: 'ok',
-          similarCount: rawSimilar.length,
+          similarCount: genuinelySimilar.length,
           avgPerformanceRatio: Math.round(avgRatio * 100) / 100,
           topicDemand,
         }, [
           { type: 'gauge', label: 'Topic Demand', value: topicDemand },
-          { type: 'stat', label: 'Videos Analysed', value: `${rawSimilar.length} competitor videos` },
+          { type: 'stat', label: 'Videos Analysed', value: `${genuinelySimilar.length} competitor videos` },
           { type: 'stat', label: 'Avg Performance', value: `${(Math.round(avgRatio * 100) / 100)}× channel average` },
         ]))
       } else {
-        log.push(lp('score_topic_demand', { status: 'skipped', reason: 'No similar competitor videos found', topicDemand: 0 }))
+        log.push(lp('score_topic_demand', { status: 'skipped', reason: 'No competitor videos above similarity threshold (0.50)', topicDemand: 0 }))
       }
     } catch (e) {
       log.push(lp('score_topic_demand', { status: 'failed', error: e.message, topicDemand: 0 }))
