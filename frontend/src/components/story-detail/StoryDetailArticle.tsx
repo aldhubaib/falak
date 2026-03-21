@@ -264,7 +264,7 @@ export function StoryDetailArticle({
                       type="button"
                       onClick={() => onRetryFetch()}
                       disabled={articleLoading}
-                      className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/20 disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-border disabled:opacity-50"
                     >
                       {articleLoading ? "Fetching…" : "Retry"}
                     </button>

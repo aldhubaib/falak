@@ -439,7 +439,7 @@ export default function DesignSystem() {
 
               <CidBlock cid="action-pill-button" name="Action pill button" source="5 pages">
                 <div className="flex flex-wrap gap-2">
-                  <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-foreground/10 text-foreground border border-foreground/20"><Play className="w-3 h-3" /> Analyze</button>
+                  <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-foreground/10 text-foreground border border-border"><Play className="w-3 h-3" /> Analyze</button>
                   <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"><Search className="w-3 h-3" /> Filter</button>
                   <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 border border-destructive/20 text-[11px] text-destructive font-medium"><XCircle className="w-3 h-3" /> Remove</button>
                   <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 text-success text-[11px] font-medium"><CheckCircle2 className="w-3 h-3" /> Published</button>
@@ -448,9 +448,9 @@ export default function DesignSystem() {
 
               <CidBlock cid="filter-pill" name="Filter pill" source="7 pages">
                 <div className="flex flex-wrap gap-2">
-                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium bg-foreground/10 text-foreground border border-foreground/20">All</button>
-                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20 transition-colors">Active</button>
-                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20 transition-colors">Archived</button>
+                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium bg-foreground/10 text-foreground border border-border">All</button>
+                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-muted-foreground border border-border hover:text-foreground hover:border-border transition-colors">Active</button>
+                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-muted-foreground border border-border hover:text-foreground hover:border-border transition-colors">Archived</button>
                 </div>
               </CidBlock>
 

@@ -637,7 +637,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
           <div className="flex gap-2">
             {SOURCE_TYPES.map(t => (
               <button key={t.value} onClick={() => handleTypeChange(t.value)}
-                className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] font-medium transition-all border ${type === t.value ? "bg-foreground/5 text-foreground border-foreground/20" : "bg-transparent text-muted-foreground border-border hover:border-foreground/10"}`}>
+                className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] font-medium transition-all border ${type === t.value ? "bg-foreground/5 text-foreground border-border" : "bg-transparent text-muted-foreground border-border hover:border-border"}`}>
                 <SourceLogo type={t.value} size="sm" />
                 {t.label}
               </button>
@@ -661,7 +661,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
               ) : (
                 <button type="button" onClick={() => imageRef.current?.click()}
-                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-card/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all">
+                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-card/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all">
                   <ImagePlus className="w-4 h-4" />
                 </button>
               )}
@@ -670,7 +670,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
               <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
                 placeholder={typeDef.label}
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border" />
             </div>
           </div>
 
@@ -684,7 +684,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
                 <input type="text" value={config[f.key] || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-border" />
               </div>
             ))}
             {typeDef.format === "apify" && (
@@ -695,7 +695,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder="apify_api_..."
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-border" />
               </div>
             )}
           </div>
@@ -805,7 +805,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
               ) : (
                 <button type="button" onClick={() => editImageRef.current?.click()}
-                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-card/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all">
+                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-card/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all">
                   <ImagePlus className="w-4 h-4" />
                 </button>
               )}
@@ -813,7 +813,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
             <div className="flex-1">
               <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border" />
             </div>
           </div>
 
@@ -827,7 +827,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
                 <input type="text" value={(config[f.key] as string) || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-border" />
               </div>
             ))}
             {typeDef.format === "apify" && (
@@ -840,7 +840,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder={source.hasApiKey ? "Leave blank to keep current" : "apify_api_..."}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-border" />
               </div>
             )}
           </div>

@@ -168,7 +168,7 @@ export function PageError({
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:text-foreground hover:border-foreground/20 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:text-foreground hover:border-border transition-colors"
           >
             <Copy className="w-3.5 h-3.5" />
             {copied ? "Copied" : "Copy report"}
@@ -186,7 +186,7 @@ export function PageError({
           {showHome && (
             <a
               href={homeHref}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:text-foreground hover:border-foreground/20 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:text-foreground hover:border-border transition-colors"
             >
               <Home className="w-3.5 h-3.5" />
               {homeLabel}

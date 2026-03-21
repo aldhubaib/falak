@@ -312,8 +312,8 @@ export default function Stories() {
               onClick={() => setActiveStage("all")}
               className={`px-4 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
                 activeStage === "all"
-                  ? "bg-foreground/10 text-foreground border border-foreground/20"
-                  : "text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20"
+                  ? "bg-foreground/10 text-foreground border border-border"
+                  : "text-muted-foreground border border-border hover:text-foreground hover:border-border"
               }`}
             >
               All ({stories.length})
@@ -324,8 +324,8 @@ export default function Stories() {
                   onClick={() => setActiveStage(s.key)}
                   className={`px-4 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
                     activeStage === s.key
-                      ? "bg-foreground/10 text-foreground border border-foreground/20"
-                      : "text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20"
+                      ? "bg-foreground/10 text-foreground border border-border"
+                      : "text-muted-foreground border border-border hover:text-foreground hover:border-border"
                   }`}
                 >
                   {s.label} ({stageCounts[s.key] || 0})

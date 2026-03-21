@@ -141,17 +141,17 @@ export function StoryDetailScriptSection({
                   <img
                     src={currentUser.avatarUrl}
                     alt={currentUser.name}
-                    className="w-7 h-7 rounded-full object-cover border-2 border-card ring-2 ring-blue/40"
+                    className="w-7 h-7 rounded-full object-cover border-2 border-border ring-2 ring-blue/40"
                   />
                 ) : (
                   <div
-                    className="w-7 h-7 rounded-full border-2 border-card ring-2 ring-blue/40 bg-blue/15 flex items-center justify-center text-[10px] font-mono text-blue"
+                    className="w-7 h-7 rounded-full border-2 border-border ring-2 ring-blue/40 bg-blue/15 flex items-center justify-center text-[10px] font-mono text-blue"
                     title={`${currentUser.name} (you)`}
                   >
                     {(currentUser.name || "?").slice(0, 1).toUpperCase()}
                   </div>
                 )}
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-card" />
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-border" />
               </div>
             )}
             {collaborators.slice(0, 5).map((u) => (
@@ -160,22 +160,22 @@ export function StoryDetailScriptSection({
                   <img
                     src={u.avatar}
                     alt={u.name}
-                    className="w-7 h-7 rounded-full object-cover border-2 border-card"
+                    className="w-7 h-7 rounded-full object-cover border-2 border-border"
                   />
                 ) : (
                   <div
-                    className="w-7 h-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-mono text-muted-foreground"
+                    className="w-7 h-7 rounded-full border-2 border-border flex items-center justify-center text-[10px] font-mono text-muted-foreground"
                     style={{ backgroundColor: u.color ? `${u.color}33` : undefined }}
                     title={u.name}
                   >
                     {(u.name || "?").slice(0, 1).toUpperCase()}
                   </div>
                 )}
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-card" />
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-border" />
               </div>
             ))}
             {collaborators.length > 5 && (
-              <div className="w-7 h-7 rounded-full bg-card border-2 border-card flex items-center justify-center text-[10px] text-muted-foreground font-medium">
+              <div className="w-7 h-7 rounded-full bg-card border-2 border-border flex items-center justify-center text-[10px] text-muted-foreground font-medium">
                 +{collaborators.length - 5}
               </div>
             )}
