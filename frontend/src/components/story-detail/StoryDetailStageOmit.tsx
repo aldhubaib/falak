@@ -6,7 +6,7 @@ export function StoryDetailStageOmit({ onMoveBack }: StoryDetailStageOmitProps) 
   return (
     <div className="rounded-lg bg-card p-5">
       <p className="text-[13px] text-muted-foreground mb-4">
-        Not enough data to produce this video. Omitted from pipeline.
+        Not enough data to produce this video. Trashed from pipeline.
       </p>
       <button
         type="button"

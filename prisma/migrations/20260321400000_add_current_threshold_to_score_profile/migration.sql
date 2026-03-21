@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "ScoreProfile" ADD COLUMN "currentThreshold" DOUBLE PRECISION NOT NULL DEFAULT 0.30;

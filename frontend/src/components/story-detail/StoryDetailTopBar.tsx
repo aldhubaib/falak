@@ -168,12 +168,12 @@ export function StoryDetailTopBar({
                       type="button"
                       onClick={() => {
                         setActionDropOpen(false);
-                        setConfirmAction("passed");
+                        setConfirmAction("skip");
                       }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
                     >
                       <CircleSlash className="w-3.5 h-3.5 shrink-0" />
-                      Passed
+                      Skip
                     </button>
                     <div className="h-px bg-border" />
                   </>
@@ -198,12 +198,12 @@ export function StoryDetailTopBar({
                   type="button"
                   onClick={() => {
                     setActionDropOpen(false);
-                    setConfirmAction("omit");
+                    setConfirmAction("trash");
                   }}
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-muted-foreground hover:text-destructive hover:bg-card transition-colors"
                 >
                   <EyeOff className="w-3.5 h-3.5 shrink-0" />
-                  Omit
+                  Trash
                 </button>
               </div>
             )}
@@ -238,11 +238,11 @@ export function StoryDetailTopBar({
         </div>
       </div>
 
-      {/* Pass confirmation */}
-      <AlertDialog open={confirmAction === "passed"} onOpenChange={(open) => !open && setConfirmAction(null)}>
+      {/* Skip confirmation */}
+      <AlertDialog open={confirmAction === "skip"} onOpenChange={(open) => !open && setConfirmAction(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Pass on this story?</AlertDialogTitle>
+            <AlertDialogTitle>Skip this story?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[13px]">
                 <p>The topic doesn&apos;t fit the channel and you don&apos;t want to produce it.</p>
@@ -261,7 +261,7 @@ export function StoryDetailTopBar({
                 setConfirmAction(null);
               }}
             >
-              Pass
+              Skip
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -296,11 +296,11 @@ export function StoryDetailTopBar({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Omit confirmation */}
-      <AlertDialog open={confirmAction === "omit"} onOpenChange={(open) => !open && setConfirmAction(null)}>
+      {/* Trash confirmation */}
+      <AlertDialog open={confirmAction === "trash"} onOpenChange={(open) => !open && setConfirmAction(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Omit this story?</AlertDialogTitle>
+            <AlertDialogTitle>Trash this story?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[13px]">
                 <p>The source article is broken or unusable — you can&apos;t produce anything from it.</p>
@@ -319,7 +319,7 @@ export function StoryDetailTopBar({
                 setConfirmAction(null);
               }}
             >
-              Omit
+              Trash
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

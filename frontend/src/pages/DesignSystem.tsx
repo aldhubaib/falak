@@ -477,11 +477,11 @@ export default function DesignSystem() {
                 <StoryDetailChannelSelector channels={MOCK_API_CHANNELS} selectedId="c1" open={channelSelectorOpen} onToggleOpen={() => setChannelSelectorOpen((v) => !v)} onSelect={() => setChannelSelectorOpen(false)} />
               </CidBlock>
 
-              <CidBlock cid="story-stage-omit" name="StoryDetailStageOmit" source="StoryDetail.tsx">
+              <CidBlock cid="story-stage-trash" name="StoryDetailStageOmit (Trash)" source="StoryDetail.tsx">
                 <StoryDetailStageOmit onMoveBack={NOOP} />
               </CidBlock>
 
-              <CidBlock cid="story-stage-passed" name="StoryDetailStagePassed" source="StoryDetail.tsx">
+              <CidBlock cid="story-stage-skip" name="StoryDetailStagePassed (Skip)" source="StoryDetail.tsx">
                 <StoryDetailStagePassed onMoveBack={NOOP} />
               </CidBlock>
 

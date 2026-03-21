@@ -287,7 +287,7 @@ export default function VectorIntelligence() {
                 <div className="rounded-lg border border-border bg-card p-4">
                   <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Decisions</div>
                   <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalDecisions}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono mt-1">liked / passed / omit</div>
+                  <div className="text-[10px] text-muted-foreground font-mono mt-1">liked / skip / trash</div>
                 </div>
                 <div className="rounded-lg border border-border bg-card p-4">
                   <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Outcomes</div>

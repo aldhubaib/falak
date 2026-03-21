@@ -67,8 +67,9 @@ interface StorySummary {
   filmed: number;
   publish: number;
   done: number;
-  passed: number;
-  omit: number;
+  skip: number;
+  trash: number;
+  filtered: number;
   firstMovers: number;
   firstMoverPct: number;
 }

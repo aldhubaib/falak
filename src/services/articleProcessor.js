@@ -16,7 +16,6 @@ const { scrapeUrl, preClean } = require('./firecrawl')
 const { fetchArticleText } = require('./articleFetcher')
 const { callAnthropic } = require('./pipelineProcessor')
 const { needsResearch, researchStory } = require('./storyResearcher')
-const { getDialectForCountry } = require('../lib/dialects')
 const logger = require('../lib/logger')
 const { computeSimpleComposite, finalScoreToComposite } = require('../lib/scoringConfig')
 

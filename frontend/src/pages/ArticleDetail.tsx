@@ -206,7 +206,7 @@ const TIMELINE_STAGES: TimelineStage[] = FLOW_DEFS.map((f) => ({
   bgColor: f.bgColor,
 }));
 
-const STAGE_ORDER = ["imported", "content", "classify", "research", "translated", "script", "score", "done"];
+const STAGE_ORDER = ["imported", "content", "classify", "title_translate", "score", "research", "translated", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -470,10 +470,10 @@ const RESTARTABLE_STAGES = [
   { id: "imported", label: "Imported" },
   { id: "content", label: "Content" },
   { id: "classify", label: "Classify" },
+  { id: "title_translate", label: "Title Translate" },
+  { id: "score", label: "Score" },
   { id: "research", label: "Research" },
   { id: "translated", label: "Translation" },
-  { id: "script", label: "Script" },
-  { id: "score", label: "Score" },
 ];
 
 function RestartControl({
@@ -583,7 +583,7 @@ function StageSection({
           {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
           {stage.id === "translated" && <TranslatedDetail article={article} log={log} />}
           {stage.id === "synthesis" && <SynthesisDetail article={article} log={log} />}
-          {stage.id === "script" && <ScriptDetail article={article} log={log} />}
+          {stage.id === "title_translate" && <TitleTranslateDetail article={article} log={log} />}
           {stage.id === "score" && <ScoringDetail article={article} log={log} />}
           {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
           <UnknownEntries stageId={stage.id} log={log} />
@@ -603,8 +603,8 @@ const STEP_MAP: Record<string, string[]> = {
   research: ["research_decision", "firecrawl_search", "perplexity_context"],
   synthesis: ["synthesis", "research"],
   translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
-  script: ["auto_script"],
-  score: ["score_similarity", "score_topic_demand", "score_niche", "score_ai_analysis", "score"],
+  title_translate: ["title_translate"],
+  score: ["score_similarity", "score_topic_demand", "score_niche", "score_ai_analysis", "score", "threshold_gate"],
   promote: ["promote"],
 };
 
@@ -638,8 +638,9 @@ const STEP_DISPLAY: Record<string, { label: string; subtitle?: string; icon: typ
   score_niche: { label: "Niche Fit", subtitle: "Channel niche relevance", icon: Target },
   score_ai_analysis: { label: "AI Scoring", subtitle: "Relevance & viral scores", icon: Brain },
   score: { label: "Final Score", subtitle: "Composite score", icon: Sparkles },
+  threshold_gate: { label: "Threshold Gate", subtitle: "Dynamic score threshold check", icon: Target },
+  title_translate: { label: "Title Translate", subtitle: "Arabic title + summary for scoring", icon: Languages },
   promote: { label: "Story Created", subtitle: "Create or link story", icon: CheckCircle2 },
-  auto_script: { label: "Draft Script", subtitle: "Auto-generated script with branded hooks", icon: PenLine },
 };
 
 /** Single card for one pipeline step — matches Kanban column (title + optional subtitle). */
@@ -1619,45 +1620,30 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
   );
 }
 
-function ScriptDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
-  const entry = log.find((e) => e.step === "auto_script");
-  const { label, icon, subtitle } = STEP_DISPLAY.auto_script || { label: "Draft Script", icon: PenLine };
-  const draftScript = (article.analysis as Analysis | null)?.draftScript as Record<string, unknown> | undefined;
+function TitleTranslateDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
+  const entry = log.find((e) => e.step === "title_translate");
+  const { label, icon, subtitle } = STEP_DISPLAY.title_translate || { label: "Title Translate", icon: Languages };
+  const titleTranslateAr = (article.analysis as Record<string, unknown> | null)?.titleTranslateAr as string | undefined;
 
   return (
     <div className="p-4 space-y-3">
-      <LogStepCard entry={entry ?? null} stepId="auto_script" label={label} subtitle={subtitle} icon={icon}>
+      <LogStepCard entry={entry ?? null} stepId="title_translate" label={label} subtitle={subtitle} icon={icon}>
         {entry?.status === "ok" && (
           <div className="space-y-1 text-[12px]">
-            <span className="text-success">Draft script generated</span>
-            {entry.dialect && <span className="text-muted-foreground"> · Dialect: {entry.dialect}</span>}
-            {entry.hasHooks && <span className="text-muted-foreground"> · Branded hooks included</span>}
-            {entry.hasResearch && <span className="text-muted-foreground"> · Research context included</span>}
+            <span className="text-success">Title translated to Arabic</span>
+            {entry.inputChars && <span className="text-muted-foreground"> · {entry.inputChars} chars in</span>}
+            {entry.outputChars && <span className="text-muted-foreground"> · {entry.outputChars} chars out</span>}
           </div>
         )}
         {entry?.status === "skipped" && <span className="text-muted-foreground">{entry.reason ?? "Skipped"}</span>}
-        {entry?.status === "partial" && <span className="text-orange">{entry.error ?? "Generation failed (non-blocking)"}</span>}
+        {entry?.status === "partial" && <span className="text-orange">{entry.error ?? "Translation too short"}</span>}
       </LogStepCard>
 
-      {draftScript?.suggestedTitle && (
-        <ResultCard label="Suggested Title">
-          <p className="text-sm font-medium" dir="rtl" style={{ textAlign: "right" }}>{String(draftScript.suggestedTitle)}</p>
-        </ResultCard>
-      )}
-      {draftScript?.script && (
-        <ResultCard label="Script" icon={PenLine}>
-          <pre className="text-[12px] whitespace-pre-wrap leading-relaxed text-foreground/80 max-h-[400px] overflow-y-auto" dir="rtl" style={{ textAlign: "right" }}>
-            {String(draftScript.script)}
-          </pre>
-        </ResultCard>
-      )}
-      {Array.isArray(draftScript?.youtubeTags) && (draftScript.youtubeTags as string[]).length > 0 && (
-        <ResultCard label="YouTube Tags">
-          <div className="flex flex-wrap gap-1.5">
-            {(draftScript.youtubeTags as string[]).map((tag, i) => (
-              <span key={i} className="px-2 py-0.5 rounded-full bg-card border border-border text-[11px]">{tag}</span>
-            ))}
-          </div>
+      {titleTranslateAr && (
+        <ResultCard label="Arabic Title Translation" icon={Languages}>
+          <p className="text-[13px] leading-relaxed text-foreground/80" dir="rtl" style={{ textAlign: "right" }}>
+            {titleTranslateAr}
+          </p>
         </ResultCard>
       )}
     </div>
