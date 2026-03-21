@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import type { Stage } from "./Stories";
-import type { StoryBrief, ApiChannel, StoryWithLog } from "@/components/story-detail";
+import type { StoryBrief, StoryWithLog } from "@/components/story-detail";
 import {
   StoryDetailTopBar,
   StoryDetailArticle,
@@ -660,7 +660,6 @@ export default function StoryDetail() {
   const [story, setStory] = useState<StoryWithLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSavingState] = useState(false);
-  const [ourChannels, setOurChannels] = useState<ApiChannel[]>([]);
   const scriptEditorRef = useRef<{ setContent: (v: string) => void } | null>(null);
 
   const scriptValue = brief.script ?? "";
@@ -670,23 +669,6 @@ export default function StoryDetail() {
   const channelPathRef = useRef(channelPath);
   navigateRef.current = navigate;
   channelPathRef.current = channelPath;
-
-  // Load "ours" channels for the channel selector modal
-  useEffect(() => {
-    if (!channelId) return;
-    let cancelled = false;
-    fetch(`/api/channels?channelId=${channelId}`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed to load channels"))))
-      .then((data: { channels: ApiChannel[] }) => {
-        if (cancelled) return;
-        const ours = (data.channels || []).filter((c) => c.type === "ours");
-        setOurChannels(ours);
-      })
-      .catch(() => {
-        if (!cancelled) setOurChannels([]);
-      });
-    return () => { cancelled = true; };
-  }, [channelId]);
 
   // Load story (and brief) on mount so Yoopta content persists after refresh
   useEffect(() => {
@@ -906,7 +888,6 @@ export default function StoryDetail() {
     : null;
   const fmt = (n?: number) =>
     !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
-  const [selectedChannel, setSelectedChannel] = useState("");
 
   const moveToStage = useCallback(
     async (toStage: Stage) => {
@@ -938,8 +919,7 @@ export default function StoryDetail() {
   );
 
   const generateScript = useCallback(async () => {
-    if (!id) { toast.error("No story ID"); return; }
-    if (!selectedChannel) { toast.error("Select a channel first"); return; }
+    if (!id || !channelId) { toast.error("No story ID"); return; }
     if (generatingScript) return;
     setGeneratingScript(true);
     toast.info("Generating script…");
@@ -950,7 +930,7 @@ export default function StoryDetail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           durationMinutes: scriptDurationMinutes,
-          channelId: selectedChannel,
+          channelId,
           articleText: brief.articleContent ?? "",
         }),
       });
@@ -1004,7 +984,7 @@ export default function StoryDetail() {
     } finally {
       setGeneratingScript(false);
     }
-  }, [id, selectedChannel, scriptDurationMinutes, brief.articleContent, ourChannels, generatingScript, saveScript]);
+  }, [id, channelId, scriptDurationMinutes, brief.articleContent, generatingScript, saveScript]);
 
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: "عنوان الفيديو المقترح...", type: "input" },
@@ -1232,16 +1212,6 @@ export default function StoryDetail() {
               <>
                 <StoryDetailScriptSection
                   key={id}
-                  channels={ourChannels}
-                  selectedChannelId={selectedChannel}
-                  onChannelSelect={(channelId) => {
-                    setSelectedChannel(channelId);
-                    setBrief((b) => {
-                      const next = { ...b, channelId };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
                   scriptDuration={scriptDurationMinutes}
                   onScriptDurationChange={(mins) => {
                     setScriptDurationMinutes(mins);
@@ -1251,7 +1221,7 @@ export default function StoryDetail() {
                       return next;
                     });
                   }}
-                  canGenerate={!!selectedChannel && scriptDurationMinutes > 0}
+                  canGenerate={scriptDurationMinutes > 0}
                   generating={generatingScript}
                   onGenerate={generateScript}
                   readOnly={activeStage !== "scripting" && activeStage !== "filmed"}
@@ -1298,9 +1268,6 @@ export default function StoryDetail() {
                 />
                 <StoryDetailScriptSection
                   key={`script-${id}`}
-                  channels={ourChannels}
-                  selectedChannelId={selectedChannel}
-                  onChannelSelect={() => {}}
                   scriptDuration={scriptDurationMinutes}
                   onScriptDurationChange={() => {}}
                   canGenerate={false}

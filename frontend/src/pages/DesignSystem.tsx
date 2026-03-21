@@ -498,7 +498,7 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="story-script-section" name="StoryDetailScriptSection" source="StoryDetail.tsx">
-                <StoryDetailScriptSection channels={MOCK_API_CHANNELS} selectedChannelId="c1" onChannelSelect={NOOP} scriptDuration={8} onScriptDurationChange={NOOP} canGenerate={true} generating={false} onGenerate={NOOP_ASYNC} readOnly={false} showGenerateControls={true} videoFormat="long" onVideoFormatChange={NOOP} />
+                <StoryDetailScriptSection scriptDuration={8} onScriptDurationChange={NOOP} canGenerate={true} generating={false} onGenerate={NOOP_ASYNC} readOnly={false} showGenerateControls={true} videoFormat="long" onVideoFormatChange={NOOP} />
               </CidBlock>
 
               {/* ── SECTION 7: Media ── */}
