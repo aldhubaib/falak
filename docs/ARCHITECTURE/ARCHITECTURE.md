@@ -36,6 +36,7 @@ automatically tracks performance, analyses content, and discovers story ideas.
 From a user perspective the workflow is:
 
 1. **Profile Setup** — pick or create a channel profile (Netflix-style picker).
+   Each profile represents a single person / channel — no multi-channel selection.
 2. **Competitor Tracking** — add competitor channels by handle. Falak fetches
    their videos, transcripts, and comments, then runs AI analysis.
 3. **Analytics Dashboard** — view subscriber growth, engagement, content mix,
@@ -45,8 +46,9 @@ From a user perspective the workflow is:
    promotes all scored articles to stories, and auto-generates a draft script
    (Claude Sonnet) with branded hooks and research context for team evaluation.
 5. **Editorial Workspace** — each story has a plain-text script editor with
-   AI script generation, video upload, transcription (Whisper), title / description /
-   tag generation, and an SRT subtitle builder.
+   AI script generation (duration picker, auto-uses the profile's channel),
+   video upload, transcription (Whisper), title / description / tag generation,
+   and an SRT subtitle builder.
 6. **Publish Queue** — bulk video upload with an automated pipeline
    (transcribe → title → description → tags).
 7. **Gallery** — per-channel media library for photos and videos stored in R2.
