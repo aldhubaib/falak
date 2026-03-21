@@ -293,7 +293,7 @@ export default function ArticleDetailPage() {
       <div className="flex flex-col items-center justify-center h-screen gap-3">
         <AlertTriangle className="w-8 h-8 text-destructive" />
         <p className="text-[13px] text-muted-foreground">{error || "Article not found"}</p>
-        <Link to={pp("/article-pipeline")} className="text-[12px] text-blue hover:underline">
+        <Link to={pp("/article-pipeline")} className="text-[12px] text-primary hover:underline">
           Back to Pipeline
         </Link>
       </div>
@@ -317,7 +317,7 @@ export default function ArticleDetailPage() {
           isDone ? "bg-success/15 text-success" :
           isFailed ? "bg-destructive/15 text-destructive" :
           article.status === "review" ? "bg-orange/15 text-orange" :
-          "bg-blue/15 text-blue"
+          "bg-primary/15 text-primary"
         }`}>
           {isDone ? "Completed" : isFailed ? "Failed" : article.status === "review" ? "Review" : article.stage}
         </span>
@@ -347,7 +347,7 @@ export default function ArticleDetailPage() {
               {article.source && <span className="px-1.5 py-0.5 rounded bg-card text-foreground/70">{article.source.label}</span>}
               {article.language && (
                 <span className={`px-1.5 py-0.5 rounded font-bold ${
-                  article.language === "ar" ? "bg-success/15 text-success" : "bg-blue/15 text-blue"
+                  article.language === "ar" ? "bg-success/15 text-success" : "bg-primary/15 text-primary"
                 }`}>{article.language.toUpperCase()}</span>
               )}
               {article.publishedAt && <span>Published: {fmtDate(article.publishedAt)}</span>}
@@ -525,7 +525,7 @@ function StageSection({
           {stage.label}
         </span>
         {isActive && (
-          <span className="text-[10px] font-mono text-blue px-1.5 py-0.5 rounded bg-blue/10">Processing…</span>
+          <span className="text-[10px] font-mono text-primary px-1.5 py-0.5 rounded bg-primary/10">Processing…</span>
         )}
         {isWaiting && (
           <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-card">Waiting</span>
@@ -738,7 +738,7 @@ function ContentBlock({ label, content, dir, maxHeight = 200 }: {
       {content.length > 300 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full px-3 py-1.5 text-[10px] font-mono text-blue hover:text-foreground bg-card/30 border-t border-border transition-colors"
+          className="w-full px-3 py-1.5 text-[10px] font-mono text-primary hover:text-foreground bg-card/30 border-t border-border transition-colors"
         >
           {expanded ? "Show less" : "Show more"}
         </button>
@@ -796,7 +796,7 @@ function ProcessorBadge({ type }: { type: "ai" | "server" | "api" }) {
     </span>
   );
   if (type === "api") return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue/10 text-foreground text-[9px] font-mono font-bold uppercase">
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-foreground text-[9px] font-mono font-bold uppercase">
       <Globe className="w-2.5 h-2.5" />API
     </span>
   );
@@ -824,13 +824,13 @@ function ExpandableText({ label, text, maxLen }: { label: string; text: string; 
   return (
     <div>
       <button onClick={() => setOpen(!open)}
-        className="text-[10px] font-mono text-blue hover:text-blue/80 transition-colors flex items-center gap-1">
+        className="text-[10px] font-mono text-primary hover:text-primary/80 transition-colors flex items-center gap-1">
         {open ? "▾ Hide" : "▸ Show"} {label}
       </button>
       {open && (
         <div className="mt-1.5 px-3 py-2 rounded-lg bg-card/50 border border-border text-[11px] font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto break-all">
           {text}
-          {isTruncated && <span className="text-blue">…(truncated)</span>}
+          {isTruncated && <span className="text-primary">…(truncated)</span>}
         </div>
       )}
     </div>
@@ -986,7 +986,7 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
           const langName = LANG_NAMES[lang] || lang;
           const isArabic = entry.detected === "ar";
           body = (
-            <span className={isArabic ? "text-success" : "text-blue"}>
+            <span className={isArabic ? "text-success" : "text-primary"}>
               {isArabic
                 ? "Original article is in Arabic — no translation needed"
                 : `Original article is in ${langName} — translating to Arabic`}
@@ -1287,7 +1287,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
           <div className="space-y-3">
             {brief?.whatHappened && (
               <div>
-                <div className="text-[10px] font-mono text-blue uppercase tracking-wider mb-1.5">What happened?</div>
+                <div className="text-[10px] font-mono text-primary uppercase tracking-wider mb-1.5">What happened?</div>
                 <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatHappened}</div>
               </div>
             )}
@@ -1323,7 +1323,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
           <div className="space-y-1">
             {brief.timeline.map((entry, i) => (
               <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-card/50 border border-border">
-                <span className="text-[11px] font-mono text-blue shrink-0 w-24">{entry.date}</span>
+                <span className="text-[11px] font-mono text-primary shrink-0 w-24">{entry.date}</span>
                 <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{entry.event}</span>
               </div>
             ))}
@@ -1348,7 +1348,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
             {brief.sources.map((s, i) => (
               s.url ? (
                 <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="px-2 py-1 rounded bg-blue/10 text-blue text-[10px] font-mono hover:bg-blue/20 transition-colors">
+                  className="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-mono hover:bg-primary/20 transition-colors">
                   {s.title || s.url}
                 </a>
               ) : (
@@ -1490,10 +1490,10 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
             {research.relatedArticles.map((ra, i) => (
               <div key={i} className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-mono text-blue shrink-0">{i + 1}.</span>
+                  <span className="text-[10px] font-mono text-primary shrink-0">{i + 1}.</span>
                   {ra.url ? (
                     <a href={ra.url} target="_blank" rel="noopener noreferrer"
-                      className="text-[12px] font-medium text-foreground hover:text-blue transition-colors truncate">
+                      className="text-[12px] font-medium text-foreground hover:text-primary transition-colors truncate">
                       {ra.title || ra.url}
                     </a>
                   ) : (

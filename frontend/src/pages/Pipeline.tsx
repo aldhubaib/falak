@@ -56,7 +56,7 @@ interface PipelineData {
 
 const STAGE_DEFS: { id: string; number: number; label: string; color: string }[] = [
   { id: "import",    number: 1, label: "Import",        color: "text-orange" },
-  { id: "transcribe",number: 2, label: "Transcribe",    color: "text-blue" },
+  { id: "transcribe",number: 2, label: "Transcribe",    color: "text-primary" },
   { id: "comments",  number: 3, label: "Comments",      color: "text-purple" },
   { id: "analyzing", number: 4, label: "AI Analysis",   color: "text-success" },
   { id: "failed",    number: 0, label: "Failed",        color: "text-destructive" },
@@ -180,7 +180,7 @@ function toRow(ch: MonitorApiChannel): MonitorRow {
 }
 
 const STATUS_COLOR: Record<ChannelStatus, string> = {
-  active: "bg-success", regular: "bg-blue", slow: "bg-orange", inactive: "bg-destructive",
+  active: "bg-success", regular: "bg-primary", slow: "bg-orange", inactive: "bg-destructive",
 };
 
 const monitorFilterTabs = ["All", "Active", "Regular", "Slow", "Inactive"];
@@ -479,7 +479,7 @@ function MonitorTab() {
                   {[
                     { val: rows.length,  label: "TOTAL",    color: "" },
                     { val: activeCount,   label: "ACTIVE",   color: "text-success" },
-                    { val: regularCount,  label: "REGULAR",  color: "text-blue" },
+                    { val: regularCount,  label: "REGULAR",  color: "text-primary" },
                     { val: slowCount,     label: "SLOW",     color: "text-orange" },
                     { val: inactiveCount, label: "INACTIVE", color: "text-destructive" },
                   ].map((s) => (
@@ -495,7 +495,7 @@ function MonitorTab() {
                 {cadenceGroups.map((c) => {
                   const dotColor =
                     c.color === "success" ? "bg-success" :
-                    c.color === "blue" ? "bg-blue" :
+                    c.color === "blue" ? "bg-primary" :
                     c.color === "orange" ? "bg-orange" : "bg-destructive";
                   return (
                     <div key={c.label} className="flex items-center justify-between py-1.5">

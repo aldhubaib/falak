@@ -31,7 +31,7 @@ export default {
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--border))",
-        ring: "hsl(var(--ring))",
+        ring: "hsl(var(--primary))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         elevated: "hsl(var(--card))",
@@ -56,8 +56,8 @@ export default {
           foreground: "hsl(var(--success-foreground))",
         },
         blue: {
-          DEFAULT: "hsl(var(--blue))",
-          foreground: "hsl(var(--blue-foreground))",
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
         purple: {
           DEFAULT: "hsl(var(--purple))",

@@ -143,7 +143,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
             <span className="text-[12px] text-muted-foreground">articles across {sources.length} source{sources.length !== 1 ? "s" : ""}</span>
           </div>
           {sources.length > 0 && (
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-blue/10 text-blue">
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary">
               {activeCount} active
             </span>
           )}
@@ -195,7 +195,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
                 <div key={i} className="flex items-center gap-2 text-[12px] py-1 px-2 rounded-lg hover:bg-card/40">
                   <span className="text-muted-foreground font-mono w-5 text-right shrink-0">{i + 1}</span>
                   <span className="text-foreground truncate flex-1">{a.title || "(no title)"}</span>
-                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-blue shrink-0"><ExternalLink className="w-3 h-3" /></a>
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary shrink-0"><ExternalLink className="w-3 h-3" /></a>
                 </div>
               ))}
             </div>
@@ -334,7 +334,7 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
             href={`https://console.apify.com/storage/datasets/${run.datasetId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-mono text-foreground hover:text-blue transition-colors truncate inline-flex items-center gap-1"
+            className="font-mono text-foreground hover:text-primary transition-colors truncate inline-flex items-center gap-1"
           >
             {run.runId.slice(0, 16)}
             <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-40" />
@@ -352,7 +352,7 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
         <div className="w-7 flex items-center justify-center">
           {canFetch ? (
             <button onClick={handleFetch} disabled={fetching} title="Re-import this run"
-              className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-blue hover:bg-blue/10 transition-colors disabled:opacity-50">
+              className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50">
               {fetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
             </button>
           ) : null}
@@ -361,9 +361,9 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
 
       {(fetching || result || error) && (
         <div className="px-3 pb-2 -mt-0.5">
-          <div className={`rounded-lg px-3 py-2 text-[11px] font-mono ${error ? "bg-destructive/5 border border-destructive/20" : result ? "bg-success/5 border border-success/20" : "bg-blue/5 border border-blue/20"}`}>
+          <div className={`rounded-lg px-3 py-2 text-[11px] font-mono ${error ? "bg-destructive/5 border border-destructive/20" : result ? "bg-success/5 border border-success/20" : "bg-primary/5 border border-primary/20"}`}>
             {fetching && (
-              <div className="flex items-center gap-2 text-blue">
+              <div className="flex items-center gap-2 text-primary">
                 <Loader2 className="w-3 h-3 animate-spin shrink-0" />
                 <span>{phase}</span>
               </div>
@@ -484,7 +484,7 @@ function SourceCard({
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <button onClick={onToggle}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${s.isActive ? "text-blue hover:bg-blue/10" : "text-muted-foreground hover:bg-card"}`}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${s.isActive ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-card"}`}
               title={s.isActive ? "Pause" : "Activate"}>
               <Power className="w-3.5 h-3.5" />
             </button>

@@ -29,8 +29,8 @@ export interface StoryDetailArticleProps {
 const SOURCE_BADGE_COLORS: Record<string, string> = {
   NewsAPI: "bg-emerald-500/15 text-foreground",
   GNews: "bg-teal-500/15 text-foreground",
-  Guardian: "bg-blue-500/15 text-foreground",
-  "The Guardian": "bg-blue-500/15 text-foreground",
+  Guardian: "bg-primary-500/15 text-foreground",
+  "The Guardian": "bg-primary-500/15 text-foreground",
   NYT: "bg-orange-500/15 text-foreground",
   Firecrawl: "bg-zinc-500/15 text-foreground",
 };
@@ -142,7 +142,7 @@ export function StoryDetailArticle({
                 <TooltipTrigger asChild>
                   <span className="inline-flex items-center gap-1 cursor-default">
                     <span className="text-[10px] text-muted-foreground font-mono">V</span>
-                    <span className="text-[10px] font-mono font-semibold text-blue">{scores.viral}</span>
+                    <span className="text-[10px] font-mono font-semibold text-primary">{scores.viral}</span>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>Virality</TooltipContent>
@@ -208,7 +208,7 @@ export function StoryDetailArticle({
                   href={sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-blue hover:text-blue/80 transition-colors no-underline"
+                  className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-primary hover:text-primary/80 transition-colors no-underline"
                   dir="ltr"
                 >
                   <ExternalLink className="w-3 h-3" />
@@ -247,7 +247,7 @@ export function StoryDetailArticle({
             {isYouTube ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p className="mb-3">المصدر مقطع فيديو على يوتيوب</p>
-                <a href={sourceUrl ?? "#"} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
+                <a href={sourceUrl ?? "#"} target="_blank" rel="noopener noreferrer" className="text-primary-400 underline">
                   مشاهدة الفيديو على يوتيوب
                 </a>
               </div>

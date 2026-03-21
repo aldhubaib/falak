@@ -310,6 +310,38 @@ function ContentDNASection({ channelId }: { channelId: string }) {
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
+
+        <div className="px-5 py-3 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {generating ? (
+                <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+              ) : embStatus?.hasEmbedding ? (
+                <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-muted-foreground/40 shrink-0" />
+              )}
+              <span className="text-[12px] text-foreground">
+                {generating
+                  ? "Generating…"
+                  : embStatus?.hasEmbedding
+                    ? `Active — generated ${embStatus.generatedAt ? fmtDate(embStatus.generatedAt) : ""}`
+                    : "Not generated"}
+              </span>
+            </div>
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full border border-border bg-background text-foreground hover:bg-card transition-colors disabled:opacity-50"
+            >
+              <Zap className="w-3 h-3" />
+              {embStatus?.hasEmbedding ? "Regenerate" : "Generate Embedding"}
+            </button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            The embedding is a semantic fingerprint of your niche. Regenerate it whenever you update your tags.
+          </p>
+        </div>
       </div>
     </div>
   );

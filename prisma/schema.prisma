@@ -430,6 +430,8 @@ model ScoreProfile {
   aiRelevanceAccuracy   Float     @default(1.0)
   nicheTags             String[]  @default([])
   nicheTagsAr           String[]  @default([])
+  nicheEmbedding        Unsupported("vector(1536)")?
+  nicheEmbeddingGeneratedAt DateTime?
   channelAvgViews       BigInt    @default(0)
   channelMedianViews    BigInt    @default(0)
   totalOutcomes         Int       @default(0)

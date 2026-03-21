@@ -87,7 +87,7 @@ export function StoryDetailScriptSection({
               onClick={() => onVideoFormatChange("long")}
               className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors ${
                 videoFormat === "long"
-                  ? "bg-blue/15 text-blue"
+                  ? "bg-primary/15 text-primary"
                   : "bg-card text-muted-foreground hover:text-foreground hover:bg-card"
               }`}
             >
@@ -99,7 +99,7 @@ export function StoryDetailScriptSection({
               onClick={() => onVideoFormatChange("short")}
               className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors border-l border-border ${
                 videoFormat === "short"
-                  ? "bg-blue/15 text-blue"
+                  ? "bg-primary/15 text-primary"
                   : "bg-card text-muted-foreground hover:text-foreground hover:bg-card"
               }`}
             >
@@ -112,7 +112,7 @@ export function StoryDetailScriptSection({
       {!showGenerateControls && videoFormat && (
         <div className="mb-3 flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Format</span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary">
             {videoFormat === "short" ? "Short" : "Long Video"}
           </span>
         </div>
@@ -141,11 +141,11 @@ export function StoryDetailScriptSection({
                   <img
                     src={currentUser.avatarUrl}
                     alt={currentUser.name}
-                    className="w-7 h-7 rounded-full object-cover border-2 border-border ring-2 ring-blue/40"
+                    className="w-7 h-7 rounded-full object-cover border-2 border-border ring-2 ring-primary/40"
                   />
                 ) : (
                   <div
-                    className="w-7 h-7 rounded-full border-2 border-border ring-2 ring-blue/40 bg-blue/15 flex items-center justify-center text-[10px] font-mono text-blue"
+                    className="w-7 h-7 rounded-full border-2 border-border ring-2 ring-primary/40 bg-primary/15 flex items-center justify-center text-[10px] font-mono text-primary"
                     title={`${currentUser.name} (you)`}
                   >
                     {(currentUser.name || "?").slice(0, 1).toUpperCase()}
@@ -227,7 +227,7 @@ export function StoryDetailScriptSection({
                           setChannelDropOpen(false);
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-card ${
-                          selectedChannelId === c.id ? "bg-blue/10" : ""
+                          selectedChannelId === c.id ? "bg-primary/10" : ""
                         }`}
                       >
                         {c.avatarUrl ? (
@@ -238,7 +238,7 @@ export function StoryDetailScriptSection({
                           </div>
                         )}
                         <span className="flex-1 text-right font-medium">{channelName(c)}</span>
-                        {selectedChannelId === c.id && <Check className="w-3.5 h-3.5 text-blue" />}
+                        {selectedChannelId === c.id && <Check className="w-3.5 h-3.5 text-primary" />}
                       </button>
                     ))
                     )}

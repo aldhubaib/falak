@@ -144,11 +144,11 @@ const COLOR_GROUPS = [
   ]},
   { label: "Status", tokens: [
     { id: "--primary", hsl: "hsl(217,72%,56%)" }, { id: "--destructive", hsl: "hsl(0,72%,51%)" },
-    { id: "--success", hsl: "hsl(142,50%,45%)" }, { id: "--blue", hsl: "hsl(217,72%,56%)" },
+    { id: "--success", hsl: "hsl(142,50%,45%)" },
     { id: "--purple", hsl: "hsl(258,60%,59%)" }, { id: "--orange", hsl: "hsl(25,90%,55%)" },
   ]},
   { label: "Border", tokens: [
-    { id: "--border", hsl: "hsl(228,8%,9%)" }, { id: "--ring", hsl: "hsl(217,72%,56%)" },
+    { id: "--border", hsl: "hsl(228,8%,9%)" },
   ]},
 ];
 const RADIUS_TOKENS = [
@@ -290,7 +290,7 @@ export default function DesignSystem() {
               <CidBlock cid="pulse-dot" name="Pulse dot" source="ArticlePipeline, Pipeline">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5 text-xs text-success"><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> Active</span>
-                  <span className="flex items-center gap-1.5 text-xs text-blue"><span className="w-1.5 h-1.5 rounded-full bg-blue animate-pulse shrink-0" /> Running</span>
+                  <span className="flex items-center gap-1.5 text-xs text-primary"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" /> Running</span>
                   <span className="flex items-center gap-1.5 text-xs text-orange"><span className="w-1.5 h-1.5 rounded-full bg-orange animate-pulse shrink-0" /> Queued</span>
                 </div>
               </CidBlock>
@@ -354,7 +354,7 @@ export default function DesignSystem() {
               <CidBlock cid="stat-number-medium" name="Stat number (text-xl)" source="ArticlePipeline, Monitor, Pipeline, ProfileHome, StoryDetail">
                 <div className="flex gap-6">
                   <div><div className="text-xl font-semibold font-mono tracking-tight">342</div><div className="text-xs text-muted-foreground">Analyzed</div></div>
-                  <div><div className="text-xl font-semibold font-mono tracking-tight text-blue">89</div><div className="text-xs text-muted-foreground">In progress</div></div>
+                  <div><div className="text-xl font-semibold font-mono tracking-tight text-primary">89</div><div className="text-xs text-muted-foreground">In progress</div></div>
                 </div>
               </CidBlock>
 
@@ -375,7 +375,7 @@ export default function DesignSystem() {
               <CidBlock cid="status-badge-15" name="Status badge (bg-color/15)" source="10 pages">
                 <div className="flex flex-wrap gap-2">
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-success/15 text-success border-success/20">Active</span>
-                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-blue/15 text-blue border-blue/20">Analyzing</span>
+                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-primary/15 text-primary border-primary/20">Analyzing</span>
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-orange/15 text-orange border-orange/20">Queued</span>
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-purple/15 text-purple border-purple/20">Enriched</span>
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive border-destructive/20">Failed</span>
@@ -394,7 +394,7 @@ export default function DesignSystem() {
               <CidBlock cid="mono-status-pill" name="Mono status pill" source="StoryDetail.tsx">
                 <div className="flex flex-wrap gap-2">
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">scripting</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue border border-blue/20">approved</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">approved</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/20">published</span>
                 </div>
               </CidBlock>
@@ -402,7 +402,7 @@ export default function DesignSystem() {
               <CidBlock cid="stage-pill" name="Stage pill" source="Stories.tsx">
                 <div className="flex flex-wrap gap-2">
                   <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange/15 text-foreground">SCRIPTING</span>
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-blue/15 text-foreground">APPROVED</span>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-foreground">APPROVED</span>
                   <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-success/15 text-foreground">PUBLISHED</span>
                 </div>
               </CidBlock>
@@ -412,7 +412,7 @@ export default function DesignSystem() {
                   <span className="flex items-center gap-1.5 text-xs"><CheckCircle2 className="w-4 h-4 text-success" /> Done</span>
                   <span className="flex items-center gap-1.5 text-xs"><XCircle className="w-4 h-4 text-destructive" /> Failed</span>
                   <span className="flex items-center gap-1.5 text-xs"><Clock className="w-4 h-4 text-muted-foreground" /> Pending</span>
-                  <span className="flex items-center gap-1.5 text-xs"><Loader2 className="w-4 h-4 text-blue animate-spin" /> Analyzing</span>
+                  <span className="flex items-center gap-1.5 text-xs"><Loader2 className="w-4 h-4 text-primary animate-spin" /> Analyzing</span>
                 </div>
               </CidBlock>
 

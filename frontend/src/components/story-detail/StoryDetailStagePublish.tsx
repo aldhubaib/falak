@@ -166,7 +166,7 @@ export function StoryDetailStagePublish({
               type="button"
               onClick={generateDescription}
               disabled={generatingDesc}
-              className="flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
             >
               {generatingDesc ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -184,7 +184,7 @@ export function StoryDetailStagePublish({
           }
           placeholder="YouTube description… Click 'Generate with AI' to auto-create from your script."
           rows={6}
-          className="w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue/40 transition-colors resize-y leading-relaxed"
+          className="w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors resize-y leading-relaxed"
         />
       </div>
 
@@ -216,7 +216,7 @@ export function StoryDetailStagePublish({
               type="button"
               onClick={downloadSRT}
               disabled={!srtContent}
-              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Download className="w-3 h-3" />
               Download .srt
@@ -247,7 +247,7 @@ export function StoryDetailStagePublish({
                 href={brief.youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+                className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 <ExternalLink className="w-3 h-3" />
                 Open
@@ -283,7 +283,7 @@ export function StoryDetailStagePublish({
                 }
               }}
               placeholder="Paste YouTube video URL…"
-              className={`w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-blue/40 transition-colors ${!urlEditing ? "opacity-70 cursor-default" : ""}`}
+              className={`w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors ${!urlEditing ? "opacity-70 cursor-default" : ""}`}
             />
             {urlInput && (() => {
               const result = validateYoutubeUrl(urlInput.trim());
@@ -315,7 +315,7 @@ export function StoryDetailStagePublish({
                   toast.error(result.error || "Invalid URL");
                 }
               }}
-              className="shrink-0 px-4 py-2 rounded-lg bg-blue text-white text-[12px] font-medium hover:bg-blue/90 transition-colors"
+              className="shrink-0 px-4 py-2 rounded-lg bg-primary text-white text-[12px] font-medium hover:bg-primary/90 transition-colors"
             >
               Save
             </button>

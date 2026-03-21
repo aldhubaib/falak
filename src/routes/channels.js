@@ -339,6 +339,33 @@ router.patch('/:id/niche-tags', requireRole('owner', 'admin', 'editor'), asyncWr
   res.json({ nicheTags: profile.nicheTags, nicheTagsAr: profile.nicheTagsAr })
 }))
 
+// ── POST /api/channels/:id/generate-niche-embedding — generate embedding from Content DNA tags
+router.post('/:id/generate-niche-embedding', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+  try {
+    const { generateNicheEmbedding } = require('../services/embeddings')
+    const result = await generateNicheEmbedding(req.params.id)
+    res.json(result)
+  } catch (e) {
+    res.status(400).json({ error: e.message })
+  }
+}))
+
+// ── GET /api/channels/:id/niche-embedding-status — check if niche embedding exists
+router.get('/:id/niche-embedding-status', asyncWrap(async (req, res) => {
+  const channelId = req.params.id
+  const profile = await db.scoreProfile.upsert({
+    where: { channelId },
+    create: { channelId },
+    update: {},
+    select: { nicheTags: true, nicheTagsAr: true, nicheEmbeddingGeneratedAt: true },
+  })
+  res.json({
+    hasEmbedding: !!profile.nicheEmbeddingGeneratedAt,
+    generatedAt: profile.nicheEmbeddingGeneratedAt,
+    tagCount: (profile.nicheTags || []).length + (profile.nicheTagsAr || []).length,
+  })
+}))
+
 // ── DELETE /api/channels/all — delete every channel (owner/admin only)
 router.delete('/all', requireRole('owner', 'admin'), async (req, res) => {
   try {

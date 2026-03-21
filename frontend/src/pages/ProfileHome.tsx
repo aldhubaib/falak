@@ -277,7 +277,7 @@ export default function ProfileHome() {
     { label: "Competitors", path: "/competitors", icon: Swords, count: competitorCount, color: "text-orange-400" },
     { label: "AI Stories", path: "/stories", icon: Sparkles, count: storySummary?.total || 0, color: "text-purple-400" },
     { label: "Ready to Publish", path: "/publish", icon: Send, count: notDoneCount ?? 0, color: "text-rose-400" },
-    { label: "Pipeline", path: "/pipeline", icon: Activity, count: undefined, color: "text-blue-400" },
+    { label: "Pipeline", path: "/pipeline", icon: Activity, count: undefined, color: "text-primary-400" },
     { label: "Analytics", path: "/analytics", icon: TrendingUp, count: undefined, color: "text-emerald-400" },
   ];
 
@@ -322,7 +322,7 @@ export default function ProfileHome() {
                 {channel.status === "active" ? "Active" : channel.status}
               </span>
               {nationality && (
-                <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-blue/10 text-blue">
+                <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-primary/10 text-primary">
                   <Globe className="w-3 h-3" /> {getCountryName(nationality)}
                 </span>
               )}
@@ -469,7 +469,7 @@ export default function ProfileHome() {
               <div className="flex gap-1 h-1.5 rounded-full overflow-hidden bg-card">
                 {[
                   { key: "suggestion", color: "bg-zinc-500" },
-                  { key: "liked", color: "bg-blue-500" },
+                  { key: "liked", color: "bg-primary-500" },
                   { key: "scripting", color: "bg-purple-500" },
                   { key: "filmed", color: "bg-amber-500" },
                   { key: "publish", color: "bg-emerald-500" },
@@ -547,12 +547,12 @@ export default function ProfileHome() {
             <div className="mt-4 pt-3 border-t border-border/50">
               <h4 className="text-[11px] text-muted-foreground font-medium mb-2">Content Mix (30d)</h4>
               <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-card mb-2">
-                <div className="bg-blue-500 rounded-full" style={{ flex: videoMix.videoCount || 0 }} />
+                <div className="bg-primary-500 rounded-full" style={{ flex: videoMix.videoCount || 0 }} />
                 <div className="bg-violet-500 rounded-full" style={{ flex: videoMix.shortCount || 0 }} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-2">
-                  <Video className="w-3.5 h-3.5 text-blue-500" />
+                  <Video className="w-3.5 h-3.5 text-primary-500" />
                   <div>
                     <div className="text-[12px] font-medium">{videoMix.videoCount} Videos</div>
                     <div className="text-[10px] text-muted-foreground font-mono">avg {fmtCount(videoMix.videoAvg)}</div>

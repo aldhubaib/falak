@@ -105,7 +105,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
             type="button"
             onClick={handleTranscribe}
             disabled={transcribing || !brief.videoR2Key}
-            className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {transcribing ? (
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -132,8 +132,8 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
 
       {transcribing && (
         <div className="px-4 pb-4">
-          <div className="rounded-lg bg-card border border-blue/20 px-4 py-6 text-center">
-            <Loader2 className="w-6 h-6 text-blue animate-spin mx-auto mb-2" />
+          <div className="rounded-lg bg-card border border-primary/20 px-4 py-6 text-center">
+            <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto mb-2" />
             <p className="text-[12px] text-muted-foreground">Transcribing with OpenAI Whisper… This may take a few minutes for large videos.</p>
           </div>
         </div>
@@ -145,7 +145,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
             <div className="rounded-lg bg-card border border-border/50 max-h-[300px] overflow-y-auto">
               {segments.map((seg, i) => (
                 <div key={i} className="flex gap-3 px-3 py-2 border-b border-border/30 last:border-b-0">
-                  <span className="text-[10px] font-mono text-blue shrink-0 pt-0.5 w-8 text-right">
+                  <span className="text-[10px] font-mono text-primary shrink-0 pt-0.5 w-8 text-right">
                     {fmtTime(seg.start)}
                   </span>
                   <span className="text-[12px] text-foreground/90 leading-relaxed" dir="auto">

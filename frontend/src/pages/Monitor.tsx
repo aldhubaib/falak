@@ -130,7 +130,7 @@ function toRow(ch: ApiChannel): MonitorRow {
 
 const STATUS_COLOR: Record<ChannelStatus, string> = {
   active:   "bg-success",
-  regular:  "bg-blue",
+  regular:  "bg-primary",
   slow:     "bg-orange",
   inactive: "bg-destructive",
 };
@@ -289,7 +289,7 @@ export default function Monitor() {
                     {[
                       { val: rows.length,  label: "TOTAL",    color: "" },
                       { val: activeCount,   label: "ACTIVE",   color: "text-success" },
-                      { val: regularCount,  label: "REGULAR",  color: "text-blue" },
+                      { val: regularCount,  label: "REGULAR",  color: "text-primary" },
                       { val: slowCount,     label: "SLOW",     color: "text-orange" },
                       { val: inactiveCount, label: "INACTIVE", color: "text-destructive" },
                     ].map((s) => (
@@ -305,7 +305,7 @@ export default function Monitor() {
                   {cadenceGroups.map((c) => {
                     const dotColor =
                       c.color === "success"     ? "bg-success" :
-                      c.color === "blue"        ? "bg-blue" :
+                      c.color === "blue"        ? "bg-primary" :
                       c.color === "orange"      ? "bg-orange" :
                       c.color === "destructive" ? "bg-destructive" : "";
                     return (

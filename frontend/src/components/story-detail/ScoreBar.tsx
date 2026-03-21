@@ -1,6 +1,6 @@
 export function ScoreBar({ label, value }: { label: string; value: number }) {
   const color =
-    label === "Relevance" ? "bg-purple" : label === "Virality" ? "bg-blue" : "bg-success";
+    label === "Relevance" ? "bg-purple" : label === "Virality" ? "bg-primary" : "bg-success";
   return (
     <div className="flex-1 px-5 py-4 bg-background border-r border-background last:border-r-0">
       <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{label}</div>

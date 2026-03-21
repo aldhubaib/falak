@@ -62,7 +62,7 @@ export function StoryDetailChannelSelector({
                 type="button"
                 onClick={() => onSelect(c.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-card ${
-                  selectedId === c.id ? "bg-blue/10" : ""
+                  selectedId === c.id ? "bg-primary/10" : ""
                 }`}
               >
                 {c.avatarUrl ? (
@@ -78,7 +78,7 @@ export function StoryDetailChannelSelector({
                 )}
                 <span className="flex-1 text-right font-medium">{channelName(c)}</span>
                 {selectedId === c.id && (
-                  <Check className="w-3.5 h-3.5 text-blue shrink-0" />
+                  <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                 )}
               </button>
             ))}

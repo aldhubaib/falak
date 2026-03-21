@@ -60,7 +60,7 @@ export function MediaOverlay({
           <span
             className={`w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-[0_1px_3px_hsl(0_0%_0%/0.3)] ${
               selected
-                ? "bg-blue-500 text-white scale-100"
+                ? "bg-primary-500 text-white scale-100"
                 : "bg-white/80 backdrop-blur-sm border-2 border-border scale-90"
             }`}
           >
@@ -76,7 +76,7 @@ export function MediaOverlay({
       )}
 
       {selected && (
-        <div className="absolute inset-0 ring-2 ring-inset ring-blue pointer-events-none" />
+        <div className="absolute inset-0 ring-2 ring-inset ring-primary pointer-events-none" />
       )}
     </>
   );

@@ -35,8 +35,6 @@ Use as: `hsl(var(--token-name))` in CSS, or `bg-token-name` / `text-token-name` 
 | `--destructive-foreground` | `0 0% 100%` | `text-destructive-foreground` | Text on destructive |
 | `--success` | `142 50% 45%` | `bg-success` / `text-success` | Published, completed, success states |
 | `--success-foreground` | `0 0% 100%` | `text-success-foreground` | Text on success |
-| `--blue` | `217 72% 56%` | `bg-blue` / `text-blue` | Info, filming, in-progress states |
-| `--blue-foreground` | `0 0% 100%` | `text-blue-foreground` | Text on blue |
 | `--purple` | `258 60% 59%` | `bg-purple` / `text-purple` | Script, testing states |
 | `--purple-foreground` | `0 0% 100%` | `text-purple-foreground` | Text on purple |
 | `--orange` | `25 90% 55%` | `bg-orange` / `text-orange` | Warning, scripting states |
@@ -47,7 +45,6 @@ Use as: `hsl(var(--token-name))` in CSS, or `bg-token-name` / `text-token-name` 
 |---|---|---|---|
 | `--border` | `228 8% 9%` | `border-border` | Default borders (50 files) |
 | `--page-border` | `231 8% 9%` | `border-page-border` | Page-level dividers |
-| `--ring` | `217 72% 56%` | `ring-ring` | Focus rings on form elements |
 
 ### Sidebar Colors
 | Token | Tailwind class | Used for |
@@ -66,7 +63,7 @@ Use as: `hsl(var(--token-name))` in CSS, or `bg-token-name` / `text-token-name` 
 | `--script-block-title` | `hsl(var(--orange))` | Title block label color |
 | `--script-block-hook` | `hsl(var(--destructive))` | Hook block label color |
 | `--script-block-hookStart` | `hsl(var(--purple))` | Hook start block label color |
-| `--script-block-script` | `hsl(var(--blue))` | Script block label color |
+| `--script-block-script` | `hsl(var(--primary))` | Script block label color |
 | `--script-block-hookEnd` | `hsl(var(--purple))` | Hook end block label color |
 | `--script-block-hashtags` | `hsl(var(--success))` | Hashtags block label color |
 

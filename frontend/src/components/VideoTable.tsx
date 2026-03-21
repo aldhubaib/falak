@@ -14,7 +14,7 @@ const statusIcon: Record<string, { icon: React.ElementType; className: string; t
   done: { icon: CheckCircle2, className: "text-success", title: "Done" },
   failed: { icon: XCircle, className: "text-destructive", title: "Failed" },
   pending: { icon: Clock, className: "text-muted-foreground", title: "Pending" },
-  analyzing: { icon: Loader2, className: "text-blue animate-spin", title: "Analyzing" },
+  analyzing: { icon: Loader2, className: "text-primary animate-spin", title: "Analyzing" },
 };
 
 export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTableProps) {

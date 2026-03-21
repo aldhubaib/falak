@@ -24,8 +24,8 @@ export const FLOW_DEFS: FlowDef[] = [
     name: "Content",
     subtitle: "Check Apify → Firecrawl → HTML Fetch → Title+Desc (fallback). One goal: get usable article text.",
     icon: FileText,
-    color: "text-blue",
-    bgColor: "bg-blue",
+    color: "text-primary",
+    bgColor: "bg-primary",
   },
   {
     id: "classify",
@@ -56,8 +56,8 @@ export const FLOW_DEFS: FlowDef[] = [
     name: "Translation",
     subtitle: "Detect language → Translate content → Translate fields → Translate brief. One goal: move everything to Arabic.",
     icon: Languages,
-    color: "text-blue",
-    bgColor: "bg-blue",
+    color: "text-primary",
+    bgColor: "bg-primary",
   },
   {
     id: "script",

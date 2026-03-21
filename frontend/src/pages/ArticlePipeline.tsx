@@ -134,7 +134,7 @@ const SUB_STEPS: SubStep[] = [
   },
   {
     id: "firecrawl", label: "Firecrawl", subtitle: "Scraped via Firecrawl API",
-    icon: Globe, color: "text-blue", parentStage: "content",
+    icon: Globe, color: "text-primary", parentStage: "content",
     filterFn: (a) => { const log = getLogStep(a, "content_source"); return log?.source === "firecrawl_or_html" && hasLogStep(a, "firecrawl", "ok"); },
   },
   {
@@ -159,7 +159,7 @@ const SUB_STEPS: SubStep[] = [
   },
   {
     id: "firecrawl_search", label: "Web Search", subtitle: "Related articles via search",
-    icon: Search, color: "text-blue", parentStage: "research",
+    icon: Search, color: "text-primary", parentStage: "research",
     filterFn: (a) => hasLogStep(a, "firecrawl_search", "ok"),
   },
   {
@@ -184,17 +184,17 @@ const SUB_STEPS: SubStep[] = [
   },
   {
     id: "translate_content", label: "Translate Content", subtitle: "Article text → Arabic",
-    icon: Languages, color: "text-blue", parentStage: "translated",
+    icon: Languages, color: "text-primary", parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "translate_content"),
   },
   {
     id: "translate_analysis", label: "Translate Fields", subtitle: "Classification fields → Arabic",
-    icon: Brain, color: "text-blue", parentStage: "translated",
+    icon: Brain, color: "text-primary", parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "translate_analysis"),
   },
   {
     id: "translate_research", label: "Translate Brief", subtitle: "Research brief → Arabic",
-    icon: Search, color: "text-blue", parentStage: "translated",
+    icon: Search, color: "text-primary", parentStage: "translated",
     filterFn: (a) => hasLogStep(a, "translate_research"),
   },
   {
@@ -221,10 +221,10 @@ const SUB_STEPS: SubStep[] = [
 
 const STAGE_DEFS = [
   { id: "imported", label: "Imported", subtitle: "Queued for ingestion", color: "text-orange", number: 1 },
-  { id: "content", label: "Content", subtitle: "Fetching or processing content", color: "text-blue", number: 2 },
+  { id: "content", label: "Content", subtitle: "Fetching or processing content", color: "text-primary", number: 2 },
   { id: "classify", label: "Classify", subtitle: "Running classification", color: "text-success", number: 3 },
   { id: "research", label: "Research", subtitle: "Gathering context", color: "text-purple", number: 4 },
-  { id: "translated", label: "Translated", subtitle: "Translating to Arabic", color: "text-blue", number: 5 },
+  { id: "translated", label: "Translated", subtitle: "Translating to Arabic", color: "text-primary", number: 5 },
   { id: "script", label: "Script", subtitle: "Generating draft script", color: "text-purple", number: 6 },
   { id: "score", label: "Score", subtitle: "Scoring & promotion", color: "text-orange", number: 7 },
   { id: "review", label: "Review", subtitle: "Needs manual review", color: "text-orange", number: 0 },
@@ -848,7 +848,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
       {subStep.id === "lang_detect" && detectLog && (
         <div className="flex items-center gap-2 text-[10px] font-mono">
           <span className={`px-1.5 py-0.5 rounded font-bold ${
-            detectLog.detected === "ar" ? "bg-success/15 text-success" : "bg-blue/15 text-blue"
+            detectLog.detected === "ar" ? "bg-success/15 text-success" : "bg-primary/15 text-primary"
           }`}>
             {(detectLog.detected || "?").toUpperCase()}
           </span>
@@ -865,7 +865,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
           ) : (
             <>
               <span>{translateContentLog.inputChars?.toLocaleString()} → {translateContentLog.outputChars?.toLocaleString()} chars</span>
-              {translateContentLog.model && <span className="text-blue">{translateContentLog.model}</span>}
+              {translateContentLog.model && <span className="text-primary">{translateContentLog.model}</span>}
             </>
           )}
         </div>
@@ -1005,7 +1005,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         if (!fcLog) return null;
         return (
           <div className="space-y-1">
-            <div className="text-[10px] font-mono text-blue">
+            <div className="text-[10px] font-mono text-primary">
               {(fcLog as any).resultsCount ?? 0} related articles found
             </div>
             {(fcLog as any).titles?.slice(0, 2).map((t: string, i: number) => (
@@ -1208,7 +1208,7 @@ function ActiveArticleRow({
           {article.status === "queued" && <span className="w-1.5 h-1.5 rounded-full bg-dim/50 shrink-0" />}
           {isReview && <span className="w-1.5 h-1.5 rounded-full bg-orange shrink-0" />}
           {isFailed && <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />}
-          <Link to={pp(`/article/${article.id}`)} className="text-[12px] text-foreground font-medium truncate hover:text-blue transition-colors no-underline" dir="auto">
+          <Link to={pp(`/article/${article.id}`)} className="text-[12px] text-foreground font-medium truncate hover:text-primary transition-colors no-underline" dir="auto">
             {article.title || domain || article.id.slice(0, 8)}
           </Link>
         </div>
@@ -1246,7 +1246,7 @@ function ActiveArticleRow({
           {domain && <span>{domain}</span>}
           {article.language && (
             <span className={`px-1 py-0.5 rounded text-[9px] font-bold text-foreground ${
-              article.language === "ar" ? "bg-success/15" : "bg-blue/15"
+              article.language === "ar" ? "bg-success/15" : "bg-primary/15"
             }`}>{LANG_LABELS[article.language] || article.language}</span>
           )}
         </div>
@@ -1269,7 +1269,7 @@ function ActiveArticleRow({
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
           <button onClick={handleAction(`/api/article-pipeline/${article.id}/skip`, setSkipping, "Skipped")}
             disabled={skipping}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono text-blue border border-blue/20 bg-blue/5 hover:bg-blue/10 disabled:opacity-50">
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono text-primary border border-primary/20 bg-primary/5 hover:bg-primary/10 disabled:opacity-50">
             {skipping ? <Loader2 className="w-3 h-3 animate-spin" /> : <SkipForward className="w-3 h-3" />} Skip
           </button>
           <button onClick={handleAction(`/api/article-pipeline/${article.id}/drop`, setDropping, "Dropped")}

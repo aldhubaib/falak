@@ -146,6 +146,60 @@ async function findSimilarOwnStories(embedding, channelId, excludeStoryId, limit
   `
 }
 
+/**
+ * Generate and store a niche embedding from the channel's Content DNA tags.
+ * Combines English + Arabic tags into a single text and embeds it.
+ */
+async function generateNicheEmbedding(channelId) {
+  const profile = await db.scoreProfile.upsert({
+    where: { channelId },
+    create: { channelId },
+    update: {},
+    select: { nicheTags: true, nicheTagsAr: true },
+  })
+
+  const { nicheTags, nicheTagsAr } = profile
+  if ((!nicheTags || nicheTags.length === 0) && (!nicheTagsAr || nicheTagsAr.length === 0)) {
+    throw new Error('No niche tags defined. Add Content DNA tags first.')
+  }
+
+  const text = [...(nicheTags || []), ...(nicheTagsAr || [])].join(', ')
+  const embedding = await generateEmbedding(text, channelId)
+  const vecStr = `[${embedding.join(',')}]`
+
+  await db.$executeRaw`
+    UPDATE "ScoreProfile"
+    SET "nicheEmbedding" = ${vecStr}::vector,
+        "nicheEmbeddingGeneratedAt" = NOW()
+    WHERE "channelId" = ${channelId}
+  `
+
+  return {
+    success: true,
+    tagCount: (nicheTags || []).length + (nicheTagsAr || []).length,
+    generatedAt: new Date(),
+  }
+}
+
+/**
+ * Fetch the niche embedding vector for a channel.
+ * Returns the float array or null if not generated yet.
+ */
+async function getNicheEmbedding(channelId) {
+  const rows = await db.$queryRaw`
+    SELECT "nicheEmbedding"::text
+    FROM "ScoreProfile"
+    WHERE "channelId" = ${channelId}
+  `
+  const raw = rows?.[0]?.nicheEmbedding
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
 module.exports = {
   generateEmbedding,
   buildEmbeddingText,
@@ -153,5 +207,7 @@ module.exports = {
   storeStoryEmbedding,
   findSimilarVideos,
   findSimilarOwnStories,
+  generateNicheEmbedding,
+  getNicheEmbedding,
   DIMENSIONS,
 }

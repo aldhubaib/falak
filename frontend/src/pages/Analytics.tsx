@@ -193,7 +193,7 @@ function ChannelAvatar({
               <img
                 src={avatarUrl}
                 alt={name}
-                className={`${px} rounded-full object-cover hover:ring-2 hover:ring-blue transition-all`}
+                className={`${px} rounded-full object-cover hover:ring-2 hover:ring-primary transition-all`}
               />
             ) : (
               <div
@@ -234,7 +234,7 @@ function StatCard({
         {topLabel && <span className="text-[10px] text-muted-foreground font-mono">{topLabel}</span>}
       </div>
       <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{label}</div>
-      {topLabel && <div className="h-0.5 bg-blue rounded-full mt-2 mb-1 w-1/3" />}
+      {topLabel && <div className="h-0.5 bg-primary rounded-full mt-2 mb-1 w-1/3" />}
       <div className="text-[11px] text-muted-foreground font-mono mt-2 whitespace-pre">{sub}</div>
     </div>
   );
@@ -286,7 +286,7 @@ function ChannelDropdown({
         onClick={() => setOpen(!open)}
         className={`flex items-center gap-2 text-[11px] font-mono px-2.5 py-1 rounded-full cursor-pointer transition-colors ${
           isYou
-            ? "text-blue bg-blue/10 border border-blue/30 hover:bg-blue/20"
+            ? "text-primary bg-primary/10 border border-primary/30 hover:bg-primary/20"
             : "text-muted-foreground bg-transparent border border-border hover:text-muted-foreground"
         }`}
       >
@@ -308,7 +308,7 @@ function ChannelDropdown({
                   setOpen(false);
                 }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-mono hover:bg-card/50 transition-colors text-left ${
-                  ch.id === value?.id ? (isYou ? "text-blue" : "text-foreground") : "text-muted-foreground"
+                  ch.id === value?.id ? (isYou ? "text-primary" : "text-foreground") : "text-muted-foreground"
                 }`}
               >
                 {ch.avatarUrl ? (
@@ -450,10 +450,10 @@ function GrowthMomentumSection({
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <ChannelAvatar name={chName(g.ch)} avatarUrl={g.ch.avatarUrl} channelId={g.ch.id} size="sm" />
-              <span className={`text-[12px] font-medium truncate ${isOurs(g.ch) ? "text-blue" : ""}`}>
+              <span className={`text-[12px] font-medium truncate ${isOurs(g.ch) ? "text-primary" : ""}`}>
                 {chName(g.ch)}
               </span>
-              {isOurs(g.ch) && <span className="text-[9px] text-blue font-mono shrink-0">YOU</span>}
+              {isOurs(g.ch) && <span className="text-[9px] text-primary font-mono shrink-0">YOU</span>}
             </div>
             <span className={`text-[12px] font-mono text-right ${g.subGrowth >= 0 ? "text-success" : "text-destructive"}`}>
               {g.subGrowth >= 0 ? "+" : ""}{g.subGrowth.toFixed(1)}%
@@ -569,7 +569,7 @@ function EngagementDecompositionSection({
   return (
     <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
-        <MessageSquare className="w-4 h-4 text-blue" />
+        <MessageSquare className="w-4 h-4 text-primary" />
         <span className="text-[13px] font-semibold">Engagement Breakdown</span>
         <span className="text-[11px] text-muted-foreground font-mono">— likes vs comments per channel</span>
       </div>
@@ -583,14 +583,14 @@ function EngagementDecompositionSection({
           return (
             <div key={entry.channelId} className="flex items-center gap-3">
               <div className="w-32 shrink-0 flex items-center gap-2 min-w-0">
-                <span className={`text-[11px] font-mono truncate ${isUs ? "text-blue" : "text-muted-foreground"}`}>
+                <span className={`text-[11px] font-mono truncate ${isUs ? "text-primary" : "text-muted-foreground"}`}>
                   {entry.name}
                 </span>
-                {isUs && <span className="text-[8px] text-blue font-mono shrink-0">YOU</span>}
+                {isUs && <span className="text-[8px] text-primary font-mono shrink-0">YOU</span>}
               </div>
               <div className="flex-1 flex gap-0.5 h-3">
                 <div
-                  className="bg-blue rounded-l-full h-full transition-all"
+                  className="bg-primary rounded-l-full h-full transition-all"
                   style={{ width: `${likeWidth}%` }}
                   title={`Likes: ${entry.likeRate.toFixed(3)}%`}
                 />
@@ -601,7 +601,7 @@ function EngagementDecompositionSection({
                 />
               </div>
               <div className="w-28 shrink-0 text-right">
-                <span className="text-[10px] font-mono text-blue">{entry.likeRate.toFixed(2)}%</span>
+                <span className="text-[10px] font-mono text-primary">{entry.likeRate.toFixed(2)}%</span>
                 <span className="text-[10px] font-mono text-muted-foreground mx-1">·</span>
                 <span className="text-[10px] font-mono text-orange">{entry.commentRate.toFixed(2)}%</span>
               </div>
@@ -614,7 +614,7 @@ function EngagementDecompositionSection({
       <div className="px-5 py-3 border-t border-border">
         <div className="flex items-center gap-4 mb-2">
           <span className="flex items-center gap-1.5 text-[10px] font-mono">
-            <ThumbsUp className="w-3 h-3 text-blue" /> <span className="text-blue">Like rate</span>
+            <ThumbsUp className="w-3 h-3 text-primary" /> <span className="text-primary">Like rate</span>
           </span>
           <span className="flex items-center gap-1.5 text-[10px] font-mono">
             <MessageSquare className="w-3 h-3 text-orange" /> <span className="text-orange">Comment rate</span>
@@ -631,7 +631,7 @@ function EngagementDecompositionSection({
         )}
         {highLikers.length > 0 && (
           <p className="text-[11px] text-muted-foreground mt-1">
-            <span className="text-blue font-medium">Like-heavy, low comments:</span>{" "}
+            <span className="text-primary font-medium">Like-heavy, low comments:</span>{" "}
             {highLikers.map((e) => e.name).join(", ")} — passive approval without discussion. Content entertains but doesn't provoke.
           </p>
         )}
@@ -696,7 +696,7 @@ function PublishingPatternsSection({
                 <div className="flex-1 flex gap-0.5 h-2.5">
                   {ourPatterns.length > 0 && (
                     <div
-                      className="bg-blue rounded-l-sm h-full"
+                      className="bg-primary rounded-l-sm h-full"
                       style={{ width: `${(ourDays[i] / maxDayVal) * 100}%` }}
                     />
                   )}
@@ -718,7 +718,7 @@ function PublishingPatternsSection({
             {allHours.map((count, hr) => (
               <div
                 key={hr}
-                className="flex-1 rounded-t-sm bg-blue/60 hover:bg-blue transition-colors"
+                className="flex-1 rounded-t-sm bg-primary/60 hover:bg-primary transition-colors"
                 style={{ height: `${(count / maxHourVal) * 100}%`, minHeight: count > 0 ? "2px" : "0" }}
                 title={`${hr}:00 — ${count} videos`}
               />
@@ -767,7 +767,7 @@ function PerformanceDistributionSection({
       {/* Percentile cards */}
       <div className="grid grid-cols-5 max-lg:grid-cols-3 gap-[1px] bg-border mx-5 mb-4 rounded-lg overflow-hidden">
         {[
-          { label: "MEDIAN", value: dist.median, color: "text-blue" },
+          { label: "MEDIAN", value: dist.median, color: "text-primary" },
           { label: "MEAN", value: dist.mean, color: "text-purple" },
           { label: "P90", value: dist.p90, color: "text-success" },
           { label: "P10", value: dist.p10, color: "text-muted-foreground" },
@@ -789,7 +789,7 @@ function PerformanceDistributionSection({
               <span className="text-[11px] font-mono w-20 text-muted-foreground text-right">{bucket.label}</span>
               <div className="flex-1 h-3 bg-card rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue/70 rounded-full transition-all"
+                  className="h-full bg-primary/70 rounded-full transition-all"
                   style={{ width: `${(bucket.count / maxBucket) * 100}%` }}
                 />
               </div>
@@ -924,7 +924,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
           <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">METRIC</span>
           <div className="flex items-center gap-1.5 justify-end">
             <ChannelAvatar name={chName(yourCh)} avatarUrl={yourCh.avatarUrl} size="sm" />
-            <span className="text-[10px] text-blue font-mono uppercase tracking-widest">You</span>
+            <span className="text-[10px] text-primary font-mono uppercase tracking-widest">You</span>
           </div>
           <div className="flex items-center gap-1.5 justify-end">
             <ChannelAvatar name={chName(theirCh)} avatarUrl={theirCh.avatarUrl} size="sm" />
@@ -942,7 +942,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
             <span className="text-[13px] font-medium">{m.label}</span>
             <span
               className={`text-[13px] font-mono font-semibold text-right ${
-                m.winning ? "text-success" : "text-blue"
+                m.winning ? "text-success" : "text-primary"
               }`}
             >
               {m.youVal}
@@ -967,7 +967,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
           {losing.map((m, i) => (
             <div key={m.label} className="px-4 py-3 rounded-lg border border-border">
               <div className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-blue/15 text-blue">
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-primary/15 text-primary">
                   {i + 1}
                 </span>
                 <div>
@@ -1225,7 +1225,7 @@ function TrendChart({
                 key={c.id}
                 x={svgWidth - pad.right + 8}
                 y={getY(lastVal) + 4}
-                className="fill-blue"
+                className="fill-primary"
                 fontSize="10"
                 fontFamily="monospace"
                 fontWeight="600"
@@ -1245,7 +1245,7 @@ function TrendChart({
             }}
           >
             <div className="text-[10px] text-muted-foreground font-mono">{hovered.monthLabel}</div>
-            <div className={`text-[11px] font-mono ${hovered.tone === "you" ? "text-blue" : "text-muted-foreground"}`}>
+            <div className={`text-[11px] font-mono ${hovered.tone === "you" ? "text-primary" : "text-muted-foreground"}`}>
               {hovered.channelName}
             </div>
             <div className="text-[12px] font-semibold font-mono">
@@ -1256,16 +1256,16 @@ function TrendChart({
       </div>
 
       <div className="flex items-center gap-4 mt-3 flex-wrap">
-        <span className="text-[10px] text-blue font-mono uppercase tracking-widest">YOUR CHANNELS</span>
+        <span className="text-[10px] text-primary font-mono uppercase tracking-widest">YOUR CHANNELS</span>
         {ourSeries.map((c) => {
           const active = hovered?.seriesId === c.id;
           const dimmed = hovered && !active;
           return (
             <span
               key={c.id}
-              className={`flex items-center gap-1.5 text-[11px] font-mono rounded-lg px-1.5 py-0.5 transition-colors ${active ? "bg-blue/10 text-blue" : dimmed ? "opacity-45" : ""}`}
+              className={`flex items-center gap-1.5 text-[11px] font-mono rounded-lg px-1.5 py-0.5 transition-colors ${active ? "bg-primary/10 text-primary" : dimmed ? "opacity-45" : ""}`}
             >
-              <span className="w-3 h-0.5 bg-blue rounded-full inline-block" />
+              <span className="w-3 h-0.5 bg-primary rounded-full inline-block" />
               <ChannelAvatar name={c.name} avatarUrl={c.ch?.avatarUrl} channelId={c.id} size="sm" />
               <span className="max-w-[140px] truncate">{c.name}</span>
             </span>
@@ -1683,7 +1683,7 @@ export default function Analytics() {
             <StatCard
               value={`${universe.avgUploads}`}
               label="UPLOADS / MONTH"
-              color="text-blue"
+              color="text-primary"
               topLabel={`${topByUploads ? chName(topByUploads).slice(0, 10) : "—"} ▲`}
               sub={`yours ${ourUploadsPerMonth.toFixed(1)}/mo   top ${topByUploads?.uploadsPerMonth || "—"}/mo`}
             />
@@ -1759,7 +1759,7 @@ export default function Analytics() {
                   <div key={entry.id} className="flex items-center gap-3 py-2.5">
                     <span
                       className={`w-6 text-right text-[12px] font-mono shrink-0 ${
-                        entry.isYou ? "text-blue" : "text-muted-foreground"
+                        entry.isYou ? "text-primary" : "text-muted-foreground"
                       }`}
                     >
                       {entry.rank}
@@ -1770,17 +1770,17 @@ export default function Analytics() {
                       channelId={entry.id}
                     />
                     {entry.isYou && (
-                      <span className="text-[10px] text-blue font-mono shrink-0">YOU</span>
+                      <span className="text-[10px] text-primary font-mono shrink-0">YOU</span>
                     )}
                     <div className="flex-1 h-1.5 bg-card rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${entry.isYou ? "bg-blue" : "bg-dim/40"}`}
+                        className={`h-full rounded-full ${entry.isYou ? "bg-primary" : "bg-dim/40"}`}
                         style={{ width: `${getBarWidth(entry.rawVal, maxRaw)}%` }}
                       />
                     </div>
                     <span
                       className={`text-[12px] font-mono shrink-0 w-16 text-right ${
-                        entry.isYou ? "text-blue" : "text-muted-foreground"
+                        entry.isYou ? "text-primary" : "text-muted-foreground"
                       }`}
                     >
                       {entry.value}
@@ -1794,7 +1794,7 @@ export default function Analytics() {
             {rankings.length > 0 && (
               <div className="px-5 py-4 border-t border-border">
                 <div className="flex items-start gap-2">
-                  <span className="text-blue mt-0.5">↑</span>
+                  <span className="text-primary mt-0.5">↑</span>
                   <div>
                     <p className="text-[13px] font-medium">
                       {engRank <= Math.ceil(channels.length / 2)
@@ -1853,7 +1853,7 @@ export default function Analytics() {
         <div className="px-6 max-lg:px-4 mb-5">
           <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center gap-2">
-              <Circle className="w-3.5 h-3.5 text-blue fill-blue" />
+              <Circle className="w-3.5 h-3.5 text-primary fill-primary" />
               <span className="text-[13px] font-semibold">Channel Benchmarks</span>
             </div>
             <div className="grid grid-cols-3 max-lg:grid-cols-1 gap-[1px] bg-border">
@@ -1870,7 +1870,7 @@ export default function Analytics() {
                       <div className="flex items-center gap-2.5">
                         <span
                           className={`text-[11px] font-mono w-5 text-right ${
-                            item.isYou ? "text-blue" : "text-muted-foreground"
+                            item.isYou ? "text-primary" : "text-muted-foreground"
                           }`}
                         >
                           {item.rank}
@@ -1884,7 +1884,7 @@ export default function Analytics() {
                       </div>
                       <span
                         className={`text-[12px] font-mono ${
-                          item.isYou ? "text-blue" : "text-muted-foreground"
+                          item.isYou ? "text-primary" : "text-muted-foreground"
                         }`}
                       >
                         {item.value}
@@ -1903,7 +1903,7 @@ export default function Analytics() {
             <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <span className="text-[13px] font-semibold">Monthly Trend — Last 12 Months</span>
-                <span className="text-[11px] text-blue font-mono px-2 py-0.5 border border-blue/30 rounded-full">
+                <span className="text-[11px] text-primary font-mono px-2 py-0.5 border border-primary/30 rounded-full">
                   — blue = your channels
                 </span>
               </div>

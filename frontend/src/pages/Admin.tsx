@@ -35,7 +35,7 @@ const initialUsers: AllowedUser[] = [
     note: "Channel owner",
     addedBy: "Added by system",
     addedDate: "1/1/2026",
-    color: "bg-blue",
+    color: "bg-primary",
     isOwner: true,
     pages: allPages.map((p) => ({ name: p, active: true })),
   },
@@ -73,7 +73,7 @@ const initialUsers: AllowedUser[] = [
 
 const roleColors: Record<Role, string> = {
   admin: "text-destructive border-destructive/30 bg-destructive/10",
-  editor: "text-blue border-blue/30 bg-blue/10",
+  editor: "text-primary border-primary/30 bg-primary/10",
   viewer: "text-muted-foreground border-border bg-card",
 };
 
@@ -114,8 +114,8 @@ export default function Admin() {
         <div className="px-6 pt-5 max-lg:px-4 space-y-5">
 
           {/* Owner notice */}
-          <div className="rounded-lg bg-blue/5 border border-blue/15 px-5 py-4 flex items-start gap-3.5">
-            <Shield className="w-5 h-5 text-blue shrink-0 mt-0.5" />
+          <div className="rounded-lg bg-primary/5 border border-primary/15 px-5 py-4 flex items-start gap-3.5">
+            <Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <p className="text-[13px] text-muted-foreground leading-relaxed">
               The <strong className="text-foreground">channel owner</strong> always has full access and cannot be removed. Users not on this list will see an{" "}
               <strong className="text-foreground">"Access Denied"</strong> page after login. You can control which pages and channels each user can access.
@@ -138,10 +138,10 @@ export default function Admin() {
                   placeholder="user@example.com"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue/40"
+                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40"
                 />
               </div>
-              <button className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap">
+              <button className="px-5 py-2.5 text-[13px] font-semibold bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap">
                 + Add
               </button>
             </div>
@@ -266,8 +266,8 @@ export default function Admin() {
                 {
                   role: "Editor" as const,
                   icon: "✏️",
-                  color: "border-blue/20 bg-blue/5",
-                  textColor: "text-blue",
+                  color: "border-primary/20 bg-primary/5",
+                  textColor: "text-primary",
                   desc: "Access assigned pages · Can view & interact with data · Cannot manage users or system settings",
                 },
                 {

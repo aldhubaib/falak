@@ -117,7 +117,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
                   <button
                     onClick={onTogglePin}
                     className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-                      pinned ? "text-blue hover:bg-card/60" : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
+                      pinned ? "text-primary hover:bg-card/60" : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
                     }`}
                   >
                     {pinned ? <Pin className="w-3.5 h-3.5" strokeWidth={1.5} /> : <PinOff className="w-3.5 h-3.5" strokeWidth={1.5} />}

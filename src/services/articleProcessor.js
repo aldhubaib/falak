@@ -771,6 +771,34 @@ async function doStageScore(article, project) {
     log.push({ step: 'score_similarity', processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key', at: new Date().toISOString() })
   }
 
+  // ── Sub-step A2: nicheScore — cosine similarity between article and channel niche ──
+  let nicheScore = 0
+  if (scoreEmbedding) {
+    try {
+      const { getNicheEmbedding } = require('./embeddings')
+      const nicheVec = await getNicheEmbedding(article.channelId)
+      if (nicheVec) {
+        let dot = 0
+        for (let i = 0; i < scoreEmbedding.length; i++) {
+          dot += scoreEmbedding[i] * nicheVec[i]
+        }
+        nicheScore = Math.max(0, Math.min(1, dot))
+        log.push({
+          step: 'score_niche',
+          processor: 'server',
+          service: 'pgvector cosine similarity',
+          nicheScore: Math.round(nicheScore * 100) / 100,
+          status: 'ok',
+          at: new Date().toISOString(),
+        })
+      } else {
+        log.push({ step: 'score_niche', status: 'skipped', reason: 'No niche embedding generated yet', at: new Date().toISOString() })
+      }
+    } catch (e) {
+      log.push({ step: 'score_niche', status: 'failed', error: e.message, at: new Date().toISOString() })
+    }
+  }
+
   // ── Sub-step B: score_ai_analysis (AI scoring on Arabic text) ──
   const contentAr = art.contentAr || ''
   const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
@@ -867,7 +895,9 @@ ${contentAr.slice(0, 15000)}`
   const isBreaking = hoursSincePublished <= 48
   analysis.isBreaking = isBreaking
 
-  const rawScore = relevance * 0.35 + viralPotential * 0.30 + freshness * 0.35
+  const rawScore = nicheScore > 0
+    ? relevance * 0.30 + viralPotential * 0.25 + nicheScore * 0.45
+    : relevance * 0.35 + viralPotential * 0.30 + freshness * 0.35
   const finalScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40 - competitionPenalty)) * 100) / 100
 
   log.push({
@@ -877,6 +907,8 @@ ${contentAr.slice(0, 15000)}`
     relevance,
     viralPotential,
     freshness: Math.round(freshness * 100) / 100,
+    nicheScore: Math.round(nicheScore * 100) / 100,
+    nicheActive: nicheScore > 0,
     preferenceBias: Math.round(preferenceBias * 100) / 100,
     competitionPenalty,
     finalScore,

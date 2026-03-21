@@ -172,8 +172,8 @@ export default function VectorIntelligence() {
               title="Data Collection"
               subtitle="Refresh competition & own stats from YouTube"
               icon={RefreshCw}
-              color="text-blue"
-              bgColor="bg-blue"
+              color="text-primary"
+              bgColor="bg-primary"
               items={[
                 { label: "Competition Channels", value: "Auto-refreshed" },
                 { label: "Own Video Stats", value: "Auto-fetched" },
@@ -239,8 +239,8 @@ export default function VectorIntelligence() {
             <CoverageCard
               title="Competition Videos"
               icon={Target}
-              color="text-blue"
-              bgColor="bg-blue"
+              color="text-primary"
+              bgColor="bg-primary"
               embedded={vEmb.embedded}
               total={vEmb.total}
               pct={vPct}
@@ -439,7 +439,7 @@ export default function VectorIntelligence() {
                                 </span>
                               )}
                               {Number(factors.ownChannelBoost) !== 0 && (
-                                <span className="text-blue">own {Number(factors.ownChannelBoost) > 0 ? "+" : ""}{String(factors.ownChannelBoost)}</span>
+                                <span className="text-primary">own {Number(factors.ownChannelBoost) > 0 ? "+" : ""}{String(factors.ownChannelBoost)}</span>
                               )}
                             </>
                           )}
@@ -479,7 +479,7 @@ export default function VectorIntelligence() {
                         {!a.isRead && <span className="w-1.5 h-1.5 rounded-full bg-orange shrink-0" />}
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold ${
                           a.type === "score_change" ? "bg-purple/10 text-purple" :
-                          a.type === "competitor_published" ? "bg-blue/10 text-blue" :
+                          a.type === "competitor_published" ? "bg-primary/10 text-primary" :
                           a.type === "trending_topic" ? "bg-success/10 text-success" :
                           "bg-dim/10 text-muted-foreground"
                         }`}>

@@ -320,7 +320,7 @@ function ManualStoryWorkflow({
           Manual Video
         </span>
         {brief.videoFormat && (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary">
             {brief.videoFormat === "short" ? "Short" : "Long Video"}
           </span>
         )}
@@ -328,10 +328,10 @@ function ManualStoryWorkflow({
 
       {/* Auto-processing progress banner */}
       {isPipelineActive && (
-        <div className="rounded-lg bg-blue/5 border border-blue/20 px-4 py-3 space-y-3">
+        <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-3">
           <div className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-blue" />
-            <span className="text-[13px] font-semibold text-blue">Processing video…</span>
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span className="text-[13px] font-semibold text-primary">Processing video…</span>
           </div>
           <div className="flex items-center gap-1">
             {PIPELINE_STEPS.slice(0, -1).map((step, i) => {
@@ -341,7 +341,7 @@ function ManualStoryWorkflow({
                 <div key={step.key} className="flex items-center gap-1 flex-1">
                   <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
                     isActive
-                      ? "bg-blue/15 text-blue"
+                      ? "bg-primary/15 text-primary"
                       : isComplete
                         ? "bg-success/15 text-success"
                         : "bg-card text-muted-foreground"
@@ -377,7 +377,7 @@ function ManualStoryWorkflow({
           <button
             type="button"
             onClick={() => { setPipelineStep("idle"); runAutoPipeline(); }}
-            className="ml-5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+            className="ml-5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
           >
             Retry
           </button>
@@ -437,7 +437,7 @@ function ManualStoryWorkflow({
               type="button"
               onClick={generateTitle}
               disabled={generatingTitle || isPipelineActive || !brief.transcript}
-              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generatingTitle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               {generatingTitle ? "Generating…" : "AI Generate"}
@@ -479,7 +479,7 @@ function ManualStoryWorkflow({
               type="button"
               onClick={generateDescription}
               disabled={generatingDesc || isPipelineActive || !brief.transcript}
-              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generatingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               {generatingDesc ? "Generating…" : "AI Generate"}
@@ -521,7 +521,7 @@ function ManualStoryWorkflow({
               type="button"
               onClick={generateTags}
               disabled={generatingTags || isPipelineActive || !brief.transcript}
-              className="flex items-center gap-1.5 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generatingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               {generatingTags ? "Generating…" : "AI Generate"}
@@ -597,7 +597,7 @@ function ManualStoryWorkflow({
               <button
                 type="button"
                 onClick={downloadSRT}
-                className="text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+                className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Download .srt
               </button>
@@ -615,7 +615,7 @@ function ManualStoryWorkflow({
               href={brief.youtubeUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors"
+              className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
             >
               <ExternalLink className="w-3 h-3" /> Open
             </a>
@@ -633,7 +633,7 @@ function ManualStoryWorkflow({
             type="button"
             onClick={saveYoutubeUrl}
             disabled={!youtubeInput.trim() || classifying}
-            className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-blue text-blue-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {classifying ? "Classifying…" : "Save"}
           </button>
@@ -1178,7 +1178,7 @@ export default function StoryDetail() {
                     return (
                     <div key={entry.id} className="flex items-center justify-between px-5 py-3 border-b border-border last:border-b-0">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-0.5 h-8 bg-blue/30 rounded-full shrink-0" />
+                        <div className="w-0.5 h-8 bg-primary/30 rounded-full shrink-0" />
                         <div className="min-w-0">
                           <span className="text-muted-foreground text-[11px]">{formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}</span>
                           <span className="text-muted-foreground text-[11px]"> · {actionLabel}</span>
@@ -1423,7 +1423,7 @@ export default function StoryDetail() {
                     {brief.producedFormats.map((f) => (
                       <span
                         key={f}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary"
                       >
                         {f === "short" ? "Short" : "Long Video"}
                       </span>
@@ -1472,7 +1472,7 @@ export default function StoryDetail() {
                               href={brief.youtubeUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-[10px] text-blue hover:opacity-80 transition-opacity"
+                              className="flex items-center gap-1 text-[10px] text-primary hover:opacity-80 transition-opacity"
                             >
                               <ExternalLink className="w-3 h-3" /> Open
                             </a>
@@ -1487,7 +1487,7 @@ export default function StoryDetail() {
                         {editingYoutubeUrl && (
                           <button
                             onClick={() => {}}
-                            className="text-[10px] text-blue hover:text-blue/80 font-medium transition-colors"
+                            className="text-[10px] text-primary hover:text-primary/80 font-medium transition-colors"
                           >
                             Done
                           </button>
@@ -1499,7 +1499,7 @@ export default function StoryDetail() {
                         type="url"
                         value={youtubeInput}
                         onChange={() => {}}
-                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-blue/40"
+                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/40"
                       />
                     ) : (
                       <div className="rounded-lg bg-card px-4 py-2.5 text-[13px] font-mono text-muted-foreground truncate">
@@ -1526,7 +1526,7 @@ export default function StoryDetail() {
                         {canShort && (
                           <button
                             onClick={() => {}}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-primary text-primary-foreground rounded-full hover:opacity-90 transition-opacity"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
                             Produce as Short
@@ -1535,7 +1535,7 @@ export default function StoryDetail() {
                         {canLong && (
                           <button
                             onClick={() => {}}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity"
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold bg-primary text-primary-foreground rounded-full hover:opacity-90 transition-opacity"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
                             Produce as Long Video

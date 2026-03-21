@@ -51,8 +51,8 @@ function getSourceBadge(sourceName: string | null): { label: string; color: stri
 
 const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
   { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-foreground",     sub: "awaiting triage · multi-source news" },
-  { key: "liked",      label: "Liked",          color: "text-blue",       pillClass: "bg-blue/15 text-foreground",       sub: "saved for review" },
-  { key: "scripting",  label: "Scripting",      color: "text-blue",       pillClass: "bg-blue/15 text-foreground",       sub: "editing script" },
+  { key: "liked",      label: "Liked",          color: "text-primary",       pillClass: "bg-primary/15 text-foreground",       sub: "saved for review" },
+  { key: "scripting",  label: "Scripting",      color: "text-primary",       pillClass: "bg-primary/15 text-foreground",       sub: "editing script" },
   { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-foreground", sub: "waiting for URL" },
   { key: "publish",    label: "Publish",        color: "text-primary",   pillClass: "bg-primary/15 text-foreground", sub: "final details needed" },
   { key: "done",       label: "Done",           color: "text-foreground", pillClass: "bg-foreground/15 text-foreground", sub: "published all time" },
@@ -78,7 +78,7 @@ function relativeTime(iso: string | null | undefined): string {
 function MiniScores({ story }: { story: ApiStory }) {
   const items = [
     { val: story.relevanceScore ?? 0, bar: "bg-purple",  label: "Relevance" },
-    { val: story.viralScore ?? 0,     bar: "bg-blue",    label: "Demand" },
+    { val: story.viralScore ?? 0,     bar: "bg-primary",    label: "Demand" },
     { val: story.firstMoverScore ?? 0, bar: "bg-success", label: "First Mover" },
   ];
   return (
@@ -89,7 +89,7 @@ function MiniScores({ story }: { story: ApiStory }) {
             <div className={`h-full rounded-full ${s.bar}`} style={{ width: `${s.val}%` }} />
           </div>
           <span className={`text-[10px] font-mono font-medium ${
-            i === 0 ? "text-purple" : i === 1 ? "text-blue" : "text-success"
+            i === 0 ? "text-purple" : i === 1 ? "text-primary" : "text-success"
           }`}>{s.val}</span>
         </div>
       ))}

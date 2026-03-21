@@ -15,7 +15,7 @@ function UploadItem({ task }: { task: UploadTask }) {
 
   return (
     <div className="flex items-center gap-3 min-w-0">
-      {isUploading && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue shrink-0" />}
+      {isUploading && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />}
       {isComplete && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
       {isFailed && <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
 
@@ -25,7 +25,7 @@ function UploadItem({ task }: { task: UploadTask }) {
           <div className="flex items-center gap-2 mt-0.5">
             <div className="flex-1 h-1 bg-card rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue rounded-full transition-all duration-300"
+                className="h-full bg-primary rounded-full transition-all duration-300"
                 style={{ width: `${task.progress}%` }}
               />
             </div>

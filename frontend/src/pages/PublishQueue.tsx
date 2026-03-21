@@ -65,10 +65,10 @@ function deriveStep(brief: Record<string, unknown> | undefined, stage: string | 
 }
 
 const STEP_META: Record<ProcessingStep, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
-  uploading:    { label: "Uploading",        icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,   color: "text-blue",         bg: "bg-blue/10" },
+  uploading:    { label: "Uploading",        icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,   color: "text-primary",         bg: "bg-primary/10" },
   transcribing: { label: "Transcribing",     icon: <Mic className="w-3.5 h-3.5 animate-pulse" />,       color: "text-purple",       bg: "bg-purple/10" },
   title:        { label: "Generating Title", icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-orange",       bg: "bg-orange/10" },
-  description:  { label: "Generating Desc",  icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-blue",         bg: "bg-blue/10" },
+  description:  { label: "Generating Desc",  icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-primary",         bg: "bg-primary/10" },
   tags:         { label: "Generating Tags",  icon: <Tag className="w-3.5 h-3.5 animate-pulse" />,       color: "text-emerald-400",  bg: "bg-emerald-400/10" },
   ready:        { label: "Ready to Publish", icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
   done:         { label: "Done",             icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
@@ -458,7 +458,7 @@ export default function PublishQueue() {
               <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Total</div>
             </div>
             <div className="flex-1 px-5 py-4 bg-background border-r border-border">
-              <div className="text-2xl font-semibold font-mono tracking-tight text-blue">{inProgressCount}</div>
+              <div className="text-2xl font-semibold font-mono tracking-tight text-primary">{inProgressCount}</div>
               <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">In Progress</div>
             </div>
             {stalledCount > 0 && (
@@ -488,14 +488,14 @@ export default function PublishQueue() {
             className={`
               rounded-lg border-2 border-dashed cursor-pointer transition-all p-8
               ${dragOver
-                ? "border-blue bg-blue/5"
-                : "border-border hover:border-blue/30 bg-background"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/30 bg-background"
               }
             `}
           >
             <div className="flex flex-col items-center gap-3 text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${dragOver ? "bg-blue/20" : "bg-card"}`}>
-                <Upload className={`w-6 h-6 transition-colors ${dragOver ? "text-blue" : "text-muted-foreground"}`} />
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${dragOver ? "bg-primary/20" : "bg-card"}`}>
+                <Upload className={`w-6 h-6 transition-colors ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
               </div>
               <div>
                 <p className="text-[14px] font-semibold">
@@ -630,7 +630,7 @@ export default function PublishQueue() {
                         <div className="mt-1.5 ml-9">
                           <div className="w-full h-1 bg-card rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-blue transition-all duration-300 ease-out rounded-full"
+                              className="h-full bg-primary transition-all duration-300 ease-out rounded-full"
                               style={{ width: `${uploadProgress}%` }}
                             />
                           </div>
@@ -713,7 +713,7 @@ export default function PublishQueue() {
                         <>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleReupload(item.storyId); }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-blue hover:bg-blue/10 transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
                           >
                             <RotateCw className="w-3 h-3" />
                             Re-upload
@@ -730,7 +730,7 @@ export default function PublishQueue() {
                         <>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleRetryProcessing(item.storyId); }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-blue hover:bg-blue/10 transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-primary hover:bg-primary/10 transition-colors"
                           >
                             <RefreshCw className="w-3 h-3" />
                             Retry
@@ -772,7 +772,7 @@ export default function PublishQueue() {
                       {isActionable && (
                         <Link
                           to={channelPath(`/story/${item.storyId}`)}
-                          className="inline-flex items-center gap-1 text-[11px] text-blue hover:text-blue/80 font-medium transition-colors no-underline"
+                          className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors no-underline"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <ExternalLink className="w-3 h-3" />

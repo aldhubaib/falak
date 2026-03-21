@@ -136,7 +136,7 @@ export default function ProfilePicker() {
         {profiles.map((p) => (
           <div
             key={p.id}
-            className="relative group flex flex-col items-center rounded-lg bg-card border border-border/50 px-4 py-6 cursor-pointer hover:border-blue/40 hover:bg-card transition-all"
+            className="relative group flex flex-col items-center rounded-lg bg-card border border-border/50 px-4 py-6 cursor-pointer hover:border-primary/40 hover:bg-card transition-all"
             onClick={() => navigate(`/c/${p.id}/`)}
           >
             {/* Three-dot menu */}
@@ -195,7 +195,7 @@ export default function ProfilePicker() {
         {/* Add card */}
         <div
           onClick={() => setAddOpen(true)}
-          className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 px-4 py-6 cursor-pointer hover:border-blue/40 hover:bg-card transition-all min-h-[160px]"
+          className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 px-4 py-6 cursor-pointer hover:border-primary/40 hover:bg-card transition-all min-h-[160px]"
         >
           <div className="w-16 h-16 rounded-full bg-card/40 flex items-center justify-center mb-3">
             <Plus className="w-7 h-7 text-muted-foreground" />
@@ -232,7 +232,7 @@ export default function ProfilePicker() {
             <button
               onClick={handleAdd}
               disabled={addLoading}
-              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-blue text-blue-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               {addLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Add
@@ -282,7 +282,7 @@ export default function ProfilePicker() {
             <button
               onClick={handleEdit}
               disabled={editLoading}
-              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-blue text-blue-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
               {editLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Save

@@ -29,9 +29,6 @@
     --success: 142 50% 45%;
     --success-foreground: 0 0% 100%;
 
-    --blue: 217 72% 56%;
-    --blue-foreground: 0 0% 100%;
-
     --purple: 258 60% 59%;
     --purple-foreground: 0 0% 100%;
 
@@ -39,7 +36,6 @@
     --orange-foreground: 0 0% 100%;
 
     --border: 228 8% 9%;
-    --ring: 217 72% 56%;
 
     --radius: 0rem;
 
@@ -83,7 +79,7 @@
     --shimmer-duration: 1.8s;
     --shimmer-spread: 2;
     --box-border: 0.5px solid hsl(var(--border));
-    --box-border-active: 1px solid hsl(var(--blue));
+    --box-border-active: 1px solid hsl(var(--primary));
     --box-radius: 0.5rem;
     --dot-size: 5px;
     --dot-pulse-duration: 0.55s;
@@ -592,7 +588,7 @@
   --script-block-title:     hsl(var(--orange));
   --script-block-hook:      hsl(var(--destructive));
   --script-block-hookStart: hsl(var(--purple));
-  --script-block-script:    hsl(var(--blue));
+  --script-block-script:    hsl(var(--primary));
   --script-block-hookEnd:   hsl(var(--purple));
   --script-block-hashtags:  hsl(var(--success));
 }

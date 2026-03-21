@@ -160,7 +160,7 @@ export function VideoUpload({
         <div className="px-3 py-2">
           <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Type</div>
           <div className="flex items-center gap-1.5">
-            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-primary/15 text-primary"}`}>
               <TypeIcon format={videoFormat} className="w-3 h-3" />
             </span>
           </div>
@@ -199,12 +199,12 @@ export function VideoUpload({
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           <div className={`w-full ${thumbAspect} rounded-lg bg-card flex items-center justify-center relative overflow-hidden`}>
             <div className="flex flex-col items-center gap-2 z-10">
-              <Loader2 className="w-8 h-8 animate-spin text-blue" />
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
               <span className="text-[11px] font-mono text-muted-foreground">{Math.round(task.progress)}%</span>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-card">
               <div
-                className="h-full bg-blue transition-all duration-300 ease-out"
+                className="h-full bg-primary transition-all duration-300 ease-out"
                 style={{ width: `${task.progress}%` }}
               />
             </div>
@@ -235,7 +235,7 @@ export function VideoUpload({
           <MetadataRow
             status="Uploading"
             statusIcon={<Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            statusColor="text-blue"
+            statusColor="text-primary"
             extra={
               <div className="px-3 py-2">
                 <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Part</div>
@@ -290,7 +290,7 @@ export function VideoUpload({
                 <span className="w-px h-8 bg-border" />
                 <button
                   onClick={() => { dismiss(); handleFile(task.file); }}
-                  className="px-3 py-2 flex items-center gap-1.5 text-[12px] text-blue hover:text-blue/80 font-medium transition-colors"
+                  className="px-3 py-2 flex items-center gap-1.5 text-[12px] text-primary hover:text-primary/80 font-medium transition-colors"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Retry
@@ -371,7 +371,7 @@ export function VideoUpload({
                   if (isComplete) dismiss();
                   fileInputRef.current?.click();
                 }}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-blue font-medium border border-blue/20 hover:bg-blue/10 transition-colors"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-primary font-medium border border-primary/20 hover:bg-primary/10 transition-colors"
               >
                 <RefreshCw className="w-3 h-3" />
                 Replace
@@ -392,7 +392,7 @@ export function VideoUpload({
             <div className="px-3 py-2">
               <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Type</div>
               <div className="flex items-center gap-1.5">
-                <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
+                <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-primary/15 text-primary"}`}>
                   <TypeIcon format={videoFormat} className="w-3 h-3" />
                 </span>
               </div>
@@ -428,8 +428,8 @@ export function VideoUpload({
       className={`
         rounded-lg overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-background
         ${dragOver
-          ? "border-blue shadow-[inset_0_0_20px_hsl(var(--blue)/0.05)]"
-          : "border-dashed border-border hover:border-blue/30"
+          ? "border-primary shadow-[inset_0_0_20px_hsl(var(--blue)/0.05)]"
+          : "border-dashed border-border hover:border-primary/30"
         }
       `}
     >
@@ -437,14 +437,14 @@ export function VideoUpload({
       <div className={`relative shrink-0 p-3 ${thumbW}`}>
         <div className={`
           w-full ${thumbAspect} rounded-lg flex items-center justify-center transition-colors
-          ${dragOver ? "bg-blue/10 border border-blue/30 border-dashed" : "bg-card"}
+          ${dragOver ? "bg-primary/10 border border-primary/30 border-dashed" : "bg-card"}
         `}>
           <div className="flex flex-col items-center gap-2">
             <div className={`
               w-12 h-12 rounded-full flex items-center justify-center transition-colors
-              ${dragOver ? "bg-blue/20" : "bg-card/80"}
+              ${dragOver ? "bg-primary/20" : "bg-card/80"}
             `}>
-              <Upload className={`w-5 h-5 transition-colors ${dragOver ? "text-blue" : "text-muted-foreground"}`} />
+              <Upload className={`w-5 h-5 transition-colors ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
             </div>
             <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
               {dragOver ? "Drop here" : isShort ? "Short" : "Video"}
@@ -478,7 +478,7 @@ export function VideoUpload({
           <div className="px-3 py-2">
             <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Type</div>
             <div className="flex items-center gap-1.5">
-              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-primary/15 text-primary"}`}>
                 <TypeIcon format={videoFormat} className="w-3 h-3" />
               </span>
             </div>

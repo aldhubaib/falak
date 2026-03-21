@@ -57,7 +57,7 @@ export interface StoryDetailTopBarProps {
 
 const STAGE_COLOR_CLASS: Record<string, string> = {
   suggestion: "text-orange",
-  liked: "text-blue",
+  liked: "text-primary",
   scripting: "text-purple",
   filmed: "text-success",
   publish: "text-pink-400",
@@ -104,7 +104,7 @@ export function StoryDetailTopBar({
   const colorClass = getStageColor(activeStage);
   const nextStageIconColor =
     nextStageKey === "liked"
-      ? "text-blue"
+      ? "text-primary"
       : nextStageKey === "scripting"
         ? "text-purple"
         : nextStageKey === "filmed"
@@ -299,7 +299,7 @@ export function StoryDetailTopBar({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-blue text-white hover:opacity-90"
+              className="bg-primary text-white hover:opacity-90"
               onClick={() => {
                 onRestart?.();
                 setConfirmAction(null);
