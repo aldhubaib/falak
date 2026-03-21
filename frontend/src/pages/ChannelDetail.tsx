@@ -107,6 +107,8 @@ function ContentDNASection({ channelId }: { channelId: string }) {
   const [arInput, setArInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [embStatus, setEmbStatus] = useState<{ hasEmbedding: boolean; generatedAt: string | null } | null>(null);
   const enRef = useRef<HTMLInputElement>(null);
   const arRef = useRef<HTMLInputElement>(null);
 
@@ -126,6 +128,35 @@ function ContentDNASection({ channelId }: { channelId: string }) {
       });
     return () => { cancelled = true; };
   }, [channelId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/channels/${channelId}/niche-embedding-status`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setEmbStatus(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [channelId]);
+
+  const handleGenerate = () => {
+    setGenerating(true);
+    fetch(`/api/channels/${channelId}/generate-niche-embedding`, {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      })
+      .then((data) => {
+        toast.success("Embedding generated");
+        setEmbStatus({ hasEmbedding: true, generatedAt: data.generatedAt ?? new Date().toISOString() });
+      })
+      .catch(() => toast.error("Failed to generate embedding"))
+      .finally(() => setGenerating(false));
+  };
 
   const addTag = (
     value: string,
