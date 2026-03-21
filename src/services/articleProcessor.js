@@ -1189,6 +1189,7 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
       viralScore,
       firstMoverScore,
       compositeScore,
+      finalScore,
       brief,
     },
   })

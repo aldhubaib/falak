@@ -10,6 +10,7 @@ const { fetchTranscript } = require('../services/transcript')
 const { transcribeFromR2 } = require('../services/whisper')
 const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
 const { computeSimpleComposite, SIMPLE_COMPOSITE } = require('../lib/scoringConfig')
+const { getNicheEmbedding } = require('../services/embeddings')
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
@@ -174,6 +175,84 @@ router.get('/summary', async (req, res) => {
     res.json({ total: totalCount, ...counts, firstMovers, firstMoverPct })
   } catch (e) {
     res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/stories/rescore-all — re-score all active stories using niche embedding
+router.post('/rescore-all', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { channelId } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId is required' })
+
+    const nicheVec = await getNicheEmbedding(channelId)
+    if (!nicheVec) return res.status(400).json({ error: 'No niche embedding — generate it first in Channel settings' })
+
+    const rows = await db.$queryRaw`
+      SELECT id, embedding::text as embedding
+      FROM "Story"
+      WHERE "channelId" = ${channelId}
+        AND stage IN ('suggestion','liked','scripting','filmed','publish')
+        AND embedding IS NOT NULL
+    `
+
+    const updates = []
+    for (const row of rows) {
+      const storyEmbedding = JSON.parse(row.embedding)
+      let nicheScore = 0
+      for (let i = 0; i < storyEmbedding.length; i++) {
+        nicheScore += storyEmbedding[i] * nicheVec[i]
+      }
+      nicheScore = Math.max(0, Math.min(1, nicheScore))
+      const finalScore = Math.round(nicheScore * 100) / 100
+      const compositeScore = Math.round(nicheScore * 10 * 10) / 10
+      updates.push(db.story.update({
+        where: { id: row.id },
+        data: { compositeScore, finalScore, lastRescoredAt: new Date() },
+      }))
+    }
+
+    if (updates.length > 0) await db.$transaction(updates)
+    res.json({ ok: true, updated: updates.length })
+  } catch (e) {
+    console.error('[stories/rescore-all]', e?.message || e)
+    res.status(500).json({ error: e.message || 'Rescore failed' })
+  }
+})
+
+// ── POST /api/stories/:id/rescore — re-score a single story using niche embedding
+router.post('/:id/rescore', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const rows = await db.$queryRaw`
+      SELECT id, "channelId", "compositeScore", "finalScore", embedding::text as embedding
+      FROM "Story" WHERE id = ${req.params.id}
+    `
+    const story = rows?.[0]
+    if (!story) return res.status(404).json({ error: 'Story not found' })
+
+    const nicheVec = await getNicheEmbedding(story.channelId)
+    if (!nicheVec) return res.status(400).json({ error: 'No niche embedding — generate it first in Channel settings' })
+
+    if (!story.embedding) return res.status(400).json({ error: 'Story has no embedding yet' })
+    const storyEmbedding = JSON.parse(story.embedding)
+
+    let nicheScore = 0
+    for (let i = 0; i < storyEmbedding.length; i++) {
+      nicheScore += storyEmbedding[i] * nicheVec[i]
+    }
+    nicheScore = Math.max(0, Math.min(1, nicheScore))
+
+    const finalScore = Math.round(nicheScore * 100) / 100
+    const compositeScore = Math.round(nicheScore * 10 * 10) / 10
+
+    await db.story.update({
+      where: { id: story.id },
+      data: { compositeScore, finalScore, lastRescoredAt: new Date() },
+    })
+
+    res.json({ ok: true, compositeScore, finalScore, nicheScore })
+  } catch (e) {
+    console.error('[stories/rescore]', req.params.id, e?.message || e)
+    res.status(500).json({ error: e.message || 'Rescore failed' })
   }
 })
 

@@ -168,6 +168,7 @@ model Story {
   viralScore      Int?
   firstMoverScore Int?
   compositeScore  Float?
+  finalScore      Float?
   scriptLong      String?    @db.Text
   scriptShort     String?    @db.Text
   brief           Json?

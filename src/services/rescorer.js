@@ -322,6 +322,7 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
           viralScore: correctedViral,
           firstMoverScore: adjustedFirstMover,
           compositeScore: newCompositeScore,
+          finalScore: Math.round(newCompositeScore / 10 * 100) / 100,
           lastRescoredAt: new Date(),
           rescoreLog: updatedLog,
         },
