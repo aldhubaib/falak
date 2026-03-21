@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, Wand2, RefreshCw, ExternalLink } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 
 export interface StoryDetailArticleProps {
@@ -14,7 +13,6 @@ export interface StoryDetailArticleProps {
   articleLoading: boolean;
   articleError: string | null;
   actionsDisabled: boolean;
-  scores?: { relevance: number; viral: number; firstMover: number; total: number };
   relativeDate?: string | null;
   articleOpen?: boolean;
   onArticleOpenChange?: (open: boolean) => void;
@@ -54,7 +52,6 @@ export function StoryDetailArticle({
   articleLoading,
   articleError,
   actionsDisabled,
-  scores,
   relativeDate,
   articleOpen: controlledOpen,
   onArticleOpenChange,
@@ -126,51 +123,8 @@ export function StoryDetailArticle({
               </div>
             );
           })()}
-          {scores && (
-            <>
-            <div className="flex items-center gap-1.5 max-sm:gap-1">
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1 cursor-default">
-                    <span className="text-[10px] text-muted-foreground font-mono">R</span>
-                    <span className="text-[10px] font-mono font-semibold text-purple">{scores.relevance}</span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Relevance</TooltipContent>
-              </Tooltip>
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1 cursor-default">
-                    <span className="text-[10px] text-muted-foreground font-mono">V</span>
-                    <span className="text-[10px] font-mono font-semibold text-primary">{scores.viral}</span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Virality</TooltipContent>
-              </Tooltip>
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1 cursor-default max-sm:hidden">
-                    <span className="text-[10px] text-muted-foreground font-mono">F</span>
-                    <span className="text-[10px] font-mono font-semibold text-success">{scores.firstMover}</span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>First Mover</TooltipContent>
-              </Tooltip>
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-1 cursor-default">
-                    <span className="text-[10px] text-muted-foreground font-mono">T</span>
-                    <span className="text-[10px] font-mono font-semibold text-foreground">{scores.total}</span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Total</TooltipContent>
-              </Tooltip>
-            </div>
-              <span className="w-px h-3 bg-border max-sm:hidden" />
-              {relativeDate != null && relativeDate !== "" && (
-                <span className="text-[11px] text-muted-foreground font-mono max-sm:hidden">{relativeDate}</span>
-              )}
-            </>
+          {relativeDate != null && relativeDate !== "" && (
+            <span className="text-[11px] text-muted-foreground font-mono max-sm:hidden">{relativeDate}</span>
           )}
         </div>
       </button>

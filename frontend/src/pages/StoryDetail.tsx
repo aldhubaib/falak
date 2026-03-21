@@ -1253,12 +1253,6 @@ export default function StoryDetail() {
               articleLoading={articleLoading}
               articleError={articleError}
               actionsDisabled={isWriterBoxRunning}
-              scores={{
-                relevance: story.relevanceScore ?? 0,
-                viral: story.viralScore ?? 0,
-                firstMover: story.firstMoverScore ?? 0,
-                total: story.compositeScore ?? 0,
-              }}
               relativeDate={relativeDate}
               articleOpen={articleOpen}
               onArticleOpenChange={setArticleOpen}
