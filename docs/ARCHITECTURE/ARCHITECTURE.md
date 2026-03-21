@@ -74,8 +74,9 @@ Three worker loops start in-process inside `server.js` after boot:
   transcribe → comments → AI analysis). If Redis is available, it consumes a
   Bull queue; otherwise it polls the database every 10 seconds.
 - **Article pipeline worker** — polls every 10 seconds for articles to process
-  through 7 stages (content → classify → research → translate → script → score → promote).
-  Also polls article sources every 5 minutes for new imports.
+  through 7 stages (content → classify → title_translate → score → research → translate → done).
+  A dynamic threshold gate after scoring filters out low-scoring articles before
+  expensive research and translation. Also polls article sources every 5 minutes for new imports.
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
   from YouTube, learns from editorial decisions and published-video outcomes, and
   re-scores all active stories.
@@ -327,7 +328,8 @@ A YouTube comment fetched from the video, with AI-assigned sentiment.
 
 An AI-generated or manually created story idea. Flows through stages from
 `suggestion` → `liked` → `scripting` → `filmed` → `publish` → `done`. Can also
-be `passed` or `omit` (negative decisions used for learning).
+be `skip` or `trash` (negative decisions used for learning), or `filtered`
+(automatically filtered out by the article pipeline threshold gate).
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -405,8 +407,8 @@ optional per-source API key.
 
 #### Article
 
-An article fetched from a source, processed through the 6-stage pipeline
-(imported → content → classify → research → translated → score → done).
+An article fetched from a source, processed through the pipeline
+(imported → content → classify → title_translate → score → [threshold gate] → research → translated → done).
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -422,7 +424,7 @@ An article fetched from a source, processed through the 6-stage pipeline
 | `publishedAt` | DateTime | No | — | Article publish date |
 | `language` | String | No | — | Detected language |
 | `stage` | String | Yes | `"imported"` | Pipeline stage |
-| `status` | String | Yes | `"queued"` | `queued`, `running`, `done`, `failed`, `review` |
+| `status` | String | Yes | `"queued"` | `queued`, `running`, `done`, `filtered`, `failed`, `review` |
 | `retries` | Int | Yes | 0 | Retry count |
 | `error` | String | No | — | Last error |
 | `startedAt` | DateTime | No | — | Processing start |
@@ -436,7 +438,7 @@ An article fetched from a source, processed through the 6-stage pipeline
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Stages:** `imported` → `content` → `classify` → `research` → `translated` → `script` → `score` → `done`.
+**Stages:** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `done`. Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
 
 #### ApifyRun
@@ -565,7 +567,8 @@ and published video outcome.
 | `channelAvgViews` | BigInt | Yes | 0 | Channel's average views |
 | `channelMedianViews` | BigInt | Yes | 0 | Channel's median views |
 | `totalOutcomes` | Int | Yes | 0 | Published stories with YouTube stats |
-| `totalDecisions` | Int | Yes | 0 | Total liked/passed/omit decisions |
+| `totalDecisions` | Int | Yes | 0 | Total liked/skip/trash decisions |
+| `currentThreshold` | Float | Yes | 0.30 | Dynamic filtering threshold (updated by threshold gate) |
 | `lastLearnedAt` | DateTime | No | — | Last learning cycle |
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
@@ -911,14 +914,16 @@ reset to `queued`.
 
 ```mermaid
 flowchart LR
-    IM["imported"] --> CO["content"] --> CL["classify"] --> RE["research"] --> TR["translated"] --> SR["script"] --> SC["score"] --> DO["done"]
+    IM["imported"] --> CO["content"] --> CL["classify"] --> TT["title_translate"] --> SC["score"]
+    SC -->|above threshold| RE["research"] --> TR["translated"] --> DO["done"]
+    SC -->|below threshold| FI["filtered"]
     CO -.->|needs review| RV["review"]
     IM -.->|failure| F["failed"]
     CO -.->|failure| F
     CL -.->|failure| F
+    SC -.->|failure| F
     RE -.->|failure| F
     TR -.->|failure| F
-    SC -.->|failure| F
 ```
 
 **Execution mode:** Polling only (10s interval). No Bull queue support.
@@ -928,10 +933,10 @@ flowchart LR
 | **imported** | Logs initial state. | — | — |
 | **content** | Extracts content: raw HTML → Firecrawl scrape → HTTP fetch → title+desc fallback. Min 300 chars or goes to review. | Firecrawl | `Article.contentClean` |
 | **classify** | AI classification (Haiku): topic, tags, contentType, region, summary, uniqueAngle. Works in original language. Retries once if language mismatch. | Anthropic Haiku | `Article.analysis`, `Article.language` |
-| **research** | Multi-source research: Firecrawl search (5 related articles) → Perplexity context → Claude synthesis into structured brief. Non-fatal on failure. | Firecrawl, Perplexity, Anthropic Sonnet | `Article.analysis.research` |
-| **translated** | Translates content + fields + research brief to Arabic via Haiku. Skips if source is already Arabic (copies fields). | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar` |
-| **script** | Auto-generates a draft script (Sonnet) with branded hooks, channel dialect, and research context. Non-fatal on failure. Stored in `Article.analysis.draftScript`. | Anthropic Sonnet | `Article.analysis.draftScript` (title, hooks, script, tags) |
-| **score** | Generates embedding → similarity search → AI scoring (Haiku) → final score formula → promotes to Story. Draft script from script stage is copied to `Story.brief`. All scored articles become stories for team evaluation. | OpenAI Embeddings, Anthropic Haiku | `Article.finalScore`, creates `Story` + `Story.embedding` |
+| **title_translate** | Lightweight Arabic translation of title + first 2 sentences via Haiku. Stored in `analysis.titleTranslateAr` for scoring/niche match. Non-blocking on failure. | Anthropic Haiku | `Article.analysis.titleTranslateAr` |
+| **score** | Generates embedding from Arabic title translation → similarity search → AI scoring (Haiku on original content) → final score formula → dynamic threshold gate. Articles below threshold are set to `filtered`. | OpenAI Embeddings, Anthropic Haiku | `Article.finalScore`, `Article.stage` (→ `filtered` or `research`) |
+| **research** | Multi-source research: Firecrawl search (5 related articles) → Perplexity context → Claude synthesis into structured brief. Non-fatal on failure. Only runs for articles above threshold. | Firecrawl, Perplexity, Anthropic Sonnet | `Article.analysis.research` |
+| **translated** | Translates content + fields + research brief to Arabic via Haiku. Promotes to Story at end. Skips translation if source is already Arabic. | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar`, creates `Story` |
 
 **Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
 
@@ -1113,7 +1118,7 @@ The rescore worker computes a 7-factor composite for each active story:
 
 ### ScoreProfile Self-Learning
 
-**From decisions** (liked/passed/omit):
+**From decisions** (liked/skip/trash):
 
 ```
 signal = (positiveCount / totalCount - 0.5) × 2    # range [-1, +1]
