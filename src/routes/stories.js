@@ -662,7 +662,11 @@ router.get('/:id', async (req, res) => {
       where: { id: req.params.id },
       include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' }, take: 50 } }
     })
-    res.json(story)
+    const linkedArticle = await db.article.findFirst({
+      where: { storyId: story.id },
+      select: { id: true },
+    })
+    res.json({ ...story, linkedArticleId: linkedArticle?.id ?? null })
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     console.error('[stories/get]', req.params.id, e?.message || e)

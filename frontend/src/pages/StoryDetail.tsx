@@ -1137,6 +1137,15 @@ export default function StoryDetail() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
+              {story.linkedArticleId && (
+                <Link
+                  to={channelPath(`/article/${story.linkedArticleId}`)}
+                  className="flex items-center gap-2.5 px-5 py-3 border-b border-border text-[12px] font-medium text-primary hover:bg-primary/5 transition-colors no-underline"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  View Article Pipeline Log
+                </Link>
+              )}
               <div className="max-h-[400px] overflow-y-auto">
                 {Array.isArray(story.log) && story.log.length > 0 ? (
                   story.log.map((entry) => {

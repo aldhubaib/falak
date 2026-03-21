@@ -12,6 +12,7 @@ export interface ApiChannel {
 }
 
 export interface StoryWithLog extends ApiStory {
+  linkedArticleId?: string | null;
   log: {
     id: string;
     action: string;
