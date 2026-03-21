@@ -75,28 +75,6 @@ function relativeTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: diff > 365 * 24 * 60 * 60 * 1000 ? "numeric" : undefined });
 }
 
-function MiniScores({ story }: { story: ApiStory }) {
-  const items = [
-    { val: story.relevanceScore ?? 0, bar: "bg-purple",  label: "Relevance" },
-    { val: story.viralScore ?? 0,     bar: "bg-primary",    label: "Demand" },
-    { val: story.firstMoverScore ?? 0, bar: "bg-success", label: "First Mover" },
-  ];
-  return (
-    <div className="flex items-center gap-2">
-      {items.map((s, i) => (
-        <div key={i} className="flex items-center gap-1" title={`${s.label}: ${s.val}/100`}>
-          <div className="w-5 h-1 bg-card rounded-full overflow-hidden">
-            <div className={`h-full rounded-full ${s.bar}`} style={{ width: `${s.val}%` }} />
-          </div>
-          <span className={`text-[10px] font-mono font-medium ${
-            i === 0 ? "text-purple" : i === 1 ? "text-primary" : "text-success"
-          }`}>{s.val}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Stories() {
@@ -415,9 +393,8 @@ export default function Stories() {
                         )}
                         {sourceLabel && <span className="text-muted-foreground">{sourceLabel}</span>}
                       </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <MiniScores story={story} />
-                        <span className={`text-[12px] font-mono font-bold shrink-0 ml-auto ${story.compositeScore == null ? "text-muted-foreground" : ""}`}>
+                      <div className="flex items-center justify-end gap-3">
+                        <span className={`text-[12px] font-mono font-bold shrink-0 ${story.compositeScore == null ? "text-muted-foreground" : ""}`}>
                           {story.compositeScore != null
                             ? `${Number(story.compositeScore).toFixed(1)}/10`
                             : "—/10"}
