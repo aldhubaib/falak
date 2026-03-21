@@ -309,6 +309,36 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
   }
 })
 
+// ── GET /api/channels/:id/niche-tags — read Content DNA tags
+const nicheTagsBodySchema = z.object({
+  nicheTags: z.array(z.string().max(50)).max(100),
+  nicheTagsAr: z.array(z.string().max(50)).max(100),
+})
+
+router.get('/:id/niche-tags', asyncWrap(async (req, res) => {
+  const channelId = req.params.id
+  const profile = await db.scoreProfile.upsert({
+    where: { channelId },
+    create: { channelId },
+    update: {},
+    select: { nicheTags: true, nicheTagsAr: true },
+  })
+  res.json({ nicheTags: profile.nicheTags, nicheTagsAr: profile.nicheTagsAr })
+}))
+
+// ── PATCH /api/channels/:id/niche-tags — update Content DNA tags
+router.patch('/:id/niche-tags', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+  const { nicheTags, nicheTagsAr } = parseBody(req.body, nicheTagsBodySchema)
+  const channelId = req.params.id
+  const profile = await db.scoreProfile.upsert({
+    where: { channelId },
+    create: { channelId, nicheTags, nicheTagsAr },
+    update: { nicheTags, nicheTagsAr },
+    select: { nicheTags: true, nicheTagsAr: true },
+  })
+  res.json({ nicheTags: profile.nicheTags, nicheTagsAr: profile.nicheTagsAr })
+}))
+
 // ── DELETE /api/channels/all — delete every channel (owner/admin only)
 router.delete('/all', requireRole('owner', 'admin'), async (req, res) => {
   try {

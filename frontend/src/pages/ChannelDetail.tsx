@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { getCountryName } from "@/data/countries";
-import { ArrowLeft, Info, Loader2 } from "lucide-react";
+import { ArrowLeft, Info, Loader2, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Video } from "@/data/mock";
 
@@ -87,6 +87,196 @@ function mapVideo(v: ApiVideo): Video {
     thumbnail: v.thumbnailUrl || undefined,
     pipeline: [],
   };
+}
+
+const DEFAULT_EN_TAGS = [
+  "unsolved", "cold case", "missing", "disappeared", "no arrest", "still at large",
+  "unidentified", "Jane Doe", "John Doe", "remains found", "unexplained",
+  "suspicious death", "open case", "no leads", "reward offered", "tip line",
+  "last seen", "vanished", "buried secrets", "hidden body", "anonymous tip",
+  "decades old", "case reopened", "new evidence", "witness needed",
+  "person of interest", "baffling", "strange disappearance", "never found",
+  "presumed dead", "unnamed victim", "secret identity", "cover up", "conspiracy",
+  "whistleblower", "undiscovered",
+];
+
+function ContentDNASection({ channelId }: { channelId: string }) {
+  const [enTags, setEnTags] = useState<string[]>([]);
+  const [arTags, setArTags] = useState<string[]>([]);
+  const [enInput, setEnInput] = useState("");
+  const [arInput, setArInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const enRef = useRef<HTMLInputElement>(null);
+  const arRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/channels/${channelId}/niche-tags`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { nicheTags: [], nicheTagsAr: [] }))
+      .then((data: { nicheTags: string[]; nicheTagsAr: string[] }) => {
+        if (cancelled) return;
+        const en = data.nicheTags ?? [];
+        setEnTags(en.length === 0 ? [...DEFAULT_EN_TAGS] : en);
+        setArTags(data.nicheTagsAr ?? []);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, [channelId]);
+
+  const addTag = (
+    value: string,
+    tags: string[],
+    setTags: (t: string[]) => void,
+    setInput: (v: string) => void,
+    caseInsensitive: boolean,
+  ) => {
+    const trimmed = value.trim();
+    if (!trimmed || tags.length >= 100) return;
+    const dup = caseInsensitive
+      ? tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())
+      : tags.includes(trimmed);
+    if (dup) { setInput(""); return; }
+    setTags([...tags, trimmed]);
+    setInput("");
+  };
+
+  const handleKey = (
+    e: KeyboardEvent<HTMLInputElement>,
+    input: string,
+    tags: string[],
+    setTags: (t: string[]) => void,
+    setInput: (v: string) => void,
+    caseInsensitive: boolean,
+  ) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(input.replace(/,$/, ""), tags, setTags, setInput, caseInsensitive);
+    }
+  };
+
+  const removeTag = (idx: number, tags: string[], setTags: (t: string[]) => void) => {
+    setTags(tags.filter((_, i) => i !== idx));
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    fetch(`/api/channels/${channelId}/niche-tags`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ nicheTags: enTags, nicheTagsAr: arTags }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to save");
+        toast.success("Content DNA saved");
+      })
+      .catch(() => toast.error("Failed to save Content DNA"))
+      .finally(() => setSaving(false));
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className="px-6 pt-5 max-lg:px-4">
+      <div className="rounded-lg border border-border bg-background overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+          <Tag className="w-4 h-4 text-dim" />
+          <div>
+            <span className="text-[13px] font-semibold text-foreground">Content DNA</span>
+            <p className="text-[11px] text-dim mt-0.5">
+              Tags that define your niche. Used by the scoring system to identify relevant stories.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 max-md:grid-cols-1 divide-x max-md:divide-x-0 max-md:divide-y divide-border">
+          {/* English Tags */}
+          <div className="px-5 py-4">
+            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 block">
+              English Tags
+            </label>
+            <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
+              {enTags.map((tag, i) => (
+                <span
+                  key={`${tag}-${i}`}
+                  className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-secondary text-secondary-foreground"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(i, enTags, setEnTags)}
+                    className="ml-0.5 hover:text-foreground transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <input
+              ref={enRef}
+              type="text"
+              value={enInput}
+              onChange={(e) => setEnInput(e.target.value)}
+              onKeyDown={(e) => handleKey(e, enInput, enTags, setEnTags, setEnInput, true)}
+              className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+              placeholder="Type a tag and press Enter…"
+              disabled={enTags.length >= 100}
+            />
+          </div>
+
+          {/* Arabic Tags */}
+          <div className="px-5 py-4">
+            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 block" dir="rtl">
+              Arabic Tags
+            </label>
+            <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]" dir="rtl">
+              {arTags.map((tag, i) => (
+                <span
+                  key={`${tag}-${i}`}
+                  className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-secondary text-secondary-foreground"
+                  dir="rtl"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(i, arTags, setArTags)}
+                    className="ml-0.5 hover:text-foreground transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <input
+              ref={arRef}
+              type="text"
+              value={arInput}
+              onChange={(e) => setArInput(e.target.value)}
+              onKeyDown={(e) => handleKey(e, arInput, arTags, setArTags, setArInput, false)}
+              dir="rtl"
+              className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+              placeholder="اكتب وسم واضغط Enter…"
+              disabled={arTags.length >= 100}
+            />
+          </div>
+        </div>
+
+        <div className="px-5 py-3 border-t border-border flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 text-[12px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ChannelDetail() {
@@ -318,6 +508,10 @@ export default function ChannelDetail() {
               ))}
             </div>
           </div>
+
+          {channelType === "ours" && channel && (
+            <ContentDNASection channelId={channel.id} />
+          )}
 
           <div className="px-6 py-5 pb-16 max-lg:px-4 max-lg:pb-20">
             <div className="flex items-center justify-between mb-3">
