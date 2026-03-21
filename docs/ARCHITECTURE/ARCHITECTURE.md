@@ -350,6 +350,7 @@ be `passed` or `omit` (negative decisions used for learning).
 | `scriptLong` | Text | No | — | Full-length script |
 | `scriptShort` | Text | No | — | Short-form script |
 | `brief` | Json | No | — | Rich metadata (article, research, video, tags, etc.) |
+| `producedVideoId` | String | No | — | FK → Video (unique) — links story to its published YouTube video |
 | `embedding` | vector(1536) | No | — | pgvector embedding |
 | `lastRescoredAt` | DateTime | No | — | Last rescore timestamp |
 | `rescoreLog` | Json | No | — | Last 20 rescore entries |
@@ -357,8 +358,8 @@ be `passed` or `omit` (negative decisions used for learning).
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Relations:** Belongs to `Channel`. Has many `StoryLog`.
-**Indexes:** `[channelId, stage]`.
+**Relations:** Belongs to `Channel`. Has many `StoryLog`. Optional 1:1 to `Video` via `producedVideoId`.
+**Indexes:** `[channelId, stage]`. **Unique:** `producedVideoId`.
 
 #### StoryLog
 
@@ -759,6 +760,7 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/stories/:id/generate-description` | editor+ | AI-generate YouTube description. | Anthropic API |
 | POST | `/api/stories/:id/suggest-tags` | editor+ | AI-suggest YouTube SEO tags. | Anthropic API |
 | POST | `/api/stories/:id/classify-video` | editor+ | Detect Short vs regular video. | YouTube API |
+| PATCH | `/api/stories/:id/link-video` | editor+ | Link story to its produced YouTube video by `youtubeId`. | — |
 | POST | `/api/stories/:id/log` | editor+ | Add a log entry. | — |
 | POST | `/api/stories/re-evaluate` | admin+ | Full rescore cycle for a channel. | YouTube API + scoring |
 | POST | `/api/stories/recalculate-scores` | admin+ | Batch recalc compositeScore. | — |
@@ -994,7 +996,7 @@ flowchart TB
 | Step | What Happens | External API | DB Writes |
 |---|---|---|---|
 | **Refresh competition** | Fetches channel stats + recent 50 videos for each child channel. 2s delay between channels. | YouTube Data API v3 | `Channel.*`, `ChannelSnapshot`, `Video` upserts |
-| **Own video stats** | Fetches YouTube stats for published stories' videos. | YouTube Data API v3 | `Story.brief.views/likes/comments` |
+| **Own video stats** | Reads stats from linked Video (via `producedVideoId`) or fetches via YouTube API for stories with `brief.youtubeUrl`. | YouTube Data API v3 (fallback only) | `Story.brief.views/likes/comments` |
 | **Self-learning** | Builds tag/type/region signals from editorial decisions. Calibrates AI accuracy from published outcomes. | — | `ScoreProfile.*` |
 | **Re-score stories** | Computes 7-factor composite score for all stories in active stages. Creates alerts for significant changes. | — | `Story.compositeScore`, `StoryLog`, `Alert` |
 
@@ -1105,7 +1107,13 @@ Requires ≥5 decisions to start learning.
 
 **From outcomes** (published video YouTube stats):
 
+Stats are read from the linked `Video` model (via `producedVideoId`) or from `brief.views`
+(populated by `fetchOwnVideoStats`). Performance combines views and engagement:
+
 ```
+engagementRatio = (likes + comments) / views
+engagementSignal = min(2, engagementRatio / 0.02)
+performanceRatio = viewRatio × 0.70 + engagementSignal × 0.30
 aiViralAccuracy = prev × 0.9 + observedAccuracy × 0.1
 tagSignal = clamp((avgViewRatio - 1) × 0.3, -0.5, 0.5)
 merged = existingDecisionSignal × 0.4 + outcomeSignal × 0.6   # outcomes weighted more
