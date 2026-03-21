@@ -500,21 +500,44 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
 
     const cap = Math.min(Math.max(1, Number(limit) || 5), 20)
 
-    const articles = await db.article.findMany({
-      where: {
-        channelId,
-        stage: 'imported',
-        status: 'queued',
-        retries: { lt: 3 },
-      },
+    // Pick any articles in the 'imported' stage regardless of status/retries.
+    // Prefer 'queued' first, then fall back to any status (running, failed, etc.)
+    let articles = await db.article.findMany({
+      where: { channelId, stage: 'imported', status: 'queued' },
       include: { source: { include: { channel: true } } },
       orderBy: { createdAt: 'asc' },
       take: cap,
     })
+    if (articles.length < cap) {
+      const existingIds = articles.map(a => a.id)
+      const more = await db.article.findMany({
+        where: {
+          channelId,
+          stage: 'imported',
+          ...(existingIds.length > 0 ? { id: { notIn: existingIds } } : {}),
+        },
+        include: { source: { include: { channel: true } } },
+        orderBy: { createdAt: 'asc' },
+        take: cap - articles.length,
+      })
+      articles = articles.concat(more)
+    }
 
     if (articles.length === 0) {
       return res.json({ runId: null, total: 0, articles: [] })
     }
+
+    // Force-reset picked articles so processItem can run them cleanly
+    await db.article.updateMany({
+      where: { id: { in: articles.map(a => a.id) } },
+      data: { status: 'queued', retries: 0, error: null, startedAt: null },
+    })
+    // Re-fetch after reset so processItem sees clean state
+    articles = await db.article.findMany({
+      where: { id: { in: articles.map(a => a.id) } },
+      include: { source: { include: { channel: true } } },
+      orderBy: { createdAt: 'asc' },
+    })
 
     const runId = `test-${Date.now()}`
     const DONE_STAGES = new Set(['done', 'failed'])

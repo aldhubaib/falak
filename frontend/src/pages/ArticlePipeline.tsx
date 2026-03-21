@@ -416,7 +416,7 @@ function PipelineTabContent() {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { runId: string | null; total: number; articles: { id: string; title: string | null; stageBefore: string }[] }) => {
         if (!d.runId || d.total === 0) {
-          toast("No queued articles to process");
+          toast("No imported articles to test");
           setTestRunning(false);
           setTestProgress(null);
           return;
