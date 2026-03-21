@@ -345,18 +345,19 @@ export default function Settings() {
       .finally(() => setRemovingMulti((p) => ({ ...p, [id]: false })));
   };
 
-  const handleTestKey = (service: string) => {
-    setTesting((p) => ({ ...p, [service]: true }));
-    setTestResult((p) => { const n = { ...p }; delete n[service]; return n; });
-    fetch("/api/settings/test-key", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service }) })
+  const handleTestKey = (service: string, keyId?: string) => {
+    const stateKey = keyId || service;
+    setTesting((p) => ({ ...p, [stateKey]: true }));
+    setTestResult((p) => { const n = { ...p }; delete n[stateKey]; return n; });
+    fetch("/api/settings/test-key", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, keyId }) })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { ok: boolean; detail?: string; error?: string; ms?: number }) => {
-        setTestResult((p) => ({ ...p, [service]: d }));
+        setTestResult((p) => ({ ...p, [stateKey]: d }));
         if (d.ok) toast.success(`Test passed${d.ms ? ` (${d.ms}ms)` : ""}`);
         else toast.error(d.error || "Test failed");
       })
-      .catch(() => { setTestResult((p) => ({ ...p, [service]: { ok: false, error: "Request failed" } })); toast.error("Test request failed"); })
-      .finally(() => setTesting((p) => ({ ...p, [service]: false })));
+      .catch(() => { setTestResult((p) => ({ ...p, [stateKey]: { ok: false, error: "Request failed" } })); toast.error("Test request failed"); })
+      .finally(() => setTesting((p) => ({ ...p, [stateKey]: false })));
   };
 
   // ── Render helpers ─────────────────────────────────────────────────────
@@ -479,41 +480,39 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between min-h-[18px]">
-            <div className="flex items-center gap-2">
-              <IconBtn tip="Test connection" onClick={() => handleTestKey(def.service)} disabled={!isSet || testing[def.service]} variant="test">
-                {testing[def.service] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-              </IconBtn>
-              <TestResult service={def.service} />
-            </div>
-            {def.link && (
+          {def.link && (
+            <div className="flex justify-end">
               <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary font-mono hover:opacity-80 transition-opacity">
                 {def.linkLabel} <ExternalLink className="w-2.5 h-2.5" />
               </a>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Each existing key as its own card */}
         {keys.map((k) => (
-          <div key={k.id} className="rounded-xl border border-border bg-card/50 p-4">
+          <div key={k.id} className="rounded-xl border border-border bg-card/50 p-4 space-y-2.5">
             <div className="flex items-center gap-1.5">
               <div className="flex-1 flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-muted/60 text-muted-foreground shrink-0">
-                  <Lock className="w-3.5 h-3.5" />
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-muted ${iconColorMap[def.icon]} shrink-0`}>
+                  <Icon className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[12px] font-medium leading-tight">{k.label}</div>
+                  <div className="text-[13px] font-semibold leading-tight">{def.name} — {k.label}</div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] font-mono text-muted-foreground">••••••••••••</span>
                     {k.usageCount > 0 && <span className="text-[10px] text-muted-foreground font-mono">{k.usageCount.toLocaleString()} calls</span>}
                   </div>
                 </div>
               </div>
+              <IconBtn tip="Test this key" onClick={() => handleTestKey(def.service, k.id)} disabled={testing[k.id]} variant="test">
+                {testing[k.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+              </IconBtn>
               <IconBtn tip="Remove key" onClick={() => handleRemoveMulti(def.service, endpoint, k.id, def.name)} disabled={removingMulti[k.id]} variant="danger">
                 {removingMulti[k.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               </IconBtn>
             </div>
+            <TestResult service={k.id} />
           </div>
         ))}
 

@@ -215,19 +215,22 @@ router.get('/embedding-status', requireRole('owner', 'admin'), async (req, res) 
 
 // ── POST /api/settings/test-key — lightweight test for any API key ──────
 router.post('/test-key', requireRole('owner', 'admin'), async (req, res) => {
-  const { service } = req.body
+  const { service, keyId } = req.body
   if (!service) return res.status(400).json({ error: 'service required' })
 
   try {
     let apiKey
 
-    // Multi-key services: pick the first active key from dedicated table
     if (service === 'youtube') {
-      const row = await db.youtubeApiKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
+      const row = keyId
+        ? await db.youtubeApiKey.findUnique({ where: { id: keyId } })
+        : await db.youtubeApiKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
       if (!row?.encryptedKey) return res.json({ ok: false, error: 'No active YouTube key found' })
       apiKey = decrypt(row.encryptedKey)
     } else if (service === 'google_search') {
-      const row = await db.googleSearchKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
+      const row = keyId
+        ? await db.googleSearchKey.findUnique({ where: { id: keyId } })
+        : await db.googleSearchKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
       if (!row?.encryptedKey) return res.json({ ok: false, error: 'No active Google Search key found' })
       apiKey = decrypt(row.encryptedKey)
     } else {
