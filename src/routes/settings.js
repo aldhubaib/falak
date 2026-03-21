@@ -8,9 +8,13 @@ router.use(requireAuth)
 // GET /api/settings — return all key metadata (no actual keys)
 router.get('/', requireRole('owner', 'admin'), async (req, res) => {
   try {
-    const [keys, youtubeKeys] = await Promise.all([
+    const [keys, youtubeKeys, googleSearchKeys] = await Promise.all([
       db.apiKey.findMany({ orderBy: { service: 'asc' } }),
       db.youtubeApiKey.findMany({
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        select: { id: true, label: true, isActive: true, lastUsedAt: true, usageCount: true, sortOrder: true }
+      }),
+      db.googleSearchKey.findMany({
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         select: { id: true, label: true, isActive: true, lastUsedAt: true, usageCount: true, sortOrder: true }
       }),
@@ -24,7 +28,11 @@ router.get('/', requireRole('owner', 'admin'), async (req, res) => {
       youtubeKeys: youtubeKeys.map(k => ({
         id: k.id, label: k.label, isActive: k.isActive,
         usageCount: k.usageCount, lastUsedAt: k.lastUsedAt, sortOrder: k.sortOrder
-      }))
+      })),
+      googleSearchKeys: googleSearchKeys.map(k => ({
+        id: k.id, label: k.label, isActive: k.isActive,
+        usageCount: k.usageCount, lastUsedAt: k.lastUsedAt, sortOrder: k.sortOrder
+      })),
     })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
@@ -97,6 +105,55 @@ router.patch('/youtube-keys/:id', requireRole('owner', 'admin'), async (req, res
     if (typeof isActive === 'boolean') data.isActive = isActive
     if (typeof label === 'string') data.label = label.trim() || undefined
     const row = await db.youtubeApiKey.update({
+      where: { id: req.params.id },
+      data
+    })
+    res.json({ id: row.id, label: row.label, isActive: row.isActive })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ── Google Search keys (multiple for quota rotation) ─────────────
+router.get('/google-search-keys', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const list = await db.googleSearchKey.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, label: true, isActive: true, lastUsedAt: true, usageCount: true }
+    })
+    res.json(list)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.post('/google-search-keys', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { key, label } = req.body
+    if (!key) return res.status(400).json({ error: 'key required' })
+    const count = await db.googleSearchKey.count()
+    const row = await db.googleSearchKey.create({
+      data: {
+        encryptedKey: encrypt(key),
+        label: (label && String(label).trim()) || `Key ${count + 1}`,
+        isActive: true,
+        sortOrder: count
+      }
+    })
+    res.json({ id: row.id, label: row.label, isActive: row.isActive })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.delete('/google-search-keys/:id', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    await db.googleSearchKey.delete({ where: { id: req.params.id } })
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+router.patch('/google-search-keys/:id', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { isActive, label } = req.body
+    const data = {}
+    if (typeof isActive === 'boolean') data.isActive = isActive
+    if (typeof label === 'string') data.label = label.trim() || undefined
+    const row = await db.googleSearchKey.update({
       where: { id: req.params.id },
       data
     })

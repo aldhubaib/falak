@@ -1,25 +1,32 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
-import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity, Search } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity, Search } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-interface YTKey { id: string; label: string; isActive: boolean; usageCount: number; lastUsedAt?: string | null }
+interface MultiKey { id: string; label: string; isActive: boolean; usageCount: number; lastUsedAt?: string | null }
 
 interface ApiKeyDef {
-  service: string;         // matches backend service string
+  service: string;
   name: string;
   description: string;
   icon: "ai" | "data" | "search" | "transcript" | "news";
   link?: string;
   linkLabel?: string;
   multiKey?: boolean;
+  multiKeyEndpoint?: string;
   placeholder?: string;
   projectScoped?: boolean;
   bodyField?: string;
+  companionField?: {
+    service: string;
+    label: string;
+    placeholder: string;
+    description: string;
+  };
 }
 
 interface UsageLog {
@@ -48,6 +55,7 @@ const CORE_KEYS: ApiKeyDef[] = [
     description: "Channel sync — video metadata, view counts, engagement. Add multiple keys for quota rotation.",
     icon: "data",
     multiKey: true,
+    multiKeyEndpoint: "youtube-keys",
     placeholder: "AIza...",
   },
   {
@@ -61,21 +69,20 @@ const CORE_KEYS: ApiKeyDef[] = [
   },
   {
     service: "google_search",
-    name: "Google Custom Search API Key",
-    description: "Web search for article research stage — finds related articles and context.",
+    name: "Google Custom Search",
+    description: "Web search for article research — finds related articles and context. Add multiple API keys for quota rotation (100 queries/day per key).",
     icon: "search",
+    multiKey: true,
+    multiKeyEndpoint: "google-search-keys",
     placeholder: "AIza...",
     link: "https://console.cloud.google.com/apis/credentials",
     linkLabel: "Google Cloud Console ↗",
-  },
-  {
-    service: "google_search_cx",
-    name: "Google Custom Search CX ID",
-    description: "Search engine identifier — defines what sites and content Google searches.",
-    icon: "search",
-    placeholder: "8189749b30ff64d36",
-    link: "https://programmablesearchengine.google.com/controlpanel/all",
-    linkLabel: "Programmable Search Engine ↗",
+    companionField: {
+      service: "google_search_cx",
+      label: "Search Engine CX ID",
+      placeholder: "8189749b30ff64d36",
+      description: "Programmable Search Engine identifier — shared across all API keys.",
+    },
   },
 ];
 
@@ -134,17 +141,17 @@ export default function Settings() {
 
   // Which services have a key set (from GET /api/settings)
   const [keyStatus, setKeyStatus] = useState<Record<string, boolean>>({});
-  // YouTube multi-keys from DB
-  const [ytKeys, setYtKeys] = useState<YTKey[]>([]);
+  // Multi-keys per service (keyed by service name)
+  const [multiKeys, setMultiKeys] = useState<Record<string, MultiKey[]>>({});
   // Inline edit state for single keys
   const [editing, setEditing] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [clearing, setClearing] = useState<Record<string, boolean>>({});
-  // New YouTube key form
-  const [newYtLabel, setNewYtLabel] = useState("");
-  const [newYtValue, setNewYtValue] = useState("");
-  const [addingYt, setAddingYt] = useState(false);
-  const [removingYt, setRemovingYt] = useState<Record<string, boolean>>({});
+  // New multi-key form (keyed by service)
+  const [newMultiLabel, setNewMultiLabel] = useState<Record<string, string>>({});
+  const [newMultiValue, setNewMultiValue] = useState<Record<string, string>>({});
+  const [addingMulti, setAddingMulti] = useState<Record<string, boolean>>({});
+  const [removingMulti, setRemovingMulti] = useState<Record<string, boolean>>({});
   // Embedding key (project-scoped, for vector intelligence)
   const [embeddingKeySet, setEmbeddingKeySet] = useState(false);
   const [embeddingKeyInput, setEmbeddingKeyInput] = useState("");
@@ -220,16 +227,19 @@ export default function Settings() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [fetchUsagePage]);
 
-  // Load key status + YouTube keys (global /api/settings) and project keys (for firecrawl)
+  // Load key status + multi-keys (global /api/settings) and project keys (for firecrawl)
   useEffect(() => {
     fetch("/api/settings", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { keys: { service: string; hasKey: boolean }[]; youtubeKeys: YTKey[] } | null) => {
+      .then((d: { keys: { service: string; hasKey: boolean }[]; youtubeKeys: MultiKey[]; googleSearchKeys: MultiKey[] } | null) => {
         if (!d) return;
         const status: Record<string, boolean> = {};
         for (const k of d.keys) status[k.service] = k.hasKey;
         setKeyStatus(status);
-        setYtKeys(d.youtubeKeys || []);
+        setMultiKeys({
+          youtube: d.youtubeKeys || [],
+          google_search: d.googleSearchKeys || [],
+        });
       })
       .catch(() => {});
   }, []);
@@ -373,43 +383,44 @@ export default function Settings() {
       .finally(() => setEmbeddingKeyClearing(false));
   };
 
-  // Add YouTube key
-  const handleAddYt = () => {
-    const label = newYtLabel.trim();
-    const value = newYtValue.trim();
+  // Add multi-key (generic for youtube, google_search, etc.)
+  const handleAddMulti = (service: string, endpoint: string, serviceName: string) => {
+    const label = (newMultiLabel[service] || "").trim();
+    const value = (newMultiValue[service] || "").trim();
     if (!value) { toast.error("Please enter the API key"); return; }
-    setAddingYt(true);
-    fetch("/api/settings/youtube-keys", {
+    setAddingMulti((p) => ({ ...p, [service]: true }));
+    fetch(`/api/settings/${endpoint}`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: value, label: label || undefined }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((k: YTKey) => {
-        setYtKeys((p) => [...p, k]);
-        setKeyStatus((p) => ({ ...p, youtube: true }));
-        setNewYtLabel(""); setNewYtValue("");
-        toast.success("YouTube key added");
+      .then((k: MultiKey) => {
+        setMultiKeys((p) => ({ ...p, [service]: [...(p[service] || []), k] }));
+        setKeyStatus((p) => ({ ...p, [service]: true }));
+        setNewMultiLabel((p) => ({ ...p, [service]: "" }));
+        setNewMultiValue((p) => ({ ...p, [service]: "" }));
+        toast.success(`${serviceName} key added`);
       })
       .catch(() => toast.error("Failed to add key"))
-      .finally(() => setAddingYt(false));
+      .finally(() => setAddingMulti((p) => ({ ...p, [service]: false })));
   };
 
-  // Remove YouTube key
-  const handleRemoveYt = (id: string) => {
-    setRemovingYt((p) => ({ ...p, [id]: true }));
-    fetch(`/api/settings/youtube-keys/${id}`, { method: "DELETE", credentials: "include" })
+  // Remove multi-key
+  const handleRemoveMulti = (service: string, endpoint: string, id: string, serviceName: string) => {
+    setRemovingMulti((p) => ({ ...p, [id]: true }));
+    fetch(`/api/settings/${endpoint}/${id}`, { method: "DELETE", credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(() => {
-        setYtKeys((p) => {
-          const next = p.filter((k) => k.id !== id);
-          setKeyStatus((ks) => ({ ...ks, youtube: next.length > 0 }));
-          return next;
+        setMultiKeys((p) => {
+          const next = (p[service] || []).filter((k) => k.id !== id);
+          setKeyStatus((ks) => ({ ...ks, [service]: next.length > 0 }));
+          return { ...p, [service]: next };
         });
-        toast("YouTube key removed");
+        toast(`${serviceName} key removed`);
       })
       .catch(() => toast.error("Failed to remove key"))
-      .finally(() => setRemovingYt((p) => ({ ...p, [id]: false })));
+      .finally(() => setRemovingMulti((p) => ({ ...p, [id]: false })));
   };
 
   const renderSingleKey = (def: ApiKeyDef) => {
@@ -467,8 +478,10 @@ export default function Settings() {
 
             <div className="space-y-5">
               {CORE_KEYS.map((def, idx) => {
-                const isSet = def.multiKey ? ytKeys.length > 0 : !!keyStatus[def.service];
+                const keys = multiKeys[def.service] || [];
+                const isSet = def.multiKey ? keys.length > 0 : !!keyStatus[def.service];
                 const Icon = iconMap[def.icon];
+                const endpoint = def.multiKeyEndpoint || "";
                 return (
                   <div key={def.service}>
                     <div className="flex items-center gap-2.5 mb-1">
@@ -477,39 +490,52 @@ export default function Settings() {
                       <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
                         ● {isSet ? "SET" : "EMPTY"}
                       </span>
-                      {def.multiKey && ytKeys.length > 0 && (
-                        <span className="text-[10px] font-mono text-success">{ytKeys.length} key{ytKeys.length !== 1 ? "s" : ""}</span>
+                      {def.multiKey && keys.length > 0 && (
+                        <span className="text-[10px] font-mono text-success">{keys.length} key{keys.length !== 1 ? "s" : ""}</span>
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground mb-2.5">{def.description}</p>
 
                     {def.multiKey ? (
                       <div className="space-y-2 mb-1">
-                        {ytKeys.map((k) => (
+                        {keys.map((k) => (
                           <div key={k.id} className="flex items-center justify-between px-4 py-2 bg-card rounded-lg">
                             <div className="flex items-center gap-2.5">
                               <span className="text-[12px] font-medium">{k.label}</span>
                               {k.usageCount > 0 && <span className="text-[10px] text-muted-foreground font-mono">{k.usageCount.toLocaleString()} calls</span>}
                             </div>
-                            <button onClick={() => handleRemoveYt(k.id)} disabled={removingYt[k.id]}
+                            <button onClick={() => handleRemoveMulti(def.service, endpoint, k.id, def.name)} disabled={removingMulti[k.id]}
                               className="w-6 h-6 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50">
-                              {removingYt[k.id] ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-3 h-3" />}
+                              {removingMulti[k.id] ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <X className="w-3 h-3" />}
                             </button>
                           </div>
                         ))}
                         <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
-                          <input type="text" placeholder="Label (e.g. Key 2)" value={newYtLabel} onChange={(e) => setNewYtLabel(e.target.value)}
+                          <input type="text" placeholder="Label (e.g. Key 2)" value={newMultiLabel[def.service] || ""} onChange={(e) => setNewMultiLabel((p) => ({ ...p, [def.service]: e.target.value }))}
                             className="w-[160px] max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
-                          <input type="text" placeholder={def.placeholder || "AIza..."} value={newYtValue} onChange={(e) => setNewYtValue(e.target.value)}
+                          <input type="text" placeholder={def.placeholder || "Paste key..."} value={newMultiValue[def.service] || ""} onChange={(e) => setNewMultiValue((p) => ({ ...p, [def.service]: e.target.value }))}
                             className="flex-1 max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40" />
-                          <button onClick={handleAddYt} disabled={addingYt}
+                          <button onClick={() => handleAddMulti(def.service, endpoint, def.name)} disabled={addingMulti[def.service]}
                             className="px-4 py-2 text-[12px] font-semibold bg-primary text-primary-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50 flex items-center gap-1.5">
-                            {addingYt && <Loader2 className="w-3 h-3 animate-spin" />} Add Key
+                            {addingMulti[def.service] && <Loader2 className="w-3 h-3 animate-spin" />} Add Key
                           </button>
                         </div>
                       </div>
                     ) : (
                       renderSingleKey(def)
+                    )}
+
+                    {def.companionField && (
+                      <div className="mt-3 pt-3 border-t border-border/50">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[12px] font-medium text-muted-foreground">{def.companionField.label}</span>
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${keyStatus[def.companionField.service] ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
+                            ● {keyStatus[def.companionField.service] ? "SET" : "EMPTY"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mb-2">{def.companionField.description}</p>
+                        {renderSingleKey({ service: def.companionField.service, name: def.companionField.label, description: "", icon: def.icon, placeholder: def.companionField.placeholder })}
+                      </div>
                     )}
 
                     {def.link && (

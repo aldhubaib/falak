@@ -336,6 +336,20 @@ model YoutubeApiKey {
   @@index([isActive])
 }
 
+model GoogleSearchKey {
+  id           String    @id @default(cuid())
+  label        String    @default("Key 1")
+  encryptedKey String    @db.Text
+  isActive     Boolean   @default(true)
+  lastUsedAt   DateTime?
+  usageCount   Int       @default(0)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
 // ─────────────────────────────────────────────
 // Article Sources & Article Pipeline
 // ─────────────────────────────────────────────
