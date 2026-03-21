@@ -520,10 +520,11 @@ function PipelineTabContent() {
             {/* Stats row */}
             <div className="px-6 max-lg:px-4 mb-5 pt-5">
               <div className="flex rounded-xl overflow-hidden border border-border">
-                <StatBox label="Total" value={totalArticles} sub={`${(data?.stats.done ?? 0)} done`} />
+                <StatBox label="Total" value={totalArticles} />
                 {STAGE_DEFS.filter(s => s.number > 0).map((s) => (
                   <StatBox key={s.id} label={s.label} value={data?.stats[s.id] ?? 0} color={s.color} />
                 ))}
+                <StatBox label="Done" value={data?.stats.done ?? 0} color="text-success" />
                 <StatBox label="Review" value={data?.stats.review ?? 0} color="text-orange" />
                 <StatBox label="Failed" value={failedCount} color="text-destructive" last />
               </div>
