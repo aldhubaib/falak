@@ -553,6 +553,8 @@ and published video outcome.
 |---|---|---|---|---|
 | `id` | String | Yes | `cuid()` | Primary key |
 | `channelId` | String | Yes | — | FK → Channel (unique — 1:1) |
+| `nicheTags` | String[] | Yes | `[]` | English niche tags for Content DNA |
+| `nicheTagsAr` | String[] | Yes | `[]` | Arabic niche tags for Content DNA |
 | `weightAdjustments` | Json | No | — | Custom weight overrides |
 | `tagSignals` | Json | No | — | Per-tag preference signals (−1 to +1) |
 | `contentTypeSignals` | Json | No | — | Per-content-type preference signals |
@@ -707,6 +709,8 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/channels/:id/fetch-videos` | editor+ | Pull latest videos from YouTube. | YouTube API → upserts Videos + PipelineItems, enqueues jobs |
 | POST | `/api/channels/:id/analyze-all` | editor+ | Queue all videos for AI analysis. | Creates PipelineItems at "analyzing" stage |
 | PATCH | `/api/channels/:id` | editor+ | Update channel fields (type, hooks, nationality). | — |
+| GET | `/api/channels/:id/niche-tags` | Yes | Get Content DNA niche tags (English + Arabic). | Upserts ScoreProfile if missing |
+| PATCH | `/api/channels/:id/niche-tags` | editor+ | Update Content DNA niche tags. | Upserts ScoreProfile |
 | DELETE | `/api/channels/all` | admin+ | Delete ALL channels. | Cascading deletes |
 | DELETE | `/api/channels/:id` | admin+ | Delete one channel. | Cascading deletes |
 
