@@ -157,7 +157,7 @@ export function StoryDetailStagePublish({
       </div>
 
       {/* ── Description ── */}
-      <div className="rounded-xl bg-background border border-border p-4">
+      <div className="rounded-lg bg-background border border-border p-4">
         <div className="flex items-center justify-between mb-2">
           <label className="text-[12px] text-dim font-medium">Description</label>
           <div className="flex items-center gap-2">
@@ -189,7 +189,7 @@ export function StoryDetailStagePublish({
       </div>
 
       {/* ── Subtitles (SRT) ── */}
-      <div className="rounded-xl bg-background border border-border p-4">
+      <div className="rounded-lg bg-background border border-border p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Subtitles className="w-3.5 h-3.5 text-dim" />
@@ -235,7 +235,7 @@ export function StoryDetailStagePublish({
       </div>
 
       {/* ── YouTube Video URL ── */}
-      <div className="rounded-xl bg-background border border-border p-4">
+      <div className="rounded-lg bg-background border border-border p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <LinkIcon className="w-3.5 h-3.5 text-dim" />

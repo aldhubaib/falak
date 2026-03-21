@@ -209,7 +209,7 @@ export default function Competitions() {
           ) : channels.length === 0 ? (
             <EmptyState title="No competitor channels yet" description="Add your first competitor above." />
           ) : (
-            <div className="rounded-xl overflow-hidden border border-border">
+            <div className="rounded-lg overflow-hidden border border-border">
               {channels.map((ch) => (
                 <div
                   key={ch.id}

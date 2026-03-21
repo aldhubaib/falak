@@ -303,7 +303,7 @@ export default function ChannelDetail() {
           </div>
 
           <div className="px-6 max-lg:px-4">
-            <div className="grid grid-cols-5 max-lg:grid-cols-2 rounded-xl overflow-hidden border border-border">
+            <div className="grid grid-cols-5 max-lg:grid-cols-2 rounded-lg overflow-hidden border border-border">
               {stats.map((s, i) => (
                 <div
                   key={s.label}

@@ -22,7 +22,7 @@ export function StoryDetailChannelSelector({
 }: StoryDetailChannelSelectorProps) {
   const selected = channels.find((c) => c.id === selectedId);
   return (
-    <div className="rounded-xl bg-background p-5">
+    <div className="rounded-lg bg-background p-5">
       <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
         Assign to Channel
       </div>
@@ -55,7 +55,7 @@ export function StoryDetailChannelSelector({
           />
         </button>
         {open && (
-          <div className="absolute z-10 mt-1.5 w-full rounded-xl bg-elevated border border-border overflow-hidden shadow-lg">
+          <div className="absolute z-10 mt-1.5 w-full rounded-lg bg-elevated border border-border overflow-hidden shadow-lg">
             {channels.map((c) => (
               <button
                 key={c.id}

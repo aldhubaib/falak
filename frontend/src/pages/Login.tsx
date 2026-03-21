@@ -132,7 +132,7 @@ export default function Login() {
                   {[col, col].map((tiles, pass) => (
                     <div key={pass} className={`flex flex-col gap-3 ${pass === 0 ? "pb-3" : ""}`}>
                       {tiles.map((item, i) => (
-                        <div key={`${pass}-${i}`} className={`rounded-xl overflow-hidden shrink-0 w-full ${item.isShort ? "aspect-[9/16]" : "aspect-video"}`}>
+                        <div key={`${pass}-${i}`} className={`rounded-lg overflow-hidden shrink-0 w-full ${item.isShort ? "aspect-[9/16]" : "aspect-video"}`}>
                           <img
                             src={item.url}
                             alt=""
@@ -175,7 +175,7 @@ export default function Login() {
 
           <div className="bg-card border border-border rounded-lg p-6">
             {error && (
-              <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-[12px]">
+              <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-[12px]">
                 {error}
               </div>
             )}
@@ -183,7 +183,7 @@ export default function Login() {
               type="button"
               onClick={handleLogin}
               disabled={loading}
-              className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-elevated border border-border rounded-xl text-foreground text-[13px] font-medium transition-all hover:bg-border hover:border-sensor/20 ${
+              className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-elevated border border-border rounded-lg text-foreground text-[13px] font-medium transition-all hover:bg-border hover:border-sensor/20 ${
                 loading ? "opacity-60 cursor-not-allowed pointer-events-none" : "cursor-pointer"
               }`}
             >
@@ -202,7 +202,7 @@ export default function Login() {
 
             <div className="h-px bg-border my-5" />
 
-            <div className="bg-primary/[0.06] border border-primary/10 rounded-xl p-3 flex items-start gap-2.5">
+            <div className="bg-primary/[0.06] border border-primary/10 rounded-lg p-3 flex items-start gap-2.5">
               <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary" />
               </div>

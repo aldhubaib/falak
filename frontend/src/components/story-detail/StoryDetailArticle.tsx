@@ -96,7 +96,7 @@ export function StoryDetailArticle({
           : "Done!";
 
   return (
-    <div className="rounded-xl bg-background border border-border overflow-hidden">
+    <div className="rounded-lg bg-background border border-border overflow-hidden">
       {/* Header — click toggles expanded */}
       <button
         type="button"

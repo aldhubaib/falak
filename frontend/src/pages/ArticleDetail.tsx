@@ -327,7 +327,7 @@ export default function ArticleDetailPage() {
         <div className="max-w-4xl mx-auto px-6 py-6 max-lg:px-4">
 
           {/* Article header card */}
-          <div className="rounded-xl border border-border bg-background p-5 mb-6">
+          <div className="rounded-lg border border-border bg-background p-5 mb-6">
             <div className="flex items-start justify-between gap-3 mb-3">
               <h2 className="text-[16px] font-semibold text-foreground leading-snug" dir="auto">
                 {article.title || "Untitled"}
@@ -507,7 +507,7 @@ function StageSection({
   const isActive = stageState === "active";
 
   return (
-    <div className={`rounded-xl border overflow-hidden ${
+    <div className={`rounded-lg border overflow-hidden ${
       isWaiting ? "border-border/50 bg-background/60" : "border-border bg-background"
     }`}>
       <button

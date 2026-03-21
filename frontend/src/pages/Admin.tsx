@@ -114,7 +114,7 @@ export default function Admin() {
         <div className="px-6 pt-5 max-lg:px-4 space-y-5">
 
           {/* Owner notice */}
-          <div className="rounded-xl bg-blue/5 border border-blue/15 px-5 py-4 flex items-start gap-3.5">
+          <div className="rounded-lg bg-blue/5 border border-blue/15 px-5 py-4 flex items-start gap-3.5">
             <Shield className="w-5 h-5 text-blue shrink-0 mt-0.5" />
             <p className="text-[13px] text-sensor leading-relaxed">
               The <strong className="text-foreground">channel owner</strong> always has full access and cannot be removed. Users not on this list will see an{" "}
@@ -123,7 +123,7 @@ export default function Admin() {
           </div>
 
           {/* Add Allowed User */}
-          <div className="rounded-xl bg-background p-5">
+          <div className="rounded-lg bg-background p-5">
             <div className="mb-1">
               <span className="text-[14px] font-semibold">Add Allowed User</span>
             </div>
@@ -138,17 +138,17 @@ export default function Admin() {
                   placeholder="user@example.com"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
+                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
                 />
               </div>
-              <button className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
+              <button className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap">
                 + Add
               </button>
             </div>
           </div>
 
           {/* Allowed Users */}
-          <div className="rounded-xl bg-background p-5">
+          <div className="rounded-lg bg-background p-5">
             <div className="flex items-center justify-between mb-4 max-sm:flex-col max-sm:items-start max-sm:gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="text-[14px] font-semibold">Allowed Users</span>
@@ -172,7 +172,7 @@ export default function Admin() {
                 return (
                   <div
                     key={user.id}
-                    className="rounded-xl border border-border p-4 hover:border-border/80 transition-colors"
+                    className="rounded-lg border border-border p-4 hover:border-border/80 transition-colors"
                   >
                     <div className="flex items-start gap-3.5 max-sm:flex-col max-sm:gap-3">
                       {/* Avatar */}
@@ -252,7 +252,7 @@ export default function Admin() {
           </div>
 
           {/* Role Permissions */}
-          <div className="rounded-xl bg-background p-5">
+          <div className="rounded-lg bg-background p-5">
             <span className="text-[14px] font-semibold mb-4 block">Role Permissions</span>
             <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
               {[
@@ -278,7 +278,7 @@ export default function Admin() {
                   desc: "Read-only access to assigned pages · Cannot make changes · Perfect for stakeholders or clients",
                 },
               ].map((r) => (
-                <div key={r.role} className={`rounded-xl border p-4 ${r.color}`}>
+                <div key={r.role} className={`rounded-lg border p-4 ${r.color}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span>{r.icon}</span>
                     <span className={`text-[13px] font-semibold ${r.textColor}`}>{r.role}</span>

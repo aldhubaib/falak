@@ -21,7 +21,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden lg:block rounded-xl overflow-hidden border border-border">
+      <div className="hidden lg:block rounded-lg overflow-hidden border border-border">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-elevated/40">
@@ -88,7 +88,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
       </div>
 
       {/* Mobile cards */}
-      <div className="flex flex-col lg:hidden rounded-xl overflow-hidden border border-border">
+      <div className="flex flex-col lg:hidden rounded-lg overflow-hidden border border-border">
         {videos.map((v) => {
           const href = getVideoHref?.(v.id);
           if (href) {

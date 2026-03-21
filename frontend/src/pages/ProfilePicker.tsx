@@ -150,7 +150,7 @@ export default function ProfilePicker() {
             {menuOpen === p.id && (
               <>
                 <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setMenuOpen(null); }} />
-                <div className="absolute top-10 right-2 z-50 bg-background border border-border rounded-xl shadow-lg py-1 min-w-[130px]">
+                <div className="absolute top-10 right-2 z-50 bg-background border border-border rounded-lg shadow-lg py-1 min-w-[130px]">
                   <button
                     onClick={(e) => { e.stopPropagation(); openEdit(p); }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-dim hover:text-sensor hover:bg-elevated/60 transition-colors"
@@ -221,7 +221,7 @@ export default function ProfilePicker() {
                 value={addHandle}
                 onChange={(e) => { setAddHandle(e.target.value); setAddError(""); }}
                 placeholder="@handle"
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
                 autoFocus
               />
             </div>
@@ -258,7 +258,7 @@ export default function ProfilePicker() {
                 value={editNameAr}
                 onChange={(e) => setEditNameAr(e.target.value)}
                 placeholder="Display name"
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
                 dir="rtl"
                 autoFocus
               />

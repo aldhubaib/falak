@@ -337,7 +337,7 @@ export default function Stories() {
         {/* Story list */}
         <div className="px-6 max-lg:px-4 pb-8">
           <div
-            className="rounded-xl border border-border overflow-hidden flex flex-col"
+            className="rounded-lg border border-border overflow-hidden flex flex-col"
             style={{ maxHeight: "calc(100vh - 300px)" }}
           >
             {/* Header */}

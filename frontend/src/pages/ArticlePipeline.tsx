@@ -519,7 +519,7 @@ function PipelineTabContent() {
           <>
             {/* Stats row */}
             <div className="px-6 max-lg:px-4 mb-5 pt-5">
-              <div className="flex rounded-xl overflow-hidden border border-border">
+              <div className="flex rounded-lg overflow-hidden border border-border">
                 <StatBox label="Total" value={totalArticles} />
                 {STAGE_DEFS.filter(s => s.number > 0).map((s) => (
                   <StatBox key={s.id} label={s.label} value={data?.stats[s.id] ?? 0} color={s.color} />
@@ -533,7 +533,7 @@ function PipelineTabContent() {
             {/* ── TEST RUN RESULTS ── */}
             {testResults && testResults.length > 0 && (
               <div className="px-6 max-lg:px-4 mb-5">
-                <div className="rounded-xl border border-purple/30 bg-purple/[0.04] overflow-hidden">
+                <div className="rounded-lg border border-purple/30 bg-purple/[0.04] overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-purple/20">
                     <div className="flex items-center gap-2">
                       <FlaskConical className="w-3.5 h-3.5 text-purple" />
@@ -774,7 +774,7 @@ function SubStepColumn({
 }) {
   const Icon = sub.icon;
   return (
-    <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
+    <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
       <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border space-y-1">
         <div className="flex items-center gap-2">
           <Icon className={`w-3.5 h-3.5 ${sub.color}`} />
@@ -1111,7 +1111,7 @@ function StageColumn({
   };
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
+    <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: "400px" }}>
       <div className="px-3 py-2.5 bg-background shrink-0 border-b border-border space-y-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

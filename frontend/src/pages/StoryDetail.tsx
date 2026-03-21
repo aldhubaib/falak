@@ -328,7 +328,7 @@ function ManualStoryWorkflow({
 
       {/* Auto-processing progress banner */}
       {isPipelineActive && (
-        <div className="rounded-xl bg-blue/5 border border-blue/20 px-4 py-3 space-y-3">
+        <div className="rounded-lg bg-blue/5 border border-blue/20 px-4 py-3 space-y-3">
           <div className="flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-blue" />
             <span className="text-[13px] font-semibold text-blue">Processing video…</span>
@@ -361,14 +361,14 @@ function ManualStoryWorkflow({
       )}
 
       {pipelineStep === "done" && (
-        <div className="rounded-xl bg-success/5 border border-success/20 px-4 py-3 flex items-center gap-2">
+        <div className="rounded-lg bg-success/5 border border-success/20 px-4 py-3 flex items-center gap-2">
           <span className="text-success text-[14px]">✓</span>
           <span className="text-[13px] font-medium text-success">All metadata generated automatically</span>
         </div>
       )}
 
       {pipelineStep === "error" && (
-        <div className="rounded-xl bg-destructive/5 border border-destructive/20 px-4 py-3 space-y-2">
+        <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-4 py-3 space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-destructive text-[14px]">✕</span>
             <span className="text-[13px] font-medium text-destructive">Auto-processing failed</span>
@@ -415,7 +415,7 @@ function ManualStoryWorkflow({
       />
 
       {/* Step 3: Title */}
-      <div className="rounded-xl bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-dim font-medium">Title</span>
           <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ function ManualStoryWorkflow({
       </div>
 
       {/* Step 4: Description */}
-      <div className="rounded-xl bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-dim font-medium">Description</span>
           <div className="flex items-center gap-2">
@@ -499,7 +499,7 @@ function ManualStoryWorkflow({
       </div>
 
       {/* Step 5: Tags */}
-      <div className="rounded-xl bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-dim font-medium">Tags</span>
           <div className="flex items-center gap-2">
@@ -578,7 +578,7 @@ function ManualStoryWorkflow({
 
       {/* SRT Download */}
       {brief.subtitlesSRT && (
-        <div className="rounded-xl bg-background border border-border overflow-hidden">
+        <div className="rounded-lg bg-background border border-border overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between">
             <span className="text-[12px] text-dim font-medium">Subtitles (SRT)</span>
             <div className="flex items-center gap-3">
@@ -607,7 +607,7 @@ function ManualStoryWorkflow({
       )}
 
       {/* YouTube URL */}
-      <div className="rounded-xl bg-background border border-border overflow-hidden">
+      <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-dim font-medium">YouTube URL</span>
           {brief.youtubeUrl && (
@@ -647,7 +647,7 @@ function ManualStoryWorkflow({
             type="button"
             onClick={() => onStageChange("done")}
             disabled={saving || isPipelineActive}
-            className="w-full py-3 rounded-xl text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full py-3 rounded-lg text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             Mark as Done
           </button>
@@ -1102,7 +1102,7 @@ export default function StoryDetail() {
         {scoreHistoryOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setScoreHistoryOpen(false)}>
             <div
-              className="w-full max-w-2xl rounded-xl bg-background border border-border overflow-hidden shadow-2xl mx-4"
+              className="w-full max-w-2xl rounded-lg bg-background border border-border overflow-hidden shadow-2xl mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
@@ -1154,7 +1154,7 @@ export default function StoryDetail() {
         {historyOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setHistoryOpen(false)}>
             <div
-              className="w-full max-w-lg rounded-xl bg-background border border-border overflow-hidden shadow-2xl mx-4"
+              className="w-full max-w-lg rounded-lg bg-background border border-border overflow-hidden shadow-2xl mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
@@ -1404,7 +1404,7 @@ export default function StoryDetail() {
             {activeStage === "done" && (
               <>
                 {brief.gapWin && (
-                  <div className="rounded-xl bg-success/10 border border-success/20 px-5 py-4 flex items-center gap-3">
+                  <div className="rounded-lg bg-success/10 border border-success/20 px-5 py-4 flex items-center gap-3">
                     <Trophy className="w-5 h-5 text-success shrink-0" />
                     <div>
                       <div className="text-[14px] font-semibold text-success">Gap Win</div>
@@ -1435,7 +1435,7 @@ export default function StoryDetail() {
                   <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
                     Video Performance
                   </div>
-                  <div className="flex rounded-xl overflow-hidden">
+                  <div className="flex rounded-lg overflow-hidden">
                     {[
                       { icon: Eye,            val: brief.views,    label: "Views" },
                       { icon: ThumbsUp,       val: brief.likes,    label: "Likes" },
@@ -1460,7 +1460,7 @@ export default function StoryDetail() {
                 </div>
 
                 {brief.youtubeUrl && (
-                  <div className="rounded-xl bg-background p-5">
+                  <div className="rounded-lg bg-background p-5">
                     <div className="flex items-center justify-between mb-3">
                       <label className="text-[10px] text-dim font-mono uppercase tracking-widest">
                         YouTube Video URL
@@ -1499,10 +1499,10 @@ export default function StoryDetail() {
                         type="url"
                         value={youtubeInput}
                         onChange={() => {}}
-                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
                       />
                     ) : (
-                      <div className="rounded-xl bg-card px-4 py-2.5 text-[13px] font-mono text-sensor truncate">
+                      <div className="rounded-lg bg-card px-4 py-2.5 text-[13px] font-mono text-sensor truncate">
                         {brief.youtubeUrl}
                       </div>
                     )}
@@ -1515,7 +1515,7 @@ export default function StoryDetail() {
                   const canLong = !produced.includes("long");
                   if (!canShort && !canLong) return null;
                   return (
-                    <div className="rounded-xl bg-background p-5 space-y-3">
+                    <div className="rounded-lg bg-background p-5 space-y-3">
                       <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
                         Produce Another Format
                       </div>

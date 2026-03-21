@@ -98,7 +98,7 @@ export default {
         sm:   "var(--radius-lg)",
         md:   "var(--radius-lg)",
         lg:   "var(--radius-lg)",
-        xl:   "var(--radius-xl)",
+        xl:   "var(--radius-lg)",
         "2xl": "var(--radius-lg)",
         full: "var(--radius-full)",
       },

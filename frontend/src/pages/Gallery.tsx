@@ -236,7 +236,7 @@ export default function Gallery() {
         <div className="flex-1">
           {/* Stats row */}
           <div className="px-6 pt-4 max-lg:px-4 mb-4">
-            <div className="flex rounded-xl overflow-hidden border border-border">
+            <div className="flex rounded-lg overflow-hidden border border-border">
               <div className="flex-1 px-5 py-4 bg-background border-r border-border">
                 <div className="text-2xl font-semibold font-mono tracking-tight">{total.toLocaleString()}</div>
                 <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total Media</div>
@@ -284,7 +284,7 @@ export default function Gallery() {
                   Sort
                 </button>
                 {showSort && (
-                  <div className="absolute top-full left-0 mt-1.5 z-20 rounded-xl border border-border bg-background shadow-xl p-2 min-w-[160px]">
+                  <div className="absolute top-full left-0 mt-1.5 z-20 rounded-lg border border-border bg-background shadow-xl p-2 min-w-[160px]">
                     {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
@@ -363,7 +363,7 @@ export default function Gallery() {
           {/* Selection action bar */}
           {selectionMode && selectedIds.length > 0 && (
             <div className="px-6 max-lg:px-4 mb-4">
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
                 <span className="text-[12px] text-foreground font-medium font-mono mr-auto">
                   {selectedIds.length} selected
                 </span>

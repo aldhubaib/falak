@@ -452,7 +452,7 @@ export default function PublishQueue() {
       <div className="flex-1 overflow-auto">
         {/* Stats row */}
         <div className="px-6 pt-4 max-lg:px-4 mb-4">
-          <div className="flex rounded-xl overflow-hidden border border-border">
+          <div className="flex rounded-lg overflow-hidden border border-border">
             <div className="px-5 py-4 bg-background border-r border-border min-w-[120px]">
               <div className="text-2xl font-semibold font-mono tracking-tight">{allItems.length}</div>
               <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total</div>
@@ -486,7 +486,7 @@ export default function PublishQueue() {
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`
-              rounded-xl border-2 border-dashed cursor-pointer transition-all p-8
+              rounded-lg border-2 border-dashed cursor-pointer transition-all p-8
               ${dragOver
                 ? "border-blue bg-blue/5"
                 : "border-border hover:border-blue/30 bg-background"
@@ -561,7 +561,7 @@ export default function PublishQueue() {
               title={allItems.length === 0 ? "No videos yet" : "No videos in this filter"}
             />
           ) : (
-            <div className="rounded-xl border border-border overflow-hidden">
+            <div className="rounded-lg border border-border overflow-hidden">
               {/* Header */}
               <div className="grid grid-cols-[1fr_100px_100px_160px_100px] max-md:grid-cols-[1fr_100px_100px] gap-0 px-4 py-2.5 bg-background border-b border-border">
                 {["VIDEO", "SIZE", "TIME", "STATUS", ""].map((h, i) => (

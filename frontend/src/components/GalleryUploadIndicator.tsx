@@ -20,7 +20,7 @@ export function GalleryUploadIndicator() {
   if (tasks.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 w-80 rounded-xl border border-border bg-background shadow-2xl">
+    <div className="fixed bottom-4 left-4 z-50 w-80 rounded-lg border border-border bg-background shadow-2xl">
       <div className="px-3 py-2 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-medium">
           <ImageUp className="w-4 h-4" />

@@ -194,10 +194,10 @@ export function VideoUpload({
       : "";
 
     return (
-      <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
+      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-background">
         {/* Thumbnail area — progress animation */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
-          <div className={`w-full ${thumbAspect} rounded-xl bg-elevated flex items-center justify-center relative overflow-hidden`}>
+          <div className={`w-full ${thumbAspect} rounded-lg bg-elevated flex items-center justify-center relative overflow-hidden`}>
             <div className="flex flex-col items-center gap-2 z-10">
               <Loader2 className="w-8 h-8 animate-spin text-blue" />
               <span className="text-[11px] font-mono text-dim">{Math.round(task.progress)}%</span>
@@ -253,9 +253,9 @@ export function VideoUpload({
   // ── Failed ────────────────────────────────────────────────────
   if (isFailed && task) {
     return (
-      <div className="rounded-xl overflow-hidden border border-destructive/20 flex max-md:flex-col bg-background">
+      <div className="rounded-lg overflow-hidden border border-destructive/20 flex max-md:flex-col bg-background">
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
-          <div className={`w-full ${thumbAspect} rounded-xl bg-red-500/5 flex items-center justify-center`}>
+          <div className={`w-full ${thumbAspect} rounded-lg bg-red-500/5 flex items-center justify-center`}>
             <div className="flex flex-col items-center gap-2">
               <AlertCircle className="w-8 h-8 text-red-400" />
               <span className="text-[11px] font-mono text-red-400 uppercase tracking-wider">Failed</span>
@@ -312,21 +312,21 @@ export function VideoUpload({
     const ext = getExtension(name);
 
     return (
-      <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
+      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-background">
         {/* Thumbnail left — video preview */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           {(videoThumbnailR2Url || url) ? (
-            <div className="block rounded-xl overflow-hidden group relative">
+            <div className="block rounded-lg overflow-hidden group relative">
               {videoThumbnailR2Url ? (
                 <img
                   src={videoThumbnailR2Url}
                   alt={name || "Video thumbnail"}
-                  className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}
+                  className={`w-full ${thumbAspect} object-cover rounded-lg bg-elevated`}
                 />
               ) : (
                 <video
                   src={url!}
-                  className={`w-full ${thumbAspect} object-cover rounded-xl bg-elevated`}
+                  className={`w-full ${thumbAspect} object-cover rounded-lg bg-elevated`}
                   muted
                   preload="metadata"
                   onLoadedMetadata={(e) => {
@@ -339,7 +339,7 @@ export function VideoUpload({
                 href={url || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+                className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
               >
                 <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center backdrop-blur-sm">
                   <Play className="w-5 h-5 text-white ml-0.5" />
@@ -348,7 +348,7 @@ export function VideoUpload({
               <span className="absolute bottom-4 right-4 text-[9px] font-mono text-white/80 bg-black/50 px-1.5 py-0.5 rounded uppercase tracking-widest">{ext}</span>
             </div>
           ) : (
-            <div className={`w-full ${thumbAspect} rounded-xl bg-elevated flex items-center justify-center`}>
+            <div className={`w-full ${thumbAspect} rounded-lg bg-elevated flex items-center justify-center`}>
               <div className="flex flex-col items-center gap-2">
                 <div className="w-12 h-12 rounded-full bg-card/80 flex items-center justify-center">
                   <Play className="w-5 h-5 text-foreground ml-0.5" />
@@ -426,7 +426,7 @@ export function VideoUpload({
       onDrop={onDrop}
       onClick={() => fileInputRef.current?.click()}
       className={`
-        rounded-xl overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-background
+        rounded-lg overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-background
         ${dragOver
           ? "border-blue shadow-[inset_0_0_20px_hsl(var(--blue)/0.05)]"
           : "border-dashed border-border hover:border-blue/30"
@@ -436,7 +436,7 @@ export function VideoUpload({
       {/* Thumbnail area — upload placeholder */}
       <div className={`relative shrink-0 p-3 ${thumbW}`}>
         <div className={`
-          w-full ${thumbAspect} rounded-xl flex items-center justify-center transition-colors
+          w-full ${thumbAspect} rounded-lg flex items-center justify-center transition-colors
           ${dragOver ? "bg-blue/10 border border-blue/30 border-dashed" : "bg-elevated"}
         `}>
           <div className="flex flex-col items-center gap-2">

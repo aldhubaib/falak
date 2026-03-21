@@ -255,7 +255,7 @@ export default function VideoDetail() {
         <div>
           {/* Hero */}
           <div className="px-6 py-6 max-lg:px-4">
-            <div className="rounded-xl overflow-hidden border border-border flex max-md:flex-col bg-background">
+            <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-background">
               {/* Thumbnail left */}
               <div className={`relative shrink-0 p-3 ${video.type === "short" ? "w-[200px] max-md:w-full" : "w-[380px] max-md:w-full"}`}>
                 {(() => {
@@ -264,7 +264,7 @@ export default function VideoDetail() {
                     <img
                       src={video.thumbnail}
                       alt=""
-                      className={`w-full object-cover rounded-xl ${video.type === "short" ? "aspect-[9/16]" : "aspect-video"}`}
+                      className={`w-full object-cover rounded-lg ${video.type === "short" ? "aspect-[9/16]" : "aspect-video"}`}
                     />
                   );
                   return ytId ? (
@@ -272,7 +272,7 @@ export default function VideoDetail() {
                       href={`https://www.youtube.com/watch?v=${ytId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="block rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary/40"
                     >
                       {imgEl}
                     </a>
@@ -331,7 +331,7 @@ export default function VideoDetail() {
 
           {/* Stats row */}
           <div className="px-6 max-lg:px-4">
-            <div className="grid grid-cols-5 max-lg:grid-cols-2 rounded-xl overflow-hidden border border-border">
+            <div className="grid grid-cols-5 max-lg:grid-cols-2 rounded-lg overflow-hidden border border-border">
               {stats.map((s, i) => (
                 <div
                   key={s.label}
@@ -377,7 +377,7 @@ export default function VideoDetail() {
             {activeTab === "Overview" && (
               <div>
                 {/* Transcript */}
-                <div className="rounded-xl overflow-hidden border border-border">
+                <div className="rounded-lg overflow-hidden border border-border">
                   <div className="bg-background px-4 py-3">
                     <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Transcript</div>
                     {(!analysis || analysis.transcript.length === 0) ? (
@@ -396,7 +396,7 @@ export default function VideoDetail() {
                 </div>
 
                 <SectionDivider label="Topics" />
-                <div className="rounded-xl overflow-hidden border border-border">
+                <div className="rounded-lg overflow-hidden border border-border">
                   <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
                     {analysis && analysis.topics.length > 0
                       ? analysis.topics.map((t) => (
@@ -408,7 +408,7 @@ export default function VideoDetail() {
                 </div>
 
                 <SectionDivider label="Keywords" />
-                <div className="rounded-xl overflow-hidden border border-border">
+                <div className="rounded-lg overflow-hidden border border-border">
                   <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
                     {analysis && analysis.keywords.length > 0
                       ? analysis.keywords.map((k) => (
@@ -424,7 +424,7 @@ export default function VideoDetail() {
             {activeTab === "Sentiment" && (
               <div>
                 {/* Sentiment bars in table */}
-                <div className="rounded-xl overflow-hidden border border-border mb-7">
+                <div className="rounded-lg overflow-hidden border border-border mb-7">
                   {[
                     { label: "Positive", val: analysis?.sentiment.positive ?? 0, cls: "bg-success" },
                     { label: "Negative", val: analysis?.sentiment.negative ?? 0, cls: "bg-destructive" },
@@ -446,7 +446,7 @@ export default function VideoDetail() {
               <div>
                 <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
                   {/* Viral Score */}
-                  <div className="rounded-xl border border-border bg-background px-5 py-4">
+                  <div className="rounded-lg border border-border bg-background px-5 py-4">
                     <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Viral Score</div>
                     <div className="flex items-end gap-2">
                       <span className={`text-3xl font-semibold font-mono tracking-tight ${(analysis?.viral.score ?? 0) >= 6 ? "text-success" : (analysis?.viral.score ?? 0) >= 4 ? "text-sensor" : "text-dim"}`}>
@@ -464,7 +464,7 @@ export default function VideoDetail() {
                   </div>
 
                   {/* Hook Strength */}
-                  <div className="rounded-xl border border-border bg-background px-5 py-4">
+                  <div className="rounded-lg border border-border bg-background px-5 py-4">
                     <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Hook Strength</div>
                     <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.hookStrong ? "text-success" : analysis?.viral.hookLabel === "Weak" ? "text-destructive" : "text-sensor"}`}>
                       {analysis?.viral.hookLabel ?? "—"}
@@ -473,7 +473,7 @@ export default function VideoDetail() {
                   </div>
 
                   {/* Trending */}
-                  <div className="rounded-xl border border-border bg-background px-5 py-4">
+                  <div className="rounded-lg border border-border bg-background px-5 py-4">
                     <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Trending</div>
                     <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.trending ? "text-success" : "text-dim"}`}>
                       {analysis?.viral.trending ? "Yes" : "No"}
@@ -485,7 +485,7 @@ export default function VideoDetail() {
             )}
 
             {activeTab === "Comments" && (
-              <div className="rounded-xl overflow-hidden border border-border">
+              <div className="rounded-lg overflow-hidden border border-border">
                 {(!analysis || analysis.comments.length === 0) ? (
                   <EmptyState icon={MessageSquare} title="No comments yet" />
                 ) : (
@@ -529,7 +529,7 @@ export default function VideoDetail() {
             {activeTab === "Pipeline" && (
               <div>
                 <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Pipeline</div>
-                <div className="rounded-xl overflow-hidden border border-border">
+                <div className="rounded-lg overflow-hidden border border-border">
                   {video.pipeline.map((step) => (
                     <div key={step.name} className="flex items-center justify-between bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center gap-2.5">
@@ -567,7 +567,7 @@ export default function VideoDetail() {
             {activeTab === "History" && (
               <div>
                 <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Analysis History</div>
-                <div className="rounded-xl overflow-hidden border border-border">
+                <div className="rounded-lg overflow-hidden border border-border">
                   {[
                     { time: "Mar 8, 14:22", name: "Full Analysis", status: "success" as const, badge: "Completed" },
                     { time: "Mar 7, 09:15", name: "Comment Refresh", status: "failed" as const, badge: "Failed", error: "API rate limit exceeded. Retry after 60 minutes." },

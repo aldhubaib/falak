@@ -65,7 +65,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
   };
 
   return (
-    <div className="rounded-xl bg-background border border-border overflow-hidden">
+    <div className="rounded-lg bg-background border border-border overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Mic className="w-3.5 h-3.5 text-dim" />

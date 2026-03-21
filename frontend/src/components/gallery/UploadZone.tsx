@@ -94,7 +94,7 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
           setDragOver(false);
           void processFiles(Array.from(e.dataTransfer.files));
         }}
-        className={`rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+        className={`rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
           dragOver ? "border-primary bg-primary/5" : "border-border bg-background"
         }`}
       >

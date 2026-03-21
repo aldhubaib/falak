@@ -158,7 +158,6 @@ const COLOR_GROUPS = [
 ];
 const RADIUS_TOKENS = [
   { id: "--radius-lg", rem: "0.5rem", px: "8px", tw: "rounded-lg" },
-  { id: "--radius-xl", rem: "0.75rem", px: "12px", tw: "rounded-xl" },
   { id: "--radius-full", rem: "9999px", px: "pill", tw: "rounded-full" },
 ];
 const TYPO_TOKENS = [
@@ -257,16 +256,16 @@ export default function DesignSystem() {
               <SectionHeader id="feedback" label="Feedback" />
 
               <CidBlock cid="page-error" name="PageError" source="Stories.tsx, App.tsx">
-                <div className="rounded-xl border border-border overflow-hidden">
+                <div className="rounded-lg border border-border overflow-hidden">
                   <PageError title="Something went wrong" message="Failed to load channel data. Check your connection and try again." detail="Error: ECONNREFUSED 127.0.0.1:5432" showHome={false} />
                 </div>
               </CidBlock>
 
               <CidBlock cid="empty-state" name="EmptyState" source="12 pages">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="rounded-xl border border-border"><EmptyState icon={Inbox} title="No videos yet" description="Add a channel to start analyzing" /></div>
-                  <div className="rounded-xl border border-border"><EmptyState icon={Search} title="No results" description="Try a different search term" /></div>
-                  <div className="rounded-xl border border-border"><EmptyState icon={FileText} title="No articles" /></div>
+                  <div className="rounded-lg border border-border"><EmptyState icon={Inbox} title="No videos yet" description="Add a channel to start analyzing" /></div>
+                  <div className="rounded-lg border border-border"><EmptyState icon={Search} title="No results" description="Try a different search term" /></div>
+                  <div className="rounded-lg border border-border"><EmptyState icon={FileText} title="No articles" /></div>
                 </div>
               </CidBlock>
 
@@ -305,13 +304,13 @@ export default function DesignSystem() {
               <SectionHeader id="navigation" label="Navigation" />
 
               <CidBlock cid="story-detail-top-bar" name="StoryDetailTopBar" source="StoryDetail.tsx">
-                <div className="rounded-xl border border-border overflow-hidden">
+                <div className="rounded-lg border border-border overflow-hidden">
                   <StoryDetailTopBar stageLabel="Scripting" activeStage="scripting" stages={MOCK_STAGES} nextStageKey="filming" nextStageLabel="Filming" onBack={NOOP} onMoveToNextStage={NOOP} onPass={NOOP} onRestart={NOOP} onOmit={NOOP} onHistoryClick={NOOP} onScoreHistoryClick={NOOP} prevNext={{ currentIndex: 2, total: 8, onPrev: NOOP, onNext: NOOP }} />
                 </div>
               </CidBlock>
 
               <CidBlock cid="page-header-bar" name="Page header bar" source="9 pages">
-                <div className="rounded-xl border border-border overflow-hidden">
+                <div className="rounded-lg border border-border overflow-hidden">
                   <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0">
                     <h1 className="text-sm font-semibold">Pipeline Monitor</h1>
                     <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium"><Search className="w-3 h-3" /> Search</button>
@@ -324,25 +323,25 @@ export default function DesignSystem() {
               <SectionHeader id="data-display" label="Data Display" />
 
               <CidBlock cid="video-table" name="VideoTable" source="ChannelDetail.tsx">
-                <div className="rounded-xl border border-border overflow-hidden"><VideoTable videos={MOCK_VIDEOS} /></div>
+                <div className="rounded-lg border border-border overflow-hidden"><VideoTable videos={MOCK_VIDEOS} /></div>
               </CidBlock>
 
               <CidBlock cid="video-right-panel" name="VideoRightPanel" source="VideoDetail.tsx">
-                <div className="relative h-[360px] rounded-xl border border-border overflow-hidden">
+                <div className="relative h-[360px] rounded-lg border border-border overflow-hidden">
                   <VideoRightPanel video={MOCK_VIDEOS[0]} visible={videoPanelOpen} onClose={() => setVideoPanelOpen(false)} pipeline={MOCK_PIPELINE} />
                   {!videoPanelOpen && <button onClick={() => setVideoPanelOpen(true)} className="absolute inset-0 flex items-center justify-center text-xs text-dim">Click to reopen panel</button>}
                 </div>
               </CidBlock>
 
               <CidBlock cid="channel-right-panel" name="ChannelRightPanel" source="ChannelDetail.tsx">
-                <div className="relative h-[480px] rounded-xl border border-border overflow-hidden">
+                <div className="relative h-[480px] rounded-lg border border-border overflow-hidden">
                   <ChannelRightPanel channel={MOCK_CHANNEL} visible={channelPanelOpen} onClose={() => setChannelPanelOpen(false)} videoCount={720} shortCount={122} />
                   {!channelPanelOpen && <button onClick={() => setChannelPanelOpen(true)} className="absolute inset-0 flex items-center justify-center text-xs text-dim">Click to reopen panel</button>}
                 </div>
               </CidBlock>
 
               <CidBlock cid="score-bar" name="ScoreBar" source="StoryDetail.tsx">
-                <div className="flex rounded-xl border border-border overflow-hidden">
+                <div className="flex rounded-lg border border-border overflow-hidden">
                   <ScoreBar label="Relevance" value={72} />
                   <ScoreBar label="Virality" value={85} />
                   <ScoreBar label="First Mover" value={41} />
@@ -365,7 +364,7 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="stat-row" name="Stat row" source="Monitor, Pipeline">
-                <div className="rounded-xl border border-border bg-card p-4 space-y-0">
+                <div className="rounded-lg border border-border bg-card p-4 space-y-0">
                   {[{ label: "Channels tracked", value: "24" }, { label: "Videos analyzed", value: "1,842" }, { label: "Failed jobs", value: "3" }].map((s) => (
                     <div key={s.label} className="flex items-center justify-between py-1.5">
                       <span className="text-xs text-muted-foreground">{s.label}</span>
@@ -492,7 +491,7 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="script-editor-tiptap" name="ScriptEditorTiptap" source="StoryDetail.tsx">
-                <div className="rounded-xl border border-border overflow-hidden max-h-[300px] overflow-y-auto">
+                <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
                   <ScriptEditorTiptap readOnly={false} editorRef={editorRef} />
                 </div>
               </CidBlock>
@@ -501,7 +500,7 @@ export default function DesignSystem() {
               <SectionHeader id="media" label="Media" />
 
               <CidBlock cid="media-grid" name="MediaGrid" source="AlbumDetail.tsx">
-                <div className="rounded-xl border border-border overflow-hidden p-2">
+                <div className="rounded-lg border border-border overflow-hidden p-2">
                   <MediaGrid items={MOCK_GALLERY_MEDIA} selectedIds={[]} selectionMode={false} onToggleSelect={NOOP} onOpen={(i) => { setViewerIndex(i); setViewerOpen(true); }} />
                 </div>
               </CidBlock>
@@ -526,14 +525,14 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="upload-indicator" name="UploadIndicator" source="App.tsx (renders null when idle)">
-                <div className="rounded-xl border border-border p-3 text-[11px] text-dim font-mono">
+                <div className="rounded-lg border border-border p-3 text-[11px] text-dim font-mono">
                   <UploadIndicator />
                   <span className="text-muted-foreground">Renders in bottom-right when uploads are active. Currently idle.</span>
                 </div>
               </CidBlock>
 
               <CidBlock cid="gallery-upload-indicator" name="GalleryUploadIndicator" source="App.tsx (renders null when idle)">
-                <div className="rounded-xl border border-border p-3 text-[11px] text-dim font-mono">
+                <div className="rounded-lg border border-border p-3 text-[11px] text-dim font-mono">
                   <GalleryUploadIndicator />
                   <span className="text-muted-foreground">Renders in bottom-left when gallery uploads are active. Currently idle.</span>
                 </div>
@@ -543,7 +542,7 @@ export default function DesignSystem() {
               <SectionHeader id="layout" label="Layout" />
 
               <CidBlock cid="app-sidebar" name="AppSidebar" source="AppLayout.tsx">
-                <div className="rounded-xl border border-border overflow-hidden h-[400px] w-56">
+                <div className="rounded-lg border border-border overflow-hidden h-[400px] w-56">
                   <AppSidebar channelId={channelId || "dls"} collapsed={false} />
                 </div>
               </CidBlock>

@@ -428,6 +428,8 @@ model ScoreProfile {
   regionSignals         Json?
   aiViralAccuracy       Float     @default(1.0)
   aiRelevanceAccuracy   Float     @default(1.0)
+  nicheTags             String[]  @default([])
+  nicheTagsAr           String[]  @default([])
   channelAvgViews       BigInt    @default(0)
   channelMedianViews    BigInt    @default(0)
   totalOutcomes         Int       @default(0)

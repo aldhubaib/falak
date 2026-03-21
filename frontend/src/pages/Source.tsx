@@ -182,7 +182,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
       )}
 
       {testResults && (
-        <div className="mt-4 rounded-xl border border-border bg-background p-4">
+        <div className="mt-4 rounded-lg border border-border bg-background p-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[12px] font-medium">Test Results <span className="text-dim font-mono ml-1">{testResults.length} articles</span></span>
             <button onClick={() => setTestResults(null)} className="text-dim hover:text-sensor"><X className="w-3.5 h-3.5" /></button>
@@ -444,7 +444,7 @@ function SourceCard({
   const progressPct = runs.length > 0 ? Math.round((imported / runs.length) * 100) : 0;
 
   return (
-    <div className={`rounded-xl border transition-all ${s.isActive ? "border-border bg-background" : "border-border/50 bg-background/50 opacity-60"}`}>
+    <div className={`rounded-lg border transition-all ${s.isActive ? "border-border bg-background" : "border-border/50 bg-background/50 opacity-60"}`}>
       {/* Header */}
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between gap-3">
@@ -637,7 +637,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
           <div className="flex gap-2">
             {SOURCE_TYPES.map(t => (
               <button key={t.value} onClick={() => handleTypeChange(t.value)}
-                className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12px] font-medium transition-all border ${type === t.value ? "bg-foreground/5 text-foreground border-foreground/20" : "bg-transparent text-dim border-border hover:border-foreground/10"}`}>
+                className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] font-medium transition-all border ${type === t.value ? "bg-foreground/5 text-foreground border-foreground/20" : "bg-transparent text-dim border-border hover:border-foreground/10"}`}>
                 <SourceLogo type={t.value} size="sm" />
                 {t.label}
               </button>
@@ -653,7 +653,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
               }} />
               {image ? (
                 <div className="relative w-[42px] h-[42px]">
-                  <img src={image} alt="" className="w-[42px] h-[42px] rounded-xl object-cover border border-border" />
+                  <img src={image} alt="" className="w-[42px] h-[42px] rounded-lg object-cover border border-border" />
                   <button type="button" onClick={() => { setImage(null); if (imageRef.current) imageRef.current.value = ""; }}
                     className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors">
                     <X className="w-2.5 h-2.5" />
@@ -661,7 +661,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
               ) : (
                 <button type="button" onClick={() => imageRef.current?.click()}
-                  className="w-[42px] h-[42px] rounded-xl border border-dashed border-border bg-elevated/30 flex items-center justify-center text-dim hover:text-foreground hover:border-foreground/20 transition-all">
+                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-elevated/30 flex items-center justify-center text-dim hover:text-foreground hover:border-foreground/20 transition-all">
                   <ImagePlus className="w-4 h-4" />
                 </button>
               )}
@@ -670,7 +670,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
               <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
                 placeholder={typeDef.label}
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
             </div>
           </div>
 
@@ -684,7 +684,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
                 <input type="text" value={config[f.key] || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             ))}
             {typeDef.format === "apify" && (
@@ -695,14 +695,14 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder="apify_api_..."
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             )}
           </div>
 
           {/* Test results */}
           {testResults && (
-            <div className="rounded-xl border border-border p-3 max-h-[150px] overflow-y-auto">
+            <div className="rounded-lg border border-border p-3 max-h-[150px] overflow-y-auto">
               <span className="text-[10px] font-mono text-dim mb-1.5 block">{testResults.length} articles found</span>
               {testResults.length === 0 ? (
                 <p className="text-[11px] text-dim">No results.</p>
@@ -714,14 +714,14 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
         </div>
 
         <div className="flex gap-2 mt-5">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-xl border border-border text-dim hover:text-foreground transition-colors">Cancel</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-dim hover:text-foreground transition-colors">Cancel</button>
           <button onClick={handleTest} disabled={testing}
-            className="px-4 py-2.5 text-[13px] font-medium rounded-xl border border-border text-dim hover:text-foreground transition-colors disabled:opacity-50">
+            className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-dim hover:text-foreground transition-colors disabled:opacity-50">
             {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : <TestTube2 className="w-3.5 h-3.5 inline mr-1" />}
             Test
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50">
+            className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : null}
             Create
           </button>
@@ -797,7 +797,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
               }} />
               {image ? (
                 <div className="relative w-[42px] h-[42px]">
-                  <img src={image} alt="" className="w-[42px] h-[42px] rounded-xl object-cover border border-border" />
+                  <img src={image} alt="" className="w-[42px] h-[42px] rounded-lg object-cover border border-border" />
                   <button type="button" onClick={() => { setImage(null); if (editImageRef.current) editImageRef.current.value = ""; }}
                     className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors">
                     <X className="w-2.5 h-2.5" />
@@ -805,7 +805,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
               ) : (
                 <button type="button" onClick={() => editImageRef.current?.click()}
-                  className="w-[42px] h-[42px] rounded-xl border border-dashed border-border bg-elevated/30 flex items-center justify-center text-dim hover:text-foreground hover:border-foreground/20 transition-all">
+                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-elevated/30 flex items-center justify-center text-dim hover:text-foreground hover:border-foreground/20 transition-all">
                   <ImagePlus className="w-4 h-4" />
                 </button>
               )}
@@ -813,7 +813,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
             <div className="flex-1">
               <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
             </div>
           </div>
 
@@ -827,7 +827,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
                 <input type="text" value={(config[f.key] as string) || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             ))}
             {typeDef.format === "apify" && (
@@ -840,16 +840,16 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder={source.hasApiKey ? "Leave blank to keep current" : "apify_api_..."}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-xl text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
               </div>
             )}
           </div>
         </div>
 
         <div className="flex gap-2 mt-5">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-xl border border-border text-dim hover:text-foreground transition-colors">Cancel</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-dim hover:text-foreground transition-colors">Cancel</button>
           <button onClick={handleSave} disabled={saving}
-            className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50">
+            className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : null}
             Save
           </button>

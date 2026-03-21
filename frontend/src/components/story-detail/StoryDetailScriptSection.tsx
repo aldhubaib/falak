@@ -182,7 +182,7 @@ export function StoryDetailScriptSection({
           </div>
         </div>
       </div>
-      <div className="rounded-xl bg-background border border-border overflow-visible">
+      <div className="rounded-lg bg-background border border-border overflow-visible">
         <div className="px-4 max-sm:px-3 py-3 flex items-center justify-between border-b border-border flex-wrap gap-2">
           <div className="flex items-center gap-3 flex-1">
             <div className="inline-flex items-center bg-card rounded-full border border-border flex-wrap">
@@ -212,7 +212,7 @@ export function StoryDetailScriptSection({
                   {!readOnly && <ChevronDown className={`w-2.5 h-2.5 text-dim transition-transform ${channelDropOpen ? "rotate-180" : ""}`} />}
                 </button>
                 {channelDropOpen && !readOnly && (
-                  <div className="absolute z-10 mt-2 left-0 w-64 rounded-xl bg-card border border-border overflow-hidden shadow-lg">
+                  <div className="absolute z-10 mt-2 left-0 w-64 rounded-lg bg-card border border-border overflow-hidden shadow-lg">
                     {channels.length === 0 ? (
                       <div className="px-4 py-3 text-[12px] text-dim text-center">
                         No channels added yet. Add your channels in the Channels page.

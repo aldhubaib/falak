@@ -299,7 +299,7 @@ function ChannelDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-background border border-border rounded-xl shadow-lg py-1 min-w-[220px]">
+          <div className="absolute top-full left-0 mt-1 z-50 bg-background border border-border rounded-lg shadow-lg py-1 min-w-[220px]">
             {options.map((ch) => (
               <button
                 key={ch.id}
@@ -365,7 +365,7 @@ function GrowthMomentumSection({
 
   if (channelGrowth.length === 0) {
     return (
-      <div className="rounded-xl bg-background p-5">
+      <div className="rounded-lg bg-background p-5">
         <div className="flex items-center gap-2 mb-2">
           <TrendingUp className="w-4 h-4 text-success" />
           <span className="text-[13px] font-semibold">Growth & Momentum</span>
@@ -382,7 +382,7 @@ function GrowthMomentumSection({
   const declining = sorted.filter((c) => c.momentum < -5);
 
   return (
-    <div className="rounded-xl bg-background overflow-hidden">
+    <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <TrendingUp className="w-4 h-4 text-success" />
         <span className="text-[13px] font-semibold">Growth & Momentum</span>
@@ -393,7 +393,7 @@ function GrowthMomentumSection({
       {(accelerating.length > 0 || declining.length > 0) && (
         <div className="mx-5 mb-4 grid grid-cols-2 max-lg:grid-cols-1 gap-3">
           {accelerating.length > 0 && (
-            <div className="px-4 py-3 rounded-xl border border-success/30 bg-success/5">
+            <div className="px-4 py-3 rounded-lg border border-success/30 bg-success/5">
               <div className="flex items-center gap-1.5 mb-2">
                 <TrendingUp className="w-3.5 h-3.5 text-success" />
                 <span className="text-[10px] font-mono text-success uppercase tracking-widest">
@@ -412,7 +412,7 @@ function GrowthMomentumSection({
             </div>
           )}
           {declining.length > 0 && (
-            <div className="px-4 py-3 rounded-xl border border-destructive/30 bg-destructive/5">
+            <div className="px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/5">
               <div className="flex items-center gap-1.5 mb-2">
                 <TrendingDown className="w-3.5 h-3.5 text-destructive" />
                 <span className="text-[10px] font-mono text-destructive uppercase tracking-widest">
@@ -434,7 +434,7 @@ function GrowthMomentumSection({
       )}
 
       {/* Per-channel growth table */}
-      <div className="mx-5 mb-4 rounded-xl border border-border overflow-hidden">
+      <div className="mx-5 mb-4 rounded-lg border border-border overflow-hidden">
         <div className="grid grid-cols-[1fr_90px_90px_90px] gap-4 px-5 py-3 bg-card/30 border-b border-border">
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest">CHANNEL</span>
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest text-right">SUB GROWTH</span>
@@ -495,14 +495,14 @@ function ContentMixSection({
     : 0;
 
   return (
-    <div className="rounded-xl bg-background overflow-hidden">
+    <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <Layers className="w-4 h-4 text-purple" />
         <span className="text-[13px] font-semibold">Content Mix</span>
         <span className="text-[11px] text-dim font-mono">— long-form vs shorts performance</span>
       </div>
 
-      <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-[1px] bg-border mx-5 mb-4 rounded-xl overflow-hidden">
+      <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-[1px] bg-border mx-5 mb-4 rounded-lg overflow-hidden">
         <div className="bg-background px-5 py-4">
           <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">LONG-FORM VIDEOS</div>
           <div className="text-2xl font-semibold font-mono tracking-tight text-purple">{totalVideos}</div>
@@ -530,7 +530,7 @@ function ContentMixSection({
       {/* Insight */}
       {totalShorts > 0 && totalVideos > 0 && (
         <div className="px-5 pb-4">
-          <div className="px-4 py-3 rounded-xl border border-border">
+          <div className="px-4 py-3 rounded-lg border border-border">
             <p className="text-[12px] font-medium">
               {videoViewPct > 80
                 ? "Long-form drives the vast majority of views — shorts are supplementary in this space"
@@ -567,7 +567,7 @@ function EngagementDecompositionSection({
   const highLikers = sorted.filter((e) => e.likeRate > avgLikeRate * 1.3 && e.commentRate < avgCommentRate);
 
   return (
-    <div className="rounded-xl bg-background overflow-hidden">
+    <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <MessageSquare className="w-4 h-4 text-blue" />
         <span className="text-[13px] font-semibold">Engagement Breakdown</span>
@@ -678,7 +678,7 @@ function PublishingPatternsSection({
   const peakHourLabel = `${peakHour}:00–${peakHour + 1}:00`;
 
   return (
-    <div className="rounded-xl bg-background overflow-hidden">
+    <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <Calendar className="w-4 h-4 text-orange" />
         <span className="text-[13px] font-semibold">Publishing Patterns</span>
@@ -757,7 +757,7 @@ function PerformanceDistributionSection({
   const maxBucket = Math.max(...dist.buckets.map((b) => b.count), 1);
 
   return (
-    <div className="rounded-xl bg-background overflow-hidden">
+    <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
         <BarChart3 className="w-4 h-4 text-success" />
         <span className="text-[13px] font-semibold">Video Performance Distribution</span>
@@ -765,7 +765,7 @@ function PerformanceDistributionSection({
       </div>
 
       {/* Percentile cards */}
-      <div className="grid grid-cols-5 max-lg:grid-cols-3 gap-[1px] bg-border mx-5 mb-4 rounded-xl overflow-hidden">
+      <div className="grid grid-cols-5 max-lg:grid-cols-3 gap-[1px] bg-border mx-5 mb-4 rounded-lg overflow-hidden">
         {[
           { label: "MEDIAN", value: dist.median, color: "text-blue" },
           { label: "MEAN", value: dist.mean, color: "text-purple" },
@@ -828,7 +828,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
 
   if (!yourCh || !theirCh) {
     return (
-      <div className="rounded-xl bg-background p-5">
+      <div className="rounded-lg bg-background p-5">
         <p className="text-[13px] font-medium mb-1">Channel Analysis</p>
         <p className="text-[12px] text-dim font-mono leading-relaxed">
           {ourChannels.length === 0
@@ -886,7 +886,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
   const winning = metrics.filter((m) => m.winning);
 
   return (
-    <div className="rounded-xl bg-background overflow-hidden">
+    <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
         <span className="text-[13px] font-semibold">Channel Analysis</span>
         <span className="text-[11px] font-mono text-dim">—</span>
@@ -900,7 +900,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
         />
       </div>
 
-      <div className="mx-5 mb-4 px-4 py-3 border border-border rounded-xl">
+      <div className="mx-5 mb-4 px-4 py-3 border border-border rounded-lg">
         <p className="text-[13px] font-medium">{summary}</p>
         <p className="text-[11px] text-dim font-mono mt-1">
           {chName(yourCh)} vs {chName(theirCh)} · Winning {winsCount}/{metrics.length} metrics
@@ -919,7 +919,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
         </div>
       </div>
 
-      <div className="mx-5 mb-4 rounded-xl border border-border overflow-hidden">
+      <div className="mx-5 mb-4 rounded-lg border border-border overflow-hidden">
         <div className="grid grid-cols-[1fr_100px_120px_50px] gap-4 px-5 py-3 bg-card/30 border-b border-border">
           <span className="text-[10px] text-dim font-mono uppercase tracking-widest">METRIC</span>
           <div className="flex items-center gap-1.5 justify-end">
@@ -965,7 +965,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
         </div>
         <div className="space-y-2">
           {losing.map((m, i) => (
-            <div key={m.label} className="px-4 py-3 rounded-xl border border-border">
+            <div key={m.label} className="px-4 py-3 rounded-lg border border-border">
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-blue/15 text-blue">
                   {i + 1}
@@ -981,7 +981,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
             </div>
           ))}
           {winning.map((m) => (
-            <div key={m.label} className="px-4 py-3 rounded-xl border border-success/30">
+            <div key={m.label} className="px-4 py-3 rounded-lg border border-success/30">
               <div className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 bg-success/15 text-success">
                   ✓
@@ -1648,7 +1648,7 @@ export default function Analytics() {
       <div className="flex-1 overflow-auto">
         {/* Stats row */}
         <div className="px-6 pt-5 max-lg:px-4 mb-5">
-          <div className="grid grid-cols-6 max-lg:grid-cols-3 rounded-xl overflow-hidden gap-[1px] bg-border">
+          <div className="grid grid-cols-6 max-lg:grid-cols-3 rounded-lg overflow-hidden gap-[1px] bg-border">
             <StatCard
               value={String(universe.channels)}
               label="CHANNELS"
@@ -1692,7 +1692,7 @@ export default function Analytics() {
 
         {/* You vs the Field */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-xl bg-background overflow-hidden">
+          <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-orange" />
@@ -1720,7 +1720,7 @@ export default function Analytics() {
             </div>
 
             {/* Comparison cards */}
-            <div className="grid grid-cols-4 max-lg:grid-cols-2 gap-[1px] bg-border mx-5 mb-4 rounded-xl overflow-hidden">
+            <div className="grid grid-cols-4 max-lg:grid-cols-2 gap-[1px] bg-border mx-5 mb-4 rounded-lg overflow-hidden">
               <ComparisonCard
                 label="ENGAGEMENT RANK"
                 value={`#${engRank}`}
@@ -1851,7 +1851,7 @@ export default function Analytics() {
 
         {/* Channel Benchmarks */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-xl bg-background overflow-hidden">
+          <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center gap-2">
               <Circle className="w-3.5 h-3.5 text-blue fill-blue" />
               <span className="text-[13px] font-semibold">Channel Benchmarks</span>
@@ -1899,7 +1899,7 @@ export default function Analytics() {
 
         {/* Monthly Trend */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-xl bg-background overflow-hidden">
+          <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <span className="text-[13px] font-semibold">Monthly Trend — Last 12 Months</span>
@@ -1938,7 +1938,7 @@ export default function Analytics() {
 
         {/* Top Videos */}
         <div className="px-6 max-lg:px-4 mb-5">
-          <div className="rounded-xl bg-background overflow-hidden">
+          <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between">
               <span className="text-[13px] font-semibold">Top Videos by Views</span>
               <span className="text-[11px] text-dim font-mono">
@@ -1982,7 +1982,7 @@ export default function Analytics() {
 
         {/* Key Insights — Enhanced */}
         <div className="px-6 max-lg:px-4 mb-8">
-          <div className="rounded-xl bg-background overflow-hidden">
+          <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center gap-3">
               <span className="text-[13px] font-semibold">Key Insights</span>
               <span className="text-[11px] text-dim font-mono px-2 py-0.5 border border-border rounded-full">

@@ -106,7 +106,7 @@ export default function VectorIntelligence() {
   if (!data?.hasEmbeddingKey) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="rounded-xl border border-border bg-background p-8 text-center max-w-md">
+        <div className="rounded-lg border border-border bg-background p-8 text-center max-w-md">
           <div className="w-12 h-12 rounded-full bg-purple/10 flex items-center justify-center mx-auto mb-4">
             <Zap className="w-6 h-6 text-purple" />
           </div>
@@ -268,7 +268,7 @@ export default function VectorIntelligence() {
               <div className="grid grid-cols-6 gap-3 max-lg:grid-cols-3 max-sm:grid-cols-2">
                 <AccuracyGauge label="AI Viral Accuracy" value={sp.aiViralAccuracy} description="How well AI predicts viral potential vs actual YouTube performance" />
                 <AccuracyGauge label="AI Relevance Accuracy" value={sp.aiRelevanceAccuracy} description="How well AI predicts content relevance to your audience" />
-                <div className="rounded-xl border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-background p-4">
                   <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Confidence Level</div>
                   <div className={`text-2xl font-mono font-semibold ${confidence >= 0.6 ? "text-success" : confidence >= 0.3 ? "text-orange" : "text-dim"}`}>
                     {Math.round(confidence * 100)}%
@@ -280,17 +280,17 @@ export default function VectorIntelligence() {
                      "Bootstrapping — more data needed"}
                   </div>
                 </div>
-                <div className="rounded-xl border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-background p-4">
                   <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Decisions</div>
                   <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalDecisions}</div>
                   <div className="text-[10px] text-dim font-mono mt-1">liked / passed / omit</div>
                 </div>
-                <div className="rounded-xl border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-background p-4">
                   <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Outcomes</div>
                   <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalOutcomes}</div>
                   <div className="text-[10px] text-dim font-mono mt-1">stories with YouTube stats</div>
                 </div>
-                <div className="rounded-xl border border-border bg-background p-4">
+                <div className="rounded-lg border border-border bg-background p-4">
                   <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Last Learned</div>
                   <div className="text-lg font-mono font-semibold text-foreground">
                     {sp.lastLearnedAt ? fmtShortAgo(sp.lastLearnedAt) : "Never"}
@@ -339,7 +339,7 @@ export default function VectorIntelligence() {
         ═══════════════════════════════════════════════════ */}
         <SectionHeader icon={Target} title="Competition Intelligence" subtitle="Stories matched against competitor videos via semantic similarity" />
         <div className="px-6 max-lg:px-4 mb-6">
-          <div className="rounded-xl border border-border overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden">
             <div className="px-4 py-3 bg-background border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Target className="w-3.5 h-3.5 text-orange" />
@@ -393,7 +393,7 @@ export default function VectorIntelligence() {
           <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
 
             {/* Recent Re-scores */}
-            <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
+            <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
               <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
                 <div className="flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-success" />
@@ -455,7 +455,7 @@ export default function VectorIntelligence() {
             </div>
 
             {/* Alerts */}
-            <div className="rounded-xl border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
+            <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
               <div className="px-4 py-3 bg-background shrink-0 border-b border-border">
                 <div className="flex items-center gap-2">
                   <Bell className="w-3.5 h-3.5 text-orange" />
@@ -509,7 +509,7 @@ export default function VectorIntelligence() {
         ═══════════════════════════════════════════════════ */}
         <SectionHeader icon={Cpu} title="Scoring Formula" subtitle="How the composite score is computed during re-evaluation" />
         <div className="px-6 max-lg:px-4 mb-6">
-          <div className="rounded-xl border border-border bg-background p-4">
+          <div className="rounded-lg border border-border bg-background p-4">
             <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
               {/* Base Score */}
               <div>
@@ -546,7 +546,7 @@ export default function VectorIntelligence() {
         ═══════════════════════════════════════════════════ */}
         <SectionHeader icon={Shield} title="System Status" subtitle="Worker health and operational details" />
         <div className="px-6 max-lg:px-4 pb-8">
-          <div className="flex rounded-xl overflow-hidden border border-border">
+          <div className="flex rounded-lg overflow-hidden border border-border">
             <StatusBox label="Embedding Model" value="text-embedding-3-small" />
             <StatusBox label="Dimensions" value="1536" />
             <StatusBox label="Index Type" value="HNSW" />
@@ -585,7 +585,7 @@ function PipelineStage({
 }) {
   return (
     <div className="flex items-stretch">
-      <div className={`flex-1 rounded-xl border border-border bg-background p-4 relative ${!isFirst ? "max-lg:ml-0 ml-0" : ""}`}>
+      <div className={`flex-1 rounded-lg border border-border bg-background p-4 relative ${!isFirst ? "max-lg:ml-0 ml-0" : ""}`}>
         <div className="flex items-center gap-2 mb-3">
           <span className={`w-6 h-6 rounded-full ${bgColor}/15 flex items-center justify-center text-[10px] font-bold ${color}`}>
             {number}
@@ -620,7 +620,7 @@ function CoverageCard({
   embedded: number; total: number; pct: number;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-background p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Icon className={`w-4 h-4 ${color}`} />
@@ -645,7 +645,7 @@ function AccuracyGauge({ label, value, description }: { label: string; value: nu
   const color = pct >= 80 ? "text-success" : pct >= 50 ? "text-orange" : "text-destructive";
   const bgColor = pct >= 80 ? "bg-success" : pct >= 50 ? "bg-orange" : "bg-destructive";
   return (
-    <div className="rounded-xl border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-background p-4">
       <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">{label}</div>
       <div className={`text-2xl font-mono font-semibold ${color}`}>{pct}%</div>
       <div className="w-full h-1.5 bg-border rounded-full mt-2 overflow-hidden">
@@ -666,7 +666,7 @@ function SignalCard({
   const maxAbs = Math.max(...sorted.map(([, v]) => Math.abs(v)), 0.01);
 
   return (
-    <div className="rounded-xl border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-background p-4">
       <div className="flex items-center justify-between mb-1">
         <div className="text-[11px] font-mono font-semibold text-foreground">{title}</div>
         <span className="text-[10px] text-dim font-mono">{sorted.length} signals{limit && sorted.length > limit ? ` (showing ${limit})` : ""}</span>
