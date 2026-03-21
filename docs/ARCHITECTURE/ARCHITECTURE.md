@@ -832,7 +832,8 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | PATCH | `/api/article-pipeline/:id/content` | editor+ | Paste content manually. |
 | POST | `/api/article-pipeline/retry-all-failed` | editor+ | Retry all failed articles. |
 | POST | `/api/article-pipeline/test-run` | admin+ | Force-pick N imported articles (any status), reset & process end-to-end (returns runId for polling). |
-| GET | `/api/article-pipeline/test-run/:runId` | Yes | Poll test run progress. |
+| POST | `/api/article-pipeline/test-video` | admin+ | Force-pick 1 transcript-stage YouTube article, process through transcript → story_detect → full pipeline. Uses same polling endpoint. |
+| GET | `/api/article-pipeline/test-run/:runId` | Yes | Poll test run progress (shared by test-run and test-video). |
 
 ### Upload — `/api/upload`
 
