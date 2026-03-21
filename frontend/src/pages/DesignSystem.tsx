@@ -157,11 +157,8 @@ const COLOR_GROUPS = [
   ]},
 ];
 const RADIUS_TOKENS = [
-  { id: "--radius-sm", rem: "0.125rem", px: "2px", tw: "rounded-sm" },
-  { id: "--radius-md", rem: "0.375rem", px: "6px", tw: "rounded-md" },
   { id: "--radius-lg", rem: "0.5rem", px: "8px", tw: "rounded-lg" },
   { id: "--radius-xl", rem: "0.75rem", px: "12px", tw: "rounded-xl" },
-  { id: "--radius-2xl", rem: "1rem", px: "16px", tw: "rounded-2xl" },
   { id: "--radius-full", rem: "9999px", px: "pill", tw: "rounded-full" },
 ];
 const TYPO_TOKENS = [

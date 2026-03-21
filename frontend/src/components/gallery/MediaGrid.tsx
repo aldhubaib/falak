@@ -140,7 +140,7 @@ export function MediaGrid({ items, selectedIds, selectionMode, onToggleSelect, o
       }}
       componentsProps={{
         button: {
-          className: "group relative overflow-hidden rounded-sm hover:brightness-90 transition-[filter]",
+          className: "group relative overflow-hidden rounded-lg hover:brightness-90 transition-[filter]",
         },
         image: { loading: "lazy", decoding: "async", className: "object-cover" },
       }}

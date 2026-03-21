@@ -32,7 +32,7 @@ export function GalleryUploadIndicator() {
       </div>
       <div className="max-h-56 overflow-y-auto p-2 space-y-2">
         {visible.map((task) => (
-          <div key={task.id} className="rounded-md border border-border p-2">
+          <div key={task.id} className="rounded-lg border border-border p-2">
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] truncate">{task.file.name}</div>
               <button

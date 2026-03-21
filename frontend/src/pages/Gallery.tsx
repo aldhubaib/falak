@@ -416,7 +416,7 @@ export default function Gallery() {
                       );
                       if (files.length > 0) void uploadFiles(files);
                     }}
-                    className={`flex flex-col items-center justify-center py-24 mx-auto max-w-lg rounded-2xl border-2 border-dashed transition-colors cursor-pointer ${
+                    className={`flex flex-col items-center justify-center py-24 mx-auto max-w-lg rounded-lg border-2 border-dashed transition-colors cursor-pointer ${
                       emptyDrag
                         ? "border-primary bg-primary/5"
                         : "border-border/60 hover:border-border"
@@ -501,7 +501,7 @@ export default function Gallery() {
                 componentsProps={{
                   button: {
                     className:
-                      "group relative overflow-hidden rounded-sm hover:brightness-90 transition-[filter]",
+                      "group relative overflow-hidden rounded-lg hover:brightness-90 transition-[filter]",
                   },
                   image: { loading: "lazy", decoding: "async", className: "object-cover" },
                 }}

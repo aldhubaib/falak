@@ -95,11 +95,11 @@ export default {
         },
       },
       borderRadius: {
-        sm:   "var(--radius-sm)",
-        md:   "var(--radius-md)",
+        sm:   "var(--radius-lg)",
+        md:   "var(--radius-lg)",
         lg:   "var(--radius-lg)",
         xl:   "var(--radius-xl)",
-        "2xl": "var(--radius-2xl)",
+        "2xl": "var(--radius-lg)",
         full: "var(--radius-full)",
       },
       keyframes: {

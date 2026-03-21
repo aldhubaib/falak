@@ -173,7 +173,7 @@ export default function Login() {
             </p>
           </div>
 
-          <div className="bg-card border border-border rounded-2xl p-6">
+          <div className="bg-card border border-border rounded-lg p-6">
             {error && (
               <div className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-[12px]">
                 {error}

@@ -1269,16 +1269,16 @@ function ActiveArticleRow({
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
           <button onClick={handleAction(`/api/article-pipeline/${article.id}/skip`, setSkipping, "Skipped")}
             disabled={skipping}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-blue border border-blue/20 bg-blue/5 hover:bg-blue/10 disabled:opacity-50">
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono text-blue border border-blue/20 bg-blue/5 hover:bg-blue/10 disabled:opacity-50">
             {skipping ? <Loader2 className="w-3 h-3 animate-spin" /> : <SkipForward className="w-3 h-3" />} Skip
           </button>
           <button onClick={handleAction(`/api/article-pipeline/${article.id}/drop`, setDropping, "Dropped")}
             disabled={dropping}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 disabled:opacity-50">
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 disabled:opacity-50">
             {dropping ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Drop
           </button>
           <button onClick={(e) => { e.stopPropagation(); setShowPaste(!showPaste); }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono text-purple border border-purple/20 bg-purple/5 hover:bg-purple/10">
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono text-purple border border-purple/20 bg-purple/5 hover:bg-purple/10">
             <ClipboardPaste className="w-3 h-3" /> Paste
           </button>
         </div>
@@ -1295,7 +1295,7 @@ function ActiveArticleRow({
               <button onClick={() => { setShowPaste(false); setPasteText(""); }}
                 className="text-[10px] text-dim font-mono hover:text-foreground"><X className="w-3 h-3 inline" /> Cancel</button>
               <button onClick={handlePaste} disabled={pasting || pasteText.trim().length < 50}
-                className="px-2.5 py-1 rounded-md text-[10px] font-mono text-purple bg-purple/15 hover:bg-purple/25 disabled:opacity-50">
+                className="px-2.5 py-1 rounded-lg text-[10px] font-mono text-purple bg-purple/15 hover:bg-purple/25 disabled:opacity-50">
                 {pasting ? <Loader2 className="w-3 h-3 animate-spin inline" /> : null} Save
               </button>
             </div>

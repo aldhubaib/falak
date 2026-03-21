@@ -87,14 +87,11 @@ Defined in `index.css`, aliased in `tailwind.config.ts` under `theme.extend.bord
 
 | Token | Value | Tailwind class | Used for |
 |---|---|---|---|
-| `--radius-sm` | `0.125rem` | `rounded-sm` | Logo dot, minor accents |
-| `--radius-md` | `0.375rem` | `rounded-md` | Inputs, small action buttons, thumbnails |
-| `--radius-lg` | `0.5rem` | `rounded-lg` | Form fields, inner cards, data items, tooltips (~75 uses) |
-| `--radius-xl` | `0.75rem` | `rounded-xl` | **Default card radius** — section cards, panels, tables, forms (~160 uses) |
-| `--radius-2xl` | `1rem` | `rounded-2xl` | Login card, profile picker cards |
-| `--radius-full` | `9999px` | `rounded-full` | **Default pill/avatar radius** — all avatars, badges, icon buttons, progress bars (~280 uses) |
+| `--radius-lg` | `0.5rem` | `rounded-lg` | **Default radius** — inputs, buttons, cards, form fields, data items, tooltips |
+| `--radius-xl` | `0.75rem` | `rounded-xl` | **Large card radius** — section cards, panels, tables, forms (~160 uses) |
+| `--radius-full` | `9999px` | `rounded-full` | **Pill/avatar radius** — all avatars, badges, icon buttons, progress bars (~280 uses) |
 
-**Rule:** When building a new card or panel → use `rounded-xl`. When building a badge, avatar, or pill → use `rounded-full`. When building an input → use `rounded-lg`.
+**Rule:** When building a new element → use `rounded-lg`. When building a card or panel → use `rounded-xl`. When building a badge, avatar, or pill → use `rounded-full`.
 
 ---
 

@@ -333,7 +333,7 @@ export default function ArticleDetailPage() {
                 {article.title || "Untitled"}
               </h2>
               <a href={article.url} target="_blank" rel="noopener noreferrer"
-                className="shrink-0 p-1.5 rounded-md border border-border hover:bg-card transition-colors">
+                className="shrink-0 p-1.5 rounded-lg border border-border hover:bg-card transition-colors">
                 <ExternalLink className="w-3.5 h-3.5 text-dim" />
               </a>
             </div>
@@ -662,7 +662,7 @@ function LogStepCard({
         )}
       </div>
       {showDetails && detailsContent && (
-        <div className={`mt-2 px-2.5 py-2 rounded-md text-[11px] font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-auto border ${
+        <div className={`mt-2 px-2.5 py-2 rounded-lg text-[11px] font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-auto border ${
           entry?.status === "failed" || entry?.status === "parse_error"
             ? "bg-destructive/10 border-destructive/20 text-destructive"
             : "bg-card border-border text-dim"

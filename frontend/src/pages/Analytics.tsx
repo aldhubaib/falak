@@ -1263,7 +1263,7 @@ function TrendChart({
           return (
             <span
               key={c.id}
-              className={`flex items-center gap-1.5 text-[11px] font-mono rounded-md px-1.5 py-0.5 transition-colors ${active ? "bg-blue/10 text-blue" : dimmed ? "opacity-45" : ""}`}
+              className={`flex items-center gap-1.5 text-[11px] font-mono rounded-lg px-1.5 py-0.5 transition-colors ${active ? "bg-blue/10 text-blue" : dimmed ? "opacity-45" : ""}`}
             >
               <span className="w-3 h-0.5 bg-blue rounded-full inline-block" />
               <ChannelAvatar name={c.name} avatarUrl={c.ch?.avatarUrl} channelId={c.id} size="sm" />
@@ -1278,7 +1278,7 @@ function TrendChart({
           return (
             <span
               key={c.id}
-              className={`flex items-center gap-1.5 text-[11px] font-mono text-dim rounded-md px-1.5 py-0.5 transition-colors ${active ? "bg-card text-sensor" : dimmed ? "opacity-45" : ""}`}
+              className={`flex items-center gap-1.5 text-[11px] font-mono text-dim rounded-lg px-1.5 py-0.5 transition-colors ${active ? "bg-card text-sensor" : dimmed ? "opacity-45" : ""}`}
             >
               <span className="w-3 h-0.5 bg-dim/40 rounded-full inline-block" />
               <ChannelAvatar name={c.name} avatarUrl={c.ch?.avatarUrl} channelId={c.id} size="sm" />

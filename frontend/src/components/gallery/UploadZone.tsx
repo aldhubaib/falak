@@ -123,7 +123,7 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
           <div className="text-xs text-muted-foreground mb-2">Generated thumbnails</div>
           <div className="grid grid-cols-6 gap-2">
             {previews.map((preview) => (
-              <img key={preview.id} src={preview.url} alt={preview.name} className="w-full aspect-square object-cover rounded-md border border-border" />
+              <img key={preview.id} src={preview.url} alt={preview.name} className="w-full aspect-square object-cover rounded-lg border border-border" />
             ))}
           </div>
         </div>
@@ -137,7 +137,7 @@ export function UploadZone({ channelId, albumId }: UploadZoneProps) {
           </div>
           <div className="space-y-2 max-h-52 overflow-y-auto">
             {queue.map((item) => (
-              <div key={item.id} className="rounded-md border border-border p-2">
+              <div key={item.id} className="rounded-lg border border-border p-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs truncate">{item.file.name}</div>
                   <button onClick={() => dismissItem(item.id)} className="text-muted-foreground hover:text-foreground">

@@ -77,13 +77,13 @@ export function AppLayout() {
         <div className="fixed top-0 left-0 right-0 h-12 flex items-center justify-between px-4 border-b border-border bg-background z-[100]">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="w-8 h-8 rounded-md flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated transition-colors"
           >
             <Menu className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-primary/20 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-sm bg-primary" />
+              <div className="w-1.5 h-1.5 rounded-lg bg-primary" />
             </div>
             <span className="font-semibold text-[13px] text-foreground">Falak</span>
           </div>
