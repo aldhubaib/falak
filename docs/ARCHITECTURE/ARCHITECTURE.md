@@ -796,7 +796,7 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/article-pipeline/:id/drop` | editor+ | Mark article as dropped. |
 | PATCH | `/api/article-pipeline/:id/content` | editor+ | Paste content manually. |
 | POST | `/api/article-pipeline/retry-all-failed` | editor+ | Retry all failed articles. |
-| POST | `/api/article-pipeline/test-run` | admin+ | Process N articles end-to-end (returns runId for polling). |
+| POST | `/api/article-pipeline/test-run` | admin+ | Force-pick N imported articles (any status), reset & process end-to-end (returns runId for polling). |
 | GET | `/api/article-pipeline/test-run/:runId` | Yes | Poll test run progress. |
 
 ### Upload — `/api/upload`
