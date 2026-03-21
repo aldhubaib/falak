@@ -2,11 +2,13 @@
  * Article pipeline stage processors.
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
- * Stages: imported → content → classify → research → translated → script → score → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done
  *
- * Key design: classify and research run on ORIGINAL language content so web
- * searches find results in the source language. Translation happens after
- * research, and scoring/promotion happen last with full data.
+ * Key design: classify runs on ORIGINAL language content. Title translate provides
+ * a lightweight Arabic translation for scoring/niche matching. Score runs early
+ * with a dynamic threshold gate — articles below the threshold are filtered out
+ * before expensive research and full translation. Research and translation only
+ * run for articles that pass the threshold.
  */
 const db = require('../lib/db')
 const { decrypt } = require('./crypto')
@@ -41,12 +43,13 @@ const STEP_META = {
   translate_content:  { stage: 'translated',  label: 'Translate Content', icon: 'languages',    subtitle: 'Article text → Arabic' },
   translate_analysis: { stage: 'translated',  label: 'Translate Fields', icon: 'brain',         subtitle: 'Classification fields → Arabic' },
   translate_research: { stage: 'translated',  label: 'Translate Brief',  icon: 'search',        subtitle: 'Research brief → Arabic' },
-  auto_script:        { stage: 'script',      label: 'Draft Script',     icon: 'pen-line',      subtitle: 'Auto-generated script' },
+  title_translate:    { stage: 'title_translate', label: 'Title Translate', icon: 'languages',  subtitle: 'Arabic title + summary for scoring' },
   score_similarity:   { stage: 'score',       label: 'Competition Match', icon: 'target',       subtitle: 'Match vs. existing stories' },
   score_topic_demand: { stage: 'score',       label: 'Topic Demand',     icon: 'users',         subtitle: 'Competitor audience engagement' },
   score_niche:        { stage: 'score',       label: 'Niche Fit',        icon: 'target',        subtitle: 'Channel niche relevance' },
   score_ai_analysis:  { stage: 'score',       label: 'AI Scoring',       icon: 'brain',         subtitle: 'Relevance & viral scores' },
   score:              { stage: 'score',       label: 'Final Score',      icon: 'sparkles',      subtitle: 'Composite score' },
+  threshold_gate:     { stage: 'score',       label: 'Threshold Gate',   icon: 'target',        subtitle: 'Dynamic score threshold check' },
   promote:            { stage: 'promote',     label: 'Promote',          icon: 'check-circle' },
 }
 
@@ -185,7 +188,7 @@ async function doStageContent(article, project) {
   return { nextStage: 'content', reviewStatus: 'review', reviewReason: 'No usable content found' }
 }
 
-// ── Stage 3: classify → research ────────────────────────────────────────────
+// ── Stage 3: classify → title_translate ──────────────────────────────────────
 // Classifies in the article's ORIGINAL language. Arabic translation happens later.
 
 async function doStageClassify(article, project) {
@@ -306,7 +309,93 @@ async function doStageClassify(article, project) {
     },
   })
 
-  return { nextStage: 'research' }
+  return { nextStage: 'title_translate' }
+}
+
+// ── Stage 3b: title_translate → score ────────────────────────────────────────
+// Lightweight Arabic translation of title + first 2 sentences for scoring/niche match.
+
+async function doStageTitleTranslate(article, project) {
+  const log = getLog(article)
+  const freshArticle = await db.article.findUnique({ where: { id: article.id } })
+  const art = freshArticle || article
+  const analysis = art.analysis || {}
+  const sourceLang = art.language || detectLanguage(art.contentClean || art.content || '')
+
+  const title = art.title || ''
+  const content = (art.contentClean || art.content || '').trim()
+  const firstTwoSentences = content.split(/(?<=[.!?。؟])\s+/).slice(0, 2).join(' ')
+  const textToTranslate = [title, firstTwoSentences].filter(Boolean).join('\n\n')
+
+  if (!textToTranslate.trim() || textToTranslate.length < 10) {
+    log.push(lp('title_translate', { processor: 'server', status: 'skipped', reason: 'No title or content to translate' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'score' }
+  }
+
+  if (sourceLang === 'ar') {
+    const arAnalysis = { ...analysis, titleTranslateAr: textToTranslate }
+    log.push(lp('title_translate', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
+    await db.article.update({
+      where: { id: article.id },
+      data: { analysis: arAnalysis, processingLog: log },
+    })
+    return { nextStage: 'score' }
+  }
+
+  const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+  if (!anKey?.encryptedKey) {
+    log.push(lp('title_translate', { processor: 'server', status: 'skipped', reason: 'No Anthropic API key' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'score' }
+  }
+
+  try {
+    const apiKey = decrypt(anKey.encryptedKey)
+    const prompt = `Translate this news article title and opening to Arabic.\n` +
+      `Preserve all names, dates, and facts exactly.\n` +
+      `Output the Arabic text only, no commentary.\n\n` +
+      textToTranslate
+
+    const translated = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+      { role: 'user', content: prompt },
+    ], {
+      maxTokens: 1024,
+      channelId: article.channelId,
+      action: 'article-title-translate',
+    })
+    const usage = callAnthropic._lastUsage || {}
+
+    const arText = (translated || '').trim()
+    if (arText.length < 10) {
+      log.push(lp('title_translate', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', reason: 'Translation too short' }))
+      await saveLog(article.id, log)
+      return { nextStage: 'score' }
+    }
+
+    const arAnalysis = { ...analysis, titleTranslateAr: arText }
+    log.push(lp('title_translate', {
+      status: 'ok',
+      processor: 'ai', service: 'Anthropic Claude Haiku',
+      model: 'claude-haiku-4-5-20251001',
+      inputChars: textToTranslate.length,
+      outputChars: arText.length,
+      inputTokens: usage.inputTokens || null,
+      outputTokens: usage.outputTokens || null,
+      totalTokens: usage.totalTokens || null,
+    }))
+
+    await db.article.update({
+      where: { id: article.id },
+      data: { analysis: arAnalysis, processingLog: log },
+    })
+    return { nextStage: 'score' }
+  } catch (e) {
+    log.push(lp('title_translate', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', error: `${e.message} (non-blocking)` }))
+    await saveLog(article.id, log)
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] title_translate failed (non-fatal)')
+    return { nextStage: 'score' }
+  }
 }
 
 // ── Stage 4: research → translated ──────────────────────────────────────────
@@ -374,8 +463,9 @@ async function doStageResearch(article, project) {
   }
 }
 
-// ── Stage 5: translated → score ─────────────────────────────────────────────
+// ── Stage 6: translated → done ──────────────────────────────────────────────
 // Translates EVERYTHING to Arabic: article content + all classification fields.
+// Also promotes to Story at the end (only articles that passed the threshold reach here).
 
 async function doStageTranslated(article, project) {
   const log = getLog(article)
@@ -411,7 +501,8 @@ async function doStageTranslated(article, project) {
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
     })
-    return { nextStage: 'script' }
+    await promoteAfterTranslation(article, arAnalysis, log)
+    return { nextStage: 'done' }
   }
 
   const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
@@ -569,7 +660,26 @@ async function doStageTranslated(article, project) {
     },
   })
 
-  return { nextStage: 'script' }
+  await promoteAfterTranslation(article, arAnalysis, log)
+  return { nextStage: 'done' }
+}
+
+async function promoteAfterTranslation(article, analysis, log) {
+  const freshArticle = await db.article.findUnique({ where: { id: article.id } })
+  const art = freshArticle || article
+  const finalScore = art.finalScore || 0
+  const relevance = art.relevanceScore || 0
+  const viralPotential = analysis.viralPotential || 0
+
+  try {
+    const promotedStoryId = await promoteToStory(art, analysis, relevance, viralPotential, finalScore, null, null)
+    log.push(lp('promote', { processor: 'server', service: 'Database write (no 3rd party)', status: promotedStoryId ? 'created' : 'linked', storyId: promotedStoryId || null }))
+    await saveLog(article.id, log)
+  } catch (e) {
+    log.push(lp('promote', { processor: 'server', service: 'Database write', status: 'failed', error: e.message }))
+    await saveLog(article.id, log)
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Story promotion failed (non-fatal)')
+  }
 }
 
 function parseTranslatedFields(raw) {
@@ -589,143 +699,9 @@ function parseTranslatedFields(raw) {
   return result
 }
 
-// ── Stage 6: script → score ──────────────────────────────────────────────────
-// AUTO-GENERATE: draft script with branded hooks, dialect, and research context.
-
-async function doStageScript(article, project) {
-  const log = getLog(article)
-
-  const freshArticle = await db.article.findUnique({ where: { id: article.id } })
-  const art = freshArticle || article
-  const analysis = art.analysis || {}
-
-  const articleContent = art.contentAr || art.contentClean || ''
-  if (!articleContent.trim() || articleContent.length < 100) {
-    log.push(lp('auto_script', { processor: 'server', status: 'skipped', reason: 'No usable content' }))
-    await saveLog(article.id, log)
-    return { nextStage: 'score' }
-  }
-
-  const apiKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (!apiKeyRow?.encryptedKey) {
-    log.push(lp('auto_script', { processor: 'server', status: 'skipped', reason: 'No Anthropic API key' }))
-    await saveLog(article.id, log)
-    return { nextStage: 'score' }
-  }
-
-  const ch = await db.channel.findFirst({
-    where: { id: art.channelId },
-    select: { id: true, startHook: true, endHook: true, nationality: true },
-  })
-  if (!ch) {
-    log.push(lp('auto_script', { processor: 'server', status: 'skipped', reason: 'Channel not found' }))
-    await saveLog(article.id, log)
-    return { nextStage: 'score' }
-  }
-
-  const startHook = (ch.startHook || '').trim()
-  const endHook = (ch.endHook || '').trim()
-  const dialect = await getDialectForCountry(ch.nationality)
-  const dialectInstruction = dialect
-    ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
-    : 'Write the script in Arabic.'
-
-  const durationMinutes = 3
-  const durationInstruction = `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
-
-  const researchContext = analysis.research ? buildResearchContext(analysis.research) : ''
-
-  const hookStartBlock = startHook
-    ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
-    : ''
-  const hookEndBlock = endHook
-    ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
-    : ''
-
-  const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
-
-Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
-
-## TITLE
-(one line: suggested video title)
-
-## SCRIPT
-Write the full script as one continuous flow with timestamps. The structure MUST be:
-
-1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention immediately.
-${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
-3. **Main body** — the core content with timestamps every 15–30 seconds.
-${hookEndBlock ? `4. **Branded sign-off** — ${hookEndBlock}` : ''}
-
-${durationInstruction}
-Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
-
-## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)`
-
-  const summary = analysis.summaryAr || analysis.summary || ''
-  const uniqueAngle = analysis.uniqueAngleAr || analysis.uniqueAngle || ''
-
-  let userMessage = `Article to turn into a short video (~${durationMinutes} min) script:\n\n${articleContent.slice(0, 120000)}`
-  if (researchContext) userMessage += `\n\n--- RESEARCH BRIEF ---\n${researchContext}`
-  if (summary) userMessage += `\n\n--- SUMMARY ---\n${summary}`
-  if (uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${uniqueAngle}`
-
-  try {
-    const apiKey = decrypt(apiKeyRow.encryptedKey)
-    const fullScript = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
-      system,
-      maxTokens: 8192,
-      channelId: ch.id,
-      action: 'Auto Generate Script',
-    })
-    const usage = callAnthropic._lastUsage || {}
-
-    const parsed = parseAutoScript(fullScript)
-
-    const scriptData = {
-      suggestedTitle: parsed.suggestedTitle || null,
-      script: parsed.script || null,
-      youtubeTags: parsed.youtubeTags,
-      scriptDuration: durationMinutes,
-      scriptRaw: (fullScript || '').trim(),
-      autoGenerated: true,
-    }
-
-    const updatedAnalysis = { ...analysis, draftScript: scriptData }
-    await db.article.update({
-      where: { id: article.id },
-      data: { analysis: updatedAnalysis, processingLog: [...log, lp('auto_script', {
-        processor: 'ai',
-        service: 'Anthropic Claude Sonnet',
-        model: 'claude-sonnet-4-6',
-        status: 'ok',
-        inputTokens: usage.inputTokens || null,
-        outputTokens: usage.outputTokens || null,
-        totalTokens: usage.totalTokens || null,
-        dialect: dialect ? dialect.short : 'MSA',
-        hasHooks: !!(startHook || endHook),
-        hasResearch: !!researchContext,
-      })] },
-    })
-
-    return { nextStage: 'score' }
-  } catch (e) {
-    log.push(lp('auto_script', {
-      processor: 'ai',
-      service: 'Anthropic Claude Sonnet',
-      model: 'claude-sonnet-4-6',
-      status: 'partial',
-      error: e.message + ' (non-blocking)',
-    }))
-    await saveLog(article.id, log)
-    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] auto-script failed (non-fatal)')
-    return { nextStage: 'score' }
-  }
-}
-
-// ── Stage 7: score → done ───────────────────────────────────────────────────
-// THE DECISION STAGE: similarity search (AR vs AR), AI scoring on Arabic, final score, promote.
+// ── Stage 5: score → research (or filtered) ─────────────────────────────────
+// Scoring runs BEFORE research/translation using the title_translate Arabic text.
+// A dynamic threshold gate filters out low-scoring articles before expensive stages.
 
 async function doStageScore(article, project) {
   const log = getLog(article)
@@ -749,17 +725,18 @@ async function doStageScore(article, project) {
   let viralPotential = 0
   let sentiment = 'neutral'
 
-  // ── Sub-step A: score_similarity (Arabic vs Arabic) ──
+  // ── Sub-step A: score_similarity (using title_translate Arabic for embedding) ──
   const embKey = await db.apiKey.findUnique({ where: { service: 'embedding' } })
   if (embKey?.encryptedKey) {
     try {
       const { generateEmbedding, buildEmbeddingText, findSimilarVideos } = require('./embeddings')
+      const titleTranslateAr = analysis.titleTranslateAr || ''
       const embData = {
-        topic: analysis.topicAr || analysis.topic,
-        tags: analysis.tagsAr || analysis.tags,
-        summary: analysis.summaryAr || analysis.summary,
-        region: analysis.regionAr || analysis.region,
-        uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle,
+        topic: titleTranslateAr || analysis.topic,
+        tags: analysis.tags,
+        summary: titleTranslateAr || analysis.summary,
+        region: analysis.region,
+        uniqueAngle: analysis.uniqueAngle,
         contentType: analysis.contentType,
       }
       const embText = buildEmbeddingText(embData)
@@ -880,17 +857,17 @@ async function doStageScore(article, project) {
     }
   }
 
-  // ── Sub-step B: score_ai_analysis (AI scoring on Arabic text) ──
-  const contentAr = art.contentAr || ''
+  // ── Sub-step B: score_ai_analysis (AI scoring on original content — runs before full translation) ──
+  const contentForScoring = art.contentClean || art.content || ''
   const anKey = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (anKey?.encryptedKey && contentAr.trim().length > 50) {
+  if (anKey?.encryptedKey && contentForScoring.trim().length > 50) {
     try {
       const apiKey = decrypt(anKey.encryptedKey)
       const competitionContext = similarVideos.length > 0
         ? '\n\nCompetition (similar Arabic videos already in DB):\n' +
           similarVideos.map(v => `- "${v.title}" (similarity: ${v.similarity})`).join('\n')
         : ''
-      const scoringPrompt = `You are a news analyst for an Arabic YouTube audience. Analyze this Arabic article and respond with JSON only (no markdown, no explanation).
+      const scoringPrompt = `You are a news analyst for an Arabic YouTube audience. Analyze this article and respond with JSON only (no markdown, no explanation).
 
 Keys:
 - sentiment: "positive" | "negative" | "neutral" (how Arabic-speaking audiences will react emotionally)
@@ -898,8 +875,8 @@ Keys:
 - relevance: 0.0 to 1.0 — how relevant is this to audiences interested in true crime, mysteries, investigations, and untold stories
 ${competitionContext}
 
-Article (Arabic):
-${contentAr.slice(0, 15000)}`
+Article:
+${contentForScoring.slice(0, 15000)}`
 
       const raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
         { role: 'user', content: scoringPrompt },
@@ -952,7 +929,7 @@ ${contentAr.slice(0, 15000)}`
       log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message }))
     }
   } else {
-    log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'skipped', reason: contentAr.trim().length <= 50 ? 'No Arabic content' : 'No Anthropic key' }))
+      log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'skipped', reason: contentForScoring.trim().length <= 50 ? 'No content' : 'No Anthropic key' }))
   }
 
   // ── Sub-step C: score (compute final score) ──
@@ -1059,21 +1036,67 @@ ${contentAr.slice(0, 15000)}`
     },
   })
 
-  // ── Sub-step D: promote ──
+  // ── Sub-step D: threshold gate ──
   try {
-    const promotedStoryId = await promoteToStory(art, analysis, relevance, viralPotential, finalScore, scoreEmbedding, project)
-    log.push(lp('promote', { processor: 'server', service: 'Database write (no 3rd party)', status: promotedStoryId ? 'created' : 'linked', storyId: promotedStoryId || null }))
+    const profile = await db.scoreProfile.findFirst({
+      where: { channelId: art.channelId },
+      orderBy: { updatedAt: 'desc' },
+    })
+    const totalDecisions = profile?.totalDecisions || 0
+    const threshold = computeDynamicThreshold(totalDecisions)
+
+    if (profile) {
+      await db.scoreProfile.update({
+        where: { id: profile.id },
+        data: { currentThreshold: threshold },
+      })
+    }
+
+    if (finalScore < threshold) {
+      log.push(lp('threshold_gate', {
+        processor: 'server',
+        service: 'Threshold gate (no 3rd party)',
+        status: 'filtered',
+        reason: 'Score below threshold',
+        finalScore,
+        threshold,
+        totalDecisions,
+      }))
+      await db.article.update({
+        where: { id: article.id },
+        data: { stage: 'filtered', processingLog: log },
+      })
+      return { nextStage: 'filtered' }
+    }
+
+    log.push(lp('threshold_gate', {
+      processor: 'server',
+      service: 'Threshold gate (no 3rd party)',
+      status: 'passed',
+      finalScore,
+      threshold,
+      totalDecisions,
+    }))
     await saveLog(article.id, log)
   } catch (e) {
-    log.push(lp('promote', { processor: 'server', service: 'Database write', status: 'failed', error: e.message }))
+    log.push(lp('threshold_gate', { processor: 'server', status: 'error', error: e.message + ' (non-blocking, allowing through)' }))
     await saveLog(article.id, log)
-    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Story promotion failed (non-fatal)')
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] threshold gate error (non-fatal, allowing through)')
   }
 
-  return { nextStage: 'done' }
+  return { nextStage: 'research' }
 }
 
 // ── Quality evaluators ───────────────────────────────────────────────────────
+
+function computeDynamicThreshold(totalDecisions) {
+  const BASE = 0.30
+  const MIN = 0.15
+  const MAX = 0.60
+  const k = 0.02
+  const raw = BASE + k * Math.log1p(totalDecisions)
+  return Math.min(MAX, Math.max(MIN, Math.round(raw * 1000) / 1000))
+}
 
 function evaluateClassifyQuality(analysis) {
   if (!analysis || analysis.parseError) return { score: 0, issues: ['Failed to parse AI response'] }
@@ -1292,9 +1315,10 @@ module.exports = {
   doStageImported,
   doStageContent,
   doStageClassify,
+  doStageTitleTranslate,
+  doStageScore,
   doStageResearch,
   doStageTranslated,
-  doStageScript,
-  doStageScore,
   STEP_META,
+  computeDynamicThreshold,
 }

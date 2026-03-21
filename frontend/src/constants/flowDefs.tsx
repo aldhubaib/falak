@@ -1,4 +1,4 @@
-import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, PenLine } from "lucide-react";
+import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Filter, Target } from "lucide-react";
 
 export interface FlowDef {
   id: string;
@@ -9,7 +9,7 @@ export interface FlowDef {
   bgColor: string;
 }
 
-/** Shared flow definitions for Pipeline dashboard and Article Inspector. Nine stages. */
+/** Shared flow definitions for Pipeline dashboard and Article Inspector. */
 export const FLOW_DEFS: FlowDef[] = [
   {
     id: "imported",
@@ -36,6 +36,22 @@ export const FLOW_DEFS: FlowDef[] = [
     bgColor: "bg-success",
   },
   {
+    id: "title_translate",
+    name: "Title Translate",
+    subtitle: "Lightweight Arabic translation of title + opening for scoring/niche match.",
+    icon: Languages,
+    color: "text-primary",
+    bgColor: "bg-primary",
+  },
+  {
+    id: "score",
+    name: "Score",
+    subtitle: "Competition match → AI scoring → Threshold gate. Filters low-scoring articles before expensive stages.",
+    icon: Sparkles,
+    color: "text-orange",
+    bgColor: "bg-orange",
+  },
+  {
     id: "research",
     name: "Research",
     subtitle: "Decision (need research?) → Web Search → Background (Perplexity). One goal: gather external context.",
@@ -54,31 +70,23 @@ export const FLOW_DEFS: FlowDef[] = [
   {
     id: "translated",
     name: "Translation",
-    subtitle: "Detect language → Translate content → Translate fields → Translate brief. One goal: move everything to Arabic.",
+    subtitle: "Full Arabic translation + story promotion. Only articles that passed the threshold reach here.",
     icon: Languages,
     color: "text-primary",
     bgColor: "bg-primary",
   },
   {
-    id: "script",
-    name: "Script",
-    subtitle: "Auto-generate draft script with branded hooks, dialect, and research context.",
-    icon: PenLine,
-    color: "text-purple",
-    bgColor: "bg-purple",
-  },
-  {
-    id: "score",
-    name: "Score",
-    subtitle: "Competition match → AI scoring → Final score. One goal: decide if we produce the story.",
-    icon: Sparkles,
-    color: "text-orange",
-    bgColor: "bg-orange",
+    id: "filtered",
+    name: "Filtered",
+    subtitle: "Score below dynamic threshold — filtered out before research and translation.",
+    icon: Filter,
+    color: "text-muted-foreground",
+    bgColor: "bg-muted",
   },
   {
     id: "promote",
     name: "Promote",
-    subtitle: "Create or link story. One action: create/link the story.",
+    subtitle: "Create or link story. Happens automatically at the end of translation.",
     icon: CheckCircle2,
     color: "text-success",
     bgColor: "bg-success",

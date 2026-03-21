@@ -7,7 +7,7 @@ const articleEvents = require('../lib/articleEvents')
 const router = express.Router()
 router.use(requireAuth)
 
-const PIPELINE_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'script', 'score']
+const PIPELINE_STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
 // ── GET /api/article-pipeline?channelId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
@@ -57,16 +57,17 @@ router.get('/', async (req, res) => {
       imported: stageCountMap.imported || 0,
       content: stageCountMap.content || 0,
       classify: stageCountMap.classify || 0,
+      title_translate: stageCountMap.title_translate || 0,
+      score: stageCountMap.score || 0,
       research: stageCountMap.research || 0,
       translated: stageCountMap.translated || 0,
-      script: stageCountMap.script || 0,
-      score: stageCountMap.score || 0,
       review: reviewCounts,
       done: stageCountMap.done || 0,
+      filtered: stageCountMap.filtered || 0,
       failed: stageCountMap.failed || 0,
     }
 
-    const byStage = { imported: [], content: [], classify: [], research: [], translated: [], script: [], score: [], review: [], failed: [], done: [] }
+    const byStage = { imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], review: [], filtered: [], failed: [], done: [] }
     for (const a of allArticles) {
       if (a.status === 'review') {
         if (byStage.review.length < STAGE_LIMIT) byStage.review.push(a)
@@ -348,7 +349,7 @@ router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req,
       return res.status(400).json({ error: 'Article is currently running — wait or let rescue handle it' })
     }
 
-    const VALID_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'script', 'score']
+    const VALID_STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
     const targetStage = req.body.stage || article.stage
     if (!VALID_STAGES.includes(targetStage)) {
       return res.status(400).json({ error: `Invalid stage "${targetStage}"` })
@@ -370,7 +371,7 @@ router.post('/restart-stage', requireRole('owner', 'admin', 'editor'), async (re
   try {
     const { channelId, stage } = req.body
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
-    const VALID_STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'script', 'score']
+    const VALID_STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
     if (!VALID_STAGES.includes(stage)) {
       return res.status(400).json({ error: `Invalid stage "${stage}"` })
     }
@@ -392,7 +393,7 @@ router.post('/:id/skip', requireRole('owner', 'admin', 'editor'), async (req, re
     if (!article) return res.status(404).json({ error: 'Article not found' })
     if (article.status !== 'review') return res.status(400).json({ error: 'Article is not in review' })
 
-    const stageOrder = ['imported', 'content', 'classify', 'research', 'translated', 'script', 'score', 'done']
+    const stageOrder = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'done']
     const idx = stageOrder.indexOf(article.stage)
     const nextStage = idx >= 0 && idx < stageOrder.length - 1 ? stageOrder[idx + 1] : 'done'
 
@@ -540,7 +541,7 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
     })
 
     const runId = `test-${Date.now()}`
-    const DONE_STAGES = new Set(['done', 'failed'])
+    const DONE_STAGES = new Set(['done', 'failed', 'filtered'])
     const items = articles.map(a => ({
       id: a.id, title: a.title, stageBefore: 'imported',
       stageAfter: null, currentStage: 'imported', status: 'pending', error: null,

@@ -8,7 +8,7 @@ import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
   SkipForward, Trash2, ClipboardPaste, X, Loader2, CheckCircle2,
   ArrowRight, Globe, Languages, Brain, Sparkles, FileText, Download,
-  Search, Target, FlaskConical,
+  Search, Target, FlaskConical, Filter,
 } from "lucide-react";
 import { getFlowDef } from "@/constants/flowDefs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -223,11 +223,12 @@ const STAGE_DEFS = [
   { id: "imported", label: "Imported", subtitle: "Queued for ingestion", color: "text-orange", number: 1 },
   { id: "content", label: "Content", subtitle: "Fetching or processing content", color: "text-primary", number: 2 },
   { id: "classify", label: "Classify", subtitle: "Running classification", color: "text-success", number: 3 },
-  { id: "research", label: "Research", subtitle: "Gathering context", color: "text-purple", number: 4 },
-  { id: "translated", label: "Translated", subtitle: "Translating to Arabic", color: "text-primary", number: 5 },
-  { id: "script", label: "Script", subtitle: "Generating draft script", color: "text-purple", number: 6 },
-  { id: "score", label: "Score", subtitle: "Scoring & promotion", color: "text-orange", number: 7 },
+  { id: "title_translate", label: "Title Translate", subtitle: "Arabic title for scoring", color: "text-primary", number: 4 },
+  { id: "score", label: "Score", subtitle: "Scoring & threshold gate", color: "text-orange", number: 5 },
+  { id: "research", label: "Research", subtitle: "Gathering context", color: "text-purple", number: 6 },
+  { id: "translated", label: "Translated", subtitle: "Full Arabic translation + promote", color: "text-primary", number: 7 },
   { id: "review", label: "Review", subtitle: "Needs manual review", color: "text-orange", number: 0 },
+  { id: "filtered", label: "Filtered", subtitle: "Below score threshold", color: "text-muted-foreground", number: 0 },
   { id: "failed", label: "Failed", subtitle: "Errors after retries", color: "text-destructive", number: 0 },
 ];
 
@@ -660,7 +661,30 @@ function PipelineTabContent() {
               </div>
             </div>
 
-            {/* ── 4. RESEARCH ── */}
+            {/* ── 4. TITLE TRANSLATE ── */}
+            <SectionHeader icon={getFlowDef("title_translate")!.icon} title={getFlowDef("title_translate")!.name} subtitle={getFlowDef("title_translate")!.subtitle} />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
+                {(data?.byStage.title_translate ?? []).length > 0 && (
+                  <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.title_translate ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                )}
+              </div>
+            </div>
+
+            {/* ── 5. SCORE ── */}
+            <SectionHeader icon={getFlowDef("score")!.icon} title={getFlowDef("score")!.name} subtitle={getFlowDef("score")!.subtitle} />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "score" && ["score_similarity", "score_ai_analysis", "score"].includes(s.id)).map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                ))}
+                {(data?.byStage.score ?? []).length > 0 && (
+                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                )}
+              </div>
+            </div>
+
+            {/* ── 6. RESEARCH ── */}
             <SectionHeader icon={getFlowDef("research")!.icon} title={getFlowDef("research")!.name} subtitle={getFlowDef("research")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
@@ -670,12 +694,12 @@ function PipelineTabContent() {
               </div>
               {(data?.byStage.research ?? []).length > 0 && (
                 <div className="mt-3">
-                  <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 </div>
               )}
             </div>
 
-            {/* ── 5. SYNTHESIS ── */}
+            {/* ── SYNTHESIS ── */}
             <SectionHeader icon={getFlowDef("synthesis")!.icon} title={getFlowDef("synthesis")!.name} subtitle={getFlowDef("synthesis")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
@@ -685,7 +709,7 @@ function PipelineTabContent() {
               </div>
             </div>
 
-            {/* ── 6. TRANSLATION ── */}
+            {/* ── 7. TRANSLATION + PROMOTE ── */}
             <SectionHeader icon={getFlowDef("translated")!.icon} title={getFlowDef("translated")!.name} subtitle={getFlowDef("translated")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
@@ -693,50 +717,18 @@ function PipelineTabContent() {
                   <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.translated ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
 
-            {/* ── 7. SCRIPT ── */}
-            <SectionHeader icon={getFlowDef("script")!.icon} title={getFlowDef("script")!.name} subtitle={getFlowDef("script")!.subtitle} />
-            <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                {(data?.byStage.script ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.script ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                )}
-              </div>
-            </div>
-
-            {/* ── 8. SCORE ── */}
-            <SectionHeader icon={getFlowDef("score")!.icon} title={getFlowDef("score")!.name} subtitle={getFlowDef("score")!.subtitle} />
-            <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "score" && ["score_similarity", "score_ai_analysis", "score"].includes(s.id)).map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                ))}
-                {(data?.byStage.score ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                )}
-              </div>
-            </div>
-
-            {/* ── 8. PROMOTE ── */}
-            <SectionHeader icon={getFlowDef("promote")!.icon} title={getFlowDef("promote")!.name} subtitle={getFlowDef("promote")!.subtitle} />
-            <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "promote").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                ))}
-              </div>
-            </div>
-
-            {/* ── REVIEW + FAILED ── */}
-            <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review and failed articles" />
+            {/* ── REVIEW + FILTERED + FAILED ── */}
+            <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review, filtered, and failed articles" />
             <div className="px-6 max-lg:px-4 pb-8">
-              <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
+              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
                 <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                <StageColumn stage={STAGE_DEFS[8]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[8]} items={data?.byStage.filtered ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[9]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
           </>

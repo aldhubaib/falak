@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Stage = "suggestion" | "liked" | "scripting" | "filmed" | "publish" | "done" | "passed" | "omit";
+export type Stage = "suggestion" | "liked" | "scripting" | "filmed" | "publish" | "done" | "skip" | "trash" | "filtered";
 
 export interface ApiStory {
   id: string;
@@ -56,8 +56,9 @@ const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub
   { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-foreground", sub: "waiting for URL" },
   { key: "publish",    label: "Publish",        color: "text-primary",   pillClass: "bg-primary/15 text-foreground", sub: "final details needed" },
   { key: "done",       label: "Done",           color: "text-foreground", pillClass: "bg-foreground/15 text-foreground", sub: "published all time" },
-  { key: "passed",     label: "Passed",         color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "passed on" },
-  { key: "omit",       label: "Omitted",        color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "insufficient data" },
+  { key: "skip",       label: "Skipped",        color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "passed on" },
+  { key: "trash",      label: "Trashed",        color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "insufficient data" },
+  { key: "filtered",   label: "Filtered",       color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "below threshold" },
 ];
 
 function relativeTime(iso: string | null | undefined): string {

@@ -60,8 +60,9 @@ const STAGE_COLOR_CLASS: Record<string, string> = {
   filmed: "text-success",
   publish: "text-pink-400",
   done: "text-foreground",
-  passed: "text-muted-foreground",
-  omit: "text-muted-foreground",
+  skip: "text-muted-foreground",
+  trash: "text-muted-foreground",
+  filtered: "text-muted-foreground",
 };
 
 function getStageColor(stage: string): string {
@@ -84,7 +85,7 @@ export function StoryDetailTopBar({
   prevNext,
 }: StoryDetailTopBarProps) {
   const [actionDropOpen, setActionDropOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<"omit" | "passed" | "restart" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<"trash" | "skip" | "restart" | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

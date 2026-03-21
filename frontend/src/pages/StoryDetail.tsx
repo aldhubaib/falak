@@ -66,12 +66,13 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "filmed", label: "Filmed" },
   { key: "publish", label: "Publish" },
   { key: "done", label: "Done" },
-  { key: "passed", label: "Passed" },
-  { key: "omit", label: "Omitted" },
+  { key: "skip", label: "Skipped" },
+  { key: "trash", label: "Trashed" },
+  { key: "filtered", label: "Filtered" },
 ];
 
 const STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done"];
-const NAV_STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done", "passed", "omit"];
+const NAV_STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done", "skip", "trash", "filtered"];
 
 /** Minimal mock so main content renders (design only). */
 const MOCK_STORY: StoryWithLog = {
@@ -660,6 +661,7 @@ export default function StoryDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSavingState] = useState(false);
   const scriptEditorRef = useRef<{ setContent: (v: string) => void } | null>(null);
+  const [channelInfo, setChannelInfo] = useState<{ avatarUrl: string | null; name: string } | null>(null);
 
   const scriptValue = brief.script ?? "";
 
@@ -668,6 +670,22 @@ export default function StoryDetail() {
   const channelPathRef = useRef(channelPath);
   navigateRef.current = navigate;
   channelPathRef.current = channelPath;
+
+  useEffect(() => {
+    if (!channelId) return;
+    let cancelled = false;
+    fetch(`/api/channels/${channelId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setChannelInfo({
+          avatarUrl: data.avatarUrl ?? null,
+          name: data.nameEn || data.nameAr || data.handle || "",
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [channelId]);
 
   // Load story (and brief) on mount so Yoopta content persists after refresh
   useEffect(() => {
@@ -1036,9 +1054,9 @@ export default function StoryDetail() {
           saving={saving}
           onBack={() => navigate(channelPath("/stories"))}
           onMoveToNextStage={() => nextStageKey && moveToStage(nextStageKey)}
-          onPass={() => moveToStage("passed")}
+          onPass={() => moveToStage("skip")}
           onRestart={() => moveToStage("suggestion")}
-          onOmit={() => moveToStage("omit")}
+          onOmit={() => moveToStage("trash")}
           onHistoryClick={() => setHistoryOpen(true)}
           prevNext={showStageNav ? {
             currentIndex: withinStageIndex >= 0 ? withinStageIndex + 1 : stageIndex + 1,
@@ -1191,11 +1209,11 @@ export default function StoryDetail() {
           {/* Stage-specific content */}
           <div className="space-y-5">
 
-            {activeStage === "passed" && (
+            {activeStage === "skip" && (
               <StoryDetailStagePassed onMoveBack={() => moveToStage("suggestion")} />
             )}
 
-            {activeStage === "omit" && (
+            {activeStage === "trash" && (
               <StoryDetailStageOmit onMoveBack={() => moveToStage("suggestion")} />
             )}
 
@@ -1222,15 +1240,8 @@ export default function StoryDetail() {
                   saving={saving}
                   scriptRef={scriptEditorRef}
                   videoFormat={brief.videoFormat || "long"}
-                  onVideoFormatChange={(fmt) => {
-                    const defaultDuration = fmt === "short" ? 1 : 3;
-                    setScriptDurationMinutes(defaultDuration);
-                    setBrief((b) => {
-                      const next: StoryBrief = { ...b, videoFormat: fmt, scriptDuration: defaultDuration };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
+                  channelAvatarUrl={channelInfo?.avatarUrl}
+                  channelName={channelInfo?.name}
                   onScriptChange={(value) => {
                     setBrief((b) => {
                       const next: StoryBrief = { ...b, script: value };
@@ -1238,7 +1249,6 @@ export default function StoryDetail() {
                       return next;
                     });
                   }}
-                  scriptRef={scriptEditorRef}
                 />
               </>
             )}
@@ -1250,6 +1260,16 @@ export default function StoryDetail() {
                   brief={brief}
                   storyId={id}
                   saving={saving}
+                  videoFormat={brief.videoFormat || "long"}
+                  onVideoFormatChange={(fmt) => {
+                    const defaultDuration = fmt === "short" ? 1 : 3;
+                    setScriptDurationMinutes(defaultDuration);
+                    setBrief((b) => {
+                      const next: StoryBrief = { ...b, videoFormat: fmt, scriptDuration: defaultDuration };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
                   onBriefChange={(updater) => {
                     setBrief((b) => {
                       const next = updater(b);
@@ -1271,6 +1291,8 @@ export default function StoryDetail() {
                   saving={false}
                   scriptRef={scriptEditorRef}
                   videoFormat={brief.videoFormat || "long"}
+                  channelAvatarUrl={channelInfo?.avatarUrl}
+                  channelName={channelInfo?.name}
                 />
               </>
             )}

@@ -1,6 +1,6 @@
 /**
  * Article pipeline worker: polls for queued articles and processes them through stages.
- * Stages: imported → content → classify → research → translated → script → score → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done
  *
  * Mirrors the video pipeline worker pattern (worker.js).
  */
@@ -12,10 +12,10 @@ const {
   doStageImported,
   doStageContent,
   doStageClassify,
+  doStageTitleTranslate,
+  doStageScore,
   doStageResearch,
   doStageTranslated,
-  doStageScript,
-  doStageScore,
 } = require('./services/articleProcessor')
 
 const POLL_MS = 10_000
@@ -26,9 +26,9 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['imported', 'content', 'classify', 'research', 'translated', 'script', 'score']
+const STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
-const AI_STAGES = new Set(['classify', 'research', 'translated', 'script', 'score'])
+const AI_STAGES = new Set(['classify', 'title_translate', 'score', 'research', 'translated'])
 
 let paused = false
 let pauseLoaded = false
@@ -99,17 +99,17 @@ async function processItem(article, { force = false } = {}) {
       case 'classify':
         out = await doStageClassify(article, channel)
         break
+      case 'title_translate':
+        out = await doStageTitleTranslate(article, channel)
+        break
+      case 'score':
+        out = await doStageScore(article, channel)
+        break
       case 'research':
         out = await doStageResearch(article, channel)
         break
       case 'translated':
         out = await doStageTranslated(article, channel)
-        break
-      case 'script':
-        out = await doStageScript(article, channel)
-        break
-      case 'score':
-        out = await doStageScore(article, channel)
         break
       default:
         return
@@ -128,16 +128,17 @@ async function processItem(article, { force = false } = {}) {
       return
     }
 
+    const isTerminal = out.nextStage === 'done' || out.nextStage === 'filtered'
     await db.article.update({
       where: { id: article.id },
       data: {
         stage: out.nextStage,
-        status: out.nextStage === 'done' ? 'done' : 'queued',
+        status: isTerminal ? out.nextStage : 'queued',
         error: null,
         finishedAt: new Date(),
       },
     })
-    articleEvents.emit(`article:${article.id}`, { stage: out.nextStage, status: out.nextStage === 'done' ? 'done' : 'queued' })
+    articleEvents.emit(`article:${article.id}`, { stage: out.nextStage, status: isTerminal ? out.nextStage : 'queued' })
   } catch (err) {
     const errorMsg = (err && err.message) || String(err)
     const updated = await db.article.update({

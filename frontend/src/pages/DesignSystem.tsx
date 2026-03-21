@@ -486,7 +486,7 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="story-stage-publish" name="StoryDetailStagePublish" source="StoryDetail.tsx">
-                <StoryDetailStagePublish brief={brief} storyId="dls-mock-story" onBriefChange={setBrief} />
+                <StoryDetailStagePublish brief={brief} storyId="dls-mock-story" onBriefChange={setBrief} videoFormat="long" onVideoFormatChange={NOOP} />
               </CidBlock>
 
               <CidBlock cid="story-article" name="StoryDetailArticle" source="StoryDetail.tsx">
@@ -498,7 +498,7 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="story-script-section" name="StoryDetailScriptSection" source="StoryDetail.tsx">
-                <StoryDetailScriptSection scriptDuration={8} onScriptDurationChange={NOOP} canGenerate={true} generating={false} onGenerate={NOOP_ASYNC} readOnly={false} showGenerateControls={true} videoFormat="long" onVideoFormatChange={NOOP} />
+                <StoryDetailScriptSection scriptDuration={8} onScriptDurationChange={NOOP} canGenerate={true} generating={false} onGenerate={NOOP_ASYNC} readOnly={false} showGenerateControls={true} videoFormat="long" onVideoFormatChange={NOOP} channelName="MrBeast" />
               </CidBlock>
 
               {/* ── SECTION 7: Media ── */}

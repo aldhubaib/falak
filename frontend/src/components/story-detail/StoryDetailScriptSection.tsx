@@ -15,6 +15,8 @@ export interface StoryDetailScriptSectionProps {
   scriptRef?: React.MutableRefObject<{ setContent: (v: string) => void } | null>;
   videoFormat?: "short" | "long";
   onVideoFormatChange?: (format: "short" | "long") => void;
+  channelAvatarUrl?: string | null;
+  channelName?: string;
 }
 
 export function StoryDetailScriptSection({
@@ -31,6 +33,8 @@ export function StoryDetailScriptSection({
   scriptRef,
   videoFormat,
   onVideoFormatChange,
+  channelAvatarUrl,
+  channelName,
 }: StoryDetailScriptSectionProps) {
   const [durationInput, setDurationInput] = useState(() => String(scriptDuration));
   const userClearedRef = useRef(false);
@@ -174,6 +178,18 @@ export function StoryDetailScriptSection({
               )}
             </div>
           </div>
+
+          {channelAvatarUrl ? (
+            <img
+              src={channelAvatarUrl}
+              alt={channelName || ""}
+              className="w-6 h-6 rounded-full object-cover shrink-0 border border-border"
+            />
+          ) : channelName ? (
+            <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
+              {channelName.charAt(0).toUpperCase()}
+            </div>
+          ) : null}
 
         </div>
 

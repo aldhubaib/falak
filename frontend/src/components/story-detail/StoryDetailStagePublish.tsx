@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Youtube,
+  Film,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { StoryBrief } from "./types";
@@ -20,6 +22,8 @@ export interface StoryDetailStagePublishProps {
   storyId: string;
   onBriefChange: (updater: (prev: StoryBrief) => StoryBrief) => void;
   saving?: boolean;
+  videoFormat?: "short" | "long";
+  onVideoFormatChange?: (format: "short" | "long") => void;
 }
 
 function validateYoutubeUrl(url: string): { valid: boolean; videoId?: string; error?: string } {
@@ -53,6 +57,8 @@ export function StoryDetailStagePublish({
   storyId,
   onBriefChange,
   saving = false,
+  videoFormat,
+  onVideoFormatChange,
 }: StoryDetailStagePublishProps) {
   const [generatingDesc, setGeneratingDesc] = useState(false);
   const [fetchingSubs, setFetchingSubs] = useState(false);
@@ -229,7 +235,7 @@ export function StoryDetailStagePublish({
         )}
       </div>
 
-      {/* ── YouTube Video URL ── */}
+      {/* ── YouTube Video URL + Format ── */}
       <div className="rounded-lg bg-card border border-border p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -328,6 +334,39 @@ export function StoryDetailStagePublish({
           <p className="text-[11px] text-orange mt-1.5">
             {validateYoutubeUrl(urlInput.trim()).error}
           </p>
+        )}
+
+        {/* ── Format toggle ── */}
+        {onVideoFormatChange && (
+          <div className="mt-3 pt-3 border-t border-border">
+            <div className="mb-1.5 text-[12px] text-muted-foreground font-medium">Format</div>
+            <div className="inline-flex rounded-lg border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => onVideoFormatChange("long")}
+                className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors ${
+                  videoFormat === "long"
+                    ? "bg-primary/15 text-primary"
+                    : "bg-card text-muted-foreground hover:text-foreground hover:bg-card"
+                }`}
+              >
+                <Film className="w-3.5 h-3.5" />
+                Long Video
+              </button>
+              <button
+                type="button"
+                onClick={() => onVideoFormatChange("short")}
+                className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors border-l border-border ${
+                  videoFormat === "short"
+                    ? "bg-primary/15 text-primary"
+                    : "bg-card text-muted-foreground hover:text-foreground hover:bg-card"
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                Short
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

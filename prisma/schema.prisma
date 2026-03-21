@@ -440,6 +440,7 @@ model ScoreProfile {
   channelMedianViews    BigInt    @default(0)
   totalOutcomes         Int       @default(0)
   totalDecisions        Int       @default(0)
+  currentThreshold      Float     @default(0.30)
   lastLearnedAt         DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
