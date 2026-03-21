@@ -1199,6 +1199,7 @@ export default function StoryDetail() {
               articleLoading={articleLoading}
               articleError={articleError}
               actionsDisabled={isWriterBoxRunning}
+              compositeScore={story.compositeScore}
               relativeDate={relativeDate}
               articleOpen={articleOpen}
               onArticleOpenChange={setArticleOpen}

@@ -490,7 +490,7 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="story-article" name="StoryDetailArticle" source="StoryDetail.tsx">
-                <StoryDetailArticle storyId="dls-mock-story" sourceUrl="https://example.com/article" sourceName="NewsAPI/TechCrunch" articleContent={MOCK_BRIEF.articleContent} articleDisplayValue={MOCK_BRIEF.articleContent || ""} articleTitle={MOCK_BRIEF.articleTitle} articleLoading={false} articleError={null} actionsDisabled={false} relativeDate="2 hours ago" articleOpen={true} onArticleOpenChange={NOOP} onRetryFetch={NOOP_ASYNC} onArticleChange={NOOP} onArticleTitleChange={NOOP} onArticleTitleBlur={NOOP} />
+                <StoryDetailArticle storyId="dls-mock-story" sourceUrl="https://example.com/article" sourceName="NewsAPI/TechCrunch" articleContent={MOCK_BRIEF.articleContent} articleDisplayValue={MOCK_BRIEF.articleContent || ""} articleTitle={MOCK_BRIEF.articleTitle} articleLoading={false} articleError={null} actionsDisabled={false} compositeScore={6.5} relativeDate="2 hours ago" articleOpen={true} onArticleOpenChange={NOOP} onRetryFetch={NOOP_ASYNC} onArticleChange={NOOP} onArticleTitleChange={NOOP} onArticleTitleBlur={NOOP} />
               </CidBlock>
 
               <CidBlock cid="transcript-section" name="TranscriptSection" source="StoryDetail.tsx">
