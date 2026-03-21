@@ -1035,6 +1035,90 @@ flowchart TB
 | **Self-learning** | Builds tag/type/region signals from editorial decisions. Calibrates AI accuracy from published outcomes. | — | `ScoreProfile.*` |
 | **Re-score stories** | Computes 7-factor composite score for all stories in active stages. Creates alerts for significant changes. | — | `Story.compositeScore`, `StoryLog`, `Alert` |
 
+### Service Registry & Health Gate
+
+The **Service Registry** (`src/lib/serviceRegistry.js`) is the single source of
+truth for external service health and API key management. It replaces the
+scattered `db.apiKey.findUnique()` + `decrypt()` pattern that was previously
+duplicated across ~18 call sites.
+
+**Architecture:**
+
+```
+┌──────────────────────────────────────────────────────┐
+│                 Service Registry                      │
+│                                                      │
+│  getKey(service)      → decrypted key or null        │
+│  requireKey(service)  → key or ServiceKeyMissingError │
+│  hasKey(service)      → boolean                      │
+│  checkHealth(service) → { status, error, checkedAt } │
+│  markDown(service)    → poisons health cache         │
+│  markUp(service)      → marks healthy                │
+│  classifyHttpError()  → typed ServiceError           │
+│  autoDiscover()       → scans src/services/*.js      │
+└──────────────────────────────────────────────────────┘
+```
+
+**Files:**
+
+| File | Purpose |
+|---|---|
+| `src/lib/serviceErrors.js` | Typed error hierarchy: `ServiceKeyMissingError`, `ServiceKeyInvalidError`, `ServiceQuotaExhaustedError`, `ServiceTransientError` |
+| `src/lib/serviceRegistry.js` | Central registry with key retrieval, health cache (5-min TTL), HTTP error classification |
+| `src/lib/pipelinePreflight.js` | Stage → service dependency maps, `preflight()`, `blockDependents()`, `unblockReady()` |
+
+**How services register:** Each service file exports a `SERVICE_DESCRIPTOR`:
+
+```javascript
+const SERVICE_DESCRIPTOR = {
+  name: 'anthropic',
+  displayName: 'Anthropic Claude',
+  keySource: 'apiKey',  // 'apiKey' | 'youtubeApiKey' | 'googleSearchKey' | 'env'
+}
+```
+
+`autoDiscover()` scans `src/services/*.js` at startup and registers all found descriptors.
+
+**Error classification:** `classifyHttpError(service, status, body, headers)` maps
+HTTP responses to typed errors:
+
+| HTTP Status | Error Type | Retryable? |
+|---|---|---|
+| 401, 403 | `ServiceKeyInvalidError` | No |
+| 402 | `ServiceQuotaExhaustedError` | No |
+| 429 (no Retry-After, or quota message) | `ServiceQuotaExhaustedError` | No |
+| 429 (with Retry-After) | `ServiceTransientError` | Yes |
+| 400 (credit/balance message) | `ServiceQuotaExhaustedError` | No |
+| 5xx | `ServiceTransientError` | Yes |
+
+**Pipeline preflight:** Before every stage, the worker calls `preflight(pipeline, stage)`.
+If required services are down, the item is set to `status: 'blocked'` (retries are **not**
+consumed). When a mid-flight error is caught, `blockDependents(serviceName)` blocks all
+other queued items at affected stages.
+
+**Unblock sweep:** `unblockReady()` runs every tick in both workers. It checks blocked
+items and moves them back to `queued` when their required services become available.
+Saving a key in Settings immediately calls `markUp()` + `unblockReady()`.
+
+**Pipeline item statuses:**
+
+| Status | Meaning |
+|---|---|
+| `queued` | Ready to process |
+| `running` | Currently being processed |
+| `blocked` | Waiting for a service to be restored (config/balance issue — retries preserved) |
+| `done` | Completed successfully |
+| `failed` | Exhausted all retries on transient errors |
+| `review` | (Articles only) Needs manual review |
+| `filtered` | (Articles only) Below score threshold |
+
+**API endpoints:**
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/settings/service-health` | Live health status of all registered services + blocked item counts |
+| `POST /api/settings/unblock` | Manually trigger unblock sweep after fixing a key |
+
 ---
 
 ## 7 — Scoring System
@@ -1935,4 +2019,4 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 
 ---
 
-*Last updated: 2026-03-21*
+*Last updated: 2026-03-22*
