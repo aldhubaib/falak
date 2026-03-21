@@ -645,7 +645,7 @@ Multiple YouTube Data API keys for quota rotation. Randomly selected on each cal
 
 #### GoogleSearchKey
 
-Multiple Google Custom Search API keys for quota rotation (100 queries/day per key).
+Multiple SerpAPI keys for web-search quota rotation (100 searches/month free per key).
 Same schema as `YoutubeApiKey`.
 
 | Field | Type | Required | Default | Description |
@@ -662,8 +662,8 @@ Same schema as `YoutubeApiKey`.
 
 **Indexes:** `isActive`.
 
-The CX ID (search engine identifier) is stored as a single key in the `ApiKey` table
-with `service: "google_search_cx"`.
+SerpAPI keys replace the former Google Custom Search JSON API (deprecated by Google).
+No CX ID needed — SerpAPI handles search engine routing internally.
 
 #### ApiUsage
 
@@ -859,17 +859,17 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/settings` | admin+ | List all API key metadata (no raw keys) + YouTube keys + Google Search keys. |
+| GET | `/api/settings` | admin+ | List all API key metadata (no raw keys) + YouTube keys + SerpAPI keys. |
 | POST | `/api/settings/keys` | admin+ | Save/update encrypted API key. |
 | DELETE | `/api/settings/keys/:service` | admin+ | Clear an API key. |
 | GET | `/api/settings/youtube-keys` | admin+ | List YouTube API keys. |
 | POST | `/api/settings/youtube-keys` | admin+ | Add YouTube API key. |
 | DELETE | `/api/settings/youtube-keys/:id` | admin+ | Delete YouTube API key. |
 | PATCH | `/api/settings/youtube-keys/:id` | admin+ | Toggle/rename YouTube key. |
-| GET | `/api/settings/google-search-keys` | admin+ | List Google Search API keys. |
-| POST | `/api/settings/google-search-keys` | admin+ | Add Google Search API key. |
-| DELETE | `/api/settings/google-search-keys/:id` | admin+ | Delete Google Search API key. |
-| PATCH | `/api/settings/google-search-keys/:id` | admin+ | Toggle/rename Google Search key. |
+| GET | `/api/settings/google-search-keys` | admin+ | List SerpAPI keys (table reuses GoogleSearchKey model). |
+| POST | `/api/settings/google-search-keys` | admin+ | Add SerpAPI key. |
+| DELETE | `/api/settings/google-search-keys/:id` | admin+ | Delete SerpAPI key. |
+| PATCH | `/api/settings/google-search-keys/:id` | admin+ | Toggle/rename SerpAPI key. |
 | POST | `/api/settings/test-key` | admin+ | Lightweight test for any API key — sends a minimal request to the service. |
 | POST | `/api/settings/embedding-key` | admin+ | Save OpenAI embedding key. |
 | DELETE | `/api/settings/embedding-key` | admin+ | Clear embedding key. |
