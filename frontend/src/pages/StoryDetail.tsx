@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
-  RefreshCw, ExternalLink, Pencil, X, Copy, Check, History,
+  RefreshCw, ExternalLink, Pencil, X, Copy, Check, History, Sparkles,
+  ChevronDown, ChevronUp, Hash, FileText, Type,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
@@ -1232,6 +1233,15 @@ export default function StoryDetail() {
                 }}
               />
             )}
+            {/* AI Draft — suggested title, script, tags from article pipeline */}
+            {(brief.suggestedTitle || brief.script || (brief.youtubeTags && brief.youtubeTags.length > 0)) && (
+              <AIDraftBlock
+                suggestedTitle={brief.suggestedTitle}
+                script={brief.script}
+                youtubeTags={brief.youtubeTags}
+              />
+            )}
+
             <StoryDetailArticle
               storyId={id}
               sourceUrl={story.sourceUrl}
@@ -1519,6 +1529,92 @@ export default function StoryDetail() {
             )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── AI Draft Block — shows pipeline-generated title, script, and tags ─── */
+
+function AIDraftBlock({
+  suggestedTitle,
+  script,
+  youtubeTags,
+}: {
+  suggestedTitle?: string;
+  script?: string;
+  youtubeTags?: string[];
+}) {
+  const [open, setOpen] = useState(true);
+  const hasTags = youtubeTags && youtubeTags.length > 0;
+
+  return (
+    <div className="rounded-lg border border-border overflow-hidden bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full px-5 max-sm:px-3 py-3.5 flex items-center justify-between hover:bg-card/30 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          {open ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          )}
+          <Sparkles className="w-3.5 h-3.5 text-purple" />
+          <span className="text-[12px] text-muted-foreground font-medium">AI Draft</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground font-mono">auto-generated</span>
+      </button>
+
+      {open && (
+        <div className="p-4 space-y-3 border-t border-border">
+          {suggestedTitle && (
+            <div className="px-3 py-2.5 rounded-lg border border-border/80 bg-card/80 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Type className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-mono font-medium uppercase tracking-wide">Suggested Title</span>
+              </div>
+              <p className="text-[13px] text-foreground font-medium leading-relaxed" dir="auto">
+                {suggestedTitle}
+              </p>
+            </div>
+          )}
+
+          {script && (
+            <div className="px-3 py-2.5 rounded-lg border border-border/80 bg-card/80 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <FileText className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-mono font-medium uppercase tracking-wide">Script</span>
+              </div>
+              <div
+                className="text-[12px] text-foreground/85 leading-relaxed whitespace-pre-wrap max-h-[400px] overflow-y-auto"
+                dir="auto"
+              >
+                {script}
+              </div>
+            </div>
+          )}
+
+          {hasTags && (
+            <div className="px-3 py-2.5 rounded-lg border border-border/80 bg-card/80 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Hash className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-mono font-medium uppercase tracking-wide">YouTube Tags</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {youtubeTags!.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-mono"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
