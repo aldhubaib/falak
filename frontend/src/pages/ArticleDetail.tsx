@@ -365,21 +365,28 @@ export default function ArticleDetailPage() {
           <div className="space-y-4">
             {TIMELINE_STAGES.map((stage) => {
               const mappedStage = stage.id === "promote" ? null : stage.id === "synthesis" ? "research" : stage.id;
-              const hasPromoteLog = log.some((e) => e.step === "promote");
-              const reached =
-                stage.id === "promote"
-                  ? isDone || (article.stage === "score" && hasPromoteLog)
-                  : isDone || (mappedStage != null && currentStageIdx >= stageIndex(mappedStage));
 
-              if (!reached) return null;
-
-              const stepLog = getStepLogs(stage.id, log);
-              if (stepLog.length === 0 && stage.id !== "imported") return null;
+              let stageState: "completed" | "active" | "waiting";
+              if (stage.id === "promote") {
+                stageState = isDone ? "completed" : "waiting";
+              } else if (mappedStage != null) {
+                const mappedIdx = stageIndex(mappedStage);
+                if (isDone || currentStageIdx > mappedIdx) {
+                  stageState = "completed";
+                } else if (currentStageIdx === mappedIdx) {
+                  stageState = isFailed || article.status === "review" ? "completed" : "active";
+                } else {
+                  stageState = "waiting";
+                }
+              } else {
+                stageState = "waiting";
+              }
 
               return (
                 <StageSection
                   key={stage.id}
                   stage={stage}
+                  stageState={stageState}
                   article={article}
                   log={log}
                   pp={pp}
@@ -458,33 +465,53 @@ function RestartControl({
 /* ─── Stage Section (flat collapsible card — no timeline dots/lines) ─── */
 
 function StageSection({
-  stage, article, log, pp,
+  stage, stageState, article, log, pp,
 }: {
   stage: TimelineStage;
+  stageState: "completed" | "active" | "waiting";
   article: ArticleDetail;
   log: LogEntry[];
   pp: (p: string) => string;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(stageState !== "waiting");
   const Icon = stage.icon;
   const stepLog = getStepLogs(stage.id, log);
   const timestamp = stepLog.length > 0 ? stepLog[0].at : null;
+  const isWaiting = stageState === "waiting";
+  const isActive = stageState === "active";
 
   return (
-    <div className="rounded-xl border border-border bg-background overflow-hidden">
+    <div className={`rounded-xl border overflow-hidden ${
+      isWaiting ? "border-border/50 bg-background/60" : "border-border bg-background"
+    }`}>
       <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2.5 w-full text-left px-4 py-3 hover:bg-card/50 transition-colors"
+        onClick={() => !isWaiting && setExpanded(!expanded)}
+        className={`flex items-center gap-2.5 w-full text-left px-4 py-3 transition-colors ${
+          isWaiting ? "cursor-default" : "hover:bg-card/50"
+        }`}
       >
-        <Icon className={`w-4 h-4 ${stage.color} shrink-0`} />
-        <span className="text-[13px] font-semibold text-foreground">{stage.label}</span>
+        {isActive ? (
+          <Loader2 className={`w-4 h-4 ${stage.color} shrink-0 animate-spin`} />
+        ) : (
+          <Icon className={`w-4 h-4 ${isWaiting ? "text-dim" : stage.color} shrink-0`} />
+        )}
+        <span className={`text-[13px] font-semibold ${isWaiting ? "text-dim" : "text-foreground"}`}>
+          {stage.label}
+        </span>
+        {isActive && (
+          <span className="text-[10px] font-mono text-blue px-1.5 py-0.5 rounded bg-blue/10">Processing…</span>
+        )}
+        {isWaiting && (
+          <span className="text-[10px] font-mono text-dim px-1.5 py-0.5 rounded bg-muted">Waiting</span>
+        )}
         {timestamp && <span className="text-[10px] text-dim font-mono">{fmtDate(timestamp)}</span>}
-        {expanded
-          ? <ChevronDown className="w-3.5 h-3.5 text-dim ml-auto" />
-          : <ChevronRight className="w-3.5 h-3.5 text-dim ml-auto" />
-        }
+        {!isWaiting && (
+          expanded
+            ? <ChevronDown className="w-3.5 h-3.5 text-dim ml-auto" />
+            : <ChevronRight className="w-3.5 h-3.5 text-dim ml-auto" />
+        )}
       </button>
-      {expanded && (
+      {expanded && !isWaiting && (
         <>
           {stage.id === "imported" && <ImportedDetail article={article} log={log} />}
           {stage.id === "content" && <ContentDetail article={article} log={log} />}
