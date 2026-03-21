@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, Swords, GitBranch, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, FileText, Home, Images } from "lucide-react";
+import { LayoutDashboard, Swords, GitBranch, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, FileText, Home, Images, Palette } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { icon: FileText, label: "Article Pipeline", path: "/article-pipeline" },
   { icon: Images, label: "Gallery", path: "/gallery" },
   { icon: Settings, label: "Settings", path: "/settings" },
+  { icon: Palette, label: "Design System", path: "/design-system" },
 ];
 
 const adminItems = [
