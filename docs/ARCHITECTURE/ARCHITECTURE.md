@@ -555,6 +555,8 @@ and published video outcome.
 | `channelId` | String | Yes | — | FK → Channel (unique — 1:1) |
 | `nicheTags` | String[] | Yes | `[]` | English niche tags for Content DNA |
 | `nicheTagsAr` | String[] | Yes | `[]` | Arabic niche tags for Content DNA |
+| `nicheEmbedding` | vector(1536) | No | — | Semantic embedding of niche tags |
+| `nicheEmbeddingGeneratedAt` | DateTime | No | — | When niche embedding was last generated |
 | `weightAdjustments` | Json | No | — | Custom weight overrides |
 | `tagSignals` | Json | No | — | Per-tag preference signals (−1 to +1) |
 | `contentTypeSignals` | Json | No | — | Per-content-type preference signals |
@@ -711,6 +713,8 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | PATCH | `/api/channels/:id` | editor+ | Update channel fields (type, hooks, nationality). | — |
 | GET | `/api/channels/:id/niche-tags` | Yes | Get Content DNA niche tags (English + Arabic). | Upserts ScoreProfile if missing |
 | PATCH | `/api/channels/:id/niche-tags` | editor+ | Update Content DNA niche tags. | Upserts ScoreProfile |
+| POST | `/api/channels/:id/generate-niche-embedding` | editor+ | Generate niche embedding from Content DNA tags. | OpenAI Embeddings → ScoreProfile.nicheEmbedding |
+| GET | `/api/channels/:id/niche-embedding-status` | Yes | Check if niche embedding exists. | — |
 | DELETE | `/api/channels/all` | admin+ | Delete ALL channels. | Cascading deletes |
 | DELETE | `/api/channels/:id` | admin+ | Delete one channel. | Cascading deletes |
 
@@ -997,7 +1001,13 @@ freshness = exp(-daysSincePublished / 7 × ln2)    # half-life: 7 days
 preferenceBias = calculatePreferenceBias(analysis, profile)  # range -0.5 to +0.5
 competitionPenalty = 0.05 if topSimilarity ≥ 0.7, 0.02 if ≥ 0.5, else 0
 
+nicheScore = cosine_similarity(articleEmbedding, nicheEmbedding) if niche embedding exists, else 0
+
+# If nicheScore > 0 (niche embedding active):
+rawScore = relevance × 0.30 + viralPotential × 0.25 + nicheScore × 0.45
+# Fallback (no niche embedding):
 rawScore = relevance × 0.35 + viralPotential × 0.30 + freshness × 0.35
+
 finalScore = clamp(rawScore × 0.60 + preferenceBias × 0.40 - competitionPenalty, 0, 1)
 ```
 
