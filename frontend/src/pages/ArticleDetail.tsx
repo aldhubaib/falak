@@ -951,13 +951,25 @@ function DisplayBlockItem({ block }: { block: DisplayBlockDef }) {
       const rawVal = typeof block.raw === "number" ? block.raw : 0;
       const adjustments = block.adjustments ?? [];
       const finalVal = typeof block.final === "number" ? block.final : 0;
+      const weighted = rawVal * 0.60;
+      const compositeOut10 = (Math.round(finalVal * 10 * 10) / 10).toFixed(1);
       return (
-        <div className="text-[11px] font-mono mt-1">
-          Raw {rawVal.toFixed(3)}
-          {adjustments.map((adj, i) => (
-            <span key={i}> · {adj.label} {adj.value > 0 ? "+" : ""}{adj.value.toFixed(2)}</span>
-          ))}
-          {" → "}<span className="font-bold text-success">Final {finalVal.toFixed(2)}</span>
+        <div className="text-[11px] font-mono mt-1 space-y-1">
+          <div className="text-muted-foreground">
+            Weighted sum = {rawVal.toFixed(3)}
+          </div>
+          <div className="text-muted-foreground">
+            {rawVal.toFixed(3)} × 0.60 = {weighted.toFixed(3)}
+            {adjustments.map((adj, i) => (
+              <span key={i}> {adj.value >= 0 ? "+" : "−"} {adj.label} {Math.abs(adj.value).toFixed(2)}</span>
+            ))}
+          </div>
+          <div>
+            {"→ "}<span className="font-bold text-success">Final {finalVal.toFixed(2)}</span>
+          </div>
+          <div className="pt-1 border-t border-border">
+            {finalVal.toFixed(2)} × 10 = <span className="font-bold text-foreground">{compositeOut10}/10</span>
+          </div>
         </div>
       );
     }
