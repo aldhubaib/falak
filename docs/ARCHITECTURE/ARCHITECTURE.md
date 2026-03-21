@@ -1002,10 +1002,14 @@ preferenceBias = calculatePreferenceBias(analysis, profile)  # range -0.5 to +0.
 competitionPenalty = 0.05 if topSimilarity ≥ 0.7, 0.02 if ≥ 0.5, else 0
 
 nicheScore = cosine_similarity(articleEmbedding, nicheEmbedding) if niche embedding exists, else 0
+topicDemand = min(1.0, avgPerformanceRatio / 2.0) from similar competitor videos, else 0
 
-# If nicheScore > 0 (niche embedding active):
+# Three-tier formula depending on available signals:
+# Best case — niche embedding + competitor demand data:
+rawScore = relevance × 0.20 + viralPotential × 0.15 + nicheScore × 0.40 + topicDemand × 0.25
+# Niche only — no competitor data for this topic:
 rawScore = relevance × 0.30 + viralPotential × 0.25 + nicheScore × 0.45
-# Fallback (no niche embedding):
+# Fallback — no embedding generated yet:
 rawScore = relevance × 0.35 + viralPotential × 0.30 + freshness × 0.35
 
 finalScore = clamp(rawScore × 0.60 + preferenceBias × 0.40 - competitionPenalty, 0, 1)
