@@ -8,7 +8,7 @@ import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
   SkipForward, Trash2, ClipboardPaste, X, Loader2, CheckCircle2,
   ArrowRight, Globe, Languages, Brain, Sparkles, FileText, Download,
-  Search, Target, FlaskConical, Filter, ImageIcon,
+  Search, Target, FlaskConical, Filter, ImageIcon, Youtube,
 } from "lucide-react";
 import { getFlowDef } from "@/constants/flowDefs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -376,6 +376,8 @@ function PipelineTabContent() {
   const [testRunning, setTestRunning] = useState(false);
   const [testResults, setTestResults] = useState<TestResultItem[] | null>(null);
   const [testProgress, setTestProgress] = useState<string | null>(null);
+  const [videoTestRunning, setVideoTestRunning] = useState(false);
+  const [videoTestProgress, setVideoTestProgress] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(30);
 
   const fetchPipeline = useCallback(() => {
@@ -500,6 +502,60 @@ function PipelineTabContent() {
       });
   };
 
+  const handleVideoTestRun = () => {
+    if (!channelId || videoTestRunning) return;
+    setVideoTestRunning(true);
+    setTestResults(null);
+    setVideoTestProgress("Starting…");
+
+    fetch("/api/article-pipeline/test-video", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channelId }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { runId: string | null; total: number; articles: { id: string; title: string | null; stageBefore: string }[] }) => {
+        if (!d.runId || d.total === 0) {
+          toast("No transcript-stage videos to test");
+          setVideoTestRunning(false);
+          setVideoTestProgress(null);
+          return;
+        }
+
+        setTestResults(d.articles.map(a => ({
+          id: a.id, title: a.title, stageBefore: a.stageBefore,
+          stageAfter: null, currentStage: a.stageBefore,
+          status: "pending" as const, error: null,
+        })));
+        setVideoTestProgress(`0 / ${d.total}`);
+
+        const poll = () => {
+          fetch(`/api/article-pipeline/test-run/${d.runId}`, { credentials: "include" })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then((p: { total: number; completed: number; finished: boolean; currentlyProcessing: string | null; items: TestResultItem[] }) => {
+              setTestResults(p.items);
+              setVideoTestProgress(p.finished ? null : `${p.completed} / ${p.total}${p.currentlyProcessing ? ` · ${p.currentlyProcessing}` : ""}`);
+              fetchPipeline();
+              if (p.finished) {
+                setVideoTestRunning(false);
+                const ok = p.items.filter(i => i.status === "done").length;
+                const errors = p.items.filter(i => i.status === "error").length;
+                toast.success(`Video test done: ${ok} processed${errors ? `, ${errors} errors` : ""}`);
+              } else {
+                setTimeout(poll, 3000);
+              }
+            })
+            .catch(() => { setVideoTestRunning(false); setVideoTestProgress(null); });
+        };
+        setTimeout(poll, 2000);
+      })
+      .catch(() => {
+        toast.error("Video test failed");
+        setVideoTestRunning(false);
+        setVideoTestProgress(null);
+      });
+  };
+
   const allArticles = data
     ? [...Object.values(data.byStage)].flat()
     : [];
@@ -534,6 +590,16 @@ function PipelineTabContent() {
             {testRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
             {testRunning ? (testProgress || "Running…") : "Test 1"}
           </button>
+          {(data?.stats.transcript ?? 0) > 0 && (
+            <button
+              onClick={handleVideoTestRun}
+              disabled={videoTestRunning || testRunning}
+              title="Test 1 YouTube video through transcript → story detect → full pipeline"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-red-400/30 bg-red-400/10 text-[11px] text-red-400 font-medium hover:bg-red-400/20 transition-colors disabled:opacity-50">
+              {videoTestRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Youtube className="w-3 h-3" />}
+              {videoTestRunning ? (videoTestProgress || "Running…") : "Test Video"}
+            </button>
+          )}
           <button onClick={handleFetchAll} disabled={fetchingAll}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors disabled:opacity-50">
             {fetchingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}

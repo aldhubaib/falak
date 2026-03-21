@@ -548,7 +548,7 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
     })
 
     const runId = `test-${Date.now()}`
-    const DONE_STAGES = new Set(['done', 'failed', 'filtered'])
+    const DONE_STAGES = new Set(['done', 'failed', 'filtered', 'adapter_done'])
     const items = articles.map(a => ({
       id: a.id, title: a.title, stageBefore: 'imported',
       stageAfter: null, currentStage: 'imported', status: 'pending', error: null,
@@ -568,6 +568,106 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
         try {
           let loops = 0
           while (loops < 10) {
+            loops++
+            const fresh = await db.article.findUnique({
+              where: { id: item.id },
+              include: { source: { include: { channel: true } } },
+            })
+            if (!fresh || DONE_STAGES.has(fresh.stage) || fresh.status === 'review') break
+            item.currentStage = fresh.stage
+            await processItem(fresh, { force: true })
+            const after = await db.article.findUnique({
+              where: { id: item.id },
+              select: { stage: true, status: true, error: true },
+            })
+            if (!after || DONE_STAGES.has(after.stage) || after.status === 'review' || after.error) {
+              item.stageAfter = after?.stage || item.currentStage
+              item.error = after?.error || null
+              break
+            }
+          }
+          const final = await db.article.findUnique({
+            where: { id: item.id },
+            select: { stage: true, status: true, error: true },
+          })
+          item.stageAfter = final?.stage || item.currentStage
+          item.status = final?.error ? 'error' : 'done'
+          item.error = final?.error || null
+          item.currentStage = final?.stage || item.currentStage
+        } catch (e) {
+          item.stageAfter = item.currentStage
+          item.status = 'error'
+          item.error = e.message
+        }
+      }
+      setTimeout(() => _testRuns.delete(runId), 10 * 60 * 1000)
+    })()
+
+    res.json({
+      runId,
+      total: items.length,
+      articles: items.map(i => ({ id: i.id, title: i.title, stageBefore: i.stageBefore, status: i.status })),
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-pipeline/test-video — kick off processing for 1 YouTube video
+router.post('/test-video', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const { channelId } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
+
+    let articles = await db.article.findMany({
+      where: { channelId, stage: 'transcript', status: 'queued' },
+      include: { source: { include: { channel: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 1,
+    })
+    if (articles.length === 0) {
+      articles = await db.article.findMany({
+        where: { channelId, stage: 'transcript' },
+        include: { source: { include: { channel: true } } },
+        orderBy: { createdAt: 'asc' },
+        take: 1,
+      })
+    }
+
+    if (articles.length === 0) {
+      return res.json({ runId: null, total: 0, articles: [] })
+    }
+
+    await db.article.updateMany({
+      where: { id: { in: articles.map(a => a.id) } },
+      data: { status: 'queued', retries: 0, error: null, startedAt: null },
+    })
+    articles = await db.article.findMany({
+      where: { id: { in: articles.map(a => a.id) } },
+      include: { source: { include: { channel: true } } },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    const runId = `test-vid-${Date.now()}`
+    const DONE_STAGES = new Set(['done', 'failed', 'filtered', 'adapter_done'])
+    const items = articles.map(a => ({
+      id: a.id, title: a.title, stageBefore: 'transcript',
+      stageAfter: null, currentStage: 'transcript', status: 'pending', error: null,
+    }))
+
+    if (_testRuns.size >= MAX_TEST_RUNS) {
+      const oldest = _testRuns.keys().next().value
+      _testRuns.delete(oldest)
+    }
+    _testRuns.set(runId, { channelId, items, startedAt: Date.now() })
+
+    const { processItem } = require('../worker-articles')
+    ;(async () => {
+      for (const item of items) {
+        item.status = 'running'
+        try {
+          let loops = 0
+          while (loops < 15) {
             loops++
             const fresh = await db.article.findUnique({
               where: { id: item.id },
