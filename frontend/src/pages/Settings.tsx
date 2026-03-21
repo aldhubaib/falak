@@ -70,20 +70,14 @@ const CORE_KEYS: ApiKeyDef[] = [
   },
   {
     service: "google_search",
-    name: "Google Custom Search",
-    description: "Web search for article research. Add multiple API keys for quota rotation (100 queries/day per key).",
+    name: "SerpAPI (Google Search)",
+    description: "Web search for article research. Scrapes Google results via SerpAPI. 100 searches/month free.",
     icon: "search",
     multiKey: true,
     multiKeyEndpoint: "google-search-keys",
-    placeholder: "AIza...",
-    link: "https://console.cloud.google.com/apis/credentials",
-    linkLabel: "Google Cloud Console ↗",
-    companionField: {
-      service: "google_search_cx",
-      label: "Search Engine CX ID",
-      placeholder: "8189749b30ff64d36",
-      description: "Programmable Search Engine identifier — shared across all API keys.",
-    },
+    placeholder: "your-serpapi-key...",
+    link: "https://serpapi.com/dashboard",
+    linkLabel: "serpapi.com ↗",
   },
 ];
 
@@ -130,7 +124,7 @@ function mapService(api: string): { name: string; icon: "ai" | "data" | "search"
   if (api === "gnews")        return { name: "GNews",         icon: "news" };
   if (api === "guardian")     return { name: "Guardian",      icon: "news" };
   if (api === "nyt")          return { name: "NYT",           icon: "news" };
-  if (api === "google-search") return { name: "Google Search", icon: "search" };
+  if (api === "google-search") return { name: "SerpAPI", icon: "search" };
   return { name: api, icon: "data" };
 }
 

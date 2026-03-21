@@ -296,23 +296,10 @@ async function testServiceKey(service, apiKey) {
     }
 
     case 'google_search': {
-      const cxRow = await db.apiKey.findUnique({ where: { service: 'google_search_cx' } })
-      const cx = cxRow?.encryptedKey ? decrypt(cxRow.encryptedKey) : null
-      if (!cx) return { ok: false, error: 'CX ID not set — save it first', ms: Date.now() - start }
-      const r = await fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=test&num=1`)
+      const r = await fetch(`https://serpapi.com/search.json?engine=google&q=test&num=1&api_key=${apiKey}`)
       const data = await r.json()
-      if (data.error) return { ok: false, error: data.error.message || `HTTP ${r.status}`, ms: Date.now() - start }
-      return { ok: true, detail: `${data.searchInformation?.totalResults || 0} results`, ms: Date.now() - start }
-    }
-
-    case 'google_search_cx': {
-      const gsRow = await db.googleSearchKey.findFirst({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } })
-      if (!gsRow?.encryptedKey) return { ok: false, error: 'Add a Google Search API key first', ms: Date.now() - start }
-      const gsKey = decrypt(gsRow.encryptedKey)
-      const r = await fetch(`https://www.googleapis.com/customsearch/v1?key=${gsKey}&cx=${apiKey}&q=test&num=1`)
-      const data = await r.json()
-      if (data.error) return { ok: false, error: data.error.message || `HTTP ${r.status}`, ms: Date.now() - start }
-      return { ok: true, detail: `${data.searchInformation?.totalResults || 0} results`, ms: Date.now() - start }
+      if (data.error) return { ok: false, error: data.error, ms: Date.now() - start }
+      return { ok: true, detail: `${data.search_information?.total_results || 0} results`, ms: Date.now() - start }
     }
 
     case 'firecrawl': {
