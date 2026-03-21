@@ -1169,7 +1169,7 @@ Requires ≥3 outcomes.
 | `/c/:channelId/pipeline` | Pipeline | Two tabs: Pipeline (video processing), Monitor (channel sync) |
 | `/c/:channelId/analytics` | Analytics | Full competitive analytics (~2000 lines) |
 | `/c/:channelId/stories` | Stories | AI Intelligence story list with stage filters |
-| `/c/:channelId/story/:id` | StoryDetail | Story editor with AI tools (~1560 lines) |
+| `/c/:channelId/story/:id` | StoryDetail | Story editor with AI tools; AI Draft block (title, script, tags) + Original Story + stage workflow (~1630 lines) |
 | `/c/:channelId/publish` | PublishQueue | Bulk video upload + processing |
 | `/c/:channelId/article-pipeline` | ArticlePipeline | 3 tabs: Pipeline, Sources, Intelligence |
 | `/c/:channelId/article/:id` | ArticleDetail | Article inspector with 9-stage timeline + SSE live updates |
