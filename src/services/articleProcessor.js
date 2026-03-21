@@ -771,6 +771,57 @@ async function doStageScore(article, project) {
     log.push({ step: 'score_similarity', processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key', at: new Date().toISOString() })
   }
 
+  // ── Sub-step A1: topicDemand — did competitor audiences engage with this topic? ──
+  let topicDemand = 0
+  let topicDemandVideos = []
+
+  if (similarVideos.length > 0) {
+    try {
+      const { findSimilarVideosWithStats } = require('./embeddings')
+      const rawSimilar = scoreEmbedding
+        ? await findSimilarVideosWithStats(scoreEmbedding, article.channelId, 5)
+        : []
+
+      if (rawSimilar.length > 0) {
+        topicDemandVideos = rawSimilar
+        const channelIds = [...new Set(rawSimilar.map(v => v.channelId))]
+        const avgViewsMap = {}
+        await Promise.all(channelIds.map(async (cid) => {
+          const agg = await db.video.aggregate({
+            where: { channelId: cid },
+            _avg: { viewCount: true },
+          })
+          avgViewsMap[cid] = Number(agg._avg?.viewCount || 0) || 1
+        }))
+
+        const ratios = rawSimilar.map(v => {
+          const avg = avgViewsMap[v.channelId] || 1
+          return Number(v.viewCount) / avg
+        })
+
+        const avgRatio = ratios.reduce((a, b) => a + b, 0) / ratios.length
+        topicDemand = Math.round(Math.min(1.0, avgRatio / 2.0) * 100) / 100
+
+        log.push({
+          step: 'score_topic_demand',
+          processor: 'server',
+          service: 'competitor performance analysis',
+          status: 'ok',
+          similarCount: rawSimilar.length,
+          avgPerformanceRatio: Math.round(avgRatio * 100) / 100,
+          topicDemand,
+          at: new Date().toISOString(),
+        })
+      } else {
+        log.push({ step: 'score_topic_demand', status: 'skipped', reason: 'No similar competitor videos found', topicDemand: 0, at: new Date().toISOString() })
+      }
+    } catch (e) {
+      log.push({ step: 'score_topic_demand', status: 'failed', error: e.message, topicDemand: 0, at: new Date().toISOString() })
+    }
+  } else {
+    log.push({ step: 'score_topic_demand', status: 'skipped', reason: 'No similar videos', topicDemand: 0, at: new Date().toISOString() })
+  }
+
   // ── Sub-step A2: nicheScore — cosine similarity between article and channel niche ──
   let nicheScore = 0
   if (scoreEmbedding) {
@@ -895,9 +946,17 @@ ${contentAr.slice(0, 15000)}`
   const isBreaking = hoursSincePublished <= 48
   analysis.isBreaking = isBreaking
 
-  const rawScore = nicheScore > 0
-    ? relevance * 0.30 + viralPotential * 0.25 + nicheScore * 0.45
-    : relevance * 0.35 + viralPotential * 0.30 + freshness * 0.35
+  let rawScore
+  const hasNiche = nicheScore > 0
+  const hasDemand = topicDemand > 0
+
+  if (hasNiche && hasDemand) {
+    rawScore = relevance * 0.20 + viralPotential * 0.15 + nicheScore * 0.40 + topicDemand * 0.25
+  } else if (hasNiche) {
+    rawScore = relevance * 0.30 + viralPotential * 0.25 + nicheScore * 0.45
+  } else {
+    rawScore = relevance * 0.35 + viralPotential * 0.30 + freshness * 0.35
+  }
   const finalScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40 - competitionPenalty)) * 100) / 100
 
   log.push({
@@ -909,6 +968,8 @@ ${contentAr.slice(0, 15000)}`
     freshness: Math.round(freshness * 100) / 100,
     nicheScore: Math.round(nicheScore * 100) / 100,
     nicheActive: nicheScore > 0,
+    topicDemand,
+    topicDemandSimilarCount: topicDemandVideos?.length || 0,
     preferenceBias: Math.round(preferenceBias * 100) / 100,
     competitionPenalty,
     finalScore,

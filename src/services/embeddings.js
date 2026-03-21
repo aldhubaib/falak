@@ -147,6 +147,34 @@ async function findSimilarOwnStories(embedding, channelId, excludeStoryId, limit
 }
 
 /**
+ * Find similar competitor videos with channelId and viewCount for performance analysis.
+ * Used by topicDemand scoring to compute per-video performance ratios.
+ */
+async function findSimilarVideosWithStats(embedding, channelId, limit = 5) {
+  const vecStr = `[${embedding.join(',')}]`
+  return db.$queryRaw`
+    SELECT
+      v.id,
+      v."titleAr",
+      v."viewCount",
+      v."likeCount",
+      v."commentCount",
+      v."publishedAt",
+      v."videoType",
+      v."channelId",
+      c."nameAr" as "channelName",
+      1 - (v.embedding <=> ${vecStr}::vector) as similarity
+    FROM "Video" v
+    JOIN "Channel" c ON v."channelId" = c.id
+    WHERE c."parentChannelId" = ${channelId}
+      AND c."type" = 'competitor'
+      AND v.embedding IS NOT NULL
+    ORDER BY v.embedding <=> ${vecStr}::vector
+    LIMIT ${limit}
+  `
+}
+
+/**
  * Generate and store a niche embedding from the channel's Content DNA tags.
  * Combines English + Arabic tags into a single text and embeds it.
  */
@@ -206,6 +234,7 @@ module.exports = {
   storeVideoEmbedding,
   storeStoryEmbedding,
   findSimilarVideos,
+  findSimilarVideosWithStats,
   findSimilarOwnStories,
   generateNicheEmbedding,
   getNicheEmbedding,
