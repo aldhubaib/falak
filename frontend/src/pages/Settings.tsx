@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fmtDateTime } from "@/lib/utils";
-import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity } from "lucide-react";
+import { X, ExternalLink, Lock, Bot, Globe, FileText, Cog, Check, Loader2, Newspaper, Brain, Activity, Search } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -59,6 +59,24 @@ const CORE_KEYS: ApiKeyDef[] = [
     link: "https://youtube-transcript.io",
     linkLabel: "youtube-transcript.io ↗",
   },
+  {
+    service: "google_search",
+    name: "Google Custom Search API Key",
+    description: "Web search for article research stage — finds related articles and context.",
+    icon: "search",
+    placeholder: "AIza...",
+    link: "https://console.cloud.google.com/apis/credentials",
+    linkLabel: "Google Cloud Console ↗",
+  },
+  {
+    service: "google_search_cx",
+    name: "Google Custom Search CX ID",
+    description: "Search engine identifier — defines what sites and content Google searches.",
+    icon: "search",
+    placeholder: "8189749b30ff64d36",
+    link: "https://programmablesearchengine.google.com/controlpanel/all",
+    linkLabel: "Programmable Search Engine ↗",
+  },
 ];
 
 
@@ -87,12 +105,12 @@ const KEY_DEFS: ApiKeyDef[] = [...CORE_KEYS, ...LEGACY_KEYS];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-const iconMap = { ai: Bot, data: Cog, search: Globe, transcript: FileText, news: Newspaper };
+const iconMap = { ai: Bot, data: Cog, search: Search, transcript: FileText, news: Newspaper };
 const iconColorMap = { ai: "text-purple", data: "text-muted-foreground", search: "text-primary", transcript: "text-orange", news: "text-emerald-400" };
 const apiNameColorMap: Record<string, string> = {
   Anthropic: "text-purple", "YouTube Data": "text-muted-foreground",
   "YT Transcript": "text-orange", Perplexity: "text-primary", Firecrawl: "text-muted-foreground",
-  NewsAPI: "text-emerald-400", GNews: "text-emerald-400", Guardian: "text-emerald-400", NYT: "text-emerald-400",
+  "Google Search": "text-primary", NewsAPI: "text-emerald-400", GNews: "text-emerald-400", Guardian: "text-emerald-400", NYT: "text-emerald-400",
 };
 
 function mapService(api: string): { name: string; icon: "ai" | "data" | "search" | "transcript" | "news" } {
@@ -105,6 +123,7 @@ function mapService(api: string): { name: string; icon: "ai" | "data" | "search"
   if (api === "gnews")        return { name: "GNews",         icon: "news" };
   if (api === "guardian")     return { name: "Guardian",      icon: "news" };
   if (api === "nyt")          return { name: "NYT",           icon: "news" };
+  if (api === "google-search") return { name: "Google Search", icon: "search" };
   return { name: api, icon: "data" };
 }
 
