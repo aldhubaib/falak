@@ -133,6 +133,7 @@ const TAB2_SECTIONS = [
   { id: "colors", label: "Color Tokens" },
   { id: "radius", label: "Radius Scale" },
   { id: "typography", label: "Typography Scale" },
+  { id: "spacing", label: "Spacing / Gaps" },
 ] as const;
 
 const COLOR_GROUPS = [
@@ -171,6 +172,16 @@ const TYPO_TOKENS = [
   { id: "--text-xl", rem: "0.9375rem", px: "15px" },
   { id: "--text-2xl", rem: "1.125rem", px: "18px" },
   { id: "--text-3xl", rem: "1.375rem", px: "22px" },
+];
+const GAP_TOKENS = [
+  { tw: "gap-0.5", rem: "0.125rem", px: "2px", uses: 14 },
+  { tw: "gap-1", rem: "0.25rem", px: "4px", uses: 87 },
+  { tw: "gap-1.5", rem: "0.375rem", px: "6px", uses: 177 },
+  { tw: "gap-2", rem: "0.5rem", px: "8px", uses: 187 },
+  { tw: "gap-2.5", rem: "0.625rem", px: "10px", uses: 29 },
+  { tw: "gap-3", rem: "0.75rem", px: "12px", uses: 112 },
+  { tw: "gap-4", rem: "1rem", px: "16px", uses: 37 },
+  { tw: "gap-6", rem: "1.5rem", px: "24px", uses: 4 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -595,6 +606,22 @@ export default function DesignSystem() {
                     <div key={t.id} className="flex items-baseline gap-4 cursor-pointer group" onClick={() => copyCid(t.id)}>
                       <span className="w-28 shrink-0 font-mono text-[10px] text-muted-foreground">{t.id} &middot; {t.px}</span>
                       <span style={{ fontSize: t.rem }} className="group-hover:text-primary transition-colors">The quick brown fox jumps over the lazy dog</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <SectionHeader id="spacing" label="Spacing / Gaps" />
+              <div id="cid-spacing-gaps" data-cid="spacing-gaps" className="mb-8">
+                <div className="space-y-2">
+                  {GAP_TOKENS.map((g) => (
+                    <div key={g.tw} className="flex items-center gap-4 cursor-pointer group" onClick={() => copyCid(g.tw)}>
+                      <span className="w-20 shrink-0 font-mono text-[11px] text-foreground group-hover:text-primary transition-colors">{g.tw}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 bg-primary rounded-sm" style={{ width: g.px }} />
+                        <span className="font-mono text-[10px] text-muted-foreground">{g.px} &middot; {g.rem}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-muted-foreground ml-auto">{g.uses} uses</span>
                     </div>
                   ))}
                 </div>
