@@ -643,6 +643,28 @@ Multiple YouTube Data API keys for quota rotation. Randomly selected on each cal
 
 **Indexes:** `isActive`.
 
+#### GoogleSearchKey
+
+Multiple Google Custom Search API keys for quota rotation (100 queries/day per key).
+Same schema as `YoutubeApiKey`.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `id` | String | Yes | `cuid()` | Primary key |
+| `label` | String | Yes | `"Key 1"` | Display label |
+| `encryptedKey` | Text | Yes | — | AES-256-GCM encrypted key |
+| `isActive` | Boolean | Yes | true | Active flag |
+| `lastUsedAt` | DateTime | No | — | Last API call |
+| `usageCount` | Int | Yes | 0 | Total calls |
+| `sortOrder` | Int | Yes | 0 | Display order |
+| `createdAt` | DateTime | Yes | `now()` | — |
+| `updatedAt` | DateTime | Yes | auto | — |
+
+**Indexes:** `isActive`.
+
+The CX ID (search engine identifier) is stored as a single key in the `ApiKey` table
+with `service: "google_search_cx"`.
+
 #### ApiUsage
 
 Fire-and-forget log of every external API call for the usage dashboard.
@@ -837,13 +859,17 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/settings` | admin+ | List all API key metadata (no raw keys) + YouTube keys. |
+| GET | `/api/settings` | admin+ | List all API key metadata (no raw keys) + YouTube keys + Google Search keys. |
 | POST | `/api/settings/keys` | admin+ | Save/update encrypted API key. |
 | DELETE | `/api/settings/keys/:service` | admin+ | Clear an API key. |
 | GET | `/api/settings/youtube-keys` | admin+ | List YouTube API keys. |
 | POST | `/api/settings/youtube-keys` | admin+ | Add YouTube API key. |
 | DELETE | `/api/settings/youtube-keys/:id` | admin+ | Delete YouTube API key. |
 | PATCH | `/api/settings/youtube-keys/:id` | admin+ | Toggle/rename YouTube key. |
+| GET | `/api/settings/google-search-keys` | admin+ | List Google Search API keys. |
+| POST | `/api/settings/google-search-keys` | admin+ | Add Google Search API key. |
+| DELETE | `/api/settings/google-search-keys/:id` | admin+ | Delete Google Search API key. |
+| PATCH | `/api/settings/google-search-keys/:id` | admin+ | Toggle/rename Google Search key. |
 | POST | `/api/settings/embedding-key` | admin+ | Save OpenAI embedding key. |
 | DELETE | `/api/settings/embedding-key` | admin+ | Clear embedding key. |
 | GET | `/api/settings/embedding-status` | admin+ | Embedding key status + score profile info. |
