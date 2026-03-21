@@ -144,7 +144,7 @@ const SUB_STEPS: SubStep[] = [
   },
   {
     id: "title_desc", label: "Title+Desc", subtitle: "Title and description only",
-    icon: FileText, color: "text-dim", parentStage: "content",
+    icon: FileText, color: "text-muted-foreground", parentStage: "content",
     filterFn: (a) => { const log = getLogStep(a, "content_source"); return log?.source === "title_desc_fallback"; },
   },
   {
@@ -251,7 +251,7 @@ const LANG_LABELS: Record<string, string> = {
 };
 
 const SENTIMENT_COLORS: Record<string, string> = {
-  positive: "text-success", negative: "text-destructive", neutral: "text-dim",
+  positive: "text-success", negative: "text-destructive", neutral: "text-muted-foreground",
 };
 
 /** Log step id → display label (matches Kanban column titles exactly). */
@@ -316,7 +316,7 @@ function ArticlePipelineShell({ activeTab, setTab, children }: { activeTab: Tab;
             className={`relative h-full px-4 text-[13px] font-medium transition-colors ${
               activeTab === tab
                 ? "text-foreground"
-                : "text-dim hover:text-sensor"
+                : "text-muted-foreground hover:text-muted-foreground"
             }`}
           >
             {TAB_LABELS[tab]}
@@ -496,13 +496,13 @@ function PipelineTabContent() {
             {testRunning ? (testProgress || "Running…") : "Test 1"}
           </button>
           <button onClick={handleFetchAll} disabled={fetchingAll}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors disabled:opacity-50">
             {fetchingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
             Fetch All Sources
           </button>
           {failedCount > 0 && (
             <button onClick={handleRetryAll} disabled={retryingAll}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors disabled:opacity-50">
               <RotateCw className={`w-3 h-3 ${retryingAll ? "animate-spin" : ""}`} />
               Retry all failed ({failedCount})
             </button>
@@ -538,13 +538,13 @@ function PipelineTabContent() {
                     <div className="flex items-center gap-2">
                       <FlaskConical className="w-3.5 h-3.5 text-purple" />
                       <span className="text-[12px] font-semibold text-foreground">Test Run Results</span>
-                      <span className="text-[11px] text-dim font-mono">
+                      <span className="text-[11px] text-muted-foreground font-mono">
                         {testResults.filter(r => r.status === "done").length} done
                         {testResults.some(r => r.status === "running") && (
                           <>, <span className="text-purple">{testResults.filter(r => r.status === "running").length} running</span></>
                         )}
                         {testResults.some(r => r.status === "pending") && (
-                          <>, <span className="text-dim">{testResults.filter(r => r.status === "pending").length} waiting</span></>
+                          <>, <span className="text-muted-foreground">{testResults.filter(r => r.status === "pending").length} waiting</span></>
                         )}
                         {testResults.some(r => r.status === "error") && (
                           <>, <span className="text-destructive">{testResults.filter(r => r.status === "error").length} errors</span></>
@@ -553,7 +553,7 @@ function PipelineTabContent() {
                     </div>
                     {!testRunning && (
                       <button onClick={() => setTestResults(null)}
-                        className="text-dim hover:text-foreground transition-colors">
+                        className="text-muted-foreground hover:text-foreground transition-colors">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     )}
@@ -567,7 +567,7 @@ function PipelineTabContent() {
                           r.status === "running" ? "bg-purple/15 text-purple" :
                           r.status === "done" ? "bg-success/15 text-success" :
                           r.status === "error" ? "bg-destructive/15 text-destructive" :
-                          "bg-dim/10 text-dim"
+                          "bg-dim/10 text-muted-foreground"
                         }`}>
                           {r.status === "running" ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -585,10 +585,10 @@ function PipelineTabContent() {
                         </span>
                         {/* Stage transition */}
                         <div className="flex items-center gap-1.5 text-[10px] font-mono shrink-0">
-                          <span className="px-1.5 py-0.5 rounded bg-dim/10 text-dim">{r.stageBefore}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-dim/10 text-muted-foreground">{r.stageBefore}</span>
                           {r.status === "running" ? (
                             <>
-                              <ArrowRight className="w-3 h-3 text-dim" />
+                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
                               <span className="px-1.5 py-0.5 rounded bg-purple/10 text-purple animate-pulse">
                                 {r.currentStage}
                               </span>
@@ -596,7 +596,7 @@ function PipelineTabContent() {
                             </>
                           ) : r.stageAfter ? (
                             <>
-                              <ArrowRight className="w-3 h-3 text-dim" />
+                              <ArrowRight className="w-3 h-3 text-muted-foreground" />
                               <span className={`px-1.5 py-0.5 rounded ${
                                 r.status === "error" ? "bg-destructive/10 text-destructive" :
                                 r.stageAfter === "done" ? "bg-success/10 text-success" :
@@ -606,7 +606,7 @@ function PipelineTabContent() {
                               </span>
                             </>
                           ) : (
-                            <span className="text-dim/50">waiting…</span>
+                            <span className="text-muted-foreground/50">waiting…</span>
                           )}
                         </div>
                         {r.error && (
@@ -746,9 +746,9 @@ function PipelineTabContent() {
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: typeof FileText; title: string; subtitle: string }) {
   return (
     <div className="px-6 max-lg:px-4 mb-3 flex items-center gap-2">
-      <Icon className="w-4 h-4 text-dim" />
+      <Icon className="w-4 h-4 text-muted-foreground" />
       <span className="text-[13px] font-semibold text-foreground">{title}</span>
-      <span className="text-[11px] text-dim font-mono">— {subtitle}</span>
+      <span className="text-[11px] text-muted-foreground font-mono">— {subtitle}</span>
     </div>
   );
 }
@@ -759,8 +759,8 @@ function StatBox({ label, value, color, sub, last }: { label: string; value: num
   return (
     <div className={`flex-1 px-4 py-3.5 bg-background ${!last ? "border-r border-border" : ""}`}>
       <div className={`text-xl font-semibold font-mono tracking-tight ${color || ""}`}>{value}</div>
-      <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-0.5">{label}</div>
-      {sub && <div className="text-[10px] text-dim font-mono mt-1">{sub}</div>}
+      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5">{label}</div>
+      {sub && <div className="text-[10px] text-muted-foreground font-mono mt-1">{sub}</div>}
     </div>
   );
 }
@@ -779,15 +779,15 @@ function SubStepColumn({
         <div className="flex items-center gap-2">
           <Icon className={`w-3.5 h-3.5 ${sub.color}`} />
           <span className="text-[12px] font-semibold">{sub.label}</span>
-          <span className="text-[11px] text-dim font-mono">({articles.length})</span>
+          <span className="text-[11px] text-muted-foreground font-mono">({articles.length})</span>
         </div>
         {sub.subtitle && (
-          <div className="text-[10px] text-dim font-mono leading-tight pl-5.5">{sub.subtitle}</div>
+          <div className="text-[10px] text-muted-foreground font-mono leading-tight pl-5.5">{sub.subtitle}</div>
         )}
       </div>
       <div className="flex-1 overflow-y-auto bg-background">
         {articles.length === 0 ? (
-          <div className="flex items-center justify-center h-16 text-[11px] text-dim font-mono">—</div>
+          <div className="flex items-center justify-center h-16 text-[11px] text-muted-foreground font-mono">—</div>
         ) : (
           articles.slice(0, 50).map((a) => (
             <DoneArticleRow key={a.id} article={a} subStep={sub} pp={pp} />
@@ -824,13 +824,13 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         <a href={article.url} target="_blank" rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <ExternalLink className="w-3 h-3 text-dim hover:text-sensor" />
+          <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-muted-foreground" />
         </a>
       </div>
 
       {/* Sub-step specific detail */}
       {subStep.parentStage === "content" && contentSourceLog && (
-        <div className="flex items-center gap-2 text-[10px] font-mono text-dim">
+        <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
           <span className={contentSourceLog.status === "ok" ? "text-success" : "text-destructive"}>
             {contentSourceLog.chars?.toLocaleString()} chars
           </span>
@@ -840,7 +840,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
 
       {subStep.id === "research" && researchLog && (
         <div className="flex items-center gap-2 text-[10px] font-mono">
-          <span className={researchLog.status === "ok" ? "text-success" : "text-dim"}>{researchLog.status === "ok" ? "Done" : researchLog.status === "partial" ? "Partial" : researchLog.status}</span>
+          <span className={researchLog.status === "ok" ? "text-success" : "text-muted-foreground"}>{researchLog.status === "ok" ? "Done" : researchLog.status === "partial" ? "Partial" : researchLog.status}</span>
           {researchLog.narrativeStrength != null && <span className="text-success font-semibold">Narrative {researchLog.narrativeStrength}/10</span>}
         </div>
       )}
@@ -853,13 +853,13 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
             {(detectLog.detected || "?").toUpperCase()}
           </span>
           {translateContentLog?.status === "skipped" && (
-            <span className="text-dim">Already Arabic</span>
+            <span className="text-muted-foreground">Already Arabic</span>
           )}
         </div>
       )}
 
       {subStep.id === "translate_content" && translateContentLog && (
-        <div className="flex items-center gap-2 text-[10px] font-mono text-dim">
+        <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
           {translateContentLog.status === "skipped" ? (
             <span className="text-success">Native Arabic</span>
           ) : (
@@ -875,7 +875,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         const logEntry = log.find(e => e.step === "translate_analysis");
         if (!logEntry) return null;
         return (
-          <div className="text-[10px] font-mono text-dim">
+          <div className="text-[10px] font-mono text-muted-foreground">
             {logEntry.status === "skipped" ? <span className="text-success">Skipped</span> : (logEntry as any).fieldsTranslated != null && <span>{(logEntry as any).fieldsTranslated} fields</span>}
           </div>
         );
@@ -885,7 +885,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         const logEntry = log.find(e => e.step === "translate_research");
         if (!logEntry) return null;
         return (
-          <div className="text-[10px] font-mono text-dim">
+          <div className="text-[10px] font-mono text-muted-foreground">
             {logEntry.status === "skipped" ? <span className="text-success">Skipped</span> : logEntry.status === "ok" && logEntry.inputChars != null && logEntry.outputChars != null && (
               <span>{logEntry.inputChars.toLocaleString()} → {logEntry.outputChars.toLocaleString()} chars</span>
             )}
@@ -903,18 +903,18 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
               <span key={i} className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[9px] font-mono" dir="rtl">{tag}</span>
             ))}
             {(analysis.tags?.length || 0) > 4 && (
-              <span className="text-[9px] text-dim">+{(analysis.tags?.length || 0) - 4}</span>
+              <span className="text-[9px] text-muted-foreground">+{(analysis.tags?.length || 0) - 4}</span>
             )}
           </div>
           <div className="flex items-center gap-2 text-[10px] font-mono">
             {analysis.sentiment && (
-              <span className={SENTIMENT_COLORS[analysis.sentiment] || "text-dim"}>{analysis.sentiment}</span>
+              <span className={SENTIMENT_COLORS[analysis.sentiment] || "text-muted-foreground"}>{analysis.sentiment}</span>
             )}
             {analysis.contentType && (
-              <span className="text-dim">{analysis.contentType}</span>
+              <span className="text-muted-foreground">{analysis.contentType}</span>
             )}
             {analysis.region && (
-              <span className="text-dim" dir="rtl">{analysis.region}</span>
+              <span className="text-muted-foreground" dir="rtl">{analysis.region}</span>
             )}
           </div>
         </div>
@@ -926,7 +926,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         const matchCount = (simLog as any).matchCount ?? 0;
         const top = (simLog as any).topMatch;
         return (
-          <div className="space-y-1 text-[10px] font-mono text-dim">
+          <div className="space-y-1 text-[10px] font-mono text-muted-foreground">
             <span>{matchCount} similar videos</span>
             {top?.title && <div className="truncate" title={top.title}>{top.title}</div>}
             {top?.similarity != null && <span className="text-purple">{(top.similarity as number).toFixed(2)}</span>}
@@ -939,7 +939,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         if (!aiLog) return null;
         return (
           <div className="space-y-1 text-[10px] font-mono">
-            <span className="text-dim">Sentiment: <span className="text-foreground">{(aiLog as any).sentiment ?? "—"}</span></span>
+            <span className="text-muted-foreground">Sentiment: <span className="text-foreground">{(aiLog as any).sentiment ?? "—"}</span></span>
             <div className="flex gap-2">
               <ScoreBar label="Rel" value={(aiLog as any).relevance} />
               <ScoreBar label="Viral" value={(aiLog as any).viralPotential} />
@@ -975,14 +975,14 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
               <CheckCircle2 className="w-3 h-3" /> Story created
             </Link>
           ) : promoteLog.status === "linked" ? (
-            <span className="text-dim">Linked to existing story</span>
+            <span className="text-muted-foreground">Linked to existing story</span>
           ) : promoteLog.status === "skipped" ? (
-            <span className="text-dim">{promoteLog.reason}</span>
+            <span className="text-muted-foreground">{promoteLog.reason}</span>
           ) : (
             <span className="text-destructive">{promoteLog.error || "Failed"}</span>
           )}
           {article.finalScore != null && (
-            <span className="text-dim ml-auto">Score: {article.finalScore.toFixed(2)}</span>
+            <span className="text-muted-foreground ml-auto">Score: {article.finalScore.toFixed(2)}</span>
           )}
         </div>
       )}
@@ -992,10 +992,10 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         if (!decision) return null;
         return (
           <div className="flex items-center gap-2 text-[10px] font-mono">
-            <span className={decision.needed ? "text-success" : "text-dim"}>
+            <span className={decision.needed ? "text-success" : "text-muted-foreground"}>
               {decision.needed ? "Research needed" : "Skipped"}
             </span>
-            <span className="text-dim truncate">{decision.reason}</span>
+            <span className="text-muted-foreground truncate">{decision.reason}</span>
           </div>
         );
       })()}
@@ -1009,7 +1009,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
               {(fcLog as any).resultsCount ?? 0} related articles found
             </div>
             {(fcLog as any).titles?.slice(0, 2).map((t: string, i: number) => (
-              <div key={i} className="text-[10px] text-dim truncate">• {t}</div>
+              <div key={i} className="text-[10px] text-muted-foreground truncate">• {t}</div>
             ))}
           </div>
         );
@@ -1019,7 +1019,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         const pxLog = log.find(e => e.step === "perplexity_context" && e.status === "ok");
         if (!pxLog) return null;
         return (
-          <div className="flex items-center gap-2 text-[10px] font-mono text-dim">
+          <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
             <span className="text-orange">{(pxLog as any).chars?.toLocaleString() ?? 0} chars</span>
             <span>{(pxLog as any).citations ?? 0} citations</span>
           </div>
@@ -1032,7 +1032,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
         return (
           <div className="flex items-center gap-2 text-[10px] font-mono">
             <span className="text-success">Brief generated</span>
-            <span className="text-dim">
+            <span className="text-muted-foreground">
               {(synLog as any).briefKeys?.length ?? 0} sections
             </span>
           </div>
@@ -1040,7 +1040,7 @@ function DoneArticleRow({ article, subStep, pp }: { article: ApiArticle; subStep
       })()}
 
       {/* Elapsed time + retries */}
-      <div className="flex items-center justify-between text-[10px] text-dim font-mono mt-1">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono mt-1">
         {(article.createdAt || article.startedAt) && (
           <span>⏱ {fmtElapsed(article.createdAt, article.finishedAt)}</span>
         )}
@@ -1057,7 +1057,7 @@ function ScoreBar({ label, value }: { label: string; value?: number }) {
   const pct = Math.round(v * 100);
   return (
     <div className="flex items-center gap-1">
-      <span className="text-dim w-8 text-right">{label}</span>
+      <span className="text-muted-foreground w-8 text-right">{label}</span>
       <div className="w-12 h-1.5 bg-border rounded-full overflow-hidden">
         <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
       </div>
@@ -1123,29 +1123,29 @@ function StageColumn({
               {isFailed ? <AlertTriangle className="w-3 h-3" /> : isReview ? "!" : stage.number}
             </span>
             <span className="text-[12px] font-semibold">{stage.label}</span>
-            <span className="text-[11px] text-dim font-mono">({items.length})</span>
+            <span className="text-[11px] text-muted-foreground font-mono">({items.length})</span>
           </div>
           {isFailed && items.length > 0 && (
             <button onClick={handleRetryAll} disabled={retryingAll}
-              className="text-[10px] text-dim font-mono hover:text-sensor disabled:opacity-50">
+              className="text-[10px] text-muted-foreground font-mono hover:text-muted-foreground disabled:opacity-50">
               <RotateCw className={`w-3 h-3 inline mr-1 ${retryingAll ? "animate-spin" : ""}`} />Retry all
             </button>
           )}
           {isProcessingStage && items.length > 0 && (
             <button onClick={handleRestartStage} disabled={retryingAll}
               title={`Restart all ${items.length} articles in ${stage.label}`}
-              className="text-dim hover:text-sensor disabled:opacity-50 transition-colors">
+              className="text-muted-foreground hover:text-muted-foreground disabled:opacity-50 transition-colors">
               <RotateCw className={`w-3.5 h-3.5 ${retryingAll ? "animate-spin" : ""}`} />
             </button>
           )}
         </div>
         {stage.subtitle && (
-          <div className="text-[10px] text-dim font-mono leading-tight pl-7">{stage.subtitle}</div>
+          <div className="text-[10px] text-muted-foreground font-mono leading-tight pl-7">{stage.subtitle}</div>
         )}
       </div>
       <div className="flex-1 overflow-y-auto bg-background">
         {items.length === 0 ? (
-          <div className="flex items-center justify-center h-16 text-[11px] text-dim font-mono">Empty</div>
+          <div className="flex items-center justify-center h-16 text-[11px] text-muted-foreground font-mono">Empty</div>
         ) : (
           items.map((a) => (
             <ActiveArticleRow key={a.id} article={a} isFailed={isFailed} isReview={isReview} onRefresh={onRefresh} pp={pp} />
@@ -1214,7 +1214,7 @@ function ActiveArticleRow({
         </div>
         <a href={article.url} target="_blank" rel="noopener noreferrer"
           className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <ExternalLink className="w-3 h-3 text-dim hover:text-sensor" />
+          <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-muted-foreground" />
         </a>
       </div>
 
@@ -1226,7 +1226,7 @@ function ActiveArticleRow({
               entry.status === "ok" || entry.status === "created" || entry.status === "linked" ? "bg-success/10 text-success" :
               entry.status === "skipped" || entry.status === "failed" || entry.status === "parse_error" ? "bg-destructive/10 text-destructive" :
               entry.status === "review" || entry.status === "partial" ? "bg-orange/10 text-orange" :
-              "bg-dim/10 text-dim"
+              "bg-dim/10 text-muted-foreground"
             }`}>
               {LOG_STEP_LABELS[entry.step] ?? entry.step.replace(/_/g, " ")}
               {entry.chars != null && ` ${entry.chars}`}
@@ -1241,7 +1241,7 @@ function ActiveArticleRow({
       )}
 
       {/* Meta row */}
-      <div className="flex items-center justify-between text-[10px] text-dim font-mono">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
         <div className="flex items-center gap-2">
           {domain && <span>{domain}</span>}
           {article.language && (
@@ -1257,7 +1257,7 @@ function ActiveArticleRow({
           {article.retries > 0 && <span>{article.retries} Retry</span>}
           {(isFailed || isReview) && (
             <button onClick={handleAction(`/api/article-pipeline/${article.id}/retry`, setRetrying, "Retrying")}
-              disabled={retrying} className="hover:text-sensor disabled:opacity-50">
+              disabled={retrying} className="hover:text-muted-foreground disabled:opacity-50">
               {retrying ? "…" : "Retry"}
             </button>
           )}
@@ -1290,10 +1290,10 @@ function ActiveArticleRow({
             placeholder="Paste article content…"
             className="w-full h-20 bg-background border border-border rounded-lg p-2 text-[11px] font-mono resize-none focus:outline-none focus:border-purple/50" />
           <div className="flex items-center justify-between mt-1.5">
-            <span className="text-[10px] text-dim font-mono">{pasteText.length} chars</span>
+            <span className="text-[10px] text-muted-foreground font-mono">{pasteText.length} chars</span>
             <div className="flex items-center gap-2">
               <button onClick={() => { setShowPaste(false); setPasteText(""); }}
-                className="text-[10px] text-dim font-mono hover:text-foreground"><X className="w-3 h-3 inline" /> Cancel</button>
+                className="text-[10px] text-muted-foreground font-mono hover:text-foreground"><X className="w-3 h-3 inline" /> Cancel</button>
               <button onClick={handlePaste} disabled={pasting || pasteText.trim().length < 50}
                 className="px-2.5 py-1 rounded-lg text-[10px] font-mono text-purple bg-purple/15 hover:bg-purple/25 disabled:opacity-50">
                 {pasting ? <Loader2 className="w-3 h-3 animate-spin inline" /> : null} Save

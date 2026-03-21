@@ -80,7 +80,7 @@ export function StoryDetailScriptSection({
     <section>
       {showGenerateControls && onVideoFormatChange && (
         <div className="mb-3">
-          <div className="mb-1.5 text-[12px] text-dim font-medium">Format</div>
+          <div className="mb-1.5 text-[12px] text-muted-foreground font-medium">Format</div>
           <div className="inline-flex rounded-lg border border-border overflow-hidden">
             <button
               type="button"
@@ -88,7 +88,7 @@ export function StoryDetailScriptSection({
               className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors ${
                 videoFormat === "long"
                   ? "bg-blue/15 text-blue"
-                  : "bg-card text-dim hover:text-foreground hover:bg-elevated"
+                  : "bg-card text-muted-foreground hover:text-foreground hover:bg-card"
               }`}
             >
               <Film className="w-3.5 h-3.5" />
@@ -100,7 +100,7 @@ export function StoryDetailScriptSection({
               className={`flex items-center gap-2 px-4 py-2 text-[12px] font-medium transition-colors border-l border-border ${
                 videoFormat === "short"
                   ? "bg-blue/15 text-blue"
-                  : "bg-card text-dim hover:text-foreground hover:bg-elevated"
+                  : "bg-card text-muted-foreground hover:text-foreground hover:bg-card"
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
@@ -111,7 +111,7 @@ export function StoryDetailScriptSection({
       )}
       {!showGenerateControls && videoFormat && (
         <div className="mb-3 flex items-center gap-2">
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Format</span>
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Format</span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue/15 text-blue">
             {videoFormat === "short" ? "Short" : "Long Video"}
           </span>
@@ -119,9 +119,9 @@ export function StoryDetailScriptSection({
       )}
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] text-dim font-medium">Script</span>
+          <span className="text-[12px] text-muted-foreground font-medium">Script</span>
           {saving && (
-            <span className="flex items-center gap-1 text-[11px] text-dim font-normal">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-normal">
               <Loader2 className="w-3 h-3 animate-spin" />
               Saving…
             </span>
@@ -130,7 +130,7 @@ export function StoryDetailScriptSection({
 
         <div className="flex items-center gap-2">
           {(collaborators.length > 0 || currentUser) && (
-            <span className="text-[10px] text-dim font-mono">
+            <span className="text-[10px] text-muted-foreground font-mono">
               {collaborators.length + (currentUser ? 1 : 0)} editing
             </span>
           )}
@@ -164,7 +164,7 @@ export function StoryDetailScriptSection({
                   />
                 ) : (
                   <div
-                    className="w-7 h-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-mono text-dim"
+                    className="w-7 h-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-mono text-muted-foreground"
                     style={{ backgroundColor: u.color ? `${u.color}33` : undefined }}
                     title={u.name}
                   >
@@ -190,7 +190,7 @@ export function StoryDetailScriptSection({
                 <button
                   type="button"
                   onClick={() => !readOnly && setChannelDropOpen(!channelDropOpen)}
-                  className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 hover:bg-elevated transition-colors rounded-l-full"
+                  className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 hover:bg-card transition-colors rounded-l-full"
                 >
                   {selectedCh ? (
                     selectedCh.avatarUrl ? (
@@ -200,21 +200,21 @@ export function StoryDetailScriptSection({
                         className="w-5 h-5 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-border/50 flex items-center justify-center text-[10px] font-mono text-dim uppercase">
+                      <div className="w-5 h-5 rounded-full bg-border/50 flex items-center justify-center text-[10px] font-mono text-muted-foreground uppercase">
                         {channelName(selectedCh).slice(0, 2)}
                       </div>
                     )
                   ) : (
                     <div className="w-5 h-5 rounded-full bg-border/50 flex items-center justify-center">
-                      <User className="w-3 h-3 text-dim" />
+                      <User className="w-3 h-3 text-muted-foreground" />
                     </div>
                   )}
-                  {!readOnly && <ChevronDown className={`w-2.5 h-2.5 text-dim transition-transform ${channelDropOpen ? "rotate-180" : ""}`} />}
+                  {!readOnly && <ChevronDown className={`w-2.5 h-2.5 text-muted-foreground transition-transform ${channelDropOpen ? "rotate-180" : ""}`} />}
                 </button>
                 {channelDropOpen && !readOnly && (
                   <div className="absolute z-10 mt-2 left-0 w-64 rounded-lg bg-card border border-border overflow-hidden shadow-lg">
                     {channels.length === 0 ? (
-                      <div className="px-4 py-3 text-[12px] text-dim text-center">
+                      <div className="px-4 py-3 text-[12px] text-muted-foreground text-center">
                         No channels added yet. Add your channels in the Channels page.
                       </div>
                     ) : (
@@ -226,14 +226,14 @@ export function StoryDetailScriptSection({
                           onChannelSelect(c.id);
                           setChannelDropOpen(false);
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-elevated ${
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors hover:bg-card ${
                           selectedChannelId === c.id ? "bg-blue/10" : ""
                         }`}
                       >
                         {c.avatarUrl ? (
                           <img src={c.avatarUrl} alt={channelName(c)} className="w-7 h-7 rounded-full object-cover" />
                         ) : (
-                          <div className="w-7 h-7 rounded-full bg-elevated flex items-center justify-center text-[10px] font-mono text-dim uppercase">
+                          <div className="w-7 h-7 rounded-full bg-card flex items-center justify-center text-[10px] font-mono text-muted-foreground uppercase">
                             {channelName(c).slice(0, 2)}
                           </div>
                         )}
@@ -248,7 +248,7 @@ export function StoryDetailScriptSection({
 
               <span className="w-px h-4 bg-border" />
 
-              <div className="flex items-center gap-1 px-2.5 text-[11px] text-dim">
+              <div className="flex items-center gap-1 px-2.5 text-[11px] text-muted-foreground">
                 <Clock className="w-3 h-3 shrink-0" />
                 {readOnly ? (
                   <span className="font-mono text-[11px]">{scriptDuration}</span>
@@ -294,7 +294,7 @@ export function StoryDetailScriptSection({
                     onClick={() => canGenerate && !generating && onGenerate()}
                     disabled={!canGenerate}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
-                      canGenerate ? "text-foreground hover:bg-elevated" : "text-dim/30 cursor-not-allowed"
+                      canGenerate ? "text-foreground hover:bg-card" : "text-muted-foreground/30 cursor-not-allowed"
                     }`}
                   >
                     {generating ? (

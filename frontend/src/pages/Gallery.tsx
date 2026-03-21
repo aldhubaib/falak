@@ -204,7 +204,7 @@ export default function Gallery() {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`relative h-full px-4 text-[13px] font-medium transition-colors capitalize ${
-              activeTab === tab ? "text-foreground" : "text-dim hover:text-sensor"
+              activeTab === tab ? "text-foreground" : "text-muted-foreground hover:text-muted-foreground"
             }`}
           >
             {tab === "media" ? "All Media" : "Albums"}
@@ -217,7 +217,7 @@ export default function Gallery() {
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={resetScroll}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
           >
             <RefreshCw className="w-3 h-3" />
             <span className="max-sm:hidden">Refresh</span>
@@ -239,11 +239,11 @@ export default function Gallery() {
             <div className="flex rounded-lg overflow-hidden border border-border">
               <div className="flex-1 px-5 py-4 bg-background border-r border-border">
                 <div className="text-2xl font-semibold font-mono tracking-tight">{total.toLocaleString()}</div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total Media</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Total Media</div>
               </div>
               <div className="flex-1 px-5 py-4 bg-background">
                 <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{albums.length}</div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Albums</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Albums</div>
               </div>
             </div>
           </div>
@@ -252,7 +252,7 @@ export default function Gallery() {
           <div className="px-6 max-lg:px-4 mb-4 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
             <div className="flex flex-wrap items-center gap-2">
               {/* Type filter pills */}
-              <div className="flex items-center bg-elevated rounded-full p-0.5">
+              <div className="flex items-center bg-card rounded-full p-0.5">
                 {TYPE_FILTERS.map((f) => (
                   <button
                     key={f.value}
@@ -263,7 +263,7 @@ export default function Gallery() {
                       doneRef.current = false;
                     }}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors ${
-                      type === f.value ? "bg-card text-foreground" : "text-dim hover:text-sensor"
+                      type === f.value ? "bg-card text-foreground" : "text-muted-foreground hover:text-muted-foreground"
                     }`}
                   >
                     {f.icon && <f.icon className="w-3 h-3" />}
@@ -277,7 +277,7 @@ export default function Gallery() {
                 <button
                   onClick={() => setShowSort((v) => !v)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-colors ${
-                    showSort ? "border-border bg-card text-foreground" : "border-border/50 text-dim hover:text-sensor hover:border-border"
+                    showSort ? "border-border bg-card text-foreground" : "border-border/50 text-muted-foreground hover:text-muted-foreground hover:border-border"
                   }`}
                 >
                   <SlidersHorizontal className="w-3 h-3" />
@@ -300,7 +300,7 @@ export default function Gallery() {
                           doneRef.current = false;
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[12px] transition-colors ${
-                          sortBy === opt.value ? "bg-card text-foreground" : "text-dim hover:text-sensor hover:bg-card/50"
+                          sortBy === opt.value ? "bg-card text-foreground" : "text-muted-foreground hover:text-muted-foreground hover:bg-card/50"
                         }`}
                       >
                         <span>{opt.label}</span>
@@ -318,14 +318,14 @@ export default function Gallery() {
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={selectAll}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
                   >
                     <CheckSquare className="w-3 h-3" />
                     All
                   </button>
                   <button
                     onClick={exitSelection}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
                   >
                     <X className="w-3 h-3" />
                     Exit
@@ -334,7 +334,7 @@ export default function Gallery() {
               ) : (
                 <button
                   onClick={() => setSelectionMode(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border/50 text-[11px] text-dim font-medium hover:text-sensor hover:border-border transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border/50 text-[11px] text-muted-foreground font-medium hover:text-muted-foreground hover:border-border transition-colors"
                 >
                   <Check className="w-3 h-3" />
                   Select
@@ -344,7 +344,7 @@ export default function Gallery() {
 
             {/* Search */}
             <div className="relative max-sm:w-full">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search media..."
@@ -355,7 +355,7 @@ export default function Gallery() {
                   allMediaRef.current = [];
                   doneRef.current = false;
                 }}
-                className="pl-8 pr-3 py-1.5 text-[12px] bg-transparent border border-border/50 rounded-full text-sensor placeholder:text-dim focus:outline-none focus:border-border w-[200px] max-sm:w-full"
+                className="pl-8 pr-3 py-1.5 text-[12px] bg-transparent border border-border/50 rounded-full text-muted-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border w-[200px] max-sm:w-full"
               />
             </div>
           </div>
@@ -369,7 +369,7 @@ export default function Gallery() {
                 </span>
                 <button
                   onClick={() => setCreateAlbumOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
                 >
                   <FolderPlus className="w-3 h-3" />
                   New album
@@ -394,13 +394,13 @@ export default function Gallery() {
               retries={2}
               loading={
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-5 h-5 text-dim animate-spin" />
+                  <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
                 </div>
               }
               finished={
                 total > 0 ? (
                   <div className="text-center py-6">
-                    <span className="text-[11px] text-dim font-mono">
+                    <span className="text-[11px] text-muted-foreground font-mono">
                       All {total.toLocaleString()} items loaded
                     </span>
                   </div>
@@ -423,13 +423,13 @@ export default function Gallery() {
                     }`}
                     onClick={() => emptyInputRef.current?.click()}
                   >
-                    <div className={`rounded-full p-4 mb-4 transition-colors ${emptyDrag ? "bg-primary/10" : "bg-elevated"}`}>
-                      <UploadCloud className={`w-8 h-8 transition-colors ${emptyDrag ? "text-primary" : "text-dim"}`} />
+                    <div className={`rounded-full p-4 mb-4 transition-colors ${emptyDrag ? "bg-primary/10" : "bg-card"}`}>
+                      <UploadCloud className={`w-8 h-8 transition-colors ${emptyDrag ? "text-primary" : "text-muted-foreground"}`} />
                     </div>
                     <div className="text-[14px] font-medium text-foreground">
                       Drop photos & videos here
                     </div>
-                    <div className="text-[12px] text-dim mt-1.5">
+                    <div className="text-[12px] text-muted-foreground mt-1.5">
                       or click to browse your files
                     </div>
                     <button
@@ -439,7 +439,7 @@ export default function Gallery() {
                       <Plus className="w-3.5 h-3.5" />
                       Choose files
                     </button>
-                    <div className="text-[10px] text-dim/60 mt-3 font-mono">
+                    <div className="text-[10px] text-muted-foreground/60 mt-3 font-mono">
                       Supports JPG, PNG, GIF, MP4, MOV and more
                     </div>
                     <input
@@ -514,12 +514,12 @@ export default function Gallery() {
       {activeTab === "albums" && (
         <div className="flex-1 overflow-auto">
           <div className="px-6 pt-4 pb-2 flex items-center justify-between max-lg:px-4">
-            <span className="text-[11px] text-dim font-mono">
+            <span className="text-[11px] text-muted-foreground font-mono">
               {loadingAlbums ? "Loading…" : `${albums.length} album(s)`}
             </span>
             <button
               onClick={() => setCreateAlbumOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
             >
               <FolderPlus className="w-3 h-3" />
               Create album
@@ -591,7 +591,7 @@ export default function Gallery() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div>
-              <label className="text-[12px] text-dim font-mono uppercase tracking-wider block mb-2">
+              <label className="text-[12px] text-muted-foreground font-mono uppercase tracking-wider block mb-2">
                 Album name
               </label>
               <input
@@ -599,19 +599,19 @@ export default function Gallery() {
                 value={albumName}
                 onChange={(e) => setAlbumName(e.target.value)}
                 placeholder="Enter album name..."
-                className="w-full px-3 py-2 bg-background border border-border text-foreground text-[13px] rounded-lg outline-none focus:border-primary/50 transition-colors placeholder:text-dim"
+                className="w-full px-3 py-2 bg-background border border-border text-foreground text-[13px] rounded-lg outline-none focus:border-primary/50 transition-colors placeholder:text-muted-foreground"
                 onKeyDown={(e) => e.key === "Enter" && handleCreateAlbum()}
               />
             </div>
             {selectedIds.length > 0 && (
-              <div className="text-[11px] text-dim font-mono">
+              <div className="text-[11px] text-muted-foreground font-mono">
                 {selectedIds.length} selected item(s) will be added to the album
               </div>
             )}
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setCreateAlbumOpen(false)}
-                className="px-3 py-1.5 rounded-full border border-border text-[12px] text-dim font-medium hover:text-sensor transition-colors"
+                className="px-3 py-1.5 rounded-full border border-border text-[12px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
               >
                 Cancel
               </button>

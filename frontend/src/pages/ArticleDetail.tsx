@@ -292,7 +292,7 @@ export default function ArticleDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-3">
         <AlertTriangle className="w-8 h-8 text-destructive" />
-        <p className="text-[13px] text-dim">{error || "Article not found"}</p>
+        <p className="text-[13px] text-muted-foreground">{error || "Article not found"}</p>
         <Link to={pp("/article-pipeline")} className="text-[12px] text-blue hover:underline">
           Back to Pipeline
         </Link>
@@ -309,7 +309,7 @@ export default function ArticleDetailPage() {
     <div className="flex flex-col min-h-screen">
       {/* Top bar */}
       <div className="h-12 flex items-center gap-3 px-6 border-b border-border shrink-0 max-lg:px-4">
-        <Link to={pp("/article-pipeline")} className="text-dim hover:text-foreground transition-colors">
+        <Link to={pp("/article-pipeline")} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <h1 className="text-sm font-semibold text-foreground truncate">Article Inspector</h1>
@@ -334,15 +334,15 @@ export default function ArticleDetailPage() {
               </h2>
               <a href={article.url} target="_blank" rel="noopener noreferrer"
                 className="shrink-0 p-1.5 rounded-lg border border-border hover:bg-card transition-colors">
-                <ExternalLink className="w-3.5 h-3.5 text-dim" />
+                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
               </a>
             </div>
             {article.description && (
-              <p className="text-[12px] text-dim leading-relaxed mb-3 line-clamp-2" dir="auto">
+              <p className="text-[12px] text-muted-foreground leading-relaxed mb-3 line-clamp-2" dir="auto">
                 {article.description}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-dim">
+            <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-muted-foreground">
               <span>{extractDomain(article.url)}</span>
               {article.source && <span className="px-1.5 py-0.5 rounded bg-card text-foreground/70">{article.source.label}</span>}
               {article.language && (
@@ -373,8 +373,8 @@ export default function ArticleDetailPage() {
             {article.finalScore != null && (
               <div className="mt-3 flex items-center gap-4 text-[11px] font-mono">
                 <span className="text-foreground font-semibold">Score: {article.finalScore.toFixed(2)}</span>
-                {article.relevanceScore != null && <span className="text-dim">Relevance: {article.relevanceScore.toFixed(2)}</span>}
-                {article.rankReason && <span className="text-dim">{article.rankReason}</span>}
+                {article.relevanceScore != null && <span className="text-muted-foreground">Relevance: {article.relevanceScore.toFixed(2)}</span>}
+                {article.rankReason && <span className="text-muted-foreground">{article.rankReason}</span>}
               </div>
             )}
             {article.storyId && (
@@ -464,7 +464,7 @@ function RestartControl({
       <div className="relative">
         <button
           onClick={() => setShowPicker(!showPicker)}
-          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border bg-card hover:bg-card/80 text-[10px] font-mono text-dim transition-colors"
+          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-border bg-card hover:bg-card/80 text-[10px] font-mono text-muted-foreground transition-colors"
         >
           from stage
           <ChevronDown className="w-3 h-3" />
@@ -519,22 +519,22 @@ function StageSection({
         {isActive ? (
           <Loader2 className={`w-4 h-4 ${stage.color} shrink-0 animate-spin`} />
         ) : (
-          <Icon className={`w-4 h-4 ${isWaiting ? "text-dim" : stage.color} shrink-0`} />
+          <Icon className={`w-4 h-4 ${isWaiting ? "text-muted-foreground" : stage.color} shrink-0`} />
         )}
-        <span className={`text-[13px] font-semibold ${isWaiting ? "text-dim" : "text-foreground"}`}>
+        <span className={`text-[13px] font-semibold ${isWaiting ? "text-muted-foreground" : "text-foreground"}`}>
           {stage.label}
         </span>
         {isActive && (
           <span className="text-[10px] font-mono text-blue px-1.5 py-0.5 rounded bg-blue/10">Processing…</span>
         )}
         {isWaiting && (
-          <span className="text-[10px] font-mono text-dim px-1.5 py-0.5 rounded bg-muted">Waiting</span>
+          <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-card">Waiting</span>
         )}
-        {timestamp && <span className="text-[10px] text-dim font-mono">{fmtDate(timestamp)}</span>}
+        {timestamp && <span className="text-[10px] text-muted-foreground font-mono">{fmtDate(timestamp)}</span>}
         {!isWaiting && (
           expanded
-            ? <ChevronDown className="w-3.5 h-3.5 text-dim ml-auto" />
-            : <ChevronRight className="w-3.5 h-3.5 text-dim ml-auto" />
+            ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+            : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
         )}
       </button>
       {expanded && !isWaiting && (
@@ -637,25 +637,25 @@ function LogStepCard({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2 flex-wrap">
-            {Icon && <Icon className="w-3.5 h-3.5 text-dim shrink-0" />}
+            {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
             <span className="text-[11px] font-semibold">{label}</span>
             {entry?.processor && <ProcessorBadge type={entry.processor} />}
-            {entry?.service && <span className="text-[9px] font-mono text-dim">{entry.service}</span>}
+            {entry?.service && <span className="text-[9px] font-mono text-muted-foreground">{entry.service}</span>}
             {entry?.status && <StatusBadge status={entry.status} />}
             {hasEntry && (
               <button
                 type="button"
                 onClick={() => setShowDetails((v) => !v)}
-                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-dim hover:text-foreground hover:bg-card transition-colors"
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
                 title="Show details"
                 aria-label="Show status details"
               >
                 <Info className="w-3.5 h-3.5" />
               </button>
             )}
-            {skipped && <span className="text-[9px] font-mono text-dim px-1.5 py-0.5 rounded bg-muted">skipped</span>}
+            {skipped && <span className="text-[9px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-card">skipped</span>}
           </div>
-          {subtitle && <div className="text-[10px] text-dim font-mono leading-tight pl-5.5">{subtitle}</div>}
+          {subtitle && <div className="text-[10px] text-muted-foreground font-mono leading-tight pl-5.5">{subtitle}</div>}
         </div>
         {entry && (entry.inputTokens != null || entry.outputTokens != null) && (
           <TokensBadge entry={entry} />
@@ -665,13 +665,13 @@ function LogStepCard({
         <div className={`mt-2 px-2.5 py-2 rounded-lg text-[11px] font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-auto border ${
           entry?.status === "failed" || entry?.status === "parse_error"
             ? "bg-destructive/10 border-destructive/20 text-destructive"
-            : "bg-card border-border text-dim"
+            : "bg-card border-border text-muted-foreground"
         }`}>
           {typeof detailsContent === "string" ? detailsContent : JSON.stringify(detailsContent).slice(0, 500)}
         </div>
       )}
-      {skipped && <div className="text-[11px] text-dim">{skippedReason}</div>}
-      {!skipped && children && <div className="text-[12px] text-dim leading-relaxed">{children}</div>}
+      {skipped && <div className="text-[11px] text-muted-foreground">{skippedReason}</div>}
+      {!skipped && children && <div className="text-[12px] text-muted-foreground leading-relaxed">{children}</div>}
     </div>
   );
 }
@@ -689,10 +689,10 @@ function ResultCard({
   return (
     <div className="px-3 py-2.5 rounded-lg border border-border/80 bg-background/80 space-y-2">
       <div className="flex items-center gap-2">
-        {Icon && <Icon className="w-3.5 h-3.5 text-dim" />}
+        {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground" />}
         <span className="text-[11px] font-semibold text-foreground">{label}</span>
       </div>
-      {children && <div className="text-[12px] text-dim leading-relaxed">{children}</div>}
+      {children && <div className="text-[12px] text-muted-foreground leading-relaxed">{children}</div>}
     </div>
   );
 }
@@ -716,10 +716,10 @@ function ContentBlock({ label, content, dir, maxHeight = 200 }: {
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 bg-card/50 border-b border-border">
-        <span className="text-[10px] font-mono text-dim uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{label}</span>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-dim">{content.length.toLocaleString()} chars</span>
-          <button onClick={handleCopy} className="text-dim hover:text-foreground transition-colors">
+          <span className="text-[10px] font-mono text-muted-foreground">{content.length.toLocaleString()} chars</span>
+          <button onClick={handleCopy} className="text-muted-foreground hover:text-foreground transition-colors">
             {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
           </button>
         </div>
@@ -775,12 +775,12 @@ const STATUS_BADGE_COLORS: Record<string, string> = {
   parse_error: "bg-destructive/10 text-destructive",
   review: "bg-orange/10 text-orange",
   partial: "bg-orange/10 text-orange",
-  empty: "bg-dim/10 text-dim",
+  empty: "bg-dim/10 text-muted-foreground",
 };
 
 function StatusBadge({ status, label }: { status?: string; label?: string }) {
   const text = label || status || "unknown";
-  const color = (status && STATUS_BADGE_COLORS[status]) || "bg-dim/10 text-dim";
+  const color = (status && STATUS_BADGE_COLORS[status]) || "bg-dim/10 text-muted-foreground";
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${color}`}>
@@ -810,7 +810,7 @@ function ProcessorBadge({ type }: { type: "ai" | "server" | "api" }) {
 function TokensBadge({ entry }: { entry?: LogEntry | null }) {
   if (!entry?.totalTokens) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-card border border-border text-[10px] font-mono text-dim">
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-card border border-border text-[10px] font-mono text-muted-foreground">
       <span>↑{entry.inputTokens?.toLocaleString()}</span>
       <span>↓{entry.outputTokens?.toLocaleString()}</span>
       <span className="text-foreground font-semibold">Σ{entry.totalTokens.toLocaleString()}</span>
@@ -828,7 +828,7 @@ function ExpandableText({ label, text, maxLen }: { label: string; text: string; 
         {open ? "▾ Hide" : "▸ Show"} {label}
       </button>
       {open && (
-        <div className="mt-1.5 px-3 py-2 rounded-lg bg-card/50 border border-border text-[11px] font-mono text-dim whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto break-all">
+        <div className="mt-1.5 px-3 py-2 rounded-lg bg-card/50 border border-border text-[11px] font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto break-all">
           {text}
           {isTruncated && <span className="text-blue">…(truncated)</span>}
         </div>
@@ -849,7 +849,7 @@ function QualityBadge({ quality }: { quality?: QualityEval | null }) {
           Quality: {label} ({s}/10)
         </span>
         {quality.filled != null && quality.total != null && (
-          <span className="text-[10px] font-mono text-dim">{quality.filled}/{quality.total} fields</span>
+          <span className="text-[10px] font-mono text-muted-foreground">{quality.filled}/{quality.total} fields</span>
         )}
       </div>
       {quality.issues && quality.issues.length > 0 && (
@@ -869,10 +869,10 @@ function StepHeader({ entry, label, icon: Icon }: { entry: LogEntry; label: stri
   return (
     <div className="flex items-center justify-between flex-wrap gap-2">
       <div className="flex items-center gap-2">
-        {Icon && <Icon className="w-3.5 h-3.5 text-dim" />}
+        {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground" />}
         <span className="text-[11px] font-semibold">{label}</span>
         {entry.processor && <ProcessorBadge type={entry.processor} />}
-        {entry.service && <span className="text-[9px] font-mono text-dim">{entry.service}</span>}
+        {entry.service && <span className="text-[9px] font-mono text-muted-foreground">{entry.service}</span>}
         {entry.status && <StatusBadge status={entry.status} />}
       </div>
       <div className="flex items-center gap-2">
@@ -903,13 +903,13 @@ function ImportedDetail({ article, log }: { article: ArticleDetail; log: LogEntr
       <ResultCard label="Source Content" icon={FileText}>
         {article.title && (
           <div className="mb-2">
-            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Title</div>
+            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Title</div>
             <div className="text-[13px] text-foreground font-medium" dir="auto">{article.title}</div>
           </div>
         )}
         {article.description && (
           <div className="mb-2">
-            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Description</div>
+            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Description</div>
             <div className="text-[12px] text-foreground/80" dir="auto">{article.description}</div>
           </div>
         )}
@@ -959,7 +959,7 @@ function ContentDetail({ article, log }: { article: ArticleDetail; log: LogEntry
         }
         return <LogStepCard key={stepId} entry={entry} stepId={stepId} label={label} subtitle={subtitle} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
       })}
-      <div className="text-[10px] font-mono text-dim uppercase tracking-wider pt-2">Content Comparison</div>
+      <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider pt-2">Content Comparison</div>
       <ContentComparison
         left={article.content}
         right={article.contentClean}
@@ -1029,23 +1029,23 @@ function TranslatedDetail({ article, log }: { article: ArticleDetail; log: LogEn
 
       {article.analysis && (article.analysis.topicAr || article.analysis.summaryAr || article.analysis.tagsAr?.length || article.analysis.regionAr || article.analysis.uniqueAngleAr) && (
         <ResultCard label="Arabic Output" icon={Languages}>
-          {article.analysis.topicAr && <div className="mb-2"><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Topic</div><div className="text-[11px]" dir="rtl">{article.analysis.topicAr}</div></div>}
-          {article.analysis.summaryAr && <div className="mb-2"><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Summary</div><div className="text-[11px]" dir="rtl">{article.analysis.summaryAr}</div></div>}
+          {article.analysis.topicAr && <div className="mb-2"><div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Topic</div><div className="text-[11px]" dir="rtl">{article.analysis.topicAr}</div></div>}
+          {article.analysis.summaryAr && <div className="mb-2"><div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Summary</div><div className="text-[11px]" dir="rtl">{article.analysis.summaryAr}</div></div>}
           {article.analysis.tagsAr && article.analysis.tagsAr.length > 0 && (
             <div className="mb-2">
-              <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Tags</div>
+              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Tags</div>
               <div className="flex flex-wrap gap-1.5" dir="rtl">{article.analysis.tagsAr.map((t, i) => <span key={i} className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono">{t}</span>)}</div>
             </div>
           )}
-          {article.analysis.regionAr && <div className="mb-2"><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Region</div><div className="text-[11px]" dir="rtl">{article.analysis.regionAr}</div></div>}
-          {article.analysis.uniqueAngleAr && <div><div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle</div><div className="text-[11px] italic" dir="rtl">{article.analysis.uniqueAngleAr}</div></div>}
+          {article.analysis.regionAr && <div className="mb-2"><div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Region</div><div className="text-[11px]" dir="rtl">{article.analysis.regionAr}</div></div>}
+          {article.analysis.uniqueAngleAr && <div><div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Unique Angle</div><div className="text-[11px] italic" dir="rtl">{article.analysis.uniqueAngleAr}</div></div>}
         </ResultCard>
       )}
 
       {/* Content comparison */}
       {contentLog?.status === "ok" && (
         <>
-          <div className="text-[10px] font-mono text-dim uppercase tracking-wider">Translation Comparison</div>
+          <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Translation Comparison</div>
           <ContentComparison
             left={article.contentClean}
             right={article.contentAr}
@@ -1099,19 +1099,19 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
       <ResultCard label="Classification Results" icon={Brain}>
         {analysis.topic && (
           <div className="mb-2">
-            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Topic (original language)</div>
+            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Topic (original language)</div>
             <div className="text-[13px] text-foreground font-medium leading-relaxed" dir="auto">{analysis.topic}</div>
           </div>
         )}
         {analysis.summary && (
           <div className="mb-2">
-            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Summary (original language)</div>
+            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Summary (original language)</div>
             <div className="text-[12px] text-foreground/80 leading-relaxed" dir="auto">{analysis.summary}</div>
           </div>
         )}
         {analysis.tags && analysis.tags.length > 0 && (
           <div className="mb-2">
-            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-2">Tags (original language)</div>
+            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">Tags (original language)</div>
             <div className="flex flex-wrap gap-1.5" dir="auto">
               {analysis.tags.map((tag, i) => (
                 <span key={i} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-mono">{tag}</span>
@@ -1125,7 +1125,7 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
         </div>
         {analysis.uniqueAngle && (
           <div>
-            <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-1">Unique Angle (original language)</div>
+            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Unique Angle (original language)</div>
             <div className="text-[12px] text-foreground/80 italic" dir="auto">{analysis.uniqueAngle}</div>
           </div>
         )}
@@ -1336,7 +1336,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
             {brief.mainCharacters.map((person, i) => (
               <div key={i} className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
                 <div className="text-[12px] font-semibold text-foreground" dir="auto">{person.name}</div>
-                <div className="text-[11px] text-dim mt-0.5" dir="auto">{person.role}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5" dir="auto">{person.role}</div>
               </div>
             ))}
           </div>
@@ -1352,7 +1352,7 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
                   {s.title || s.url}
                 </a>
               ) : (
-                <span key={i} className="px-2 py-1 rounded bg-dim/10 text-dim text-[10px] font-mono">{s.title}</span>
+                <span key={i} className="px-2 py-1 rounded bg-dim/10 text-muted-foreground text-[10px] font-mono">{s.title}</span>
               )
             ))}
           </div>
@@ -1373,12 +1373,12 @@ function ScriptDetail({ article, log }: { article: ArticleDetail; log: LogEntry[
         {entry?.status === "ok" && (
           <div className="space-y-1 text-[12px]">
             <span className="text-success">Draft script generated</span>
-            {entry.dialect && <span className="text-dim"> · Dialect: {entry.dialect}</span>}
-            {entry.hasHooks && <span className="text-dim"> · Branded hooks included</span>}
-            {entry.hasResearch && <span className="text-dim"> · Research context included</span>}
+            {entry.dialect && <span className="text-muted-foreground"> · Dialect: {entry.dialect}</span>}
+            {entry.hasHooks && <span className="text-muted-foreground"> · Branded hooks included</span>}
+            {entry.hasResearch && <span className="text-muted-foreground"> · Research context included</span>}
           </div>
         )}
-        {entry?.status === "skipped" && <span className="text-dim">{entry.reason ?? "Skipped"}</span>}
+        {entry?.status === "skipped" && <span className="text-muted-foreground">{entry.reason ?? "Skipped"}</span>}
         {entry?.status === "partial" && <span className="text-orange">{entry.error ?? "Generation failed (non-blocking)"}</span>}
       </LogStepCard>
 
@@ -1434,7 +1434,7 @@ function PromoteDetail({ article, log, pp }: { article: ArticleDetail; log: LogE
           className="flex items-center gap-2 px-4 py-3 rounded-lg bg-success/5 border border-success/20 hover:bg-success/10 transition-colors">
           <CheckCircle2 className="w-4 h-4 text-success" />
           <span className="text-[13px] font-semibold">View story</span>
-          <ArrowLeft className="w-4 h-4 text-dim ml-auto rotate-180" />
+          <ArrowLeft className="w-4 h-4 text-muted-foreground ml-auto rotate-180" />
         </Link>
       )}
     </div>
@@ -1501,7 +1501,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
                   )}
                 </div>
                 {ra.snippet && (
-                  <div className="text-[11px] text-dim line-clamp-2 pl-5">{ra.snippet}</div>
+                  <div className="text-[11px] text-muted-foreground line-clamp-2 pl-5">{ra.snippet}</div>
                 )}
               </div>
             ))}
@@ -1526,7 +1526,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
               <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-card/50 border border-border">
                 <span className="text-[10px] font-mono text-purple shrink-0">{i + 1}.</span>
                 <span className="text-[12px] text-foreground truncate flex-1" dir="auto">{v.title}</span>
-                <div className="flex items-center gap-2 text-[10px] font-mono text-dim shrink-0">
+                <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground shrink-0">
                   {v.views != null && <span>{v.views.toLocaleString()} views</span>}
                   {v.channel && <span>{v.channel}</span>}
                   {v.similarity != null && (
@@ -1547,7 +1547,7 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
 function InfoCard({ label, value, color, dir }: { label: string; value: string; color?: string; dir?: string }) {
   return (
     <div className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
-      <div className="text-[10px] font-mono text-dim uppercase tracking-wider mb-0.5">{label}</div>
+      <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-0.5">{label}</div>
       <div className={`text-[13px] font-medium ${color || "text-foreground"}`} dir={dir}>{value}</div>
     </div>
   );
@@ -1562,7 +1562,7 @@ function ScoreGauge({ label, value }: { label: string; value?: number }) {
   return (
     <div className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-mono text-dim uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{label}</span>
         <span className={`text-[13px] font-mono font-bold ${color}`}>{v.toFixed(2)}</span>
       </div>
       <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
@@ -1576,12 +1576,12 @@ function ScoreRow({ label, value, weight, result }: { label: string; value: numb
   const pct = Math.round(value * 100);
   return (
     <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-card/50 border border-border">
-      <span className="text-[12px] font-mono text-dim w-28">{label}</span>
+      <span className="text-[12px] font-mono text-muted-foreground w-28">{label}</span>
       <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
         <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-[11px] font-mono text-foreground w-10 text-right">{value.toFixed(2)}</span>
-      <span className="text-[10px] font-mono text-dim">× {weight}</span>
+      <span className="text-[10px] font-mono text-muted-foreground">× {weight}</span>
       <span className="text-[11px] font-mono text-foreground w-12 text-right">= {result.toFixed(3)}</span>
     </div>
   );

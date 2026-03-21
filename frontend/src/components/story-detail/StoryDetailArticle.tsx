@@ -105,11 +105,11 @@ export function StoryDetailArticle({
       >
         <div className="flex items-center gap-2">
           {articleOpen ? (
-            <ChevronUp className="w-4 h-4 text-dim" />
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-dim" />
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
           )}
-          <span className="text-[12px] text-dim font-medium">Original Story</span>
+          <span className="text-[12px] text-muted-foreground font-medium">Original Story</span>
         </div>
         <div className="flex items-center gap-2.5 max-sm:gap-1.5" onClick={(e) => e.stopPropagation()}>
           {(() => {
@@ -121,7 +121,7 @@ export function StoryDetailArticle({
                   {badge.provider}
                 </span>
                 {badge.outlet && (
-                  <span className="text-[10px] text-dim font-mono max-sm:hidden">{badge.outlet}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono max-sm:hidden">{badge.outlet}</span>
                 )}
               </div>
             );
@@ -132,7 +132,7 @@ export function StoryDetailArticle({
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <span className="inline-flex items-center gap-1 cursor-default">
-                    <span className="text-[10px] text-dim font-mono">R</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">R</span>
                     <span className="text-[10px] font-mono font-semibold text-purple">{scores.relevance}</span>
                   </span>
                 </TooltipTrigger>
@@ -141,7 +141,7 @@ export function StoryDetailArticle({
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <span className="inline-flex items-center gap-1 cursor-default">
-                    <span className="text-[10px] text-dim font-mono">V</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">V</span>
                     <span className="text-[10px] font-mono font-semibold text-blue">{scores.viral}</span>
                   </span>
                 </TooltipTrigger>
@@ -150,7 +150,7 @@ export function StoryDetailArticle({
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <span className="inline-flex items-center gap-1 cursor-default max-sm:hidden">
-                    <span className="text-[10px] text-dim font-mono">F</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">F</span>
                     <span className="text-[10px] font-mono font-semibold text-success">{scores.firstMover}</span>
                   </span>
                 </TooltipTrigger>
@@ -159,7 +159,7 @@ export function StoryDetailArticle({
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <span className="inline-flex items-center gap-1 cursor-default">
-                    <span className="text-[10px] text-dim font-mono">T</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">T</span>
                     <span className="text-[10px] font-mono font-semibold text-foreground">{scores.total}</span>
                   </span>
                 </TooltipTrigger>
@@ -168,7 +168,7 @@ export function StoryDetailArticle({
             </div>
               <span className="w-px h-3 bg-border max-sm:hidden" />
               {relativeDate != null && relativeDate !== "" && (
-                <span className="text-[11px] text-dim font-mono max-sm:hidden">{relativeDate}</span>
+                <span className="text-[11px] text-muted-foreground font-mono max-sm:hidden">{relativeDate}</span>
               )}
             </>
           )}
@@ -183,7 +183,7 @@ export function StoryDetailArticle({
               type="button"
               onClick={() => onCleanup()}
               disabled={actionsDisabled || isCleaning || !displayValue.trim()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 text-[12px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-30 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 text-[12px] font-medium text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-30 whitespace-nowrap"
             >
               <Wand2 className={`w-3 h-3 shrink-0 ${isCleaning ? "animate-spin" : ""}`} />
               {isCleaning ? "Cleaning…" : "Clean up with AI"}
@@ -192,7 +192,7 @@ export function StoryDetailArticle({
               type="button"
               onClick={() => onRefetch()}
               disabled={actionsDisabled || !sourceUrl}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 text-[12px] font-medium text-dim hover:text-sensor transition-colors disabled:opacity-30 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 text-[12px] font-medium text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-30 whitespace-nowrap"
             >
               <RefreshCw className="w-3 h-3 shrink-0" />
               Re-fetch
@@ -201,7 +201,7 @@ export function StoryDetailArticle({
 
           {/* Title row */}
           <div className="px-5 pt-4" dir="rtl">
-            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 flex items-center justify-between" dir="rtl">
+            <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-2 flex items-center justify-between" dir="rtl">
               <span>Title</span>
               {sourceUrl && (
                 <a
@@ -228,15 +228,15 @@ export function StoryDetailArticle({
               disabled={actionsDisabled}
               dir="rtl"
               placeholder="عنوان المقال..."
-              className="w-full px-3 py-2.5 text-[14px] bg-transparent border-0 border-b border-border rounded-none text-foreground font-medium placeholder:text-dim/50 focus:outline-none focus:border-primary/40 text-right"
+              className="w-full px-3 py-2.5 text-[14px] bg-transparent border-0 border-b border-border rounded-none text-foreground font-medium placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/40 text-right"
             />
           </div>
 
           {/* AI cleanup progress */}
           {isCleaning && (
             <div className="px-5 pt-3">
-              <Progress value={cleanupProgress} className="h-1 bg-muted" />
-              <div className="text-[10px] font-mono text-dim mt-1 text-center">
+              <Progress value={cleanupProgress} className="h-1 bg-card" />
+              <div className="text-[10px] font-mono text-muted-foreground mt-1 text-center">
                 {progressStatus}
               </div>
             </div>
@@ -254,7 +254,7 @@ export function StoryDetailArticle({
             ) : isScrapeFailed ? (
               <div className="text-center py-8 text-muted-foreground space-y-4">
                 <p className="mb-1">Could not load article</p>
-                <p className="text-[11px] text-dim">Source could not be scraped. Try re-fetching or open the link below.</p>
+                <p className="text-[11px] text-muted-foreground">Source could not be scraped. Try re-fetching or open the link below.</p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <a href={sourceUrl ?? "#"} target="_blank" rel="noopener noreferrer" className="link text-[12px]">
                     اقرأ المقال من المصدر الأصلي
@@ -264,7 +264,7 @@ export function StoryDetailArticle({
                       type="button"
                       onClick={() => onRetryFetch()}
                       disabled={articleLoading}
-                      className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-foreground hover:border-foreground/20 disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/20 disabled:opacity-50"
                     >
                       {articleLoading ? "Fetching…" : "Retry"}
                     </button>
@@ -273,12 +273,12 @@ export function StoryDetailArticle({
               </div>
             ) : articleError ? (
               <div className="text-center py-6">
-                <p className="text-[12px] text-dim mb-3">{articleError}</p>
+                <p className="text-[12px] text-muted-foreground mb-3">{articleError}</p>
                 <button
                   type="button"
                   onClick={() => onRetryFetch()}
                   disabled={articleLoading}
-                  className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-dim hover:text-foreground"
+                  className="px-3 py-1.5 rounded-full border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground"
                 >
                   Retry
                 </button>
@@ -289,7 +289,7 @@ export function StoryDetailArticle({
               </div>
             ) : hasValidContent ? (
               <>
-                <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 block text-right">Content ({displayValue.length.toLocaleString()})</label>
+                <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-2 block text-right">Content ({displayValue.length.toLocaleString()})</label>
                 <textarea
                   value={displayValue}
                   onChange={(e) => onArticleChange?.(e.target.value)}
@@ -297,13 +297,13 @@ export function StoryDetailArticle({
                   placeholder="اكتب المقال الكامل هنا..."
                   rows={12}
                   dir="rtl"
-                  className="w-full text-[14px] bg-transparent border-0 rounded-none text-foreground placeholder:text-dim/50 focus:outline-none text-right leading-[1.9] resize-y disabled:opacity-50"
+                  className="w-full text-[14px] bg-transparent border-0 rounded-none text-foreground placeholder:text-muted-foreground/50 focus:outline-none text-right leading-[1.9] resize-y disabled:opacity-50"
                 />
               </>
             ) : !sourceUrl ? (
-              <p className="text-[12px] text-dim text-right">No source URL for this story.</p>
+              <p className="text-[12px] text-muted-foreground text-right">No source URL for this story.</p>
             ) : (
-              <p className="text-[12px] text-dim text-right">Loading article…</p>
+              <p className="text-[12px] text-muted-foreground text-right">Loading article…</p>
             )}
           </div>
         </>

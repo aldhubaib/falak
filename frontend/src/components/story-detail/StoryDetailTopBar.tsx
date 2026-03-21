@@ -62,12 +62,12 @@ const STAGE_COLOR_CLASS: Record<string, string> = {
   filmed: "text-success",
   publish: "text-pink-400",
   done: "text-foreground",
-  passed: "text-dim",
-  omit: "text-dim",
+  passed: "text-muted-foreground",
+  omit: "text-muted-foreground",
 };
 
 function getStageColor(stage: string): string {
-  return STAGE_COLOR_CLASS[stage] ?? "text-dim";
+  return STAGE_COLOR_CLASS[stage] ?? "text-muted-foreground";
 }
 
 export function StoryDetailTopBar({
@@ -118,7 +118,7 @@ export function StoryDetailTopBar({
       <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:px-3 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-[13px] text-dim cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-[13px] text-muted-foreground cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
           type="button"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -131,7 +131,7 @@ export function StoryDetailTopBar({
             <button
               type="button"
               onClick={onScoreHistoryClick}
-              className="w-8 h-8 max-sm:w-7 max-sm:h-7 rounded-full flex items-center justify-center text-dim hover:text-purple hover:bg-purple/10 transition-colors"
+              className="w-8 h-8 max-sm:w-7 max-sm:h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-purple hover:bg-purple/10 transition-colors"
               aria-label="Score re-evaluation history"
               title="Score History"
             >
@@ -143,7 +143,7 @@ export function StoryDetailTopBar({
           <button
             type="button"
             onClick={onHistoryClick}
-            className="w-8 h-8 max-sm:w-7 max-sm:h-7 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
+            className="w-8 h-8 max-sm:w-7 max-sm:h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
             aria-label="Edit history"
           >
             <Clock className="w-4 h-4 max-sm:w-3.5 max-sm:h-3.5" />
@@ -154,10 +154,10 @@ export function StoryDetailTopBar({
             <button
               type="button"
               onClick={() => setActionDropOpen(!actionDropOpen)}
-              className="inline-flex items-center gap-1 py-1 px-2.5 max-sm:px-2 rounded-full text-[11px] max-sm:text-[10px] font-medium border border-border text-dim hover:text-foreground hover:border-primary/40 transition-colors"
+              className="inline-flex items-center gap-1 py-1 px-2.5 max-sm:px-2 rounded-full text-[11px] max-sm:text-[10px] font-medium border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
             >
               <span className={`font-mono truncate ${colorClass}`}>{displayLabel}</span>
-              <ChevronDown className={`w-3 h-3 text-dim/40 transition-transform shrink-0 ${actionDropOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-3 h-3 text-muted-foreground/40 transition-transform shrink-0 ${actionDropOpen ? "rotate-180" : ""}`} />
             </button>
             {actionDropOpen && (
               <div className="absolute z-20 mt-2 right-0 w-48 rounded-lg bg-card border border-border overflow-hidden shadow-lg">
@@ -169,7 +169,7 @@ export function StoryDetailTopBar({
                         setActionDropOpen(false);
                         onMoveToNextStage();
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-foreground hover:bg-elevated transition-colors"
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-foreground hover:bg-card transition-colors"
                     >
                       <SkipForward className={`w-3.5 h-3.5 shrink-0 ${nextStageIconColor}`} />
                       <span className="font-medium">Move to {nextStageLabel}</span>
@@ -185,7 +185,7 @@ export function StoryDetailTopBar({
                         setActionDropOpen(false);
                         setConfirmAction("passed");
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-foreground hover:bg-elevated transition-colors"
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
                     >
                       <CircleSlash className="w-3.5 h-3.5 shrink-0" />
                       Passed
@@ -201,7 +201,7 @@ export function StoryDetailTopBar({
                         setActionDropOpen(false);
                         setConfirmAction("restart");
                       }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-foreground hover:bg-elevated transition-colors"
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
                     >
                       <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                       Restart
@@ -215,7 +215,7 @@ export function StoryDetailTopBar({
                     setActionDropOpen(false);
                     setConfirmAction("omit");
                   }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-dim hover:text-destructive hover:bg-elevated transition-colors"
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] text-muted-foreground hover:text-destructive hover:bg-card transition-colors"
                 >
                   <EyeOff className="w-3.5 h-3.5 shrink-0" />
                   Omit
@@ -231,25 +231,25 @@ export function StoryDetailTopBar({
                 type="button"
                 onClick={prevNext.onPrev}
                 disabled={!prevNext.hasPrev}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors disabled:opacity-20"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-20"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-[10px] font-mono text-dim px-0.5">
+              <span className="text-[10px] font-mono text-muted-foreground px-0.5">
                 {prevNext.currentIndex}/{prevNext.total}
               </span>
               <button
                 type="button"
                 onClick={prevNext.onNext}
                 disabled={!prevNext.hasNext}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors disabled:opacity-20"
+                className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-20"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           )}
 
-          {saving && <Loader2 className="w-3 h-3 animate-spin text-dim shrink-0" />}
+          {saving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground shrink-0" />}
         </div>
       </div>
 
@@ -261,7 +261,7 @@ export function StoryDetailTopBar({
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[13px]">
                 <p>The topic doesn&apos;t fit the channel and you don&apos;t want to produce it.</p>
-                <p className="text-dim/80 text-[12px]">
+                <p className="text-muted-foreground/80 text-[12px]">
                   <strong className="text-foreground/70">Brain effect:</strong> The headline will be added to the &quot;avoid&quot; list so the Brain stops suggesting similar topics in future searches.
                 </p>
               </div>
@@ -290,7 +290,7 @@ export function StoryDetailTopBar({
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[13px]">
                 <p>The story will be moved back to <strong className="text-foreground/70">Suggestions</strong> so you can re-evaluate it from scratch.</p>
-                <p className="text-dim/80 text-[12px]">
+                <p className="text-muted-foreground/80 text-[12px]">
                   <strong className="text-foreground/70">Brain effect:</strong> No change — the story stays neutral in the Brain&apos;s memory. Any script or edits you made will be kept.
                 </p>
               </div>
@@ -319,7 +319,7 @@ export function StoryDetailTopBar({
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[13px]">
                 <p>The source article is broken or unusable — you can&apos;t produce anything from it.</p>
-                <p className="text-dim/80 text-[12px]">
+                <p className="text-muted-foreground/80 text-[12px]">
                   <strong className="text-foreground/70">Brain effect:</strong> The source domain will be blocked so the Brain never fetches articles from that website again.
                 </p>
               </div>

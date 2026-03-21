@@ -74,7 +74,7 @@ const initialUsers: AllowedUser[] = [
 const roleColors: Record<Role, string> = {
   admin: "text-destructive border-destructive/30 bg-destructive/10",
   editor: "text-blue border-blue/30 bg-blue/10",
-  viewer: "text-dim border-border bg-card",
+  viewer: "text-muted-foreground border-border bg-card",
 };
 
 const roleIcons: Record<Role, typeof Key> = {
@@ -104,7 +104,7 @@ export default function Admin() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Access Control</h1>
-          <span className="text-[11px] text-dim font-mono">
+          <span className="text-[11px] text-muted-foreground font-mono">
             Manage which users can log in and what they can do inside Falak.
           </span>
         </div>
@@ -116,7 +116,7 @@ export default function Admin() {
           {/* Owner notice */}
           <div className="rounded-lg bg-blue/5 border border-blue/15 px-5 py-4 flex items-start gap-3.5">
             <Shield className="w-5 h-5 text-blue shrink-0 mt-0.5" />
-            <p className="text-[13px] text-sensor leading-relaxed">
+            <p className="text-[13px] text-muted-foreground leading-relaxed">
               The <strong className="text-foreground">channel owner</strong> always has full access and cannot be removed. Users not on this list will see an{" "}
               <strong className="text-foreground">"Access Denied"</strong> page after login. You can control which pages and channels each user can access.
             </p>
@@ -127,18 +127,18 @@ export default function Admin() {
             <div className="mb-1">
               <span className="text-[14px] font-semibold">Add Allowed User</span>
             </div>
-            <p className="text-[12px] text-dim mb-4">
+            <p className="text-[12px] text-muted-foreground mb-4">
               Enter an email address and add the user.
             </p>
             <div className="flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
               <div className="relative flex-1 max-sm:w-full">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="email"
                   placeholder="user@example.com"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40"
+                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue/40"
                 />
               </div>
               <button className="px-5 py-2.5 text-[13px] font-semibold bg-blue text-blue-foreground rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap">
@@ -152,16 +152,16 @@ export default function Admin() {
             <div className="flex items-center justify-between mb-4 max-sm:flex-col max-sm:items-start max-sm:gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="text-[14px] font-semibold">Allowed Users</span>
-                <span className="text-[11px] text-dim font-mono bg-card px-2 py-0.5 rounded-full">{users.length}</span>
+                <span className="text-[11px] text-muted-foreground font-mono bg-card px-2 py-0.5 rounded-full">{users.length}</span>
               </div>
               <div className="relative max-sm:w-full">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search users..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-[12px] bg-transparent border border-border/50 rounded-full text-sensor placeholder:text-dim focus:outline-none focus:border-border w-[180px] max-sm:w-full"
+                  className="pl-8 pr-3 py-1.5 text-[12px] bg-transparent border border-border/50 rounded-full text-muted-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border w-[180px] max-sm:w-full"
                 />
               </div>
             </div>
@@ -189,16 +189,16 @@ export default function Admin() {
                               owner
                             </span>
                           )}
-                          {user.isOwner && <span className="text-[11px] text-dim font-mono">(you)</span>}
+                          {user.isOwner && <span className="text-[11px] text-muted-foreground font-mono">(you)</span>}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className="text-[11px] text-dim font-mono">{user.email}</span>
-                          <span className="text-[11px] text-dim">·</span>
-                          <span className="text-[11px] text-dim font-mono">{user.note}</span>
-                          <span className="text-[11px] text-dim">·</span>
-                          <span className="text-[11px] text-dim font-mono">{user.addedBy}</span>
-                          <span className="text-[11px] text-dim">·</span>
-                          <span className="text-[11px] text-dim font-mono">{user.addedDate}</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">{user.email}</span>
+                          <span className="text-[11px] text-muted-foreground">·</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">{user.note}</span>
+                          <span className="text-[11px] text-muted-foreground">·</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">{user.addedBy}</span>
+                          <span className="text-[11px] text-muted-foreground">·</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">{user.addedDate}</span>
                         </div>
 
                         {/* Page access pills */}
@@ -209,7 +209,7 @@ export default function Admin() {
                               className={`text-[10px] font-mono px-2.5 py-1 rounded-full transition-colors ${
                                 page.active
                                   ? "text-foreground border border-border"
-                                  : "text-dim/30 border border-transparent"
+                                  : "text-muted-foreground/30 border border-transparent"
                               }`}
                             >
                               {page.name}
@@ -227,7 +227,7 @@ export default function Admin() {
                           <>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <button className="w-8 h-8 rounded-full flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated/60 transition-colors">
+                                <button className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-card/60 transition-colors">
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
                               </TooltipTrigger>
@@ -235,7 +235,7 @@ export default function Admin() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <button className="w-8 h-8 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors">
+                                <button className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </TooltipTrigger>
@@ -274,7 +274,7 @@ export default function Admin() {
                   role: "Viewer" as const,
                   icon: "👁",
                   color: "border-border bg-card/30",
-                  textColor: "text-dim",
+                  textColor: "text-muted-foreground",
                   desc: "Read-only access to assigned pages · Cannot make changes · Perfect for stakeholders or clients",
                 },
               ].map((r) => (
@@ -283,7 +283,7 @@ export default function Admin() {
                     <span>{r.icon}</span>
                     <span className={`text-[13px] font-semibold ${r.textColor}`}>{r.role}</span>
                   </div>
-                  <p className="text-[11px] text-dim leading-relaxed">{r.desc}</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{r.desc}</p>
                 </div>
               ))}
             </div>

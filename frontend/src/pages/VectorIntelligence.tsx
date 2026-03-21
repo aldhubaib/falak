@@ -111,8 +111,8 @@ export default function VectorIntelligence() {
             <Zap className="w-6 h-6 text-purple" />
           </div>
           <h2 className="text-[15px] font-semibold text-foreground mb-2">Vector Intelligence Not Configured</h2>
-          <p className="text-[12px] text-dim mb-1">Semantic similarity, competition matching, and self-learning scores require an OpenAI embedding API key.</p>
-          <p className="text-[11px] text-dim font-mono mb-4">text-embedding-3-small · 1536 dimensions · pgvector HNSW</p>
+          <p className="text-[12px] text-muted-foreground mb-1">Semantic similarity, competition matching, and self-learning scores require an OpenAI embedding API key.</p>
+          <p className="text-[11px] text-muted-foreground font-mono mb-4">text-embedding-3-small · 1536 dimensions · pgvector HNSW</p>
           <Link to={pp("/settings")}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple text-white text-[12px] font-semibold hover:bg-purple/90 transition-colors no-underline">
             <Settings className="w-3.5 h-3.5" />
@@ -140,7 +140,7 @@ export default function VectorIntelligence() {
     <>
       {/* Actions bar */}
       <div className="h-10 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
-        <span className="text-[10px] text-dim font-mono">text-embedding-3-small · 1536d · pgvector HNSW</span>
+        <span className="text-[10px] text-muted-foreground font-mono">text-embedding-3-small · 1536d · pgvector HNSW</span>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-success/15 text-success">
             <Circle className="w-2 h-2 fill-current" />
@@ -160,9 +160,9 @@ export default function VectorIntelligence() {
         ═══════════════════════════════════════════════════ */}
         <div className="px-6 max-lg:px-4 pt-5 mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <Layers className="w-4 h-4 text-dim" />
+            <Layers className="w-4 h-4 text-muted-foreground" />
             <span className="text-[13px] font-semibold text-foreground">Rescore Pipeline</span>
-            <span className="text-[11px] text-dim font-mono">— 4-stage cycle running every {data.rescoreIntervalHours}h</span>
+            <span className="text-[11px] text-muted-foreground font-mono">— 4-stage cycle running every {data.rescoreIntervalHours}h</span>
           </div>
 
           <div className="grid grid-cols-4 gap-0 items-stretch max-lg:grid-cols-2 max-lg:gap-3">
@@ -269,11 +269,11 @@ export default function VectorIntelligence() {
                 <AccuracyGauge label="AI Viral Accuracy" value={sp.aiViralAccuracy} description="How well AI predicts viral potential vs actual YouTube performance" />
                 <AccuracyGauge label="AI Relevance Accuracy" value={sp.aiRelevanceAccuracy} description="How well AI predicts content relevance to your audience" />
                 <div className="rounded-lg border border-border bg-background p-4">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Confidence Level</div>
-                  <div className={`text-2xl font-mono font-semibold ${confidence >= 0.6 ? "text-success" : confidence >= 0.3 ? "text-orange" : "text-dim"}`}>
+                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Confidence Level</div>
+                  <div className={`text-2xl font-mono font-semibold ${confidence >= 0.6 ? "text-success" : confidence >= 0.3 ? "text-orange" : "text-muted-foreground"}`}>
                     {Math.round(confidence * 100)}%
                   </div>
-                  <div className="text-[10px] text-dim font-mono mt-1">
+                  <div className="text-[10px] text-muted-foreground font-mono mt-1">
                     {confidence >= 0.9 ? "High — learned signals heavily weighted" :
                      confidence >= 0.6 ? "Medium — moderate adjustment" :
                      confidence >= 0.3 ? "Low — conservative adjustments" :
@@ -281,21 +281,21 @@ export default function VectorIntelligence() {
                   </div>
                 </div>
                 <div className="rounded-lg border border-border bg-background p-4">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Decisions</div>
+                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Decisions</div>
                   <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalDecisions}</div>
-                  <div className="text-[10px] text-dim font-mono mt-1">liked / passed / omit</div>
+                  <div className="text-[10px] text-muted-foreground font-mono mt-1">liked / passed / omit</div>
                 </div>
                 <div className="rounded-lg border border-border bg-background p-4">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Outcomes</div>
+                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Outcomes</div>
                   <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalOutcomes}</div>
-                  <div className="text-[10px] text-dim font-mono mt-1">stories with YouTube stats</div>
+                  <div className="text-[10px] text-muted-foreground font-mono mt-1">stories with YouTube stats</div>
                 </div>
                 <div className="rounded-lg border border-border bg-background p-4">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Last Learned</div>
+                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Last Learned</div>
                   <div className="text-lg font-mono font-semibold text-foreground">
                     {sp.lastLearnedAt ? fmtShortAgo(sp.lastLearnedAt) : "Never"}
                   </div>
-                  <div className="text-[10px] text-dim font-mono mt-1">learning rate: 0.1</div>
+                  <div className="text-[10px] text-muted-foreground font-mono mt-1">learning rate: 0.1</div>
                 </div>
               </div>
 
@@ -344,7 +344,7 @@ export default function VectorIntelligence() {
               <div className="flex items-center gap-2">
                 <Target className="w-3.5 h-3.5 text-orange" />
                 <span className="text-[12px] font-semibold">Top Competition Matches</span>
-                <span className="text-[11px] text-dim font-mono">({data.topSimilarity.length} stories with competition overlap)</span>
+                <span className="text-[11px] text-muted-foreground font-mono">({data.topSimilarity.length} stories with competition overlap)</span>
               </div>
             </div>
             <div className="bg-background">
@@ -364,19 +364,19 @@ export default function VectorIntelligence() {
                           <span className="text-purple">
                             <Search className="w-2.5 h-2.5 inline mr-0.5" />{s.competitionMatches} matches
                           </span>
-                          <span className={s.viralBoost > 5 ? "text-success" : s.viralBoost > 0 ? "text-foreground" : "text-dim"}>
+                          <span className={s.viralBoost > 5 ? "text-success" : s.viralBoost > 0 ? "text-foreground" : "text-muted-foreground"}>
                             <TrendingUp className="w-2.5 h-2.5 inline mr-0.5" />viral {s.viralBoost > 0 ? "+" : ""}{s.viralBoost?.toFixed?.(1) ?? 0}
                           </span>
-                          <span className="text-dim">
+                          <span className="text-muted-foreground">
                             freshness {(s.freshness * 100)?.toFixed?.(0) ?? "—"}%
                           </span>
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-[14px] font-mono font-semibold text-foreground">{s.compositeScore?.toFixed?.(1) ?? "—"}</div>
-                        <div className="text-[9px] text-dim font-mono uppercase">score</div>
+                        <div className="text-[9px] text-muted-foreground font-mono uppercase">score</div>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </Link>
                   ))}
                 </div>
@@ -398,9 +398,9 @@ export default function VectorIntelligence() {
                 <div className="flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-success" />
                   <span className="text-[12px] font-semibold">Recent Score Changes</span>
-                  <span className="text-[11px] text-dim font-mono">({data.recentRescores.length})</span>
+                  <span className="text-[11px] text-muted-foreground font-mono">({data.recentRescores.length})</span>
                 </div>
-                <div className="text-[10px] text-dim font-mono mt-0.5">Stories whose composite score changed during re-evaluation</div>
+                <div className="text-[10px] text-muted-foreground font-mono mt-0.5">Stories whose composite score changed during re-evaluation</div>
               </div>
               <div className="flex-1 overflow-y-auto bg-background">
                 {data.recentRescores.length === 0 ? (
@@ -417,14 +417,14 @@ export default function VectorIntelligence() {
                         <div className="flex items-center justify-between mb-1">
                           <div className="text-[12px] text-foreground font-medium truncate flex-1 mr-3" dir="auto">{s.headline}</div>
                           {delta != null && (
-                            <span className={`text-[12px] font-mono font-semibold shrink-0 ${delta > 0 ? "text-success" : delta < 0 ? "text-destructive" : "text-dim"}`}>
+                            <span className={`text-[12px] font-mono font-semibold shrink-0 ${delta > 0 ? "text-success" : delta < 0 ? "text-destructive" : "text-muted-foreground"}`}>
                               {delta > 0 ? "+" : ""}{delta.toFixed(1)}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-[10px] font-mono">
                           {delta != null && (
-                            <span className="text-dim">
+                            <span className="text-muted-foreground">
                               {before?.toFixed(1)} → {after?.toFixed(1)}
                             </span>
                           )}
@@ -444,7 +444,7 @@ export default function VectorIntelligence() {
                             </>
                           )}
                           {s.lastRescoredAt && (
-                            <span className="text-dim ml-auto">{fmtShortAgo(s.lastRescoredAt)}</span>
+                            <span className="text-muted-foreground ml-auto">{fmtShortAgo(s.lastRescoredAt)}</span>
                           )}
                         </div>
                       </Link>
@@ -465,13 +465,13 @@ export default function VectorIntelligence() {
                       {data.alerts.unreadCount} new
                     </span>
                   )}
-                  <span className="text-[11px] text-dim font-mono">({data.alerts.items.length} total)</span>
+                  <span className="text-[11px] text-muted-foreground font-mono">({data.alerts.items.length} total)</span>
                 </div>
-                <div className="text-[10px] text-dim font-mono mt-0.5">Significant score changes, competitor coverage, and trending topics</div>
+                <div className="text-[10px] text-muted-foreground font-mono mt-0.5">Significant score changes, competitor coverage, and trending topics</div>
               </div>
               <div className="flex-1 overflow-y-auto bg-background">
                 {data.alerts.items.length === 0 ? (
-                  <div className="flex items-center justify-center h-20 text-[11px] text-dim font-mono">No alerts — all quiet</div>
+                  <div className="flex items-center justify-center h-20 text-[11px] text-muted-foreground font-mono">No alerts — all quiet</div>
                 ) : (
                   data.alerts.items.map((a) => (
                     <div key={a.id} className={`px-4 py-3 border-t border-border ${a.isRead ? "" : "bg-orange/[0.03]"}`}>
@@ -481,14 +481,14 @@ export default function VectorIntelligence() {
                           a.type === "score_change" ? "bg-purple/10 text-purple" :
                           a.type === "competitor_published" ? "bg-blue/10 text-blue" :
                           a.type === "trending_topic" ? "bg-success/10 text-success" :
-                          "bg-dim/10 text-dim"
+                          "bg-dim/10 text-muted-foreground"
                         }`}>
                           {a.type === "score_change" ? "Score Change" :
                            a.type === "competitor_published" ? "Competitor Published" :
                            a.type === "trending_topic" ? "Trending Topic" :
                            a.type.replace(/_/g, " ")}
                         </span>
-                        <span className="text-[10px] text-dim font-mono ml-auto">{fmtShortAgo(a.createdAt)}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono ml-auto">{fmtShortAgo(a.createdAt)}</span>
                       </div>
                       <div className="text-[11px] text-foreground/80" dir="auto">{a.title}</div>
                       {a.storyId && (
@@ -534,7 +534,7 @@ export default function VectorIntelligence() {
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-border">
-              <div className="text-[10px] text-dim font-mono">
+              <div className="text-[10px] text-muted-foreground font-mono">
                 final = base_score + (learned_boost × confidence) · clamped to 0–100 · rounded to 0.1
               </div>
             </div>
@@ -568,9 +568,9 @@ export default function VectorIntelligence() {
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: typeof Zap; title: string; subtitle: string }) {
   return (
     <div className="px-6 max-lg:px-4 mb-3 flex items-center gap-2">
-      <Icon className="w-4 h-4 text-dim" />
+      <Icon className="w-4 h-4 text-muted-foreground" />
       <span className="text-[13px] font-semibold text-foreground">{title}</span>
-      <span className="text-[11px] text-dim font-mono">— {subtitle}</span>
+      <span className="text-[11px] text-muted-foreground font-mono">— {subtitle}</span>
     </div>
   );
 }
@@ -592,13 +592,13 @@ function PipelineStage({
           </span>
           <div>
             <div className="text-[12px] font-semibold text-foreground">{title}</div>
-            <div className="text-[10px] text-dim font-mono">{subtitle}</div>
+            <div className="text-[10px] text-muted-foreground font-mono">{subtitle}</div>
           </div>
         </div>
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.label} className="flex items-center justify-between">
-              <span className="text-[10px] text-dim font-mono">{item.label}</span>
+              <span className="text-[10px] text-muted-foreground font-mono">{item.label}</span>
               <span className={`text-[11px] font-mono font-semibold ${color}`}>{item.value}</span>
             </div>
           ))}
@@ -606,7 +606,7 @@ function PipelineStage({
       </div>
       {!isLast && (
         <div className="flex items-center px-1 max-lg:hidden">
-          <ArrowRight className="w-4 h-4 text-dim/30" />
+          <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
         </div>
       )}
     </div>
@@ -631,7 +631,7 @@ function CoverageCard({
       <div className="w-full h-2 bg-border rounded-full overflow-hidden mb-2">
         <div className={`h-full rounded-full ${bgColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="flex items-center justify-between text-[10px] font-mono text-dim">
+      <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
         <span>{embedded.toLocaleString()} embedded</span>
         <span>{(total - embedded).toLocaleString()} remaining</span>
         <span>{total.toLocaleString()} total</span>
@@ -646,12 +646,12 @@ function AccuracyGauge({ label, value, description }: { label: string; value: nu
   const bgColor = pct >= 80 ? "bg-success" : pct >= 50 ? "bg-orange" : "bg-destructive";
   return (
     <div className="rounded-lg border border-border bg-background p-4">
-      <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">{label}</div>
+      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">{label}</div>
       <div className={`text-2xl font-mono font-semibold ${color}`}>{pct}%</div>
       <div className="w-full h-1.5 bg-border rounded-full mt-2 overflow-hidden">
         <div className={`h-full rounded-full ${bgColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="text-[9px] text-dim font-mono mt-2 leading-relaxed">{description}</div>
+      <div className="text-[9px] text-muted-foreground font-mono mt-2 leading-relaxed">{description}</div>
     </div>
   );
 }
@@ -669,15 +669,15 @@ function SignalCard({
     <div className="rounded-lg border border-border bg-background p-4">
       <div className="flex items-center justify-between mb-1">
         <div className="text-[11px] font-mono font-semibold text-foreground">{title}</div>
-        <span className="text-[10px] text-dim font-mono">{sorted.length} signals{limit && sorted.length > limit ? ` (showing ${limit})` : ""}</span>
+        <span className="text-[10px] text-muted-foreground font-mono">{sorted.length} signals{limit && sorted.length > limit ? ` (showing ${limit})` : ""}</span>
       </div>
-      <div className="text-[10px] text-dim font-mono mb-3">{subtitle}</div>
+      <div className="text-[10px] text-muted-foreground font-mono mb-3">{subtitle}</div>
       <div className="flex flex-wrap gap-1.5" dir={rtl ? "rtl" : undefined}>
         {displayed.map(([key, val]) => {
           const intensity = Math.abs(val) / maxAbs;
           return (
             <span key={key} className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono ${
-              val > 0 ? "bg-success/10 text-success" : val < 0 ? "bg-destructive/10 text-destructive" : "bg-dim/10 text-dim"
+              val > 0 ? "bg-success/10 text-success" : val < 0 ? "bg-destructive/10 text-destructive" : "bg-dim/10 text-muted-foreground"
             }`} style={{ opacity: 0.5 + intensity * 0.5 }}>
               {key}
               <span className="font-semibold">{val > 0 ? "+" : ""}{val.toFixed(2)}</span>
@@ -694,7 +694,7 @@ function FormulaRow({ label, weight, description }: { label: string; weight: str
     <div className="flex items-center gap-3">
       <span className="w-14 text-[11px] font-mono font-semibold text-purple text-right">{weight}</span>
       <span className="w-28 text-[11px] font-mono text-foreground">{label}</span>
-      <span className="text-[10px] text-dim font-mono">{description}</span>
+      <span className="text-[10px] text-muted-foreground font-mono">{description}</span>
     </div>
   );
 }
@@ -703,8 +703,8 @@ function StatusBox({ label, value, sub, last }: { label: string; value: string; 
   return (
     <div className={`flex-1 px-3 py-3 bg-background ${!last ? "border-r border-border" : ""}`}>
       <div className="text-[13px] font-semibold font-mono tracking-tight text-foreground">{value}</div>
-      <div className="text-[9px] text-dim font-mono uppercase tracking-wider mt-0.5">{label}</div>
-      {sub && <div className="text-[9px] text-dim font-mono mt-0.5 leading-relaxed">{sub}</div>}
+      <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5">{label}</div>
+      {sub && <div className="text-[9px] text-muted-foreground font-mono mt-0.5 leading-relaxed">{sub}</div>}
     </div>
   );
 }

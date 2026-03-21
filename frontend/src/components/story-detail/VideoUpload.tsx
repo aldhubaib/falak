@@ -150,15 +150,15 @@ export function VideoUpload({
     return (
       <div className="flex items-center gap-0 mt-auto ml-auto">
         <div className="px-3 py-2">
-          <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+          <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Status</div>
           <div className="flex items-center gap-1.5">
-            <span className={`inline-flex ${statusColor || "text-dim"}`}>{statusIcon}</span>
-            <span className="text-[12px] text-sensor font-medium">{status}</span>
+            <span className={`inline-flex ${statusColor || "text-muted-foreground"}`}>{statusIcon}</span>
+            <span className="text-[12px] text-muted-foreground font-medium">{status}</span>
           </div>
         </div>
         <span className="w-px h-8 bg-border" />
         <div className="px-3 py-2">
-          <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Type</div>
+          <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Type</div>
           <div className="flex items-center gap-1.5">
             <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
               <TypeIcon format={videoFormat} className="w-3 h-3" />
@@ -197,10 +197,10 @@ export function VideoUpload({
       <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-background">
         {/* Thumbnail area — progress animation */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
-          <div className={`w-full ${thumbAspect} rounded-lg bg-elevated flex items-center justify-center relative overflow-hidden`}>
+          <div className={`w-full ${thumbAspect} rounded-lg bg-card flex items-center justify-center relative overflow-hidden`}>
             <div className="flex flex-col items-center gap-2 z-10">
               <Loader2 className="w-8 h-8 animate-spin text-blue" />
-              <span className="text-[11px] font-mono text-dim">{Math.round(task.progress)}%</span>
+              <span className="text-[11px] font-mono text-muted-foreground">{Math.round(task.progress)}%</span>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-card">
               <div
@@ -218,7 +218,7 @@ export function VideoUpload({
               <h2 className="text-base font-semibold tracking-tight max-lg:text-sm truncate" dir="rtl" style={{ textAlign: "right" }}>
                 {headline || task.file.name}
               </h2>
-              <div className="flex items-center justify-end gap-3 mt-1.5 text-[11px] text-dim font-mono" dir="rtl">
+              <div className="flex items-center justify-end gap-3 mt-1.5 text-[11px] text-muted-foreground font-mono" dir="rtl">
                 <span>{formatBytes(task.bytesUploaded)} / {formatBytes(task.file.size)}</span>
                 {speedText && <span>{speedText}</span>}
                 <span>{etaText}</span>
@@ -226,7 +226,7 @@ export function VideoUpload({
             </div>
             <button
               onClick={abort}
-              className="shrink-0 p-1.5 rounded-lg text-dim hover:text-red-400 hover:bg-red-400/10 transition-colors"
+              className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -238,9 +238,9 @@ export function VideoUpload({
             statusColor="text-blue"
             extra={
               <div className="px-3 py-2">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Part</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Part</div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] text-sensor font-medium">{task.completedParts}/{task.totalParts}</span>
+                  <span className="text-[12px] text-muted-foreground font-medium">{task.completedParts}/{task.totalParts}</span>
                 </div>
               </div>
             }
@@ -267,11 +267,11 @@ export function VideoUpload({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-base font-semibold text-red-400">Upload failed</p>
-              <p className="text-[11px] text-dim mt-1">{task.error}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{task.error}</p>
             </div>
             <button
               onClick={dismiss}
-              className="shrink-0 p-1.5 rounded-lg text-dim hover:text-foreground hover:bg-elevated transition-colors"
+              className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -279,10 +279,10 @@ export function VideoUpload({
 
           <div className="flex items-center gap-0 mt-auto ml-auto">
             <div className="px-3 py-2">
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Status</div>
               <div className="flex items-center gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5 text-destructive" />
-                <span className="text-[12px] text-sensor font-medium">Failed</span>
+                <span className="text-[12px] text-muted-foreground font-medium">Failed</span>
               </div>
             </div>
             {!readOnly && (
@@ -321,12 +321,12 @@ export function VideoUpload({
                 <img
                   src={videoThumbnailR2Url}
                   alt={name || "Video thumbnail"}
-                  className={`w-full ${thumbAspect} object-cover rounded-lg bg-elevated`}
+                  className={`w-full ${thumbAspect} object-cover rounded-lg bg-card`}
                 />
               ) : (
                 <video
                   src={url!}
-                  className={`w-full ${thumbAspect} object-cover rounded-lg bg-elevated`}
+                  className={`w-full ${thumbAspect} object-cover rounded-lg bg-card`}
                   muted
                   preload="metadata"
                   onLoadedMetadata={(e) => {
@@ -348,12 +348,12 @@ export function VideoUpload({
               <span className="absolute bottom-4 right-4 text-[9px] font-mono text-white/80 bg-black/50 px-1.5 py-0.5 rounded uppercase tracking-widest">{ext}</span>
             </div>
           ) : (
-            <div className={`w-full ${thumbAspect} rounded-lg bg-elevated flex items-center justify-center`}>
+            <div className={`w-full ${thumbAspect} rounded-lg bg-card flex items-center justify-center`}>
               <div className="flex flex-col items-center gap-2">
                 <div className="w-12 h-12 rounded-full bg-card/80 flex items-center justify-center">
                   <Play className="w-5 h-5 text-foreground ml-0.5" />
                 </div>
-                <span className="text-[9px] font-mono text-dim uppercase tracking-widest">{ext}</span>
+                <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">{ext}</span>
               </div>
             </div>
           )}
@@ -382,15 +382,15 @@ export function VideoUpload({
           {/* Metadata grid — STATUS / SIZE / TYPE */}
           <div className="flex items-center gap-0 mt-auto ml-auto">
             <div className="px-3 py-2">
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Status</div>
               <div className="flex items-center gap-1.5">
                 <span className="inline-flex text-success"><CheckCircle2 className="w-3.5 h-3.5" /></span>
-                <span className="text-[12px] text-sensor font-medium">Uploaded</span>
+                <span className="text-[12px] text-muted-foreground font-medium">Uploaded</span>
               </div>
             </div>
             <span className="w-px h-8 bg-border" />
             <div className="px-3 py-2">
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Type</div>
+              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Type</div>
               <div className="flex items-center gap-1.5">
                 <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
                   <TypeIcon format={videoFormat} className="w-3 h-3" />
@@ -401,10 +401,10 @@ export function VideoUpload({
               <>
                 <span className="w-px h-8 bg-border" />
                 <div className="px-3 py-2">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Size</div>
+                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Size</div>
                   <div className="flex items-center gap-1.5">
-                    <HardDrive className="w-3.5 h-3.5 text-dim" />
-                    <span className="text-[12px] text-sensor font-medium">{formatBytes(size)}</span>
+                    <HardDrive className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-[12px] text-muted-foreground font-medium">{formatBytes(size)}</span>
                   </div>
                 </div>
               </>
@@ -437,16 +437,16 @@ export function VideoUpload({
       <div className={`relative shrink-0 p-3 ${thumbW}`}>
         <div className={`
           w-full ${thumbAspect} rounded-lg flex items-center justify-center transition-colors
-          ${dragOver ? "bg-blue/10 border border-blue/30 border-dashed" : "bg-elevated"}
+          ${dragOver ? "bg-blue/10 border border-blue/30 border-dashed" : "bg-card"}
         `}>
           <div className="flex flex-col items-center gap-2">
             <div className={`
               w-12 h-12 rounded-full flex items-center justify-center transition-colors
               ${dragOver ? "bg-blue/20" : "bg-card/80"}
             `}>
-              <Upload className={`w-5 h-5 transition-colors ${dragOver ? "text-blue" : "text-dim"}`} />
+              <Upload className={`w-5 h-5 transition-colors ${dragOver ? "text-blue" : "text-muted-foreground"}`} />
             </div>
-            <span className="text-[10px] font-mono text-dim uppercase tracking-wider">
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
               {dragOver ? "Drop here" : isShort ? "Short" : "Video"}
             </span>
           </div>
@@ -460,7 +460,7 @@ export function VideoUpload({
             {headline || (dragOver ? "Drop to upload" : "Upload video")}
             {required && !dragOver && <span className="text-red-400 ml-1">*</span>}
           </h2>
-          <p className="text-[11px] text-dim mt-1" dir="rtl" style={{ textAlign: "right" }}>
+          <p className="text-[11px] text-muted-foreground mt-1" dir="rtl" style={{ textAlign: "right" }}>
             Drag & drop or click to select — MP4, WebM, MOV, AVI, MKV
           </p>
         </div>
@@ -468,15 +468,15 @@ export function VideoUpload({
         {/* Metadata grid — STATUS / TYPE / REQUIRED */}
         <div className="flex items-center gap-0 mt-auto ml-auto">
           <div className="px-3 py-2">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Status</div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex text-dim"><Clock className="w-3.5 h-3.5" /></span>
-              <span className="text-[12px] text-sensor font-medium">Pending</span>
+              <span className="inline-flex text-muted-foreground"><Clock className="w-3.5 h-3.5" /></span>
+              <span className="text-[12px] text-muted-foreground font-medium">Pending</span>
             </div>
           </div>
           <span className="w-px h-8 bg-border" />
           <div className="px-3 py-2">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Type</div>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Type</div>
             <div className="flex items-center gap-1.5">
               <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${isShort ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
                 <TypeIcon format={videoFormat} className="w-3 h-3" />
@@ -487,7 +487,7 @@ export function VideoUpload({
             <>
               <span className="w-px h-8 bg-border" />
               <div className="px-3 py-2">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Required</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Required</div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-orange/70" />
                   <span className="text-[12px] text-orange/70 font-medium">Before next stage</span>

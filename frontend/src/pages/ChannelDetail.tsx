@@ -184,10 +184,10 @@ function ContentDNASection({ channelId }: { channelId: string }) {
     <div className="px-6 pt-5 max-lg:px-4">
       <div className="rounded-lg border border-border bg-background overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-          <Tag className="w-4 h-4 text-dim" />
+          <Tag className="w-4 h-4 text-muted-foreground" />
           <div>
             <span className="text-[13px] font-semibold text-foreground">Content DNA</span>
-            <p className="text-[11px] text-dim mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               Tags that define your niche. Used by the scoring system to identify relevant stories.
             </p>
           </div>
@@ -196,14 +196,14 @@ function ContentDNASection({ channelId }: { channelId: string }) {
         <div className="grid grid-cols-2 max-md:grid-cols-1 divide-x max-md:divide-x-0 max-md:divide-y divide-border">
           {/* English Tags */}
           <div className="px-5 py-4">
-            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 block">
+            <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-2 block">
               English Tags
             </label>
             <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]">
               {enTags.map((tag, i) => (
                 <span
                   key={`${tag}-${i}`}
-                  className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-secondary text-secondary-foreground"
+                  className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-card text-secondary-foreground"
                 >
                   {tag}
                   <button
@@ -222,7 +222,7 @@ function ContentDNASection({ channelId }: { channelId: string }) {
               value={enInput}
               onChange={(e) => setEnInput(e.target.value)}
               onKeyDown={(e) => handleKey(e, enInput, enTags, setEnTags, setEnInput, true)}
-              className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="Type a tag and press Enter…"
               disabled={enTags.length >= 100}
             />
@@ -230,14 +230,14 @@ function ContentDNASection({ channelId }: { channelId: string }) {
 
           {/* Arabic Tags */}
           <div className="px-5 py-4">
-            <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-2 block" dir="rtl">
+            <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-2 block" dir="rtl">
               Arabic Tags
             </label>
             <div className="flex flex-wrap gap-1.5 mb-3 min-h-[32px]" dir="rtl">
               {arTags.map((tag, i) => (
                 <span
                   key={`${tag}-${i}`}
-                  className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-secondary text-secondary-foreground"
+                  className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-card text-secondary-foreground"
                   dir="rtl"
                 >
                   {tag}
@@ -258,7 +258,7 @@ function ContentDNASection({ channelId }: { channelId: string }) {
               onChange={(e) => setArInput(e.target.value)}
               onKeyDown={(e) => handleKey(e, arInput, arTags, setArTags, setArInput, false)}
               dir="rtl"
-              className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+              className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
               placeholder="اكتب وسم واضغط Enter…"
               disabled={arTags.length >= 100}
             />
@@ -430,7 +430,7 @@ export default function ChannelDetail() {
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
         <Link
           to={channelPath("")}
-          className="text-sensor hover:text-foreground underline text-[13px]"
+          className="text-muted-foreground hover:text-foreground underline text-[13px]"
         >
           Return to home
         </Link>
@@ -443,7 +443,7 @@ export default function ChannelDetail() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link
           to={channelPath(channelType === "competition" ? "/competitions" : "")}
-          className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
+          className="flex items-center gap-1.5 text-[13px] text-muted-foreground bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           {channelType === "competition" ? "Competitions" : "Our Channels"}
@@ -451,7 +451,7 @@ export default function ChannelDetail() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPanelVisible(!panelVisible)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
           >
             <Info className="w-4 h-4" />
           </button>
@@ -464,7 +464,7 @@ export default function ChannelDetail() {
             <img
               src={avatarImg}
               alt={name}
-              className="w-12 h-12 rounded-full object-cover shrink-0 max-md:w-10 max-md:h-10 bg-elevated"
+              className="w-12 h-12 rounded-full object-cover shrink-0 max-md:w-10 max-md:h-10 bg-card"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23666'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14'%3E" + (name.charAt(0) || "?") + "%3C/text%3E%3C/svg%3E";
               }}
@@ -477,7 +477,7 @@ export default function ChannelDetail() {
                 href={`https://youtube.com/${channel.handle}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[12px] text-dim font-mono mb-2 inline-block hover:text-sensor transition-colors no-underline"
+                className="text-[12px] text-muted-foreground font-mono mb-2 inline-block hover:text-muted-foreground transition-colors no-underline"
               >
                 {channel.handle}
               </a>
@@ -485,7 +485,7 @@ export default function ChannelDetail() {
                 <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-success/10 text-success">
                   {channel.status === "active" ? "Active" : channel.status}
                 </span>
-                <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-elevated text-dim">
+                <span className="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-mono font-medium bg-card text-muted-foreground">
                   Since {joinedDate}
                 </span>
               </div>
@@ -502,8 +502,8 @@ export default function ChannelDetail() {
                   }`}
                 >
                   <div className="text-lg font-semibold font-mono tracking-tight mb-0.5">{s.val}</div>
-                  <div className="text-[11px] text-dim">{s.label}</div>
-                  <div className="text-[11px] font-mono mt-0.5 text-sensor">{s.change}</div>
+                  <div className="text-[11px] text-muted-foreground">{s.label}</div>
+                  <div className="text-[11px] font-mono mt-0.5 text-muted-foreground">{s.change}</div>
                 </div>
               ))}
             </div>
@@ -515,7 +515,7 @@ export default function ChannelDetail() {
 
           <div className="px-6 py-5 pb-16 max-lg:px-4 max-lg:pb-20">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[12px] text-dim font-medium">Recent Videos</span>
+              <span className="text-[12px] text-muted-foreground font-medium">Recent Videos</span>
             </div>
             {(() => {
               const counts: Record<string, number> = {
@@ -535,7 +535,7 @@ export default function ChannelDetail() {
                       className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                         activeFilter === tab
                           ? "bg-card text-foreground border-border"
-                          : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
+                          : "bg-transparent text-muted-foreground border-border/50 hover:text-muted-foreground hover:border-border"
                       }`}
                     >
                       {tab} <span className="text-[11px] opacity-60">({counts[tab]})</span>

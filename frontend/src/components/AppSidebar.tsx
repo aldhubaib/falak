@@ -104,7 +104,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
               <TooltipTrigger asChild>
                 <button
                   onClick={() => navigate("/")}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:bg-elevated/60 hover:text-sensor transition-colors"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-card/60 hover:text-muted-foreground transition-colors"
                 >
                   <Home className="w-3.5 h-3.5" strokeWidth={1.5} />
                 </button>
@@ -117,7 +117,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
                   <button
                     onClick={onTogglePin}
                     className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-                      pinned ? "text-blue hover:bg-elevated/60" : "text-dim hover:bg-elevated/60 hover:text-sensor"
+                      pinned ? "text-blue hover:bg-card/60" : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
                     }`}
                   >
                     {pinned ? <Pin className="w-3.5 h-3.5" strokeWidth={1.5} /> : <PinOff className="w-3.5 h-3.5" strokeWidth={1.5} />}
@@ -133,7 +133,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
       {isMobile && (
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-dim text-sm hover:text-sensor hover:bg-elevated transition-colors"
+          className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground text-sm hover:text-muted-foreground hover:bg-card transition-colors"
         >
           ✕
         </button>
@@ -152,8 +152,8 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
               onClick={() => onClose?.()}
               className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
                 active
-                  ? "bg-elevated text-foreground"
-                  : "text-dim hover:bg-elevated/60 hover:text-sensor"
+                  ? "bg-card text-foreground"
+                  : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
@@ -183,8 +183,8 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
               onClick={() => onClose?.()}
               className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
                 active
-                  ? "bg-elevated text-foreground"
-                  : "text-dim hover:bg-elevated/60 hover:text-sensor"
+                  ? "bg-card text-foreground"
+                  : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
@@ -207,7 +207,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
       {/* User */}
       <button
         onClick={() => setLogoutOpen(true)}
-        className={`px-3 py-3 flex items-center gap-2.5 bg-sidebar hover:bg-elevated/60 transition-colors w-full text-left ${collapsed ? "justify-center" : ""}`}
+        className={`px-3 py-3 flex items-center gap-2.5 bg-sidebar hover:bg-card/60 transition-colors w-full text-left ${collapsed ? "justify-center" : ""}`}
       >
         {currentUser?.avatarUrl ? (
           <img
@@ -223,7 +223,7 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
         {!collapsed && (
           <div className="min-w-0">
             <div className="text-[12px] font-medium text-foreground truncate">{currentUser?.name ?? "User"}</div>
-            <div className="text-[11px] text-dim truncate">{currentUser?.email ?? (currentUser?.id ? "Signed in" : "—")}</div>
+            <div className="text-[11px] text-muted-foreground truncate">{currentUser?.email ?? (currentUser?.id ? "Signed in" : "—")}</div>
           </div>
         )}
       </button>
@@ -233,14 +233,14 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
         <DialogContent className="sm:max-w-[360px] bg-background border-border">
           <DialogHeader>
             <DialogTitle className="text-[15px]">Sign out</DialogTitle>
-            <DialogDescription className="text-[12px] text-dim">
+            <DialogDescription className="text-[12px] text-muted-foreground">
               Are you sure you want to sign out of your account?
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 mt-2">
             <button
               onClick={() => setLogoutOpen(false)}
-              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors"
+              className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-muted-foreground hover:text-muted-foreground transition-colors"
             >
               Cancel
             </button>

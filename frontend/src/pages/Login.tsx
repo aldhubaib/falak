@@ -166,7 +166,7 @@ export default function Login() {
             <h1 className="text-xl font-semibold tracking-tight mb-2 text-center">
               Sign in to Falak
             </h1>
-            <p className="text-sm text-dim text-center leading-relaxed">
+            <p className="text-sm text-muted-foreground text-center leading-relaxed">
               YouTube channel intelligence
               <br />
               for Arabic content creators
@@ -183,7 +183,7 @@ export default function Login() {
               type="button"
               onClick={handleLogin}
               disabled={loading}
-              className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-elevated border border-border rounded-lg text-foreground text-[13px] font-medium transition-all hover:bg-border hover:border-sensor/20 ${
+              className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-card border border-border rounded-lg text-foreground text-[13px] font-medium transition-all hover:bg-border hover:border-sensor/20 ${
                 loading ? "opacity-60 cursor-not-allowed pointer-events-none" : "cursor-pointer"
               }`}
             >
@@ -206,14 +206,14 @@ export default function Login() {
               <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0 mt-0.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-primary" />
               </div>
-              <p className="text-[12px] text-dim leading-relaxed">
+              <p className="text-[12px] text-muted-foreground leading-relaxed">
                 Access is restricted to{" "}
-                <span className="text-sensor font-medium">approved accounts</span> only.
+                <span className="text-muted-foreground font-medium">approved accounts</span> only.
               </p>
             </div>
           </div>
 
-          <p className="mt-6 text-[11px] text-dim text-center font-mono">falak · v2.0</p>
+          <p className="mt-6 text-[11px] text-muted-foreground text-center font-mono">falak · v2.0</p>
         </div>
       </div>
     </div>

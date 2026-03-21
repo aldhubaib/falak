@@ -197,7 +197,7 @@ function ChannelAvatar({
               />
             ) : (
               <div
-                className={`${px} ${textPx} rounded-full bg-elevated flex items-center justify-center text-dim font-mono font-bold uppercase`}
+                className={`${px} ${textPx} rounded-full bg-card flex items-center justify-center text-muted-foreground font-mono font-bold uppercase`}
               >
                 {name.slice(0, 2)}
               </div>
@@ -231,11 +231,11 @@ function StatCard({
         <span className={`text-2xl font-semibold font-mono tracking-tight ${color || ""}`}>
           {value}
         </span>
-        {topLabel && <span className="text-[10px] text-dim font-mono">{topLabel}</span>}
+        {topLabel && <span className="text-[10px] text-muted-foreground font-mono">{topLabel}</span>}
       </div>
-      <div className="text-[10px] text-dim font-mono uppercase tracking-wider">{label}</div>
+      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{label}</div>
       {topLabel && <div className="h-0.5 bg-blue rounded-full mt-2 mb-1 w-1/3" />}
-      <div className="text-[11px] text-dim font-mono mt-2 whitespace-pre">{sub}</div>
+      <div className="text-[11px] text-muted-foreground font-mono mt-2 whitespace-pre">{sub}</div>
     </div>
   );
 }
@@ -255,9 +255,9 @@ function ComparisonCard({
 }) {
   return (
     <div className="bg-background px-5 py-4">
-      <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">{label}</div>
+      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-2">{label}</div>
       <div className="text-2xl font-semibold font-mono tracking-tight mb-1">{value}</div>
-      <div className="text-[11px] text-dim font-mono mb-2">{sub}</div>
+      <div className="text-[11px] text-muted-foreground font-mono mb-2">{sub}</div>
       <div className={`text-[11px] font-mono ${noteColor}`}>{note}</div>
     </div>
   );
@@ -287,7 +287,7 @@ function ChannelDropdown({
         className={`flex items-center gap-2 text-[11px] font-mono px-2.5 py-1 rounded-full cursor-pointer transition-colors ${
           isYou
             ? "text-blue bg-blue/10 border border-blue/30 hover:bg-blue/20"
-            : "text-dim bg-transparent border border-border hover:text-sensor"
+            : "text-muted-foreground bg-transparent border border-border hover:text-muted-foreground"
         }`}
       >
         {value?.avatarUrl && (
@@ -308,13 +308,13 @@ function ChannelDropdown({
                   setOpen(false);
                 }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-mono hover:bg-card/50 transition-colors text-left ${
-                  ch.id === value?.id ? (isYou ? "text-blue" : "text-foreground") : "text-dim"
+                  ch.id === value?.id ? (isYou ? "text-blue" : "text-foreground") : "text-muted-foreground"
                 }`}
               >
                 {ch.avatarUrl ? (
                   <img src={ch.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-elevated shrink-0 flex items-center justify-center text-[8px] text-dim font-mono uppercase">
+                  <div className="w-5 h-5 rounded-full bg-card shrink-0 flex items-center justify-center text-[8px] text-muted-foreground font-mono uppercase">
                     {chName(ch).slice(0, 2)}
                   </div>
                 )}
@@ -370,7 +370,7 @@ function GrowthMomentumSection({
           <TrendingUp className="w-4 h-4 text-success" />
           <span className="text-[13px] font-semibold">Growth & Momentum</span>
         </div>
-        <p className="text-[12px] text-dim font-mono">
+        <p className="text-[12px] text-muted-foreground font-mono">
           No historical snapshots yet. Growth tracking starts once channel data is collected over time.
         </p>
       </div>
@@ -386,7 +386,7 @@ function GrowthMomentumSection({
       <div className="px-5 py-4 flex items-center gap-3">
         <TrendingUp className="w-4 h-4 text-success" />
         <span className="text-[13px] font-semibold">Growth & Momentum</span>
-        <span className="text-[11px] text-dim font-mono">— who's growing, who's stalling</span>
+        <span className="text-[11px] text-muted-foreground font-mono">— who's growing, who's stalling</span>
       </div>
 
       {/* Growth summary cards */}
@@ -436,10 +436,10 @@ function GrowthMomentumSection({
       {/* Per-channel growth table */}
       <div className="mx-5 mb-4 rounded-lg border border-border overflow-hidden">
         <div className="grid grid-cols-[1fr_90px_90px_90px] gap-4 px-5 py-3 bg-card/30 border-b border-border">
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">CHANNEL</span>
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest text-right">SUB GROWTH</span>
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest text-right">VIEW GROWTH</span>
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest text-right">ENG Δ</span>
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">CHANNEL</span>
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest text-right">SUB GROWTH</span>
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest text-right">VIEW GROWTH</span>
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest text-right">ENG Δ</span>
         </div>
         {sorted.map((g, i) => (
           <div
@@ -499,31 +499,31 @@ function ContentMixSection({
       <div className="px-5 py-4 flex items-center gap-3">
         <Layers className="w-4 h-4 text-purple" />
         <span className="text-[13px] font-semibold">Content Mix</span>
-        <span className="text-[11px] text-dim font-mono">— long-form vs shorts performance</span>
+        <span className="text-[11px] text-muted-foreground font-mono">— long-form vs shorts performance</span>
       </div>
 
       <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-[1px] bg-border mx-5 mb-4 rounded-lg overflow-hidden">
         <div className="bg-background px-5 py-4">
-          <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">LONG-FORM VIDEOS</div>
+          <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">LONG-FORM VIDEOS</div>
           <div className="text-2xl font-semibold font-mono tracking-tight text-purple">{totalVideos}</div>
-          <div className="text-[11px] text-dim font-mono mt-1">
+          <div className="text-[11px] text-muted-foreground font-mono mt-1">
             {fmtNum(totalVideoViews)} total views · {totalVideos > 0 ? fmtNum(Math.round(totalVideoViews / totalVideos)) : "0"} avg/video
           </div>
-          <div className="h-1.5 bg-elevated rounded-full mt-3 overflow-hidden">
+          <div className="h-1.5 bg-card rounded-full mt-3 overflow-hidden">
             <div className="h-full bg-purple rounded-full" style={{ width: `${videoPct}%` }} />
           </div>
-          <div className="text-[10px] text-dim font-mono mt-1">{videoPct.toFixed(0)}% of content</div>
+          <div className="text-[10px] text-muted-foreground font-mono mt-1">{videoPct.toFixed(0)}% of content</div>
         </div>
         <div className="bg-background px-5 py-4">
-          <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">SHORTS</div>
+          <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">SHORTS</div>
           <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{totalShorts}</div>
-          <div className="text-[11px] text-dim font-mono mt-1">
+          <div className="text-[11px] text-muted-foreground font-mono mt-1">
             {fmtNum(totalShortViews)} total views · {totalShorts > 0 ? fmtNum(Math.round(totalShortViews / totalShorts)) : "0"} avg/short
           </div>
-          <div className="h-1.5 bg-elevated rounded-full mt-3 overflow-hidden">
+          <div className="h-1.5 bg-card rounded-full mt-3 overflow-hidden">
             <div className="h-full bg-orange rounded-full" style={{ width: `${100 - videoPct}%` }} />
           </div>
-          <div className="text-[10px] text-dim font-mono mt-1">{(100 - videoPct).toFixed(0)}% of content</div>
+          <div className="text-[10px] text-muted-foreground font-mono mt-1">{(100 - videoPct).toFixed(0)}% of content</div>
         </div>
       </div>
 
@@ -538,7 +538,7 @@ function ContentMixSection({
                 ? "Long-form still dominates views, but shorts are gaining traction"
                 : "Shorts are pulling significant views — consider increasing short-form output"}
             </p>
-            <p className="text-[11px] text-dim font-mono mt-1">
+            <p className="text-[11px] text-muted-foreground font-mono mt-1">
               Videos: {videoViewPct.toFixed(0)}% of views from {videoPct.toFixed(0)}% of content ·
               Shorts: {(100 - videoViewPct).toFixed(0)}% of views from {(100 - videoPct).toFixed(0)}% of content
             </p>
@@ -571,7 +571,7 @@ function EngagementDecompositionSection({
       <div className="px-5 py-4 flex items-center gap-3">
         <MessageSquare className="w-4 h-4 text-blue" />
         <span className="text-[13px] font-semibold">Engagement Breakdown</span>
-        <span className="text-[11px] text-dim font-mono">— likes vs comments per channel</span>
+        <span className="text-[11px] text-muted-foreground font-mono">— likes vs comments per channel</span>
       </div>
 
       <div className="px-5 pb-4 space-y-2.5">
@@ -583,7 +583,7 @@ function EngagementDecompositionSection({
           return (
             <div key={entry.channelId} className="flex items-center gap-3">
               <div className="w-32 shrink-0 flex items-center gap-2 min-w-0">
-                <span className={`text-[11px] font-mono truncate ${isUs ? "text-blue" : "text-dim"}`}>
+                <span className={`text-[11px] font-mono truncate ${isUs ? "text-blue" : "text-muted-foreground"}`}>
                   {entry.name}
                 </span>
                 {isUs && <span className="text-[8px] text-blue font-mono shrink-0">YOU</span>}
@@ -602,7 +602,7 @@ function EngagementDecompositionSection({
               </div>
               <div className="w-28 shrink-0 text-right">
                 <span className="text-[10px] font-mono text-blue">{entry.likeRate.toFixed(2)}%</span>
-                <span className="text-[10px] font-mono text-dim mx-1">·</span>
+                <span className="text-[10px] font-mono text-muted-foreground mx-1">·</span>
                 <span className="text-[10px] font-mono text-orange">{entry.commentRate.toFixed(2)}%</span>
               </div>
             </div>
@@ -619,18 +619,18 @@ function EngagementDecompositionSection({
           <span className="flex items-center gap-1.5 text-[10px] font-mono">
             <MessageSquare className="w-3 h-3 text-orange" /> <span className="text-orange">Comment rate</span>
           </span>
-          <span className="text-[10px] text-dim font-mono ml-auto">
+          <span className="text-[10px] text-muted-foreground font-mono ml-auto">
             field avg: {avgLikeRate.toFixed(2)}% likes · {avgCommentRate.toFixed(3)}% comments
           </span>
         </div>
         {highCommenters.length > 0 && (
-          <p className="text-[11px] text-dim">
+          <p className="text-[11px] text-muted-foreground">
             <span className="text-orange font-medium">High comment engagement:</span>{" "}
             {highCommenters.map((e) => e.name).join(", ")} — audiences that comment are deeply invested. Study their CTAs.
           </p>
         )}
         {highLikers.length > 0 && (
-          <p className="text-[11px] text-dim mt-1">
+          <p className="text-[11px] text-muted-foreground mt-1">
             <span className="text-blue font-medium">Like-heavy, low comments:</span>{" "}
             {highLikers.map((e) => e.name).join(", ")} — passive approval without discussion. Content entertains but doesn't provoke.
           </p>
@@ -682,17 +682,17 @@ function PublishingPatternsSection({
       <div className="px-5 py-4 flex items-center gap-3">
         <Calendar className="w-4 h-4 text-orange" />
         <span className="text-[13px] font-semibold">Publishing Patterns</span>
-        <span className="text-[11px] text-dim font-mono">— when the field publishes (Riyadh time)</span>
+        <span className="text-[11px] text-muted-foreground font-mono">— when the field publishes (Riyadh time)</span>
       </div>
 
       <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-5 px-5 pb-5">
         {/* Day of week */}
         <div>
-          <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">DAY OF WEEK</div>
+          <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">DAY OF WEEK</div>
           <div className="space-y-2">
             {DAY_LABELS.map((day, i) => (
               <div key={day} className="flex items-center gap-2">
-                <span className="text-[11px] font-mono w-8 text-dim">{day}</span>
+                <span className="text-[11px] font-mono w-8 text-muted-foreground">{day}</span>
                 <div className="flex-1 flex gap-0.5 h-2.5">
                   {ourPatterns.length > 0 && (
                     <div
@@ -705,7 +705,7 @@ function PublishingPatternsSection({
                     style={{ width: `${(compDays[i] / maxDayVal) * 100}%` }}
                   />
                 </div>
-                <span className="text-[10px] font-mono text-dim w-6 text-right">{allDays[i]}</span>
+                <span className="text-[10px] font-mono text-muted-foreground w-6 text-right">{allDays[i]}</span>
               </div>
             ))}
           </div>
@@ -713,7 +713,7 @@ function PublishingPatternsSection({
 
         {/* Hour of day */}
         <div>
-          <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">HOUR OF DAY</div>
+          <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">HOUR OF DAY</div>
           <div className="flex items-end gap-[2px] h-20">
             {allHours.map((count, hr) => (
               <div
@@ -725,17 +725,17 @@ function PublishingPatternsSection({
             ))}
           </div>
           <div className="flex justify-between mt-1">
-            <span className="text-[9px] font-mono text-dim">0:00</span>
-            <span className="text-[9px] font-mono text-dim">6:00</span>
-            <span className="text-[9px] font-mono text-dim">12:00</span>
-            <span className="text-[9px] font-mono text-dim">18:00</span>
-            <span className="text-[9px] font-mono text-dim">23:00</span>
+            <span className="text-[9px] font-mono text-muted-foreground">0:00</span>
+            <span className="text-[9px] font-mono text-muted-foreground">6:00</span>
+            <span className="text-[9px] font-mono text-muted-foreground">12:00</span>
+            <span className="text-[9px] font-mono text-muted-foreground">18:00</span>
+            <span className="text-[9px] font-mono text-muted-foreground">23:00</span>
           </div>
         </div>
       </div>
 
       <div className="px-5 py-3 border-t border-border">
-        <p className="text-[11px] text-dim">
+        <p className="text-[11px] text-muted-foreground">
           Peak publishing: <span className="text-foreground font-medium">{peakDay}</span> at{" "}
           <span className="text-foreground font-medium">{peakHourLabel}</span> Riyadh time.
           {ourPatterns.length > 0 && " Consider aligning with — or deliberately counter-programming — these slots."}
@@ -761,7 +761,7 @@ function PerformanceDistributionSection({
       <div className="px-5 py-4 flex items-center gap-3">
         <BarChart3 className="w-4 h-4 text-success" />
         <span className="text-[13px] font-semibold">Video Performance Distribution</span>
-        <span className="text-[11px] text-dim font-mono">— how views spread across {dist.total} videos</span>
+        <span className="text-[11px] text-muted-foreground font-mono">— how views spread across {dist.total} videos</span>
       </div>
 
       {/* Percentile cards */}
@@ -770,11 +770,11 @@ function PerformanceDistributionSection({
           { label: "MEDIAN", value: dist.median, color: "text-blue" },
           { label: "MEAN", value: dist.mean, color: "text-purple" },
           { label: "P90", value: dist.p90, color: "text-success" },
-          { label: "P10", value: dist.p10, color: "text-dim" },
+          { label: "P10", value: dist.p10, color: "text-muted-foreground" },
           { label: "MAX", value: dist.max, color: "text-orange" },
         ].map((item) => (
           <div key={item.label} className="bg-background px-4 py-3">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">{item.label}</div>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">{item.label}</div>
             <div className={`text-lg font-semibold font-mono ${item.color}`}>{fmtNum(item.value)}</div>
           </div>
         ))}
@@ -782,21 +782,21 @@ function PerformanceDistributionSection({
 
       {/* Histogram */}
       <div className="px-5 pb-4">
-        <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">VIEW RANGE DISTRIBUTION</div>
+        <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">VIEW RANGE DISTRIBUTION</div>
         <div className="space-y-1.5">
           {dist.buckets.map((bucket) => (
             <div key={bucket.label} className="flex items-center gap-3">
-              <span className="text-[11px] font-mono w-20 text-dim text-right">{bucket.label}</span>
-              <div className="flex-1 h-3 bg-elevated rounded-full overflow-hidden">
+              <span className="text-[11px] font-mono w-20 text-muted-foreground text-right">{bucket.label}</span>
+              <div className="flex-1 h-3 bg-card rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue/70 rounded-full transition-all"
                   style={{ width: `${(bucket.count / maxBucket) * 100}%` }}
                 />
               </div>
-              <span className="text-[11px] font-mono w-10 text-dim">
+              <span className="text-[11px] font-mono w-10 text-muted-foreground">
                 {bucket.count}
               </span>
-              <span className="text-[10px] font-mono w-10 text-dim text-right">
+              <span className="text-[10px] font-mono w-10 text-muted-foreground text-right">
                 {dist.total > 0 ? `${((bucket.count / dist.total) * 100).toFixed(0)}%` : "0%"}
               </span>
             </div>
@@ -806,7 +806,7 @@ function PerformanceDistributionSection({
 
       {/* Insight */}
       <div className="px-5 py-3 border-t border-border">
-        <p className="text-[11px] text-dim">
+        <p className="text-[11px] text-muted-foreground">
           {dist.mean > dist.median * 2
             ? `Mean (${fmtNum(dist.mean)}) is ${(dist.mean / dist.median).toFixed(1)}× the median (${fmtNum(dist.median)}) — a few viral hits skew the average heavily. Median is the truer benchmark.`
             : `Mean (${fmtNum(dist.mean)}) and median (${fmtNum(dist.median)}) are close — performance is relatively evenly distributed across videos.`}
@@ -830,7 +830,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
     return (
       <div className="rounded-lg bg-background p-5">
         <p className="text-[13px] font-medium mb-1">Channel Analysis</p>
-        <p className="text-[12px] text-dim font-mono leading-relaxed">
+        <p className="text-[12px] text-muted-foreground font-mono leading-relaxed">
           {ourChannels.length === 0
             ? 'No "ours" channels found. Go to a Channel → panel → set Classification to "Ours", then click Refresh at the top of this page.'
             : 'No competitor channels found. Add competitor channels to enable head-to-head comparison.'}
@@ -889,9 +889,9 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
     <div className="rounded-lg bg-background overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3 flex-wrap">
         <span className="text-[13px] font-semibold">Channel Analysis</span>
-        <span className="text-[11px] font-mono text-dim">—</span>
+        <span className="text-[11px] font-mono text-muted-foreground">—</span>
         <ChannelDropdown value={yourCh} onChange={setYourCh} options={ourChannels} variant="you" />
-        <span className="text-[11px] text-dim font-mono">vs</span>
+        <span className="text-[11px] text-muted-foreground font-mono">vs</span>
         <ChannelDropdown
           value={theirCh}
           onChange={setTheirCh}
@@ -902,7 +902,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
 
       <div className="mx-5 mb-4 px-4 py-3 border border-border rounded-lg">
         <p className="text-[13px] font-medium">{summary}</p>
-        <p className="text-[11px] text-dim font-mono mt-1">
+        <p className="text-[11px] text-muted-foreground font-mono mt-1">
           {chName(yourCh)} vs {chName(theirCh)} · Winning {winsCount}/{metrics.length} metrics
         </p>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -910,7 +910,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
             <span
               key={m.label}
               className={`text-[10px] font-mono px-2 py-0.5 border rounded-full ${
-                m.winning ? "text-success border-success/30" : "text-dim border-border"
+                m.winning ? "text-success border-success/30" : "text-muted-foreground border-border"
               }`}
             >
               {m.winning ? "✓" : "↑"} {m.label}
@@ -921,16 +921,16 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
 
       <div className="mx-5 mb-4 rounded-lg border border-border overflow-hidden">
         <div className="grid grid-cols-[1fr_100px_120px_50px] gap-4 px-5 py-3 bg-card/30 border-b border-border">
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest">METRIC</span>
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">METRIC</span>
           <div className="flex items-center gap-1.5 justify-end">
             <ChannelAvatar name={chName(yourCh)} avatarUrl={yourCh.avatarUrl} size="sm" />
             <span className="text-[10px] text-blue font-mono uppercase tracking-widest">You</span>
           </div>
           <div className="flex items-center gap-1.5 justify-end">
             <ChannelAvatar name={chName(theirCh)} avatarUrl={theirCh.avatarUrl} size="sm" />
-            <span className="text-[10px] text-dim font-mono uppercase tracking-widest">Competitor</span>
+            <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Competitor</span>
           </div>
-          <span className="text-[10px] text-dim font-mono uppercase tracking-widest text-right">STATUS</span>
+          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest text-right">STATUS</span>
         </div>
         {metrics.map((m, i) => (
           <div
@@ -947,7 +947,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
             >
               {m.youVal}
             </span>
-            <span className="text-[13px] font-mono text-dim text-right">{m.theirVal}</span>
+            <span className="text-[13px] font-mono text-muted-foreground text-right">{m.theirVal}</span>
             <div className="flex justify-end">
               {m.winning ? (
                 <CheckCircle className="w-4 h-4 text-success" />
@@ -960,7 +960,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
       </div>
 
       <div className="px-5 pb-5">
-        <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
+        <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">
           ACTION PLAN — IN ORDER OF IMPACT
         </div>
         <div className="space-y-2">
@@ -972,7 +972,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
                 </span>
                 <div>
                   <p className="text-[13px] font-semibold mb-1">{m.label}</p>
-                  <p className="text-[12px] text-dim leading-relaxed">
+                  <p className="text-[12px] text-muted-foreground leading-relaxed">
                     Your {m.label.toLowerCase()} is {m.youVal} vs their {m.theirVal}. Close this
                     gap to compete more effectively.
                   </p>
@@ -988,7 +988,7 @@ function ChannelAnalysisSection({ channels }: { channels: ApiChannel[] }) {
                 </span>
                 <div>
                   <p className="text-[13px] font-semibold mb-1">Already winning: {m.label}</p>
-                  <p className="text-[12px] text-dim leading-relaxed">
+                  <p className="text-[12px] text-muted-foreground leading-relaxed">
                     You lead {m.youVal} vs {m.theirVal}. Maintain this advantage.
                   </p>
                 </div>
@@ -1115,7 +1115,7 @@ function TrendChart({
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * maxVal));
 
   if (months.length === 0) {
-    return <p className="text-[12px] text-dim font-mono">No monthly data available.</p>;
+    return <p className="text-[12px] text-muted-foreground font-mono">No monthly data available.</p>;
   }
 
   return (
@@ -1244,8 +1244,8 @@ function TrendChart({
               top: Math.max(hovered.y - 56, 8),
             }}
           >
-            <div className="text-[10px] text-dim font-mono">{hovered.monthLabel}</div>
-            <div className={`text-[11px] font-mono ${hovered.tone === "you" ? "text-blue" : "text-sensor"}`}>
+            <div className="text-[10px] text-muted-foreground font-mono">{hovered.monthLabel}</div>
+            <div className={`text-[11px] font-mono ${hovered.tone === "you" ? "text-blue" : "text-muted-foreground"}`}>
               {hovered.channelName}
             </div>
             <div className="text-[12px] font-semibold font-mono">
@@ -1271,14 +1271,14 @@ function TrendChart({
             </span>
           );
         })}
-        <span className="text-[10px] text-dim font-mono uppercase tracking-widest ml-4">COMPETITORS</span>
+        <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest ml-4">COMPETITORS</span>
         {compSeries.map((c) => {
           const active = hovered?.seriesId === c.id;
           const dimmed = hovered && !active;
           return (
             <span
               key={c.id}
-              className={`flex items-center gap-1.5 text-[11px] font-mono text-dim rounded-lg px-1.5 py-0.5 transition-colors ${active ? "bg-card text-sensor" : dimmed ? "opacity-45" : ""}`}
+              className={`flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground rounded-lg px-1.5 py-0.5 transition-colors ${active ? "bg-card text-muted-foreground" : dimmed ? "opacity-45" : ""}`}
             >
               <span className="w-3 h-0.5 bg-dim/40 rounded-full inline-block" />
               <ChannelAvatar name={c.name} avatarUrl={c.ch?.avatarUrl} channelId={c.id} size="sm" />
@@ -1592,7 +1592,7 @@ export default function Analytics() {
           <h1 className="text-sm font-semibold">Analytics</h1>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 animate-spin text-dim" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -1605,7 +1605,7 @@ export default function Analytics() {
           <h1 className="text-sm font-semibold">Analytics</h1>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-dim text-sm">No data available.</p>
+          <p className="text-muted-foreground text-sm">No data available.</p>
         </div>
       </div>
     );
@@ -1617,13 +1617,13 @@ export default function Analytics() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Analytics</h1>
-          <span className="text-[11px] text-dim font-mono">
+          <span className="text-[11px] text-muted-foreground font-mono">
             {universe.channels} channels tracked
           </span>
           <button
             onClick={handleRefresh}
             disabled={flushing}
-            className="inline-flex items-center gap-1 text-[11px] text-dim font-mono hover:text-sensor transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors disabled:opacity-50"
             title="Bust cache and reload"
           >
             <RotateCw className={`w-3 h-3 ${flushing ? "animate-spin" : ""}`} />
@@ -1636,7 +1636,7 @@ export default function Analytics() {
               key={t}
               onClick={() => handlePeriod(t)}
               className={`px-3 py-1 text-[11px] font-mono rounded-full transition-colors ${
-                period === t ? "bg-card text-foreground" : "text-dim hover:text-sensor"
+                period === t ? "bg-card text-foreground" : "text-muted-foreground hover:text-muted-foreground"
               }`}
             >
               {t}
@@ -1697,7 +1697,7 @@ export default function Analytics() {
               <div className="flex items-center gap-2">
                 <Star className="w-4 h-4 text-orange" />
                 <span className="text-[13px] font-semibold">You vs the Field</span>
-                <span className="text-[11px] text-dim font-mono">
+                <span className="text-[11px] text-muted-foreground font-mono">
                   — {ourChannels.length} your channel{ourChannels.length !== 1 ? "s" : ""} vs{" "}
                   {competitorChannels.length} competitor{competitorChannels.length !== 1 ? "s" : ""}
                 </span>
@@ -1710,7 +1710,7 @@ export default function Analytics() {
                     className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors border ${
                       fieldTab === t
                         ? "bg-card text-foreground border-border"
-                        : "bg-transparent text-dim border-transparent hover:text-sensor"
+                        : "bg-transparent text-muted-foreground border-transparent hover:text-muted-foreground"
                     }`}
                   >
                     {t}
@@ -1759,7 +1759,7 @@ export default function Analytics() {
                   <div key={entry.id} className="flex items-center gap-3 py-2.5">
                     <span
                       className={`w-6 text-right text-[12px] font-mono shrink-0 ${
-                        entry.isYou ? "text-blue" : "text-dim"
+                        entry.isYou ? "text-blue" : "text-muted-foreground"
                       }`}
                     >
                       {entry.rank}
@@ -1772,7 +1772,7 @@ export default function Analytics() {
                     {entry.isYou && (
                       <span className="text-[10px] text-blue font-mono shrink-0">YOU</span>
                     )}
-                    <div className="flex-1 h-1.5 bg-elevated rounded-full overflow-hidden">
+                    <div className="flex-1 h-1.5 bg-card rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${entry.isYou ? "bg-blue" : "bg-dim/40"}`}
                         style={{ width: `${getBarWidth(entry.rawVal, maxRaw)}%` }}
@@ -1780,7 +1780,7 @@ export default function Analytics() {
                     </div>
                     <span
                       className={`text-[12px] font-mono shrink-0 w-16 text-right ${
-                        entry.isYou ? "text-blue" : "text-dim"
+                        entry.isYou ? "text-blue" : "text-muted-foreground"
                       }`}
                     >
                       {entry.value}
@@ -1801,7 +1801,7 @@ export default function Analytics() {
                         ? "You are competitive on engagement — this is your foundation"
                         : "Focus on engagement — it's your fastest lever for growth"}
                     </p>
-                    <p className="text-[12px] text-dim mt-1">
+                    <p className="text-[12px] text-muted-foreground mt-1">
                       Your engagement is {ourAvgEngagement.toFixed(2)}% vs market average of{" "}
                       {marketAvgEng.toFixed(2)}%.{" "}
                       {topByEngagement
@@ -1859,7 +1859,7 @@ export default function Analytics() {
             <div className="grid grid-cols-3 max-lg:grid-cols-1 gap-[1px] bg-border">
               {benchmarks.map((cat) => (
                 <div key={cat.label} className="bg-background px-5 py-4">
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
+                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">
                     {cat.label}
                   </div>
                   {cat.items.map((item) => (
@@ -1870,7 +1870,7 @@ export default function Analytics() {
                       <div className="flex items-center gap-2.5">
                         <span
                           className={`text-[11px] font-mono w-5 text-right ${
-                            item.isYou ? "text-blue" : "text-dim"
+                            item.isYou ? "text-blue" : "text-muted-foreground"
                           }`}
                         >
                           {item.rank}
@@ -1884,7 +1884,7 @@ export default function Analytics() {
                       </div>
                       <span
                         className={`text-[12px] font-mono ${
-                          item.isYou ? "text-blue" : "text-dim"
+                          item.isYou ? "text-blue" : "text-muted-foreground"
                         }`}
                       >
                         {item.value}
@@ -1915,7 +1915,7 @@ export default function Analytics() {
                     className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors border ${
                       trendTab === t
                         ? "bg-card text-foreground border-border"
-                        : "bg-transparent text-dim border-transparent hover:text-sensor"
+                        : "bg-transparent text-muted-foreground border-transparent hover:text-muted-foreground"
                     }`}
                   >
                     {t}
@@ -1941,12 +1941,12 @@ export default function Analytics() {
           <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center justify-between">
               <span className="text-[13px] font-semibold">Top Videos by Views</span>
-              <span className="text-[11px] text-dim font-mono">
+              <span className="text-[11px] text-muted-foreground font-mono">
                 across all tracked channels · {period}
               </span>
             </div>
             {topVideos.length === 0 ? (
-              <p className="px-5 pb-5 text-[12px] text-dim font-mono">
+              <p className="px-5 pb-5 text-[12px] text-muted-foreground font-mono">
                 No video data in this period.
               </p>
             ) : (
@@ -1956,14 +1956,14 @@ export default function Analytics() {
                   to={channelPath(`/video/${v.id}`)}
                   className="group flex items-center gap-5 px-5 py-3.5 border-t border-border hover:bg-card/30 transition-colors cursor-pointer no-underline"
                 >
-                  <span className="text-[12px] text-dim font-mono w-6 text-right shrink-0">
+                  <span className="text-[12px] text-muted-foreground font-mono w-6 text-right shrink-0">
                     {v.rank}
                   </span>
                   <div className="flex-1 min-w-0 flex items-center gap-2">
                     <span className="text-[13px] font-medium truncate group-hover:opacity-80 transition-opacity">
                       {v.title}
                     </span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-dim shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <ChannelAvatar
                     name={v.channelName}
@@ -1971,7 +1971,7 @@ export default function Analytics() {
                     channelId={v.channelId}
                     size="sm"
                   />
-                  <span className="text-[13px] font-mono text-dim shrink-0 w-16 text-right">
+                  <span className="text-[13px] font-mono text-muted-foreground shrink-0 w-16 text-right">
                     {v.views}
                   </span>
                 </Link>
@@ -1985,7 +1985,7 @@ export default function Analytics() {
           <div className="rounded-lg bg-background overflow-hidden">
             <div className="px-5 py-4 flex items-center gap-3">
               <span className="text-[13px] font-semibold">Key Insights</span>
-              <span className="text-[11px] text-dim font-mono px-2 py-0.5 border border-border rounded-full">
+              <span className="text-[11px] text-muted-foreground font-mono px-2 py-0.5 border border-border rounded-full">
                 derived from real data
               </span>
             </div>
@@ -1999,7 +1999,7 @@ export default function Analytics() {
                   </span>
                   <div>
                     <p className="text-[13px] font-medium mb-1">{insight.title}</p>
-                    <p className="text-[12px] text-dim leading-relaxed">{insight.description}</p>
+                    <p className="text-[12px] text-muted-foreground leading-relaxed">{insight.description}</p>
                   </div>
                 </div>
               </div>

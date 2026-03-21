@@ -148,7 +148,7 @@ export default function Competitions() {
     <div className="flex flex-col min-h-screen">
       <div className="h-12 flex items-center px-6 border-b shrink-0 max-md:px-4 border-border">
         <h1 className="text-sm font-semibold">
-          Competitions <span className="text-dim font-normal">({channels.length})</span>
+          Competitions <span className="text-muted-foreground font-normal">({channels.length})</span>
         </h1>
       </div>
 
@@ -156,7 +156,7 @@ export default function Competitions() {
         <div className="px-6 pt-5 pb-1 max-md:px-4">
           <div className="flex gap-2 max-md:flex-col items-start flex-wrap">
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[12px] text-dim">Nationality:</span>
+              <span className="text-[12px] text-muted-foreground">Nationality:</span>
               <div className="relative">
                 <select
                   value={nationality}
@@ -171,7 +171,7 @@ export default function Competitions() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dim pointer-events-none" />
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               </div>
             </div>
             <div className="flex-1 relative max-md:w-full min-w-0">
@@ -183,7 +183,7 @@ export default function Competitions() {
                   setInputError("");
                 }}
                 placeholder="@handle or channel ID..."
-                className={`w-full pl-3 pr-3 py-2 bg-background border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-dim ${
+                className={`w-full pl-3 pr-3 py-2 bg-background border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-muted-foreground ${
                   inputError ? "border-destructive/50" : "border-border focus:border-border"
                 }`}
                 style={{ borderRadius: "20px" }}
@@ -205,7 +205,7 @@ export default function Competitions() {
 
         <div className="px-6 py-4 max-md:px-4">
           {loading ? (
-            <p className="text-dim text-[13px]">Loading channels...</p>
+            <p className="text-muted-foreground text-[13px]">Loading channels...</p>
           ) : channels.length === 0 ? (
             <EmptyState title="No competitor channels yet" description="Add your first competitor above." />
           ) : (
@@ -219,7 +219,7 @@ export default function Competitions() {
                     <img
                       src={ch.avatarImg}
                       alt={ch.name}
-                      className="w-8 h-8 rounded-full object-cover bg-elevated"
+                      className="w-8 h-8 rounded-full object-cover bg-card"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23666'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14'%3E" + ch.avatar + "%3C/text%3E%3C/svg%3E";
                       }}
@@ -237,23 +237,23 @@ export default function Competitions() {
                       <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
                     </Link>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-dim font-mono">{ch.handle}</span>
-                      <span className="text-[10px] text-dim">
+                      <span className="text-[11px] text-muted-foreground font-mono">{ch.handle}</span>
+                      <span className="text-[10px] text-muted-foreground">
                         {formatDistanceToNow(new Date(ch.lastSynced), { addSuffix: true })}
                       </span>
                     </div>
                   </div>
                   <div className="hidden sm:flex items-center gap-6">
-                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-sensor">
-                      <Users className="w-3 h-3 text-dim" />
+                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
+                      <Users className="w-3 h-3 text-muted-foreground" />
                       {ch.subscribers}
                     </div>
-                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-sensor">
-                      <Eye className="w-3 h-3 text-dim" />
+                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
+                      <Eye className="w-3 h-3 text-muted-foreground" />
                       {ch.views}
                     </div>
-                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-sensor">
-                      <PlayCircle className="w-3 h-3 text-dim" />
+                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
+                      <PlayCircle className="w-3 h-3 text-muted-foreground" />
                       {ch.videos}
                     </div>
                   </div>
@@ -262,7 +262,7 @@ export default function Competitions() {
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => fetchChannels()}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
                         >
                           <RefreshCw className="w-3.5 h-3.5" />
                         </button>
@@ -276,7 +276,7 @@ export default function Competitions() {
                             e.stopPropagation();
                             setDeleteTarget(ch.id);
                           }}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>

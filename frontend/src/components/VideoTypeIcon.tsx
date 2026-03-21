@@ -3,7 +3,7 @@ import { Play, Zap } from "lucide-react";
 /** Global default: Play = video, Zap = short. Icon only (no text). */
 export function VideoTypeIcon({
   type,
-  className = "w-3.5 h-3.5 text-dim",
+  className = "w-3.5 h-3.5 text-muted-foreground",
   title,
 }: {
   type: "short" | "video";

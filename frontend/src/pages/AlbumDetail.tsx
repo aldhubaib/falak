@@ -76,10 +76,10 @@ export default function AlbumDetail() {
   if (!album) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-center">
-        <div className="text-[13px] text-dim font-mono">Album not found</div>
+        <div className="text-[13px] text-muted-foreground font-mono">Album not found</div>
         <Link
           to={`/c/${channelId}/gallery`}
-          className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors no-underline"
+          className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3 h-3" />
           Back to gallery
@@ -94,7 +94,7 @@ export default function AlbumDetail() {
       <div className="h-12 flex items-center gap-3 px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link
           to={`/c/${channelId}/gallery`}
-          className="inline-flex items-center gap-1 text-[12px] text-dim hover:text-sensor transition-colors no-underline"
+          className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-muted-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span className="max-sm:hidden">Gallery</span>
@@ -115,13 +115,13 @@ export default function AlbumDetail() {
             <button
               onClick={handleRename}
               disabled={patchAlbum.isPending}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
             >
               <Save className="w-3 h-3" />
             </button>
             <button
               onClick={() => setRenaming(false)}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -129,10 +129,10 @@ export default function AlbumDetail() {
         ) : (
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <h1 className="text-[13px] font-semibold truncate">{album.name}</h1>
-            <span className="text-[11px] text-dim font-mono">({mediaItems.length})</span>
+            <span className="text-[11px] text-muted-foreground font-mono">({mediaItems.length})</span>
             <button
               onClick={() => { setNameDraft(album.name); setRenaming(true); }}
-              className="text-dim hover:text-sensor transition-colors shrink-0"
+              className="text-muted-foreground hover:text-muted-foreground transition-colors shrink-0"
             >
               <Pencil className="w-3 h-3" />
             </button>
@@ -154,14 +154,14 @@ export default function AlbumDetail() {
           <>
             <button
               onClick={selectAll}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
             >
               <CheckSquare className="w-3 h-3" />
               All
             </button>
             <button
               onClick={exitSelection}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"
             >
               <X className="w-3 h-3" />
               Exit
@@ -183,7 +183,7 @@ export default function AlbumDetail() {
         ) : (
           <button
             onClick={() => setSelectionMode(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border/50 text-[11px] text-dim font-medium hover:text-sensor hover:border-border transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border/50 text-[11px] text-muted-foreground font-medium hover:text-muted-foreground hover:border-border transition-colors"
           >
             <Check className="w-3 h-3" />
             Select

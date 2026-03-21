@@ -71,7 +71,7 @@ function copyCid(cid: string) {
 function CidBlock({ cid, name, source, children }: { cid: string; name: string; source: string; children: ReactNode }) {
   return (
     <div id={`cid-${cid}`} data-cid={cid} className="mb-8">
-      <p className="text-xs font-mono text-dim mb-2">
+      <p className="text-xs font-mono text-muted-foreground mb-2">
         {name} &mdash; {source}
         <span
           className="ml-2 text-border select-all cursor-pointer hover:text-muted-foreground transition-colors"
@@ -89,7 +89,7 @@ function CidBlock({ cid, name, source, children }: { cid: string; name: string; 
 function SectionHeader({ id, label }: { id: string; label: string }) {
   return (
     <div id={id} className="scroll-mt-20 pt-8">
-      <h2 className="text-xs font-mono uppercase tracking-wider text-dim border-b border-border pb-2 mb-6">{label}</h2>
+      <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground border-b border-border pb-2 mb-6">{label}</h2>
     </div>
   );
 }
@@ -138,22 +138,17 @@ const TAB2_SECTIONS = [
 const COLOR_GROUPS = [
   { label: "Surfaces", tokens: [
     { id: "--background", hsl: "hsl(240,4%,6%)" }, { id: "--card", hsl: "hsl(240,4%,6%)" },
-    { id: "--popover", hsl: "hsl(0,0%,7%)" }, { id: "--secondary", hsl: "hsl(0,0%,10%)" },
-    { id: "--muted", hsl: "hsl(0,0%,10%)" }, { id: "--accent", hsl: "hsl(0,0%,10%)" },
-    { id: "--elevated", hsl: "hsl(0,0%,13%)" }, { id: "--row-hover", hsl: "hsl(0,0%,5%)" },
   ]},
   { label: "Text", tokens: [
     { id: "--foreground", hsl: "hsl(0,0%,93%)" }, { id: "--muted-foreground", hsl: "hsl(0,0%,45%)" },
-    { id: "--dim", hsl: "hsl(0,0%,40%)" }, { id: "--sensor", hsl: "hsl(0,0%,60%)" },
   ]},
   { label: "Status", tokens: [
     { id: "--primary", hsl: "hsl(217,72%,56%)" }, { id: "--destructive", hsl: "hsl(0,72%,51%)" },
     { id: "--success", hsl: "hsl(142,50%,45%)" }, { id: "--blue", hsl: "hsl(217,72%,56%)" },
     { id: "--purple", hsl: "hsl(258,60%,59%)" }, { id: "--orange", hsl: "hsl(25,90%,55%)" },
   ]},
-  { label: "Border & Form", tokens: [
-    { id: "--border", hsl: "hsl(228,8%,9%)" }, { id: "--input", hsl: "hsl(0,0%,13%)" },
-    { id: "--ring", hsl: "hsl(217,72%,56%)" },
+  { label: "Border", tokens: [
+    { id: "--border", hsl: "hsl(228,8%,9%)" }, { id: "--ring", hsl: "hsl(217,72%,56%)" },
   ]},
 ];
 const RADIUS_TOKENS = [
@@ -214,7 +209,7 @@ export default function DesignSystem() {
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-[1120px] mx-auto px-6 flex items-center justify-between h-12">
           <span className="text-sm font-semibold tracking-tight">Falak DLS</span>
-          <span className="font-mono text-[10px] text-dim">/design-system</span>
+          <span className="font-mono text-[10px] text-muted-foreground">/design-system</span>
         </div>
         <div className="max-w-[1120px] mx-auto px-6 flex gap-0">
           {(["components", "foundation"] as const).map((t) => (
@@ -237,7 +232,7 @@ export default function DesignSystem() {
             <a
               key={s.id}
               href={`#${s.id}`}
-              className={`block py-1.5 text-xs font-mono transition-colors ${activeSection === s.id ? "text-foreground" : "text-dim hover:text-muted-foreground"}`}
+              className={`block py-1.5 text-xs font-mono transition-colors ${activeSection === s.id ? "text-foreground" : "text-muted-foreground hover:text-muted-foreground"}`}
             >
               {s.label}
             </a>
@@ -280,8 +275,8 @@ export default function DesignSystem() {
 
               <CidBlock cid="loading-spinner-full" name="Full-page loading spinner" source="9 pages">
                 <div className="flex gap-8">
-                  <div className="flex flex-col items-center gap-2"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /><span className="text-[10px] text-dim font-mono">w-6 h-6</span></div>
-                  <div className="flex flex-col items-center gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><span className="text-[10px] text-dim font-mono">w-8 h-8</span></div>
+                  <div className="flex flex-col items-center gap-2"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /><span className="text-[10px] text-muted-foreground font-mono">w-6 h-6</span></div>
+                  <div className="flex flex-col items-center gap-2"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /><span className="text-[10px] text-muted-foreground font-mono">w-8 h-8</span></div>
                 </div>
               </CidBlock>
 
@@ -313,7 +308,7 @@ export default function DesignSystem() {
                 <div className="rounded-lg border border-border overflow-hidden">
                   <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0">
                     <h1 className="text-sm font-semibold">Pipeline Monitor</h1>
-                    <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium"><Search className="w-3 h-3" /> Search</button>
+                    <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium"><Search className="w-3 h-3" /> Search</button>
                   </div>
                   <div className="h-24 bg-background" />
                 </div>
@@ -329,14 +324,14 @@ export default function DesignSystem() {
               <CidBlock cid="video-right-panel" name="VideoRightPanel" source="VideoDetail.tsx">
                 <div className="relative h-[360px] rounded-lg border border-border overflow-hidden">
                   <VideoRightPanel video={MOCK_VIDEOS[0]} visible={videoPanelOpen} onClose={() => setVideoPanelOpen(false)} pipeline={MOCK_PIPELINE} />
-                  {!videoPanelOpen && <button onClick={() => setVideoPanelOpen(true)} className="absolute inset-0 flex items-center justify-center text-xs text-dim">Click to reopen panel</button>}
+                  {!videoPanelOpen && <button onClick={() => setVideoPanelOpen(true)} className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">Click to reopen panel</button>}
                 </div>
               </CidBlock>
 
               <CidBlock cid="channel-right-panel" name="ChannelRightPanel" source="ChannelDetail.tsx">
                 <div className="relative h-[480px] rounded-lg border border-border overflow-hidden">
                   <ChannelRightPanel channel={MOCK_CHANNEL} visible={channelPanelOpen} onClose={() => setChannelPanelOpen(false)} videoCount={720} shortCount={122} />
-                  {!channelPanelOpen && <button onClick={() => setChannelPanelOpen(true)} className="absolute inset-0 flex items-center justify-center text-xs text-dim">Click to reopen panel</button>}
+                  {!channelPanelOpen && <button onClick={() => setChannelPanelOpen(true)} className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">Click to reopen panel</button>}
                 </div>
               </CidBlock>
 
@@ -384,7 +379,7 @@ export default function DesignSystem() {
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-orange/15 text-orange border-orange/20">Queued</span>
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-purple/15 text-purple border-purple/20">Enriched</span>
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive border-destructive/20">Failed</span>
-                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-dim/15 text-dim border-dim/20">Pending</span>
+                  <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-dim/15 text-muted-foreground border-dim/20">Pending</span>
                 </div>
               </CidBlock>
 
@@ -416,7 +411,7 @@ export default function DesignSystem() {
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5 text-xs"><CheckCircle2 className="w-4 h-4 text-success" /> Done</span>
                   <span className="flex items-center gap-1.5 text-xs"><XCircle className="w-4 h-4 text-destructive" /> Failed</span>
-                  <span className="flex items-center gap-1.5 text-xs"><Clock className="w-4 h-4 text-dim" /> Pending</span>
+                  <span className="flex items-center gap-1.5 text-xs"><Clock className="w-4 h-4 text-muted-foreground" /> Pending</span>
                   <span className="flex items-center gap-1.5 text-xs"><Loader2 className="w-4 h-4 text-blue animate-spin" /> Analyzing</span>
                 </div>
               </CidBlock>
@@ -445,7 +440,7 @@ export default function DesignSystem() {
               <CidBlock cid="action-pill-button" name="Action pill button" source="5 pages">
                 <div className="flex flex-wrap gap-2">
                   <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-foreground/10 text-foreground border border-foreground/20"><Play className="w-3 h-3" /> Analyze</button>
-                  <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors"><Search className="w-3 h-3" /> Filter</button>
+                  <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors"><Search className="w-3 h-3" /> Filter</button>
                   <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 border border-destructive/20 text-[11px] text-destructive font-medium"><XCircle className="w-3 h-3" /> Remove</button>
                   <button className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 text-success text-[11px] font-medium"><CheckCircle2 className="w-3 h-3" /> Published</button>
                 </div>
@@ -454,8 +449,8 @@ export default function DesignSystem() {
               <CidBlock cid="filter-pill" name="Filter pill" source="7 pages">
                 <div className="flex flex-wrap gap-2">
                   <button className="px-4 py-1.5 rounded-full text-[12px] font-medium bg-foreground/10 text-foreground border border-foreground/20">All</button>
-                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-dim border border-border hover:text-foreground hover:border-foreground/20 transition-colors">Active</button>
-                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-dim border border-border hover:text-foreground hover:border-foreground/20 transition-colors">Archived</button>
+                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20 transition-colors">Active</button>
+                  <button className="px-4 py-1.5 rounded-full text-[12px] font-medium text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20 transition-colors">Archived</button>
                 </div>
               </CidBlock>
 
@@ -507,7 +502,7 @@ export default function DesignSystem() {
 
               <CidBlock cid="media-viewer" name="MediaViewer" source="Gallery.tsx, AlbumDetail.tsx">
                 <div>
-                  <button onClick={() => setViewerOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium">Open MediaViewer</button>
+                  <button onClick={() => setViewerOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium">Open MediaViewer</button>
                   <MediaViewer open={viewerOpen} items={MOCK_GALLERY_MEDIA} index={viewerIndex} onOpenChange={setViewerOpen} onIndexChange={setViewerIndex} onDownload={NOOP} />
                 </div>
               </CidBlock>
@@ -525,14 +520,14 @@ export default function DesignSystem() {
               </CidBlock>
 
               <CidBlock cid="upload-indicator" name="UploadIndicator" source="App.tsx (renders null when idle)">
-                <div className="rounded-lg border border-border p-3 text-[11px] text-dim font-mono">
+                <div className="rounded-lg border border-border p-3 text-[11px] text-muted-foreground font-mono">
                   <UploadIndicator />
                   <span className="text-muted-foreground">Renders in bottom-right when uploads are active. Currently idle.</span>
                 </div>
               </CidBlock>
 
               <CidBlock cid="gallery-upload-indicator" name="GalleryUploadIndicator" source="App.tsx (renders null when idle)">
-                <div className="rounded-lg border border-border p-3 text-[11px] text-dim font-mono">
+                <div className="rounded-lg border border-border p-3 text-[11px] text-muted-foreground font-mono">
                   <GalleryUploadIndicator />
                   <span className="text-muted-foreground">Renders in bottom-left when gallery uploads are active. Currently idle.</span>
                 </div>
@@ -558,14 +553,14 @@ export default function DesignSystem() {
               <div id="cid-color-tokens" data-cid="color-tokens" className="mb-8">
                 {COLOR_GROUPS.map((group) => (
                   <div key={group.label}>
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-dim mt-6 mb-3 first:mt-0">{group.label}</div>
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-6 mb-3 first:mt-0">{group.label}</div>
                     <div className="grid grid-cols-4 gap-3">
                       {group.tokens.map((t) => (
                         <div key={t.id} className="flex items-center gap-3 cursor-pointer group" onClick={() => copyCid(t.id)}>
                           <div className="w-10 h-10 rounded-lg border border-border shrink-0" style={{ background: t.hsl }} />
                           <div>
                             <div className="font-mono text-[11px] text-foreground group-hover:text-primary transition-colors">{t.id}</div>
-                            <div className="font-mono text-[10px] text-dim">{t.hsl}</div>
+                            <div className="font-mono text-[10px] text-muted-foreground">{t.hsl}</div>
                           </div>
                         </div>
                       ))}
@@ -581,7 +576,7 @@ export default function DesignSystem() {
                     <div key={r.id} className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => copyCid(r.id)}>
                       <div className="w-12 h-12 bg-primary" style={{ borderRadius: r.rem }} />
                       <span className="font-mono text-[10px] text-foreground">{r.id}</span>
-                      <span className="font-mono text-[9px] text-dim">{r.px} &middot; {r.tw}</span>
+                      <span className="font-mono text-[9px] text-muted-foreground">{r.px} &middot; {r.tw}</span>
                     </div>
                   ))}
                 </div>

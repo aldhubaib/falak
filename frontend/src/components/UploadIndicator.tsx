@@ -23,13 +23,13 @@ function UploadItem({ task }: { task: UploadTask }) {
         <div className="text-[11px] font-mono truncate max-w-[160px]">{task.file.name}</div>
         {isUploading && (
           <div className="flex items-center gap-2 mt-0.5">
-            <div className="flex-1 h-1 bg-elevated rounded-full overflow-hidden">
+            <div className="flex-1 h-1 bg-card rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue rounded-full transition-all duration-300"
                 style={{ width: `${task.progress}%` }}
               />
             </div>
-            <span className="text-[9px] text-dim font-mono shrink-0">{task.progress}%</span>
+            <span className="text-[9px] text-muted-foreground font-mono shrink-0">{task.progress}%</span>
           </div>
         )}
       </div>
@@ -39,7 +39,7 @@ function UploadItem({ task }: { task: UploadTask }) {
           if (isUploading) storyQueue.cancel(task.id);
           else storyQueue.dismiss(task.id);
         }}
-        className="p-0.5 text-dim hover:text-foreground transition-colors shrink-0"
+        className="p-0.5 text-muted-foreground hover:text-foreground transition-colors shrink-0"
       >
         <X className="w-3 h-3" />
       </button>
@@ -64,7 +64,7 @@ export function UploadIndicator() {
   return (
     <div className="fixed bottom-4 right-4 z-50 w-72 bg-background border border-border rounded-lg shadow-2xl overflow-hidden">
       <div className="px-3 py-2 border-b border-border flex items-center gap-2">
-        <Upload className="w-3.5 h-3.5 text-dim" />
+        <Upload className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="text-[11px] font-medium">
           {uploadingCount > 0
             ? `Uploading ${uploadingCount} file${uploadingCount > 1 ? "s" : ""}…`

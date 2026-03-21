@@ -85,24 +85,24 @@ function BrandedHooksSection({
 
   return (
     <div className="px-4 py-3 border-t border-border space-y-2.5">
-      <span className="text-[11px] text-dim font-mono uppercase tracking-widest">Branded Hooks</span>
+      <span className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest">Branded Hooks</span>
       <div>
-        <label className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1 block">Start Hook</label>
+        <label className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1 block">Start Hook</label>
         <input
           type="text"
           value={hookStart}
           onChange={(e) => setHookStart(e.target.value)}
-          className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+          className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
           placeholder="e.g. Hey everyone, welcome back to..."
         />
       </div>
       <div>
-        <label className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1 block">End Hook</label>
+        <label className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1 block">End Hook</label>
         <input
           type="text"
           value={hookEnd}
           onChange={(e) => setHookEnd(e.target.value)}
-          className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+          className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
           placeholder="e.g. Don't forget to like and subscribe!"
         />
       </div>
@@ -190,8 +190,8 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <span className="text-[11px] text-dim font-mono uppercase tracking-widest">Overview</span>
-        <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors">
+        <span className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest">Overview</span>
+        <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors">
           <X className="w-3 h-3" />
         </button>
       </div>
@@ -202,13 +202,13 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
           <div key={row.label} className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-1.5">
               {row.label === "Videos" ? (
-                <VideoTypeIcon type="video" className="w-3 h-3 text-dim" />
+                <VideoTypeIcon type="video" className="w-3 h-3 text-muted-foreground" />
               ) : row.label === "Shorts" ? (
-                <VideoTypeIcon type="short" className="w-3 h-3 text-dim" />
+                <VideoTypeIcon type="short" className="w-3 h-3 text-muted-foreground" />
               ) : (
-                <row.icon className="w-3 h-3 text-dim" />
+                <row.icon className="w-3 h-3 text-muted-foreground" />
               )}
-              <span className="text-[11px] text-dim">{row.label}</span>
+              <span className="text-[11px] text-muted-foreground">{row.label}</span>
             </div>
             <span className={`text-[12px] font-mono font-medium ${
               row.status ? "text-success" : row.highlight ? "text-primary" : "text-foreground"
@@ -222,7 +222,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
       {/* Type toggle */}
       <div className="px-4 py-3 border-t border-border">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] text-dim">Classification</span>
+          <span className="text-[11px] text-muted-foreground">Classification</span>
         </div>
         <div className="flex rounded-full overflow-hidden border border-border">
           <button
@@ -230,7 +230,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
             className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
               channel.type === "ours"
                 ? "bg-primary/15 text-primary border-r border-border"
-                : "bg-elevated text-dim hover:text-sensor border-r border-border"
+                : "bg-card text-muted-foreground hover:text-muted-foreground border-r border-border"
             }`}
           >
             Ours
@@ -240,7 +240,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
             className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
               channel.type === "competition"
                 ? "bg-orange/10 text-orange"
-                : "bg-elevated text-dim hover:text-sensor"
+                : "bg-card text-muted-foreground hover:text-muted-foreground"
             }`}
           >
             Competition
@@ -252,7 +252,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
       {channel.type !== "ours" && (
         <div className="px-4 py-3 border-t border-border">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] text-dim">Country</span>
+            <span className="text-[11px] text-muted-foreground">Country</span>
           </div>
           <select
             value={channel.nationality ?? ""}
@@ -274,7 +274,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
                 .finally(() => setSavingCountry(false));
             }}
             disabled={savingCountry}
-            className="w-full px-2.5 py-2 text-[12px] bg-elevated border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+            className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
           >
             <option value="">Select country</option>
             {COUNTRIES.map((c) => (
@@ -290,7 +290,7 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
       <div className="px-4 py-3 border-t border-border flex items-center justify-between">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button onClick={handleSync} disabled={syncing} className="w-10 h-10 rounded-full flex items-center justify-center bg-elevated border border-border text-sensor cursor-pointer transition-all hover:bg-border hover:text-foreground disabled:opacity-50">
+            <button onClick={handleSync} disabled={syncing} className="w-10 h-10 rounded-full flex items-center justify-center bg-card border border-border text-muted-foreground cursor-pointer transition-all hover:bg-border hover:text-foreground disabled:opacity-50">
               <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
             </button>
           </TooltipTrigger>

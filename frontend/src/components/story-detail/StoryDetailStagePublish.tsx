@@ -145,11 +145,11 @@ export function StoryDetailStagePublish({
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
+        <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
           Publish Details
         </span>
         {saving && (
-          <span className="flex items-center gap-1 text-[11px] text-dim">
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Loader2 className="w-3 h-3 animate-spin" />
             Saving…
           </span>
@@ -159,7 +159,7 @@ export function StoryDetailStagePublish({
       {/* ── Description ── */}
       <div className="rounded-lg bg-background border border-border p-4">
         <div className="flex items-center justify-between mb-2">
-          <label className="text-[12px] text-dim font-medium">Description</label>
+          <label className="text-[12px] text-muted-foreground font-medium">Description</label>
           <div className="flex items-center gap-2">
             {description && <CopyBtn text={description} />}
             <button
@@ -184,7 +184,7 @@ export function StoryDetailStagePublish({
           }
           placeholder="YouTube description… Click 'Generate with AI' to auto-create from your script."
           rows={6}
-          className="w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors resize-y leading-relaxed"
+          className="w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue/40 transition-colors resize-y leading-relaxed"
         />
       </div>
 
@@ -192,8 +192,8 @@ export function StoryDetailStagePublish({
       <div className="rounded-lg bg-background border border-border p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Subtitles className="w-3.5 h-3.5 text-dim" />
-            <label className="text-[12px] text-dim font-medium">Subtitles</label>
+            <Subtitles className="w-3.5 h-3.5 text-muted-foreground" />
+            <label className="text-[12px] text-muted-foreground font-medium">Subtitles</label>
             {brief.subtitlesSRT && (
               <span className="text-[10px] font-mono text-success/70 bg-success/10 px-1.5 py-0.5 rounded">YouTube</span>
             )}
@@ -228,7 +228,7 @@ export function StoryDetailStagePublish({
             {srtContent}
           </pre>
         ) : (
-          <p className="text-[12px] text-dim py-3 text-center">
+          <p className="text-[12px] text-muted-foreground py-3 text-center">
             No subtitles yet. Click &quot;Fetch from YouTube&quot; or generate a timestamped script.
           </p>
         )}
@@ -238,8 +238,8 @@ export function StoryDetailStagePublish({
       <div className="rounded-lg bg-background border border-border p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <LinkIcon className="w-3.5 h-3.5 text-dim" />
-            <label className="text-[12px] text-dim font-medium">YouTube Video URL</label>
+            <LinkIcon className="w-3.5 h-3.5 text-muted-foreground" />
+            <label className="text-[12px] text-muted-foreground font-medium">YouTube Video URL</label>
           </div>
           <div className="flex items-center gap-2">
             {brief.youtubeUrl && (
@@ -283,7 +283,7 @@ export function StoryDetailStagePublish({
                 }
               }}
               placeholder="Paste YouTube video URL…"
-              className={`w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40 transition-colors ${!urlEditing ? "opacity-70 cursor-default" : ""}`}
+              className={`w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-blue/40 transition-colors ${!urlEditing ? "opacity-70 cursor-default" : ""}`}
             />
             {urlInput && (() => {
               const result = validateYoutubeUrl(urlInput.trim());
@@ -323,7 +323,7 @@ export function StoryDetailStagePublish({
             <button
               type="button"
               onClick={() => setUrlEditing(true)}
-              className="shrink-0 px-4 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-elevated transition-colors"
+              className="shrink-0 px-4 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-card transition-colors"
             >
               Edit
             </button>

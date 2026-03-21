@@ -130,7 +130,7 @@ export default function ProfilePicker() {
       <h1 className="text-[22px] font-semibold text-foreground mb-2 tracking-tight">
         Choose your profile
       </h1>
-      <p className="text-[13px] text-dim mb-10">Select a channel to manage</p>
+      <p className="text-[13px] text-muted-foreground mb-10">Select a channel to manage</p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-[800px] w-full">
         {profiles.map((p) => (
@@ -142,7 +142,7 @@ export default function ProfilePicker() {
             {/* Three-dot menu */}
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === p.id ? null : p.id); }}
-              className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-dim opacity-0 group-hover:opacity-100 hover:bg-elevated/60 hover:text-sensor transition-all"
+              className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-card/60 hover:text-muted-foreground transition-all"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
@@ -153,7 +153,7 @@ export default function ProfilePicker() {
                 <div className="absolute top-10 right-2 z-50 bg-background border border-border rounded-lg shadow-lg py-1 min-w-[130px]">
                   <button
                     onClick={(e) => { e.stopPropagation(); openEdit(p); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-dim hover:text-sensor hover:bg-elevated/60 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-muted-foreground hover:text-muted-foreground hover:bg-card/60 transition-colors"
                   >
                     <Pencil className="w-3.5 h-3.5" /> Edit
                   </button>
@@ -186,7 +186,7 @@ export default function ProfilePicker() {
             <span className="text-[13px] font-medium text-foreground text-center truncate w-full" dir="rtl">
               {p.nameAr || p.nameEn || p.handle}
             </span>
-            <span className="text-[11px] text-dim font-mono mt-0.5 truncate w-full text-center">
+            <span className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate w-full text-center">
               {p.handle?.startsWith("@") ? p.handle : `@${p.handle}`}
             </span>
           </div>
@@ -197,10 +197,10 @@ export default function ProfilePicker() {
           onClick={() => setAddOpen(true)}
           className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 px-4 py-6 cursor-pointer hover:border-blue/40 hover:bg-card transition-all min-h-[160px]"
         >
-          <div className="w-16 h-16 rounded-full bg-elevated/40 flex items-center justify-center mb-3">
-            <Plus className="w-7 h-7 text-dim" />
+          <div className="w-16 h-16 rounded-full bg-card/40 flex items-center justify-center mb-3">
+            <Plus className="w-7 h-7 text-muted-foreground" />
           </div>
-          <span className="text-[13px] text-dim font-medium">Add</span>
+          <span className="text-[13px] text-muted-foreground font-medium">Add</span>
         </div>
       </div>
 
@@ -209,26 +209,26 @@ export default function ProfilePicker() {
         <DialogContent className="sm:max-w-[400px] bg-background border-border">
           <DialogHeader>
             <DialogTitle className="text-[15px]">Add profile</DialogTitle>
-            <DialogDescription className="text-[12px] text-dim">
+            <DialogDescription className="text-[12px] text-muted-foreground">
               Enter a YouTube channel handle to create a new profile.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-2">
             <div>
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">YouTube Handle</label>
+              <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-1.5 block">YouTube Handle</label>
               <input
                 type="text"
                 value={addHandle}
                 onChange={(e) => { setAddHandle(e.target.value); setAddError(""); }}
                 placeholder="@handle"
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                 autoFocus
               />
             </div>
             {addError && <p className="text-[11px] text-destructive">{addError}</p>}
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={() => setAddOpen(false)} className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">Cancel</button>
+            <button onClick={() => setAddOpen(false)} className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-muted-foreground hover:text-muted-foreground transition-colors">Cancel</button>
             <button
               onClick={handleAdd}
               disabled={addLoading}
@@ -246,25 +246,25 @@ export default function ProfilePicker() {
         <DialogContent className="sm:max-w-[400px] bg-background border-border">
           <DialogHeader>
             <DialogTitle className="text-[15px]">Edit profile</DialogTitle>
-            <DialogDescription className="text-[12px] text-dim">
+            <DialogDescription className="text-[12px] text-muted-foreground">
               Update profile display name and color.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-2">
             <div>
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Name (Arabic)</label>
+              <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-1.5 block">Name (Arabic)</label>
               <input
                 type="text"
                 value={editNameAr}
                 onChange={(e) => setEditNameAr(e.target.value)}
                 placeholder="Display name"
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:ring-1 focus:ring-primary/40"
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                 dir="rtl"
                 autoFocus
               />
             </div>
             <div>
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Color</label>
+              <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-1.5 block">Color</label>
               <div className="flex gap-2">
                 {["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--orange))", "hsl(var(--destructive))", "hsl(var(--purple))", "#ec4899", "#06b6d4"].map((c) => (
                   <button
@@ -278,7 +278,7 @@ export default function ProfilePicker() {
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={() => setEditOpen(false)} className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-dim hover:text-sensor transition-colors">Cancel</button>
+            <button onClick={() => setEditOpen(false)} className="flex-1 px-4 py-2 text-[13px] font-medium rounded-full border border-border text-muted-foreground hover:text-muted-foreground transition-colors">Cancel</button>
             <button
               onClick={handleEdit}
               disabled={editLoading}

@@ -88,10 +88,10 @@ const KEY_DEFS: ApiKeyDef[] = [...CORE_KEYS, ...LEGACY_KEYS];
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const iconMap = { ai: Bot, data: Cog, search: Globe, transcript: FileText, news: Newspaper };
-const iconColorMap = { ai: "text-purple", data: "text-dim", search: "text-blue", transcript: "text-orange", news: "text-emerald-400" };
+const iconColorMap = { ai: "text-purple", data: "text-muted-foreground", search: "text-blue", transcript: "text-orange", news: "text-emerald-400" };
 const apiNameColorMap: Record<string, string> = {
-  Anthropic: "text-purple", "YouTube Data": "text-dim",
-  "YT Transcript": "text-orange", Perplexity: "text-blue", Firecrawl: "text-dim",
+  Anthropic: "text-purple", "YouTube Data": "text-muted-foreground",
+  "YT Transcript": "text-orange", Perplexity: "text-blue", Firecrawl: "text-muted-foreground",
   NewsAPI: "text-emerald-400", GNews: "text-emerald-400", Guardian: "text-emerald-400", NYT: "text-emerald-400",
 };
 
@@ -403,7 +403,7 @@ export default function Settings() {
         {isSet && !isEd ? (
           <div
             onClick={() => setEditing((p) => ({ ...p, [def.service]: "" }))}
-            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-dim font-mono cursor-pointer hover:border-blue/40 transition-colors"
+            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-muted-foreground font-mono cursor-pointer hover:border-blue/40 transition-colors"
           >
             ••••••••••••••••  (click to replace)
           </div>
@@ -413,7 +413,7 @@ export default function Settings() {
             value={editing[def.service] || ""}
             onChange={(e) => setEditing((p) => ({ ...p, [def.service]: e.target.value }))}
             placeholder={def.placeholder || "Paste your API key..."}
-            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+            className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-blue/40"
             autoFocus={isEd}
           />
         )}
@@ -434,7 +434,7 @@ export default function Settings() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold">Settings</h1>
-          <span className="text-[11px] text-dim font-mono">API keys and usage monitoring</span>
+          <span className="text-[11px] text-muted-foreground font-mono">API keys and usage monitoring</span>
         </div>
       </div>
 
@@ -443,8 +443,8 @@ export default function Settings() {
 
           {/* ── Section 1: Core Services ───────────────────────────────────── */}
           <div className="rounded-lg bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">CORE SERVICES</div>
-            <p className="text-[12px] text-dim mb-5">Required for pipeline, analysis, and channel sync.</p>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">CORE SERVICES</div>
+            <p className="text-[12px] text-muted-foreground mb-5">Required for pipeline, analysis, and channel sync.</p>
 
             <div className="space-y-5">
               {CORE_KEYS.map((def, idx) => {
@@ -455,14 +455,14 @@ export default function Settings() {
                     <div className="flex items-center gap-2.5 mb-1">
                       <Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} />
                       <span className="text-[13px] font-semibold">{def.name}</span>
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
                         ● {isSet ? "SET" : "EMPTY"}
                       </span>
                       {def.multiKey && ytKeys.length > 0 && (
                         <span className="text-[10px] font-mono text-success">{ytKeys.length} key{ytKeys.length !== 1 ? "s" : ""}</span>
                       )}
                     </div>
-                    <p className="text-[11px] text-dim mb-2.5">{def.description}</p>
+                    <p className="text-[11px] text-muted-foreground mb-2.5">{def.description}</p>
 
                     {def.multiKey ? (
                       <div className="space-y-2 mb-1">
@@ -470,7 +470,7 @@ export default function Settings() {
                           <div key={k.id} className="flex items-center justify-between px-4 py-2 bg-card rounded-lg">
                             <div className="flex items-center gap-2.5">
                               <span className="text-[12px] font-medium">{k.label}</span>
-                              {k.usageCount > 0 && <span className="text-[10px] text-dim font-mono">{k.usageCount.toLocaleString()} calls</span>}
+                              {k.usageCount > 0 && <span className="text-[10px] text-muted-foreground font-mono">{k.usageCount.toLocaleString()} calls</span>}
                             </div>
                             <button onClick={() => handleRemoveYt(k.id)} disabled={removingYt[k.id]}
                               className="w-6 h-6 rounded-full flex items-center justify-center bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50">
@@ -480,9 +480,9 @@ export default function Settings() {
                         ))}
                         <div className="flex items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
                           <input type="text" placeholder="Label (e.g. Key 2)" value={newYtLabel} onChange={(e) => setNewYtLabel(e.target.value)}
-                            className="w-[160px] max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+                            className="w-[160px] max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue/40" />
                           <input type="text" placeholder={def.placeholder || "AIza..."} value={newYtValue} onChange={(e) => setNewYtValue(e.target.value)}
-                            className="flex-1 max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-blue/40" />
+                            className="flex-1 max-sm:w-full px-3.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue/40" />
                           <button onClick={handleAddYt} disabled={addingYt}
                             className="px-4 py-2 text-[12px] font-semibold bg-blue text-blue-foreground rounded-full hover:opacity-90 transition-opacity whitespace-nowrap disabled:opacity-50 flex items-center gap-1.5">
                             {addingYt && <Loader2 className="w-3 h-3 animate-spin" />} Add Key
@@ -508,17 +508,17 @@ export default function Settings() {
 
           {/* ── Section 2: Vector Intelligence ───────────────────────────── */}
           <div className="rounded-lg bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">VECTOR INTELLIGENCE</div>
-            <p className="text-[12px] text-dim mb-5">Powers semantic search, competition matching, and self-learning score adjustments.</p>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">VECTOR INTELLIGENCE</div>
+            <p className="text-[12px] text-muted-foreground mb-5">Powers semantic search, competition matching, and self-learning score adjustments.</p>
 
             <div className="flex items-center gap-2.5 mb-1">
               <Brain className="w-4 h-4 text-purple" />
               <span className="text-[13px] font-semibold">OpenAI Embeddings</span>
-              <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${embeddingKeySet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${embeddingKeySet ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
                 ● {embeddingKeySet ? "ACTIVE" : "NOT SET"}
               </span>
             </div>
-            <p className="text-[11px] text-dim mb-2.5">
+            <p className="text-[11px] text-muted-foreground mb-2.5">
               text-embedding-3-small (1536d) — generates vector representations for stories and competition videos. Enables semantic similarity search via pgvector.
             </p>
 
@@ -526,7 +526,7 @@ export default function Settings() {
               {embeddingKeySet && !embeddingKeyEditing ? (
                 <div
                   onClick={() => setEmbeddingKeyEditing(true)}
-                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-dim font-mono cursor-pointer hover:border-purple/40 transition-colors"
+                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-muted-foreground font-mono cursor-pointer hover:border-purple/40 transition-colors"
                 >
                   ••••••••••••••••  (click to replace)
                 </div>
@@ -536,7 +536,7 @@ export default function Settings() {
                   value={embeddingKeyInput}
                   onChange={(e) => setEmbeddingKeyInput(e.target.value)}
                   placeholder="sk-..."
-                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-purple/40"
+                  className="flex-1 px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-purple/40"
                   autoFocus={embeddingKeyEditing}
                 />
               )}
@@ -556,34 +556,34 @@ export default function Settings() {
 
             {embeddingKeySet && (
               <div className="mt-4 pt-4 border-t border-border space-y-2">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2">INTELLIGENCE STATUS</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-2">INTELLIGENCE STATUS</div>
                 <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
                   <div className="px-3 py-2.5 bg-card rounded-lg">
-                    <div className="text-[10px] text-dim font-mono mb-0.5">Last Stats Refresh</div>
+                    <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Last Stats Refresh</div>
                     <div className="text-[12px] font-mono text-foreground">
                       {embeddingStatus.lastStatsRefreshAt ? fmtDateTime(embeddingStatus.lastStatsRefreshAt) : "Never"}
                     </div>
                   </div>
                   <div className="px-3 py-2.5 bg-card rounded-lg">
-                    <div className="text-[10px] text-dim font-mono mb-0.5">Auto Re-score Interval</div>
+                    <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Auto Re-score Interval</div>
                     <div className="text-[12px] font-mono text-foreground">{embeddingStatus.rescoreIntervalHours ?? 24}h</div>
                   </div>
                   {embeddingStatus.scoreProfile && (
                     <>
                       <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-dim font-mono mb-0.5">Decisions Learned</div>
+                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Decisions Learned</div>
                         <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalDecisions}</div>
                       </div>
                       <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-dim font-mono mb-0.5">Outcomes Tracked</div>
+                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Outcomes Tracked</div>
                         <div className="text-[12px] font-mono text-foreground">{embeddingStatus.scoreProfile.totalOutcomes}</div>
                       </div>
                       <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-dim font-mono mb-0.5">AI Viral Accuracy</div>
+                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">AI Viral Accuracy</div>
                         <div className="text-[12px] font-mono text-foreground">{(embeddingStatus.scoreProfile.aiViralAccuracy * 100).toFixed(0)}%</div>
                       </div>
                       <div className="px-3 py-2.5 bg-card rounded-lg">
-                        <div className="text-[10px] text-dim font-mono mb-0.5">Last Learning</div>
+                        <div className="text-[10px] text-muted-foreground font-mono mb-0.5">Last Learning</div>
                         <div className="text-[12px] font-mono text-foreground">
                           {embeddingStatus.scoreProfile.lastLearnedAt ? fmtDateTime(embeddingStatus.scoreProfile.lastLearnedAt) : "Never"}
                         </div>
@@ -597,8 +597,8 @@ export default function Settings() {
 
           {/* ── Section 3: Legacy / Scraping ───────────────────────────────── */}
           <div className="rounded-lg bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-1">SCRAPING & LEGACY</div>
-            <p className="text-[12px] text-dim mb-5">Optional project-scoped keys for scraping or older integrations.</p>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">SCRAPING & LEGACY</div>
+            <p className="text-[12px] text-muted-foreground mb-5">Optional project-scoped keys for scraping or older integrations.</p>
 
             <div className="space-y-5">
               {LEGACY_KEYS.map((def, idx) => {
@@ -609,11 +609,11 @@ export default function Settings() {
                     <div className="flex items-center gap-2.5 mb-1">
                       <Icon className={`w-4 h-4 ${iconColorMap[def.icon]}`} />
                       <span className="text-[13px] font-semibold">{def.name}</span>
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-muted text-dim"}`}>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${isSet ? "bg-success/10 text-success" : "bg-card text-muted-foreground"}`}>
                         ● {isSet ? "SET" : "EMPTY"}
                       </span>
                     </div>
-                    <p className="text-[11px] text-dim mb-2.5">{def.description}</p>
+                    <p className="text-[11px] text-muted-foreground mb-2.5">{def.description}</p>
                     {renderSingleKey(def)}
                     {def.link && (
                       <a href={def.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-blue font-mono mt-2 hover:opacity-80 transition-opacity">
@@ -627,8 +627,8 @@ export default function Settings() {
             </div>
 
             <div className="flex items-start gap-2 mt-5 pt-4 border-t border-border">
-              <Lock className="w-3.5 h-3.5 text-dim mt-0.5 shrink-0" />
-              <p className="text-[11px] text-dim leading-relaxed">
+              <Lock className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
                 All keys are encrypted at rest using AES-256-GCM. Never returned to the browser — only decrypted server-side when making API calls.
               </p>
             </div>
@@ -636,7 +636,7 @@ export default function Settings() {
 
           {/* ── Section 4: Usage Dashboard ─────────────────────────────────── */}
           <div className="rounded-lg bg-background p-5">
-            <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-4">USAGE DASHBOARD</div>
 
             {usageInitialLoaded && usageLogs.length === 0 ? (
               <EmptyState icon={Activity} title="No API calls recorded yet for this project" />
@@ -645,7 +645,7 @@ export default function Settings() {
                 <div className="rounded-lg border border-border overflow-hidden max-sm:hidden">
                   <div className="grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-2.5 bg-card/20 border-b border-border sticky top-0 z-10">
                     {["TIME", "API NAME", "ACTION", "TOKENS / UNITS", "STATUS"].map((h) => (
-                      <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
+                      <span key={h} className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{h}</span>
                     ))}
                   </div>
                   <div ref={usageScrollRef} className="overflow-y-auto" style={{ maxHeight: 500 }}
@@ -655,16 +655,16 @@ export default function Settings() {
                     }}>
                     {usageLogs.map((log, i) => {
                       const LogIcon = iconMap[log.apiIcon];
-                      const nameColor = apiNameColorMap[log.apiName] || "text-dim";
+                      const nameColor = apiNameColorMap[log.apiName] || "text-muted-foreground";
                       return (
                         <div key={log.id} className={`grid grid-cols-[200px_140px_1fr_120px_100px] px-4 py-3 items-center ${i < usageLogs.length - 1 ? "border-b border-border" : ""}`}>
-                          <span className="text-[12px] text-dim font-mono">{log.time}</span>
+                          <span className="text-[12px] text-muted-foreground font-mono">{log.time}</span>
                           <div className="flex items-center gap-2">
                             <LogIcon className={`w-4 h-4 ${iconColorMap[log.apiIcon]}`} />
                             <span className={`text-[12px] font-medium ${nameColor}`}>{log.apiName}</span>
                           </div>
-                          <span className="text-[12px] text-dim font-mono">{log.action}</span>
-                          <span className="text-[12px] text-dim font-mono text-right pr-4">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
+                          <span className="text-[12px] text-muted-foreground font-mono">{log.action}</span>
+                          <span className="text-[12px] text-muted-foreground font-mono text-right pr-4">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</span>
                           <div className="flex items-center justify-end">
                             <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full ${log.status === "Pass" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"}`}>
                               ● {log.status}
@@ -675,12 +675,12 @@ export default function Settings() {
                     })}
                     {usageLoading && (
                       <div className="flex items-center justify-center py-4 border-t border-border">
-                        <Loader2 className="w-4 h-4 animate-spin text-dim" />
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                       </div>
                     )}
                     {!usageLoading && usageHasMore && (
                       <div className="flex items-center justify-center py-3 border-t border-border">
-                        <span className="text-[11px] text-dim font-mono">Scroll down to load more</span>
+                        <span className="text-[11px] text-muted-foreground font-mono">Scroll down to load more</span>
                       </div>
                     )}
                   </div>
@@ -693,7 +693,7 @@ export default function Settings() {
                   }}>
                   {usageLogs.map((log) => {
                     const LogIcon = iconMap[log.apiIcon];
-                    const nameColor = apiNameColorMap[log.apiName] || "text-dim";
+                    const nameColor = apiNameColorMap[log.apiName] || "text-muted-foreground";
                     return (
                       <div key={log.id} className="rounded-lg border border-border p-3.5">
                         <div className="flex items-center justify-between mb-2">
@@ -707,16 +707,16 @@ export default function Settings() {
                         </div>
                         <div className="grid grid-cols-2 gap-y-1.5">
                           <div>
-                            <div className="text-[9px] text-dim font-mono uppercase">Time</div>
-                            <div className="text-[11px] text-dim font-mono">{log.time}</div>
+                            <div className="text-[9px] text-muted-foreground font-mono uppercase">Time</div>
+                            <div className="text-[11px] text-muted-foreground font-mono">{log.time}</div>
                           </div>
                           <div>
-                            <div className="text-[9px] text-dim font-mono uppercase">Action</div>
-                            <div className="text-[11px] text-dim font-mono">{log.action}</div>
+                            <div className="text-[9px] text-muted-foreground font-mono uppercase">Action</div>
+                            <div className="text-[11px] text-muted-foreground font-mono">{log.action}</div>
                           </div>
                           <div>
-                            <div className="text-[9px] text-dim font-mono uppercase">Tokens</div>
-                            <div className="text-[11px] text-dim font-mono">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</div>
+                            <div className="text-[9px] text-muted-foreground font-mono uppercase">Tokens</div>
+                            <div className="text-[11px] text-muted-foreground font-mono">{log.tokens !== null ? log.tokens.toLocaleString() : "—"}</div>
                           </div>
                         </div>
                       </div>
@@ -724,7 +724,7 @@ export default function Settings() {
                   })}
                   {usageLoading && (
                     <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-4 h-4 animate-spin text-dim" />
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                     </div>
                   )}
                 </div>

@@ -77,7 +77,7 @@ export function AppLayout() {
         <div className="fixed top-0 left-0 right-0 h-12 flex items-center justify-between px-4 border-b border-border bg-background z-[100]">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-dim hover:text-sensor hover:bg-elevated transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-card transition-colors"
           >
             <Menu className="w-4 h-4" />
           </button>

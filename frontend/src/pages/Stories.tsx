@@ -39,14 +39,14 @@ const SOURCE_COLORS: Record<string, string> = {
   "The Guardian": "text-emerald-400",
   Guardian: "text-emerald-400",
   NYT: "text-emerald-400",
-  Firecrawl: "text-dim",
+  Firecrawl: "text-muted-foreground",
   News: "text-emerald-400",
 };
 
 function getSourceBadge(sourceName: string | null): { label: string; color: string } | null {
   if (!sourceName) return null;
   const provider = sourceName.split("/")[0].trim();
-  return { label: provider, color: SOURCE_COLORS[provider] || "text-dim" };
+  return { label: provider, color: SOURCE_COLORS[provider] || "text-muted-foreground" };
 }
 
 const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
@@ -56,8 +56,8 @@ const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub
   { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-foreground", sub: "waiting for URL" },
   { key: "publish",    label: "Publish",        color: "text-primary",   pillClass: "bg-primary/15 text-foreground", sub: "final details needed" },
   { key: "done",       label: "Done",           color: "text-foreground", pillClass: "bg-foreground/15 text-foreground", sub: "published all time" },
-  { key: "passed",     label: "Passed",         color: "text-dim",        pillClass: "bg-elevated text-foreground border border-border", sub: "passed on" },
-  { key: "omit",       label: "Omitted",        color: "text-dim",        pillClass: "bg-elevated text-foreground border border-border", sub: "insufficient data" },
+  { key: "passed",     label: "Passed",         color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "passed on" },
+  { key: "omit",       label: "Omitted",        color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "insufficient data" },
 ];
 
 function relativeTime(iso: string | null | undefined): string {
@@ -85,7 +85,7 @@ function MiniScores({ story }: { story: ApiStory }) {
     <div className="flex items-center gap-2">
       {items.map((s, i) => (
         <div key={i} className="flex items-center gap-1" title={`${s.label}: ${s.val}/100`}>
-          <div className="w-5 h-1 bg-elevated rounded-full overflow-hidden">
+          <div className="w-5 h-1 bg-card rounded-full overflow-hidden">
             <div className={`h-full rounded-full ${s.bar}`} style={{ width: `${s.val}%` }} />
           </div>
           <span className={`text-[10px] font-mono font-medium ${
@@ -240,7 +240,7 @@ export default function Stories() {
           <h1 className="text-sm font-semibold">AI Intelligence</h1>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 animate-spin text-dim" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -255,7 +255,7 @@ export default function Stories() {
         </div>
         <div className="flex items-center gap-3">
           {nextRescore && (
-            <span className="text-[10px] text-dim font-mono">
+            <span className="text-[10px] text-muted-foreground font-mono">
               next auto re-score in {nextRescore}
             </span>
           )}
@@ -293,11 +293,11 @@ export default function Stories() {
               onClick={() => {
                 navigator.clipboard.writeText(fetchError).then(() => toast.success("Copied"));
               }}
-              className="text-[11px] font-medium text-dim hover:text-foreground"
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
             >
               Copy
             </button>
-            <button type="button" onClick={() => setFetchError(null)} className="text-[11px] font-medium text-dim hover:text-foreground">
+            <button type="button" onClick={() => setFetchError(null)} className="text-[11px] font-medium text-muted-foreground hover:text-foreground">
               Dismiss
             </button>
           </div>
@@ -313,7 +313,7 @@ export default function Stories() {
               className={`px-4 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
                 activeStage === "all"
                   ? "bg-foreground/10 text-foreground border border-foreground/20"
-                  : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
+                  : "text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20"
               }`}
             >
               All ({stories.length})
@@ -325,7 +325,7 @@ export default function Stories() {
                   className={`px-4 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
                     activeStage === s.key
                       ? "bg-foreground/10 text-foreground border border-foreground/20"
-                      : "text-dim border border-border hover:text-foreground hover:border-foreground/20"
+                      : "text-muted-foreground border border-border hover:text-foreground hover:border-foreground/20"
                   }`}
                 >
                   {s.label} ({stageCounts[s.key] || 0})
@@ -345,7 +345,7 @@ export default function Stories() {
               <span className="text-[13px] font-semibold">
                 {activeStage === "all" ? "All" : STAGES.find((s) => s.key === activeStage)?.label}
               </span>
-              <span className="text-[12px] text-dim font-mono">({stageStoriesSorted.length})</span>
+              <span className="text-[12px] text-muted-foreground font-mono">({stageStoriesSorted.length})</span>
             </div>
 
             {/* Items */}
@@ -411,13 +411,13 @@ export default function Stories() {
                           return null;
                         })()}
                         {story.sourceName && story.sourceName.includes("/") && (
-                          <span className="text-dim">{story.sourceName.split("/").slice(1).join("/").trim()}</span>
+                          <span className="text-muted-foreground">{story.sourceName.split("/").slice(1).join("/").trim()}</span>
                         )}
-                        {sourceLabel && <span className="text-dim">{sourceLabel}</span>}
+                        {sourceLabel && <span className="text-muted-foreground">{sourceLabel}</span>}
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <MiniScores story={story} />
-                        <span className={`text-[12px] font-mono font-bold shrink-0 ml-auto ${story.compositeScore == null ? "text-dim" : ""}`}>
+                        <span className={`text-[12px] font-mono font-bold shrink-0 ml-auto ${story.compositeScore == null ? "text-muted-foreground" : ""}`}>
                           {story.compositeScore != null
                             ? `${Number(story.compositeScore).toFixed(1)}/10`
                             : "—/10"}
@@ -429,7 +429,7 @@ export default function Stories() {
               )}
               {hasMoreStories && (
                 <div className="flex items-center justify-center py-3 border-t border-border">
-                  <span className="text-[11px] text-dim font-mono">Scroll down to load more</span>
+                  <span className="text-[11px] text-muted-foreground font-mono">Scroll down to load more</span>
                 </div>
               )}
             </div>

@@ -68,15 +68,15 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
     <div className="rounded-lg bg-background border border-border overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Mic className="w-3.5 h-3.5 text-dim" />
-          <span className="text-[12px] text-dim font-medium">Transcript</span>
+          <Mic className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-[12px] text-muted-foreground font-medium">Transcript</span>
           {hasTranscript && (
             <span className="text-[10px] font-mono text-success/70 bg-success/10 px-1.5 py-0.5 rounded">
               Whisper
             </span>
           )}
           {hasTranscript && (
-            <span className="text-[10px] font-mono text-dim">
+            <span className="text-[10px] font-mono text-muted-foreground">
               {wordCount} words · {charCount} chars
             </span>
           )}
@@ -87,7 +87,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
               <button
                 type="button"
                 onClick={handleCopy}
-                className="flex items-center gap-1 text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
               >
                 {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
                 {copied ? "Copied" : "Copy"}
@@ -95,7 +95,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
               <button
                 type="button"
                 onClick={() => setExpanded(!expanded)}
-                className="p-1 text-dim hover:text-sensor transition-colors"
+                className="p-1 text-muted-foreground hover:text-muted-foreground transition-colors"
               >
                 {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
@@ -120,8 +120,8 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
       {!hasTranscript && !transcribing && (
         <div className="px-4 pb-4">
           <div className="rounded-lg bg-card border border-border/50 px-4 py-6 text-center">
-            <Mic className="w-6 h-6 text-dim/40 mx-auto mb-2" />
-            <p className="text-[12px] text-dim">
+            <Mic className="w-6 h-6 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-[12px] text-muted-foreground">
               {brief.videoR2Key
                 ? 'Click "Transcribe Video" to extract text from your video using AI.'
                 : "Upload a video first, then transcribe it."}
@@ -134,7 +134,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
         <div className="px-4 pb-4">
           <div className="rounded-lg bg-card border border-blue/20 px-4 py-6 text-center">
             <Loader2 className="w-6 h-6 text-blue animate-spin mx-auto mb-2" />
-            <p className="text-[12px] text-dim">Transcribing with OpenAI Whisper… This may take a few minutes for large videos.</p>
+            <p className="text-[12px] text-muted-foreground">Transcribing with OpenAI Whisper… This may take a few minutes for large videos.</p>
           </div>
         </div>
       )}

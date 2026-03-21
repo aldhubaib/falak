@@ -136,11 +136,11 @@ export function PageError({
           </div>
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-foreground">{title}</h2>
-            <p className="text-sm text-dim mt-1 select-text">{safeMessage}</p>
+            <p className="text-sm text-muted-foreground mt-1 select-text">{safeMessage}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mb-4 px-3 py-2 rounded-lg bg-card text-[11px] font-mono text-dim">
+        <div className="flex items-center gap-3 mb-4 px-3 py-2 rounded-lg bg-card text-[11px] font-mono text-muted-foreground">
           <Bug className="w-3.5 h-3.5 shrink-0" />
           <span className="select-all">{fingerprint}</span>
           <span className="text-border">|</span>
@@ -152,14 +152,14 @@ export function PageError({
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1.5 text-[11px] text-dim hover:text-foreground transition-colors mb-3"
+          className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
           {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           {expanded ? "Hide" : "Show"} debug details
         </button>
 
         {expanded && (
-          <pre className="text-left text-[10px] font-mono text-dim bg-card rounded-lg p-3 mb-4 overflow-auto max-h-48 select-text whitespace-pre-wrap break-words">
+          <pre className="text-left text-[10px] font-mono text-muted-foreground bg-card rounded-lg p-3 mb-4 overflow-auto max-h-48 select-text whitespace-pre-wrap break-words">
             {debugReport}
           </pre>
         )}
@@ -168,7 +168,7 @@ export function PageError({
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-dim text-sm font-medium hover:text-foreground hover:border-foreground/20 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:text-foreground hover:border-foreground/20 transition-colors"
           >
             <Copy className="w-3.5 h-3.5" />
             {copied ? "Copied" : "Copy report"}
@@ -186,7 +186,7 @@ export function PageError({
           {showHome && (
             <a
               href={homeHref}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-dim text-sm font-medium hover:text-foreground hover:border-foreground/20 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:text-foreground hover:border-foreground/20 transition-colors"
             >
               <Home className="w-3.5 h-3.5" />
               {homeLabel}

@@ -14,21 +14,13 @@ Use as: `hsl(var(--token-name))` in CSS, or `bg-token-name` / `text-token-name` 
 ### Surface Colors
 | Token | Value | Tailwind class | Used for |
 |---|---|---|---|
-| `--background` | `240 4% 6%` | `bg-background` | App background, page base (53 files) |
+| `--background` | `240 4% 6%` | `bg-background` | App background, page base |
 | `--foreground` | `0 0% 93%` | `text-foreground` | Primary text (everywhere) |
-| `--card` | `240 4% 6%` | `bg-card` | Card/panel backgrounds (35 files) |
+| `--card` | `240 4% 6%` | `bg-card` | All card/panel/surface backgrounds (consolidated) |
 | `--card-foreground` | `0 0% 93%` | `text-card-foreground` | Text inside cards |
-| `--popover` | `0 0% 7%` | `bg-popover` | Dropdown/popover backgrounds |
-| `--popover-foreground` | `0 0% 93%` | `text-popover-foreground` | Text inside popovers |
-| `--secondary` | `0 0% 10%` | `bg-secondary` | Secondary surfaces |
-| `--muted` | `0 0% 10%` | `bg-muted` | Muted/quiet backgrounds |
-| `--muted-foreground` | `0 0% 45%` | `text-muted-foreground` | Subdued text |
-| `--accent` | `0 0% 10%` | `bg-accent` | Accent surfaces |
-| `--accent-foreground` | `0 0% 93%` | `text-accent-foreground` | Text on accent |
-| `--elevated` | `0 0% 13%` | `bg-elevated` | Elevated surfaces (inputs, toolbars) |
-| `--row-hover` | `0 0% 5%` | `bg-row-hover` | Table/list row hover state |
-| `--dim` | `0 0% 40%` | `text-dim` | Dimmed/disabled text and icons |
-| `--sensor` | `0 0% 60%` | `text-sensor` | Mid-level text (between muted and foreground) |
+| `--muted-foreground` | `0 0% 45%` | `text-muted-foreground` | Subdued/dimmed text and icons |
+
+> **Consolidated:** `--popover`, `--secondary`, `--muted`, `--accent`, `--elevated`, `--row-hover` → `--card`. `--dim`, `--sensor` → `--muted-foreground`. `--input` → `--border`. Shadcn aliases preserved in Tailwind config.
 
 ### Brand Colors
 | Token | Value | Tailwind class | Used for |
@@ -55,7 +47,6 @@ Use as: `hsl(var(--token-name))` in CSS, or `bg-token-name` / `text-token-name` 
 |---|---|---|---|
 | `--border` | `228 8% 9%` | `border-border` | Default borders (50 files) |
 | `--page-border` | `231 8% 9%` | `border-page-border` | Page-level dividers |
-| `--input` | `0 0% 13%` | `border-input` | Input field borders |
 | `--ring` | `217 72% 56%` | `ring-ring` | Focus rings on form elements |
 
 ### Sidebar Colors

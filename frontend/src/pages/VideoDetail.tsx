@@ -214,7 +214,7 @@ export default function VideoDetail() {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-card p-6">
         <p className="text-foreground text-[14px] mb-2">This page has been deleted.</p>
-        <Link to={channelPath("")} className="text-sensor hover:text-foreground underline text-[13px]">
+        <Link to={channelPath("")} className="text-muted-foreground hover:text-foreground underline text-[13px]">
           Return to home
         </Link>
       </div>
@@ -235,7 +235,7 @@ export default function VideoDetail() {
       <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link
           to={channelPath(`/channel/${channel.id}`)}
-          className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
+          className="flex items-center gap-1.5 text-[13px] text-muted-foreground bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span className="hidden sm:inline" dir="rtl">{channel.name}</span>
@@ -244,7 +244,7 @@ export default function VideoDetail() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPanelVisible(!panelVisible)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
           >
             <Info className="w-4 h-4" />
           </button>
@@ -290,26 +290,26 @@ export default function VideoDetail() {
                 {/* Metadata grid */}
                 <div className="flex items-center gap-0 mt-auto ml-auto">
                   <div className="px-3 py-2">
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Status</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Status</div>
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-flex ${
                         video.status === "done" ? "text-success" :
                         video.status === "failed" ? "text-destructive" :
-                        video.status === "analyzing" ? "text-blue" : "text-dim"
+                        video.status === "analyzing" ? "text-blue" : "text-muted-foreground"
                       }`}>
                         {video.status === "done" ? <CheckCircle2 className="w-3.5 h-3.5" /> :
                          video.status === "failed" ? <XCircle className="w-3.5 h-3.5" /> :
                          video.status === "analyzing" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
                          <Clock className="w-3.5 h-3.5" />}
                       </span>
-                      <span className="text-[12px] text-sensor font-medium">
+                      <span className="text-[12px] text-muted-foreground font-medium">
                         {video.status === "done" ? "Complete" : video.status === "failed" ? "Failed" : video.status === "analyzing" ? "Analyzing" : "Pending"}
                       </span>
                     </div>
                   </div>
                   <span className="w-px h-8 bg-border" />
                   <div className="px-3 py-2">
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Type</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Type</div>
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${video.type === "short" ? "bg-purple/15 text-purple" : "bg-blue/15 text-blue"}`}>
                         <VideoTypeIcon type={video.type} className="w-3 h-3" />
@@ -318,10 +318,10 @@ export default function VideoDetail() {
                   </div>
                   <span className="w-px h-8 bg-border" />
                   <div className="px-3 py-2">
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider mb-1">Published</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Published</div>
                     <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-dim" />
-                      <span className="text-[12px] text-sensor font-medium">{video.date}</span>
+                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-[12px] text-muted-foreground font-medium">{video.date}</span>
                     </div>
                   </div>
                 </div>
@@ -348,7 +348,7 @@ export default function VideoDetail() {
                       s.val
                     )}
                   </div>
-                  <div className="text-[11px] text-dim">{s.label}</div>
+                  <div className="text-[11px] text-muted-foreground">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -365,7 +365,7 @@ export default function VideoDetail() {
                   className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                     activeTab === tab
                       ? "bg-card text-foreground border-border"
-                      : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
+                      : "bg-transparent text-muted-foreground border-border/50 hover:text-muted-foreground hover:border-border"
                   }`}
                 >
                   {tab}
@@ -379,7 +379,7 @@ export default function VideoDetail() {
                 {/* Transcript */}
                 <div className="rounded-lg overflow-hidden border border-border">
                   <div className="bg-background px-4 py-3">
-                    <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Transcript</div>
+                    <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Transcript</div>
                     {(!analysis || analysis.transcript.length === 0) ? (
                       <EmptyState icon={FileText} title="No transcript available yet" />
                     ) : (
@@ -387,7 +387,7 @@ export default function VideoDetail() {
                         {analysis.transcript.map((seg, i) => (
                           <div key={i} className="flex gap-4">
                             {seg.time && <span className="text-foreground text-[13px] font-mono shrink-0 pt-0.5">{seg.time}</span>}
-                            <p className="text-sm leading-relaxed text-sensor" dir="rtl" style={{ textAlign: "right" }}>{seg.text}</p>
+                            <p className="text-sm leading-relaxed text-muted-foreground" dir="rtl" style={{ textAlign: "right" }}>{seg.text}</p>
                           </div>
                         ))}
                       </div>
@@ -412,7 +412,7 @@ export default function VideoDetail() {
                   <div className="bg-background px-4 py-3 flex flex-wrap gap-1.5">
                     {analysis && analysis.keywords.length > 0
                       ? analysis.keywords.map((k) => (
-                          <span key={k} className="py-1 px-2.5 rounded-full bg-elevated border border-border text-sensor text-xs font-mono">{k}</span>
+                          <span key={k} className="py-1 px-2.5 rounded-full bg-card border border-border text-muted-foreground text-xs font-mono">{k}</span>
                         ))
                       : <EmptyState icon={Tag} title="No keywords yet" />
                     }
@@ -431,11 +431,11 @@ export default function VideoDetail() {
                     { label: "Neutral", val: analysis?.sentiment.neutral ?? 0, cls: "bg-dim" },
                   ].map((s) => (
                     <div key={s.label} className="flex items-center gap-3 bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
-                      <span className="text-xs text-sensor w-[72px]">{s.label}</span>
-                      <div className="flex-1 h-1.5 bg-elevated rounded-full overflow-hidden">
+                      <span className="text-xs text-muted-foreground w-[72px]">{s.label}</span>
+                      <div className="flex-1 h-1.5 bg-card rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${s.cls}`} style={{ width: `${s.val}%` }} />
                       </div>
-                      <span className="text-xs text-dim font-mono w-9 text-right">{s.val}%</span>
+                      <span className="text-xs text-muted-foreground font-mono w-9 text-right">{s.val}%</span>
                     </div>
                   ))}
                 </div>
@@ -447,38 +447,38 @@ export default function VideoDetail() {
                 <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
                   {/* Viral Score */}
                   <div className="rounded-lg border border-border bg-background px-5 py-4">
-                    <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Viral Score</div>
+                    <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-2">Viral Score</div>
                     <div className="flex items-end gap-2">
-                      <span className={`text-3xl font-semibold font-mono tracking-tight ${(analysis?.viral.score ?? 0) >= 6 ? "text-success" : (analysis?.viral.score ?? 0) >= 4 ? "text-sensor" : "text-dim"}`}>
+                      <span className={`text-3xl font-semibold font-mono tracking-tight ${(analysis?.viral.score ?? 0) >= 6 ? "text-success" : (analysis?.viral.score ?? 0) >= 4 ? "text-muted-foreground" : "text-muted-foreground"}`}>
                         {analysis?.viral.score ?? "—"}
                       </span>
-                      <span className="text-[12px] text-dim mb-1">/ 10</span>
+                      <span className="text-[12px] text-muted-foreground mb-1">/ 10</span>
                     </div>
-                    <div className="mt-3 h-1.5 bg-elevated rounded-full overflow-hidden">
+                    <div className="mt-3 h-1.5 bg-card rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${(analysis?.viral.score ?? 0) >= 6 ? "bg-success" : (analysis?.viral.score ?? 0) >= 4 ? "bg-sensor" : "bg-dim/40"}`}
                         style={{ width: `${((analysis?.viral.score ?? 0) as number) * 10}%` }}
                       />
                     </div>
-                    <p className="text-[11px] text-dim mt-2">Based on like ratio, comment ratio, and audience sentiment</p>
+                    <p className="text-[11px] text-muted-foreground mt-2">Based on like ratio, comment ratio, and audience sentiment</p>
                   </div>
 
                   {/* Hook Strength */}
                   <div className="rounded-lg border border-border bg-background px-5 py-4">
-                    <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Hook Strength</div>
-                    <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.hookStrong ? "text-success" : analysis?.viral.hookLabel === "Weak" ? "text-destructive" : "text-sensor"}`}>
+                    <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-2">Hook Strength</div>
+                    <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.hookStrong ? "text-success" : analysis?.viral.hookLabel === "Weak" ? "text-destructive" : "text-muted-foreground"}`}>
                       {analysis?.viral.hookLabel ?? "—"}
                     </div>
-                    <p className="text-[11px] text-dim mt-3">Derived from AI sentiment analysis of the video content</p>
+                    <p className="text-[11px] text-muted-foreground mt-3">Derived from AI sentiment analysis of the video content</p>
                   </div>
 
                   {/* Trending */}
                   <div className="rounded-lg border border-border bg-background px-5 py-4">
-                    <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-2">Trending</div>
-                    <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.trending ? "text-success" : "text-dim"}`}>
+                    <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-2">Trending</div>
+                    <div className={`text-3xl font-semibold font-mono tracking-tight ${analysis?.viral.trending ? "text-success" : "text-muted-foreground"}`}>
                       {analysis?.viral.trending ? "Yes" : "No"}
                     </div>
-                    <p className="text-[11px] text-dim mt-3">Published within 14 days with above-average engagement</p>
+                    <p className="text-[11px] text-muted-foreground mt-3">Published within 14 days with above-average engagement</p>
                   </div>
                 </div>
               </div>
@@ -493,20 +493,20 @@ export default function VideoDetail() {
                     <div key={i} className="bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
                       <div className="flex items-center mb-1.5">
                         <span className="text-[13px] font-medium">{c.author}</span>
-                        <span className="text-[11px] text-dim font-mono ml-auto">{c.date}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono ml-auto">{c.date}</span>
                       </div>
-                      <p className="text-[13px] text-sensor leading-relaxed mb-1.5" dir="rtl" style={{ textAlign: "right" }}>
+                      <p className="text-[13px] text-muted-foreground leading-relaxed mb-1.5" dir="rtl" style={{ textAlign: "right" }}>
                         {c.text}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-dim font-mono">♥ {c.likes}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono">♥ {c.likes}</span>
                         <TooltipProvider delayDuration={200}>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${
                                 c.sentiment === "positive" ? "text-success" :
                                 c.sentiment === "question" ? "text-blue" :
-                                "text-dim"
+                                "text-muted-foreground"
                               }`}>
                                 {c.sentiment === "positive" ? <SmilePlus className="w-3.5 h-3.5" /> :
                                  c.sentiment === "question" ? <HelpCircle className="w-3.5 h-3.5" /> :
@@ -528,7 +528,7 @@ export default function VideoDetail() {
 
             {activeTab === "Pipeline" && (
               <div>
-                <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Pipeline</div>
+                <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Pipeline</div>
                 <div className="rounded-lg overflow-hidden border border-border">
                   {video.pipeline.map((step) => (
                     <div key={step.name} className="flex items-center justify-between bg-background px-4 py-3 border-b border-border last:border-b-0 hover:bg-card transition-colors">
@@ -545,7 +545,7 @@ export default function VideoDetail() {
                           <TooltipProvider delayDuration={200}>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-dim">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
                                   <RotateCw className="w-3 h-3" />
                                   {step.retries}
                                 </span>
@@ -554,7 +554,7 @@ export default function VideoDetail() {
                             </Tooltip>
                           </TooltipProvider>
                         )}
-                        <span className={`text-[12px] font-mono ${step.status === "failed" ? "text-destructive/60" : "text-dim"}`}>
+                        <span className={`text-[12px] font-mono ${step.status === "failed" ? "text-destructive/60" : "text-muted-foreground"}`}>
                           {step.time || (step.status === "waiting" ? "—" : "...")}
                         </span>
                       </div>
@@ -566,7 +566,7 @@ export default function VideoDetail() {
 
             {activeTab === "History" && (
               <div>
-                <div className="text-[11px] text-dim font-mono uppercase tracking-widest mb-3">Analysis History</div>
+                <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Analysis History</div>
                 <div className="rounded-lg overflow-hidden border border-border">
                   {[
                     { time: "Mar 8, 14:22", name: "Full Analysis", status: "success" as const, badge: "Completed" },
@@ -588,7 +588,7 @@ export default function VideoDetail() {
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                      <div className="text-[10px] text-dim font-mono">{item.time}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono">{item.time}</div>
                       {item.error && (
                         <div className="mt-2 text-xs text-destructive/60 font-mono leading-relaxed">{item.error}</div>
                       )}
@@ -610,7 +610,7 @@ export default function VideoDetail() {
 function SectionDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 my-6 first:mt-0">
-      <span className="text-[10px] text-dim tracking-widest uppercase font-mono whitespace-nowrap">{label}</span>
+      <span className="text-[10px] text-muted-foreground tracking-widest uppercase font-mono whitespace-nowrap">{label}</span>
       <div className="flex-1 h-px bg-border" />
     </div>
   );

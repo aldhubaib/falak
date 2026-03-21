@@ -432,7 +432,7 @@ export default function PublishQueue() {
         <div className="flex items-center gap-3">
           <Link
             to={channelPath("/stories")}
-            className="flex items-center gap-1.5 text-[13px] text-dim hover:text-foreground transition-colors no-underline"
+            className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors no-underline"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">Stories</span>
@@ -455,25 +455,25 @@ export default function PublishQueue() {
           <div className="flex rounded-lg overflow-hidden border border-border">
             <div className="px-5 py-4 bg-background border-r border-border min-w-[120px]">
               <div className="text-2xl font-semibold font-mono tracking-tight">{allItems.length}</div>
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total</div>
+              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Total</div>
             </div>
             <div className="flex-1 px-5 py-4 bg-background border-r border-border">
               <div className="text-2xl font-semibold font-mono tracking-tight text-blue">{inProgressCount}</div>
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">In Progress</div>
+              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">In Progress</div>
             </div>
             {stalledCount > 0 && (
               <div className="flex-1 px-5 py-4 bg-background border-r border-border">
                 <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{stalledCount}</div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Stalled</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Stalled</div>
               </div>
             )}
             <div className="flex-1 px-5 py-4 bg-background border-r border-border">
               <div className="text-2xl font-semibold font-mono tracking-tight text-orange">{readyCount}</div>
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Ready</div>
+              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Ready</div>
             </div>
             <div className="flex-1 px-5 py-4 bg-background">
               <div className="text-2xl font-semibold font-mono tracking-tight text-success">{doneCount}</div>
-              <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Done</div>
+              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Done</div>
             </div>
           </div>
         </div>
@@ -494,17 +494,17 @@ export default function PublishQueue() {
             `}
           >
             <div className="flex flex-col items-center gap-3 text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${dragOver ? "bg-blue/20" : "bg-elevated"}`}>
-                <Upload className={`w-6 h-6 transition-colors ${dragOver ? "text-blue" : "text-dim"}`} />
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${dragOver ? "bg-blue/20" : "bg-card"}`}>
+                <Upload className={`w-6 h-6 transition-colors ${dragOver ? "text-blue" : "text-muted-foreground"}`} />
               </div>
               <div>
                 <p className="text-[14px] font-semibold">
                   {dragOver ? "Drop videos here" : "Upload Videos"}
                 </p>
-                <p className="text-[12px] text-dim mt-1">
+                <p className="text-[12px] text-muted-foreground mt-1">
                   Drag & drop or click to select — MP4, WebM, MOV, AVI, MKV
                 </p>
-                <p className="text-[11px] text-dim/60 mt-1">
+                <p className="text-[11px] text-muted-foreground/60 mt-1">
                   Each video will be transcribed, then AI generates title, description & tags
                 </p>
               </div>
@@ -542,7 +542,7 @@ export default function PublishQueue() {
                 className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                   activeFilter === tab
                     ? "bg-card text-foreground border-border"
-                    : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
+                    : "bg-transparent text-muted-foreground border-border/50 hover:text-muted-foreground hover:border-border"
                 }`}
               >
                 {tab} <span className="text-[11px] opacity-60">({counts[tab]})</span>
@@ -567,7 +567,7 @@ export default function PublishQueue() {
                 {["VIDEO", "SIZE", "TIME", "STATUS", ""].map((h, i) => (
                   <span
                     key={h || i}
-                    className={`text-[10px] text-dim font-mono uppercase tracking-wider ${
+                    className={`text-[10px] text-muted-foreground font-mono uppercase tracking-wider ${
                       i > 0 ? "text-center" : ""
                     } ${(i === 2 || i === 3) ? "max-md:hidden" : ""} ${i === 4 ? "text-end" : ""}`}
                   >
@@ -622,22 +622,22 @@ export default function PublishQueue() {
                             {item.headline || item.fileName}
                           </p>
                           {item.fileName && item.headline !== item.fileName && (
-                            <p className="text-[10px] text-dim font-mono truncate">{item.fileName}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono truncate">{item.fileName}</p>
                           )}
                         </div>
                       </div>
                       {uploadProgress != null && (
                         <div className="mt-1.5 ml-9">
-                          <div className="w-full h-1 bg-elevated rounded-full overflow-hidden">
+                          <div className="w-full h-1 bg-card rounded-full overflow-hidden">
                             <div
                               className="h-full bg-blue transition-all duration-300 ease-out rounded-full"
                               style={{ width: `${uploadProgress}%` }}
                             />
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[9px] font-mono text-dim">{Math.round(uploadProgress)}%</span>
+                            <span className="text-[9px] font-mono text-muted-foreground">{Math.round(uploadProgress)}%</span>
                             {uploadTask?.etaSeconds != null && uploadTask.etaSeconds > 0 && (
-                              <span className="text-[9px] font-mono text-dim">~{uploadTask.etaSeconds}s left</span>
+                              <span className="text-[9px] font-mono text-muted-foreground">~{uploadTask.etaSeconds}s left</span>
                             )}
                           </div>
                         </div>
@@ -654,14 +654,14 @@ export default function PublishQueue() {
 
                     {/* Size */}
                     <div className="text-center">
-                      <span className="text-[11px] font-mono text-dim">
+                      <span className="text-[11px] font-mono text-muted-foreground">
                         {item.fileSize ? formatBytes(item.fileSize) : "—"}
                       </span>
                     </div>
 
                     {/* Time */}
                     <div className="text-center max-md:hidden">
-                      <span className="text-[10px] font-mono text-dim">
+                      <span className="text-[10px] font-mono text-muted-foreground">
                         {item.createdAt ? relativeTime(item.createdAt) : "—"}
                       </span>
                     </div>
@@ -694,7 +694,7 @@ export default function PublishQueue() {
                             {meta.icon}
                             {meta.label}
                           </span>
-                          <div className="flex items-center gap-1.5 text-[9px] font-mono text-dim">
+                          <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground">
                             <span>
                               {item.step === "uploading" && uploadProgress != null
                                 ? `${Math.round(uploadProgress * 0.2)}%`
@@ -720,7 +720,7 @@ export default function PublishQueue() {
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteStory(item.storyId); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -737,14 +737,14 @@ export default function PublishQueue() {
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleReupload(item.storyId); }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-dim hover:bg-elevated transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-muted-foreground hover:bg-card transition-colors"
                           >
                             <RotateCw className="w-3 h-3" />
                             Re-upload
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteStory(item.storyId); }}
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-dim hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -753,7 +753,7 @@ export default function PublishQueue() {
                       {item.step === "uploading" && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleCancelUpload(item.storyId); }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-dim hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <X className="w-3 h-3" />
                           Cancel

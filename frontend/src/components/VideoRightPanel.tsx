@@ -39,8 +39,8 @@ export function VideoRightPanel({ video, visible, onClose, pipeline }: VideoRigh
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <span className="text-[11px] text-dim font-mono uppercase tracking-widest">Video Info</span>
-        <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors">
+        <span className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest">Video Info</span>
+        <button onClick={onClose} className="w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors">
           <X className="w-3 h-3" />
         </button>
       </div>
@@ -50,8 +50,8 @@ export function VideoRightPanel({ video, visible, onClose, pipeline }: VideoRigh
         {infoRows.map((row) => (
           <div key={row.label} className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-1.5">
-              <row.icon className="w-3 h-3 text-dim" />
-              <span className="text-[11px] text-dim">{row.label}</span>
+              <row.icon className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[11px] text-muted-foreground">{row.label}</span>
             </div>
             <span className="text-[12px] font-mono font-medium text-foreground">{row.value}</span>
           </div>
@@ -64,7 +64,7 @@ export function VideoRightPanel({ video, visible, onClose, pipeline }: VideoRigh
         <button title="Re-analyze" className="w-10 h-10 rounded-full flex items-center justify-center bg-primary/10 border border-primary/15 text-primary cursor-pointer transition-all hover:bg-primary/15">
           <RefreshCw className="w-4 h-4" />
         </button>
-        <button title="Open on YouTube" className="w-10 h-10 rounded-full flex items-center justify-center bg-elevated border border-border text-sensor cursor-pointer transition-all hover:bg-border hover:text-foreground">
+        <button title="Open on YouTube" className="w-10 h-10 rounded-full flex items-center justify-center bg-card border border-border text-muted-foreground cursor-pointer transition-all hover:bg-border hover:text-foreground">
           <ExternalLink className="w-4 h-4" />
         </button>
       </div>

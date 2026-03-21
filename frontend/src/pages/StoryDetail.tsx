@@ -344,7 +344,7 @@ function ManualStoryWorkflow({
                       ? "bg-blue/15 text-blue"
                       : isComplete
                         ? "bg-success/15 text-success"
-                        : "bg-elevated text-dim"
+                        : "bg-card text-muted-foreground"
                   }`}>
                     {isActive && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                     {isComplete && <span className="text-success">✓</span>}
@@ -417,7 +417,7 @@ function ManualStoryWorkflow({
       {/* Step 3: Title */}
       <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-dim font-medium">Title</span>
+          <span className="text-[12px] text-muted-foreground font-medium">Title</span>
           <div className="flex items-center gap-2">
             {brief.suggestedTitle && (
               <button
@@ -427,7 +427,7 @@ function ManualStoryWorkflow({
                   setCopiedField("title");
                   setTimeout(() => setCopiedField(null), 2000);
                 }}
-                className="flex items-center gap-1 text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
               >
                 {copiedField === "title" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
                 {copiedField === "title" ? "Copied" : "Copy"}
@@ -450,7 +450,7 @@ function ManualStoryWorkflow({
             value={brief.suggestedTitle || ""}
             onChange={(e) => onBriefChange((b) => ({ ...b, suggestedTitle: e.target.value }))}
             placeholder="Video title…"
-            className="w-full bg-transparent text-[14px] text-foreground placeholder:text-dim/40 focus:outline-none"
+            className="w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
             dir="auto"
           />
         </div>
@@ -459,7 +459,7 @@ function ManualStoryWorkflow({
       {/* Step 4: Description */}
       <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-dim font-medium">Description</span>
+          <span className="text-[12px] text-muted-foreground font-medium">Description</span>
           <div className="flex items-center gap-2">
             {brief.youtubeDescription && (
               <button
@@ -469,7 +469,7 @@ function ManualStoryWorkflow({
                   setCopiedField("desc");
                   setTimeout(() => setCopiedField(null), 2000);
                 }}
-                className="flex items-center gap-1 text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
               >
                 {copiedField === "desc" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
                 {copiedField === "desc" ? "Copied" : "Copy"}
@@ -492,7 +492,7 @@ function ManualStoryWorkflow({
             onChange={(e) => onBriefChange((b) => ({ ...b, youtubeDescription: e.target.value }))}
             placeholder="YouTube description…"
             rows={5}
-            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-dim/40 focus:outline-none resize-none leading-relaxed"
+            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none resize-none leading-relaxed"
             dir="auto"
           />
         </div>
@@ -501,7 +501,7 @@ function ManualStoryWorkflow({
       {/* Step 5: Tags */}
       <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-dim font-medium">Tags</span>
+          <span className="text-[12px] text-muted-foreground font-medium">Tags</span>
           <div className="flex items-center gap-2">
             {(brief.youtubeTags || []).length > 0 && (
               <button
@@ -511,7 +511,7 @@ function ManualStoryWorkflow({
                   setCopiedField("tags");
                   setTimeout(() => setCopiedField(null), 2000);
                 }}
-                className="flex items-center gap-1 text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
               >
                 {copiedField === "tags" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
                 {copiedField === "tags" ? "Copied" : "Copy"}
@@ -533,7 +533,7 @@ function ManualStoryWorkflow({
             {(brief.youtubeTags || []).map((tag, i) => (
               <span
                 key={i}
-                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-full bg-card border border-border text-sensor"
+                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-full bg-card border border-border text-muted-foreground"
               >
                 #{tag}
                 {!isDone && (
@@ -545,7 +545,7 @@ function ManualStoryWorkflow({
                         youtubeTags: (b.youtubeTags || []).filter((_, j) => j !== i),
                       }))
                     }
-                    className="text-dim hover:text-foreground transition-colors"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     ×
                   </button>
@@ -556,7 +556,7 @@ function ManualStoryWorkflow({
               <input
                 type="text"
                 placeholder="Add tag…"
-                className="text-[11px] bg-transparent text-foreground placeholder:text-dim/40 focus:outline-none min-w-[80px] flex-1"
+                className="text-[11px] bg-transparent text-foreground placeholder:text-muted-foreground/40 focus:outline-none min-w-[80px] flex-1"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === ",") {
                     e.preventDefault();
@@ -580,7 +580,7 @@ function ManualStoryWorkflow({
       {brief.subtitlesSRT && (
         <div className="rounded-lg bg-background border border-border overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between">
-            <span className="text-[12px] text-dim font-medium">Subtitles (SRT)</span>
+            <span className="text-[12px] text-muted-foreground font-medium">Subtitles (SRT)</span>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -590,7 +590,7 @@ function ManualStoryWorkflow({
                     setTimeout(() => setSrtCopied(false), 2000);
                   });
                 }}
-                className="text-[11px] text-dim hover:text-sensor font-medium transition-colors"
+                className="text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
               >
                 {srtCopied ? "Copied!" : "Copy SRT"}
               </button>
@@ -609,7 +609,7 @@ function ManualStoryWorkflow({
       {/* YouTube URL */}
       <div className="rounded-lg bg-background border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-dim font-medium">YouTube URL</span>
+          <span className="text-[12px] text-muted-foreground font-medium">YouTube URL</span>
           {brief.youtubeUrl && (
             <a
               href={brief.youtubeUrl}
@@ -627,7 +627,7 @@ function ManualStoryWorkflow({
             value={youtubeInput}
             onChange={(e) => setYoutubeInput(e.target.value)}
             placeholder="https://youtube.com/watch?v=..."
-            className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-dim/40 focus:outline-none"
+            className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
           />
           <button
             type="button"
@@ -1045,13 +1045,13 @@ export default function StoryDetail() {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
-          <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
+          <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-muted-foreground bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>
           </Link>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 animate-spin text-dim" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -1060,13 +1060,13 @@ export default function StoryDetail() {
     return (
       <div className="flex flex-col min-h-screen">
         <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2 max-sm:px-3">
-          <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-dim bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
+          <Link to={channelPath("/stories")} className="flex items-center gap-1.5 text-[13px] text-muted-foreground bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="max-sm:hidden">AI Intelligence</span>
           </Link>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-[13px] text-dim font-mono">Story not found</span>
+          <span className="text-[13px] text-muted-foreground font-mono">Story not found</span>
         </div>
       </div>
     );
@@ -1107,7 +1107,7 @@ export default function StoryDetail() {
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
                 <span className="text-[13px] font-medium">Score Re-evaluation History</span>
-                <button type="button" onClick={() => setScoreHistoryOpen(false)} className="p-1.5 text-dim hover:text-foreground transition-colors">
+                <button type="button" onClick={() => setScoreHistoryOpen(false)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1119,14 +1119,14 @@ export default function StoryDetail() {
                     return (
                       <div key={i} className="px-5 py-3 border-b border-border last:border-b-0">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sensor text-[11px]">
+                          <span className="text-muted-foreground text-[11px]">
                             {entry.at ? formatDistanceToNow(new Date(entry.at), { addSuffix: true }) : "—"}
                           </span>
-                          <span className={`text-[12px] font-mono font-semibold ${delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-dim"}`}>
+                          <span className={`text-[12px] font-mono font-semibold ${delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
                             {entry.before?.compositeScore?.toFixed(1)} → {entry.after?.compositeScore?.toFixed(1)} ({direction}{delta.toFixed(1)})
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-dim font-mono">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground font-mono">
                           <span>confidence: {Math.round((entry.confidence ?? 0) * 100)}%</span>
                           {entry.factors?.competitionMatches > 0 && <span>competition: {entry.factors.competitionMatches} matches</span>}
                           {entry.factors?.newCompetitorVideos > 0 && <span className="text-amber-400">new competitors: {entry.factors.newCompetitorVideos}</span>}
@@ -1159,7 +1159,7 @@ export default function StoryDetail() {
             >
               <div className="px-5 py-4 flex items-center justify-between border-b border-border">
                 <span className="text-[13px] font-medium">Edit History</span>
-                <button type="button" onClick={() => setHistoryOpen(false)} className="p-1.5 text-dim hover:text-foreground transition-colors">
+                <button type="button" onClick={() => setHistoryOpen(false)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1180,17 +1180,17 @@ export default function StoryDetail() {
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-0.5 h-8 bg-blue/30 rounded-full shrink-0" />
                         <div className="min-w-0">
-                          <span className="text-sensor text-[11px]">{formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}</span>
-                          <span className="text-dim text-[11px]"> · {actionLabel}</span>
-                          {entry.note && entry.action !== "stage_change" && <span className="font-mono text-[11px] text-dim ml-1">{entry.note}</span>}
+                          <span className="text-muted-foreground text-[11px]">{formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}</span>
+                          <span className="text-muted-foreground text-[11px]"> · {actionLabel}</span>
+                          {entry.note && entry.action !== "stage_change" && <span className="font-mono text-[11px] text-muted-foreground ml-1">{entry.note}</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sensor text-[12px] font-medium truncate max-w-[120px]">{entry.user?.name ?? "—"}</span>
+                        <span className="text-muted-foreground text-[12px] font-medium truncate max-w-[120px]">{entry.user?.name ?? "—"}</span>
                         {entry.user?.avatarUrl ? (
                           <img src={entry.user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-elevated flex items-center justify-center text-[10px] font-mono text-dim">{entry.user?.name?.[0] ?? "?"}</div>
+                          <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-[10px] font-mono text-muted-foreground">{entry.user?.name?.[0] ?? "?"}</div>
                         )}
                       </div>
                     </div>
@@ -1417,7 +1417,7 @@ export default function StoryDetail() {
 
                 {brief.producedFormats && brief.producedFormats.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                    <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
                       Produced
                     </span>
                     {brief.producedFormats.map((f) => (
@@ -1432,7 +1432,7 @@ export default function StoryDetail() {
                 )}
 
                 <div>
-                  <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">
+                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">
                     Video Performance
                   </div>
                   <div className="flex rounded-lg overflow-hidden">
@@ -1446,8 +1446,8 @@ export default function StoryDetail() {
                         className="flex-1 px-4 py-3 bg-background border-r border-background last:border-r-0"
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <m.icon className="w-3.5 h-3.5 text-dim" />
-                          <span className="text-[10px] text-dim font-mono uppercase">
+                          <m.icon className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground font-mono uppercase">
                             {m.label}
                           </span>
                         </div>
@@ -1462,7 +1462,7 @@ export default function StoryDetail() {
                 {brief.youtubeUrl && (
                   <div className="rounded-lg bg-background p-5">
                     <div className="flex items-center justify-between mb-3">
-                      <label className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                      <label className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
                         YouTube Video URL
                       </label>
                       <div className="flex items-center gap-2">
@@ -1478,7 +1478,7 @@ export default function StoryDetail() {
                             </a>
                             <button
                               onClick={() => {}}
-                              className="flex items-center gap-1 text-[10px] text-dim hover:text-sensor transition-colors"
+                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-muted-foreground transition-colors"
                             >
                               <Pencil className="w-3 h-3" /> Edit
                             </button>
@@ -1499,10 +1499,10 @@ export default function StoryDetail() {
                         type="url"
                         value={youtubeInput}
                         onChange={() => {}}
-                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-blue/40"
+                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-blue/40"
                       />
                     ) : (
-                      <div className="rounded-lg bg-card px-4 py-2.5 text-[13px] font-mono text-sensor truncate">
+                      <div className="rounded-lg bg-card px-4 py-2.5 text-[13px] font-mono text-muted-foreground truncate">
                         {brief.youtubeUrl}
                       </div>
                     )}
@@ -1516,10 +1516,10 @@ export default function StoryDetail() {
                   if (!canShort && !canLong) return null;
                   return (
                     <div className="rounded-lg bg-background p-5 space-y-3">
-                      <div className="text-[10px] text-dim font-mono uppercase tracking-widest">
+                      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
                         Produce Another Format
                       </div>
-                      <p className="text-[12px] text-dim leading-relaxed">
+                      <p className="text-[12px] text-muted-foreground leading-relaxed">
                         This story performed well. Produce it in another format to maximize reach.
                       </p>
                       <div className="flex gap-2">

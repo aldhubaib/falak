@@ -209,7 +209,7 @@ export default function Pipeline() {
             className={`relative h-full px-4 text-[13px] font-medium transition-colors capitalize ${
               activeTab === tab
                 ? "text-foreground"
-                : "text-dim hover:text-sensor"
+                : "text-muted-foreground hover:text-muted-foreground"
             }`}
           >
             {tab}
@@ -298,12 +298,12 @@ function PipelineTab() {
           <Circle className="w-2 h-2 fill-current" />
           {paused ? "Paused" : `Running · ${countdown}s`}
         </span>
-        <button onClick={handlePauseResume} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
+        <button onClick={handlePauseResume} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors">
           {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
           {paused ? "Resume" : "Pause"}
         </button>
         {failedCount > 0 && (
-          <button onClick={handleRetryAll} disabled={retryingAll} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors disabled:opacity-50">
+          <button onClick={handleRetryAll} disabled={retryingAll} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors disabled:opacity-50">
             <RotateCw className={`w-3 h-3 ${retryingAll ? "animate-spin" : ""}`} />
             Retry all failed ({failedCount})
           </button>
@@ -321,8 +321,8 @@ function PipelineTab() {
             <div className="flex rounded-lg overflow-hidden border border-border">
               <div className="px-5 py-4 bg-background border-r border-border min-w-[140px]">
                 <div className="text-2xl font-semibold font-mono tracking-tight">{totalVideos}</div>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Total Videos</div>
-                <div className="flex items-center gap-2 mt-2 text-[11px] text-dim font-mono">
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Total Videos</div>
+                <div className="flex items-center gap-2 mt-2 text-[11px] text-muted-foreground font-mono">
                   <span>{inPipeline} in pipeline</span>
                   <span>{doneCount} done</span>
                 </div>
@@ -334,13 +334,13 @@ function PipelineTab() {
                     <div className="flex items-baseline gap-2">
                       <span className={`text-2xl font-semibold font-mono tracking-tight ${stage.color}`}>{count}</span>
                     </div>
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">{stage.label}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">{stage.label}</div>
                   </div>
                 );
               })}
               <div className="px-5 py-4 bg-background min-w-[120px]">
                 <span className="text-2xl font-semibold font-mono tracking-tight text-destructive">{failedCount}</span>
-                <div className="text-[10px] text-dim font-mono uppercase tracking-wider mt-1">Failed</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-1">Failed</div>
               </div>
             </div>
           </div>
@@ -447,18 +447,18 @@ function MonitorTab() {
     <div className="flex-1 overflow-auto">
       {/* Controls */}
       <div className="px-6 pt-4 pb-2 flex items-center justify-end gap-2 max-lg:px-4 max-sm:flex-wrap">
-        <span className="text-[11px] text-dim font-mono mr-auto">
+        <span className="text-[11px] text-muted-foreground font-mono mr-auto">
           {loading ? "Loading…" : `${filtered.length} channels`}
         </span>
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${paused ? "bg-orange/15 text-orange" : "bg-success/15 text-success"}`}>
           <Circle className="w-2 h-2 fill-current" />
           {paused ? "Paused" : `Running · next ${formatRemainingSeconds(countdown)}`}
         </span>
-        <button onClick={handlePauseResume} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
+        <button onClick={handlePauseResume} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors">
           {paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
           <span className="max-sm:hidden">{paused ? "Resume" : "Pause"}</span>
         </button>
-        <button onClick={handleForceRun} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-dim font-medium hover:text-sensor transition-colors">
+        <button onClick={handleForceRun} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-[11px] text-muted-foreground font-medium hover:text-muted-foreground transition-colors">
           <RotateCw className="w-3 h-3" />
           <span className="max-sm:hidden">Refresh</span>
         </button>
@@ -474,7 +474,7 @@ function MonitorTab() {
           <div className="px-6 max-lg:px-4 grid grid-cols-2 max-md:grid-cols-1 gap-4 mb-5">
             <div className="rounded-lg bg-background overflow-hidden">
               <div className="px-4 py-3">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">Channel Health</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Channel Health</div>
                 <div className="grid grid-cols-5 max-sm:grid-cols-3 gap-3 max-sm:gap-y-3">
                   {[
                     { val: rows.length,  label: "TOTAL",    color: "" },
@@ -485,13 +485,13 @@ function MonitorTab() {
                   ].map((s) => (
                     <div key={s.label}>
                       <div className={`text-xl font-semibold font-mono tracking-tight ${s.color}`}>{s.val}</div>
-                      <div className="text-[10px] text-dim font-mono uppercase tracking-wider">{s.label}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{s.label}</div>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="px-4 py-3">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2.5">Check Cadence (Status-based)</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-2.5">Check Cadence (Status-based)</div>
                 {cadenceGroups.map((c) => {
                   const dotColor =
                     c.color === "success" ? "bg-success" :
@@ -501,10 +501,10 @@ function MonitorTab() {
                     <div key={c.label} className="flex items-center justify-between py-1.5">
                       <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} />
-                        <span className="text-[12px] text-sensor font-medium">{c.label}</span>
-                        <span className="text-[11px] text-dim font-mono max-sm:hidden">{c.desc}</span>
+                        <span className="text-[12px] text-muted-foreground font-medium">{c.label}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono max-sm:hidden">{c.desc}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] font-mono text-dim">
+                      <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground">
                         <span>{c.channels} ch</span>
                         <span>{c.freq}</span>
                       </div>
@@ -516,39 +516,39 @@ function MonitorTab() {
 
             <div className="rounded-lg bg-background overflow-hidden">
               <div className="px-4 py-3">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-3">Channels Overview</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Channels Overview</div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <div className="text-xl font-semibold font-mono tracking-tight">{rows.filter(r => r.cadenceType === "owned").length}</div>
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider">Our Channels</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Our Channels</div>
                   </div>
                   <div>
                     <div className="text-xl font-semibold font-mono tracking-tight">{rows.filter(r => r.cadenceType === "auto").length}</div>
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider">Competitors</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Competitors</div>
                   </div>
                   <div>
                     <div className="text-xl font-semibold font-mono tracking-tight text-success">{rows.reduce((a, r) => a + r.totalVideos, 0).toLocaleString()}</div>
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider">Total Videos</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Total Videos</div>
                   </div>
                   <div>
                     <div className="text-xl font-semibold font-mono tracking-tight text-orange">{rows.filter(r => r.isStale).length}</div>
-                    <div className="text-[10px] text-dim font-mono uppercase tracking-wider">Stale (&gt;14d)</div>
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Stale (&gt;14d)</div>
                   </div>
                 </div>
               </div>
               <div className="px-4 py-3 border-t border-border">
-                <div className="text-[10px] text-dim font-mono uppercase tracking-widest mb-2.5">Most Recent Checks</div>
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-2.5">Most Recent Checks</div>
                 {rows.filter(r => r.lastCheck !== "—").slice(0, 4).map((r) => (
                   <div key={r.id} className="flex items-center justify-between py-1.5">
                     <div className="flex items-center gap-2">
                       {r.avatarUrl ? (
                         <img src={r.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
                       ) : (
-                        <div className="w-5 h-5 rounded-full bg-elevated shrink-0" />
+                        <div className="w-5 h-5 rounded-full bg-card shrink-0" />
                       )}
-                      <span className="text-[12px] text-sensor truncate max-w-[120px]">{r.name}</span>
+                      <span className="text-[12px] text-muted-foreground truncate max-w-[120px]">{r.name}</span>
                     </div>
-                    <span className="text-[11px] text-dim font-mono">{r.lastCheck}</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">{r.lastCheck}</span>
                   </div>
                 ))}
               </div>
@@ -566,7 +566,7 @@ function MonitorTab() {
                     className={`px-3 py-1.5 text-[12px] font-medium rounded-full transition-colors whitespace-nowrap border ${
                       activeFilter === tab
                         ? "bg-card text-foreground border-border"
-                        : "bg-transparent text-dim border-border/50 hover:text-sensor hover:border-border"
+                        : "bg-transparent text-muted-foreground border-border/50 hover:text-muted-foreground hover:border-border"
                     }`}
                   >
                     {tab} <span className="text-[11px] opacity-60">({counts[tab]})</span>
@@ -574,26 +574,26 @@ function MonitorTab() {
                 ))}
               </div>
               <div className="relative max-sm:w-full">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search channels..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-[12px] bg-transparent border border-border/50 rounded-full text-sensor placeholder:text-dim focus:outline-none focus:border-border w-[180px] max-sm:w-full"
+                  className="pl-8 pr-3 py-1.5 text-[12px] bg-transparent border border-border/50 rounded-full text-muted-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border w-[180px] max-sm:w-full"
                 />
               </div>
             </div>
 
             {filtered.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-[13px] text-dim font-mono">No channels found</div>
+              <div className="flex items-center justify-center h-32 text-[13px] text-muted-foreground font-mono">No channels found</div>
             ) : (
               <>
                 {/* Desktop Table */}
                 <div className="rounded-lg border border-border overflow-hidden max-sm:hidden">
                   <div className="grid grid-cols-[1fr_70px_110px_110px_100px] px-4 py-2.5 bg-background border-b border-border">
                     {["CHANNEL", "STATUS", "LAST CHECK", "LAST VIDEO", "NEXT CHECK"].map((h) => (
-                      <span key={h} className="text-[10px] text-dim font-mono uppercase tracking-wider">{h}</span>
+                      <span key={h} className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{h}</span>
                     ))}
                   </div>
                   {filtered.map((ch) => (
@@ -606,22 +606,22 @@ function MonitorTab() {
                         {ch.avatarUrl ? (
                           <img src={ch.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
                         ) : (
-                          <div className="w-7 h-7 rounded-full bg-elevated shrink-0" />
+                          <div className="w-7 h-7 rounded-full bg-card shrink-0" />
                         )}
                         <div className="min-w-0">
                           <div className="flex items-center gap-1">
                             <span className="text-[13px] font-medium truncate">{ch.name}</span>
-                            <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                           </div>
-                          <span className="text-[11px] text-dim font-mono">{ch.handle}</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">{ch.handle}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-center">
                         <span className={`w-2.5 h-2.5 rounded-full ${STATUS_COLOR[ch.status]}`} />
                       </div>
-                      <span className="text-[12px] text-dim font-mono">{ch.lastCheck}</span>
-                      <span className={`text-[12px] font-mono ${ch.isStale ? "text-orange" : "text-dim"}`}>{ch.lastVideo}</span>
-                      <span className="text-[12px] text-dim font-mono">{ch.nextCheck}</span>
+                      <span className="text-[12px] text-muted-foreground font-mono">{ch.lastCheck}</span>
+                      <span className={`text-[12px] font-mono ${ch.isStale ? "text-orange" : "text-muted-foreground"}`}>{ch.lastVideo}</span>
+                      <span className="text-[12px] text-muted-foreground font-mono">{ch.nextCheck}</span>
                     </Link>
                   ))}
                 </div>
@@ -638,41 +638,41 @@ function MonitorTab() {
                         {ch.avatarUrl ? (
                           <img src={ch.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-elevated shrink-0" />
+                          <div className="w-8 h-8 rounded-full bg-card shrink-0" />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[13px] font-medium truncate">{ch.name}</span>
                             <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_COLOR[ch.status]}`} />
                           </div>
-                          <span className="text-[11px] text-dim font-mono">{ch.handle}</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">{ch.handle}</span>
                         </div>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-dim shrink-0" />
+                        <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       </div>
                       <div className="grid grid-cols-3 gap-y-2.5 gap-x-4">
                         <div>
-                          <div className="text-[9px] text-dim font-mono uppercase tracking-wider">Last check</div>
-                          <div className="text-[12px] text-dim font-mono">{ch.lastCheck}</div>
+                          <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">Last check</div>
+                          <div className="text-[12px] text-muted-foreground font-mono">{ch.lastCheck}</div>
                         </div>
                         <div>
-                          <div className="text-[9px] text-dim font-mono uppercase tracking-wider">Last video</div>
-                          <div className={`text-[12px] font-mono ${ch.isStale ? "text-orange" : "text-dim"}`}>{ch.lastVideo}</div>
+                          <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">Last video</div>
+                          <div className={`text-[12px] font-mono ${ch.isStale ? "text-orange" : "text-muted-foreground"}`}>{ch.lastVideo}</div>
                         </div>
                         <div>
-                          <div className="text-[9px] text-dim font-mono uppercase tracking-wider">Next check</div>
-                          <div className="text-[12px] text-dim font-mono">{ch.nextCheck}</div>
+                          <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">Next check</div>
+                          <div className="text-[12px] text-muted-foreground font-mono">{ch.nextCheck}</div>
                         </div>
                         <div>
-                          <div className="text-[9px] text-dim font-mono uppercase tracking-wider">Cadence</div>
-                          <div className={`text-[12px] font-mono ${ch.cadenceType === "owned" ? "text-orange" : "text-dim"}`}>{ch.cadence}</div>
+                          <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">Cadence</div>
+                          <div className={`text-[12px] font-mono ${ch.cadenceType === "owned" ? "text-orange" : "text-muted-foreground"}`}>{ch.cadence}</div>
                         </div>
                         <div>
-                          <div className="text-[9px] text-dim font-mono uppercase tracking-wider">Videos</div>
-                          <div className="text-[12px] text-dim font-mono">{ch.totalVideos.toLocaleString()}</div>
+                          <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">Videos</div>
+                          <div className="text-[12px] text-muted-foreground font-mono">{ch.totalVideos.toLocaleString()}</div>
                         </div>
                         <div>
-                          <div className="text-[9px] text-dim font-mono uppercase tracking-wider">Type</div>
-                          <div className={`text-[11px] font-mono ${ch.cadenceType === "owned" ? "text-orange" : "text-dim"}`}>
+                          <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider">Type</div>
+                          <div className={`text-[11px] font-mono ${ch.cadenceType === "owned" ? "text-orange" : "text-muted-foreground"}`}>
                             {ch.cadenceType === "owned" ? "Ours" : "Competitor"}
                           </div>
                         </div>
@@ -723,10 +723,10 @@ function StageColumn({
               {isFailed ? <AlertTriangle className="w-3 h-3" /> : stage.number}
             </span>
             <span className="text-[13px] font-semibold">{stage.label}</span>
-            <span className="text-[12px] text-dim font-mono">({items.length})</span>
+            <span className="text-[12px] text-muted-foreground font-mono">({items.length})</span>
           </div>
           {isFailed && items.length > 0 && (
-            <button onClick={handleRetryAll} disabled={retryingAll} className="inline-flex items-center gap-1 text-[11px] text-dim font-mono hover:text-sensor transition-colors disabled:opacity-50">
+            <button onClick={handleRetryAll} disabled={retryingAll} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors disabled:opacity-50">
               <RotateCw className={`w-3 h-3 ${retryingAll ? "animate-spin" : ""}`} /> Retry all
             </button>
           )}
@@ -734,7 +734,7 @@ function StageColumn({
       </div>
       <div className="flex-1 overflow-y-auto bg-background">
         {items.length === 0 ? (
-          <div className="flex items-center justify-center h-24 text-[12px] text-dim font-mono">Empty</div>
+          <div className="flex items-center justify-center h-24 text-[12px] text-muted-foreground font-mono">Empty</div>
         ) : (
           items.map((item) => <PipelineItemRow key={item.id} item={item} isFailed={isFailed} onRetry={onRetry} />)
         )}
@@ -773,7 +773,7 @@ function PipelineItemRow({ item, isFailed, onRetry }: { item: ApiPipelineItem; i
           {channel?.avatarUrl ? (
             <img src={channel.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
           ) : (
-            <div className="w-6 h-6 rounded-full bg-elevated shrink-0" />
+            <div className="w-6 h-6 rounded-full bg-card shrink-0" />
           )}
           <div className="min-w-0">
             {item.status === "running" && !isFailed && (
@@ -785,7 +785,7 @@ function PipelineItemRow({ item, isFailed, onRetry }: { item: ApiPipelineItem; i
             {item.status === "queued" && !isFailed && (
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-dim/50 shrink-0" />
-                <span className="text-[11px] text-dim font-mono">Queued</span>
+                <span className="text-[11px] text-muted-foreground font-mono">Queued</span>
               </div>
             )}
             {isFailed && item.error && (
@@ -801,17 +801,17 @@ function PipelineItemRow({ item, isFailed, onRetry }: { item: ApiPipelineItem; i
             {video?.titleAr || video?.youtubeId || item.id}
           </span>
           {video?.id && (
-            <ArrowUpRight className="w-3 h-3 text-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
           )}
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-dim font-mono">{timeInStage ? `⏱ ${timeInStage}` : ""}</span>
+        <span className="text-[10px] text-muted-foreground font-mono">{timeInStage ? `⏱ ${timeInStage}` : ""}</span>
         <div className="flex items-center gap-2">
           {item.retries > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="inline-flex items-center gap-1 text-[10px] text-dim font-mono">
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
                   <RotateCw className="w-2.5 h-2.5" /> {item.retries}
                 </span>
               </TooltipTrigger>
@@ -819,7 +819,7 @@ function PipelineItemRow({ item, isFailed, onRetry }: { item: ApiPipelineItem; i
             </Tooltip>
           )}
           {isFailed && (
-            <button onClick={handleRetry} disabled={retrying} className="text-[10px] text-dim font-mono hover:text-sensor transition-colors disabled:opacity-50">
+            <button onClick={handleRetry} disabled={retrying} className="text-[10px] text-muted-foreground font-mono hover:text-muted-foreground transition-colors disabled:opacity-50">
               {retrying ? "…" : "Retry"}
             </button>
           )}

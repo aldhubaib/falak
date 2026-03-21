@@ -140,7 +140,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
         <div className="flex items-center gap-4">
           <div className="flex items-baseline gap-3">
             <span className="text-[20px] font-semibold tabular-nums">{totalArticles.toLocaleString()}</span>
-            <span className="text-[12px] text-dim">articles across {sources.length} source{sources.length !== 1 ? "s" : ""}</span>
+            <span className="text-[12px] text-muted-foreground">articles across {sources.length} source{sources.length !== 1 ? "s" : ""}</span>
           </div>
           {sources.length > 0 && (
             <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-blue/10 text-blue">
@@ -158,7 +158,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
 
       {loading ? (
         <div className="flex items-center justify-center h-32">
-          <Loader2 className="w-5 h-5 animate-spin text-dim" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       ) : sources.length === 0 ? (
         <EmptyState icon={Package} title="No sources yet" description="Add an RSS feed or Apify actor to get started." />
@@ -184,18 +184,18 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
       {testResults && (
         <div className="mt-4 rounded-lg border border-border bg-background p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[12px] font-medium">Test Results <span className="text-dim font-mono ml-1">{testResults.length} articles</span></span>
-            <button onClick={() => setTestResults(null)} className="text-dim hover:text-sensor"><X className="w-3.5 h-3.5" /></button>
+            <span className="text-[12px] font-medium">Test Results <span className="text-muted-foreground font-mono ml-1">{testResults.length} articles</span></span>
+            <button onClick={() => setTestResults(null)} className="text-muted-foreground hover:text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
           </div>
           {testResults.length === 0 ? (
-            <p className="text-[12px] text-dim">No articles returned.</p>
+            <p className="text-[12px] text-muted-foreground">No articles returned.</p>
           ) : (
             <div className="space-y-1">
               {testResults.map((a, i) => (
-                <div key={i} className="flex items-center gap-2 text-[12px] py-1 px-2 rounded-lg hover:bg-elevated/40">
-                  <span className="text-dim font-mono w-5 text-right shrink-0">{i + 1}</span>
+                <div key={i} className="flex items-center gap-2 text-[12px] py-1 px-2 rounded-lg hover:bg-card/40">
+                  <span className="text-muted-foreground font-mono w-5 text-right shrink-0">{i + 1}</span>
                   <span className="text-foreground truncate flex-1">{a.title || "(no title)"}</span>
-                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-dim hover:text-blue shrink-0"><ExternalLink className="w-3 h-3" /></a>
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-blue shrink-0"><ExternalLink className="w-3 h-3" /></a>
                 </div>
               ))}
             </div>
@@ -263,8 +263,8 @@ function SourceLogo({ type, image, size = "md" }: { type: string; image?: string
     );
   }
   return (
-    <div className={`${dim} rounded-full bg-elevated flex items-center justify-center shrink-0`}>
-      <Package className={`${iconDim} text-dim`} />
+    <div className={`${dim} rounded-full bg-card flex items-center justify-center shrink-0`}>
+      <Package className={`${iconDim} text-muted-foreground`} />
     </div>
   );
 }
@@ -328,7 +328,7 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
 
   return (
     <div className="border-b border-border/20 last:border-0">
-      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center px-3 py-2 text-[11px] hover:bg-elevated/20 transition-colors">
+      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center px-3 py-2 text-[11px] hover:bg-card/20 transition-colors">
         <div className="flex items-center gap-1.5 min-w-0">
           <a
             href={`https://console.apify.com/storage/datasets/${run.datasetId}`}
@@ -343,7 +343,7 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
         <span className="text-right font-mono text-foreground tabular-nums">
           {run.itemCount != null ? run.itemCount.toLocaleString() : "—"}
         </span>
-        <span className="text-right text-dim font-mono tabular-nums">
+        <span className="text-right text-muted-foreground font-mono tabular-nums">
           {run.startedAt ? timeAgo(run.startedAt) : "—"}
         </span>
         <div className="text-right">
@@ -352,7 +352,7 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
         <div className="w-7 flex items-center justify-center">
           {canFetch ? (
             <button onClick={handleFetch} disabled={fetching} title="Re-import this run"
-              className="w-6 h-6 rounded flex items-center justify-center text-dim hover:text-blue hover:bg-blue/10 transition-colors disabled:opacity-50">
+              className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-blue hover:bg-blue/10 transition-colors disabled:opacity-50">
               {fetching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
             </button>
           ) : null}
@@ -371,19 +371,19 @@ function RunRow({ run, sourceId, onRefresh }: { run: { id: string; runId: string
             {error && !fetching && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-red-400">{error}</span>
-                <button onClick={clearResult} className="text-dim hover:text-foreground"><X className="w-3 h-3" /></button>
+                <button onClick={clearResult} className="text-muted-foreground hover:text-foreground"><X className="w-3 h-3" /></button>
               </div>
             )}
             {result && !fetching && (
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3 text-dim">
+                <div className="flex items-center gap-3 text-muted-foreground">
                   <span className="text-foreground">{phase}</span>
                   <span className="text-emerald-400">{result.inserted} new</span>
                   {result.dupes > 0 && <span>{result.dupes} already in DB</span>}
                   {(result.runDupes ?? 0) > 0 && <span>{result.runDupes} dupes in run</span>}
                   <span>of {result.fetched} fetched</span>
                 </div>
-                <button onClick={clearResult} className="text-dim hover:text-foreground shrink-0"><X className="w-3 h-3" /></button>
+                <button onClick={clearResult} className="text-muted-foreground hover:text-foreground shrink-0"><X className="w-3 h-3" /></button>
               </div>
             )}
           </div>
@@ -458,7 +458,7 @@ function SourceCard({
                 )}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] text-dim font-mono">
+                <span className="text-[11px] text-muted-foreground font-mono">
                   {(s.config as Record<string, unknown>).actorId as string || (s.config as Record<string, unknown>).url as string || s.type}
                 </span>
                 {s.type === "apify_actor" && (
@@ -472,24 +472,24 @@ function SourceCard({
 
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => onFetchNew(s.id)} disabled={fetchingId === s.id}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-success hover:bg-success/10 transition-colors disabled:opacity-50" title="Check for new articles">
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-success hover:bg-success/10 transition-colors disabled:opacity-50" title="Check for new articles">
               {fetchingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             </button>
             <button onClick={() => onTest(s.id)} disabled={testingId === s.id}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors disabled:opacity-50" title="Test connection">
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-50" title="Test connection">
               {testingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
             </button>
             <button onClick={onEdit}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-foreground hover:bg-elevated transition-colors" title="Edit">
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors" title="Edit">
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <button onClick={onToggle}
-              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${s.isActive ? "text-blue hover:bg-blue/10" : "text-dim hover:bg-elevated"}`}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${s.isActive ? "text-blue hover:bg-blue/10" : "text-muted-foreground hover:bg-card"}`}
               title={s.isActive ? "Pause" : "Activate"}>
               <Power className="w-3.5 h-3.5" />
             </button>
             <button onClick={onDelete}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-dim hover:text-red-400 hover:bg-red-400/10 transition-colors" title="Delete">
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-colors" title="Delete">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -498,7 +498,7 @@ function SourceCard({
 
       {/* Stats bar */}
       <div className="px-4 pb-3">
-        <div className="flex items-center gap-4 text-[11px] font-mono text-dim">
+        <div className="flex items-center gap-4 text-[11px] font-mono text-muted-foreground">
           <span><span className="text-foreground font-semibold">{s.articleCount.toLocaleString()}</span> articles</span>
           {Object.entries(s.stats || {}).map(([stage, count]) => (
             <span key={stage} className={stage === "failed" ? "text-red-400" : ""}>
@@ -516,10 +516,10 @@ function SourceCard({
           <div className="px-4 pt-3 pb-2">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3 text-[11px]">
-                <span className="text-dim">Import progress</span>
+                <span className="text-muted-foreground">Import progress</span>
                 <span className="font-mono text-foreground font-semibold">{imported}/{runs.length} runs</span>
-                <span className="text-dim">·</span>
-                <span className="font-mono text-foreground">{importedItems.toLocaleString()}<span className="text-dim">/{totalItems.toLocaleString()} items</span></span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-mono text-foreground">{importedItems.toLocaleString()}<span className="text-muted-foreground">/{totalItems.toLocaleString()} items</span></span>
               </div>
               <div className="flex items-center gap-2 text-[10px] font-mono">
                 {imported > 0 && <span className="text-emerald-400">{imported} imported</span>}
@@ -527,18 +527,18 @@ function SourceCard({
                 {pending > 0 && <span className="text-amber-400">{pending} pending</span>}
               </div>
             </div>
-            <div className="h-1.5 rounded-full bg-elevated overflow-hidden flex">
+            <div className="h-1.5 rounded-full bg-card overflow-hidden flex">
               {imported > 0 && <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${(imported / runs.length) * 100}%` }} />}
               {failed > 0 && <div className="h-full bg-red-400 transition-all duration-500" style={{ width: `${(failed / runs.length) * 100}%` }} />}
               {pending > 0 && <div className="h-full bg-amber-400/50 transition-all duration-500" style={{ width: `${(pending / runs.length) * 100}%` }} />}
             </div>
-            <div className="text-[10px] text-dim font-mono mt-1 text-right">{progressPct}% complete</div>
+            <div className="text-[10px] text-muted-foreground font-mono mt-1 text-right">{progressPct}% complete</div>
           </div>
 
           {/* Runs list */}
           <div className="px-4 pb-3">
             <div className="rounded-lg border border-border/50 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 px-3 py-1.5 text-[10px] font-mono text-dim uppercase tracking-wider bg-elevated/30 border-b border-border/30">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 px-3 py-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider bg-card/30 border-b border-border/30">
                 <span>Run</span>
                 <span className="text-right">Items</span>
                 <span className="text-right">Date</span>
@@ -629,7 +629,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
       <DialogContent className="sm:max-w-[480px] bg-background border-border max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[15px]">Add Source</DialogTitle>
-          <DialogDescription className="text-[12px] text-dim">Add an RSS feed or Apify actor.</DialogDescription>
+          <DialogDescription className="text-[12px] text-muted-foreground">Add an RSS feed or Apify actor.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 mt-3">
@@ -637,7 +637,7 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
           <div className="flex gap-2">
             {SOURCE_TYPES.map(t => (
               <button key={t.value} onClick={() => handleTypeChange(t.value)}
-                className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] font-medium transition-all border ${type === t.value ? "bg-foreground/5 text-foreground border-foreground/20" : "bg-transparent text-dim border-border hover:border-foreground/10"}`}>
+                className={`flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[12px] font-medium transition-all border ${type === t.value ? "bg-foreground/5 text-foreground border-foreground/20" : "bg-transparent text-muted-foreground border-border hover:border-foreground/10"}`}>
                 <SourceLogo type={t.value} size="sm" />
                 {t.label}
               </button>
@@ -661,16 +661,16 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
                 </div>
               ) : (
                 <button type="button" onClick={() => imageRef.current?.click()}
-                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-elevated/30 flex items-center justify-center text-dim hover:text-foreground hover:border-foreground/20 transition-all">
+                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-card/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all">
                   <ImagePlus className="w-4 h-4" />
                 </button>
               )}
             </div>
             <div className="flex-1">
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Name</label>
+              <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
                 placeholder={typeDef.label}
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
             </div>
           </div>
 
@@ -679,23 +679,23 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
             {(typeDef as any).configFields?.map((f: { key: string; label: string; placeholder: string; optional?: boolean }) => (
               <div key={f.key}>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <label className="text-[11px] text-dim font-mono uppercase tracking-wider">{f.label}</label>
-                  {f.optional && <span className="text-[9px] text-dim/60">optional</span>}
+                  <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider">{f.label}</label>
+                  {f.optional && <span className="text-[9px] text-muted-foreground/60">optional</span>}
                 </div>
                 <input type="text" value={config[f.key] || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
               </div>
             ))}
             {typeDef.format === "apify" && (
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <label className="text-[11px] text-dim font-mono uppercase tracking-wider">API Token</label>
+                  <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider">API Token</label>
                   <span className="text-[9px] text-red-400">required</span>
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder="apify_api_..."
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
               </div>
             )}
           </div>
@@ -703,9 +703,9 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
           {/* Test results */}
           {testResults && (
             <div className="rounded-lg border border-border p-3 max-h-[150px] overflow-y-auto">
-              <span className="text-[10px] font-mono text-dim mb-1.5 block">{testResults.length} articles found</span>
+              <span className="text-[10px] font-mono text-muted-foreground mb-1.5 block">{testResults.length} articles found</span>
               {testResults.length === 0 ? (
-                <p className="text-[11px] text-dim">No results.</p>
+                <p className="text-[11px] text-muted-foreground">No results.</p>
               ) : testResults.map((a, i) => (
                 <div key={i} className="text-[11px] text-foreground truncate py-0.5">{i + 1}. {a.title || a.url}</div>
               ))}
@@ -714,9 +714,9 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
         </div>
 
         <div className="flex gap-2 mt-5">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-dim hover:text-foreground transition-colors">Cancel</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button onClick={handleTest} disabled={testing}
-            className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-dim hover:text-foreground transition-colors disabled:opacity-50">
+            className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
             {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : <TestTube2 className="w-3.5 h-3.5 inline mr-1" />}
             Test
           </button>
@@ -784,7 +784,7 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
       <DialogContent className="sm:max-w-[480px] bg-background border-border max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[15px]">Edit Source</DialogTitle>
-          <DialogDescription className="text-[12px] text-dim">Update configuration for {source.label}.</DialogDescription>
+          <DialogDescription className="text-[12px] text-muted-foreground">Update configuration for {source.label}.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 mt-3">
@@ -805,15 +805,15 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
                 </div>
               ) : (
                 <button type="button" onClick={() => editImageRef.current?.click()}
-                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-elevated/30 flex items-center justify-center text-dim hover:text-foreground hover:border-foreground/20 transition-all">
+                  className="w-[42px] h-[42px] rounded-lg border border-dashed border-border bg-card/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all">
                   <ImagePlus className="w-4 h-4" />
                 </button>
               )}
             </div>
             <div className="flex-1">
-              <label className="text-[11px] text-dim font-mono uppercase tracking-wider mb-1.5 block">Name</label>
+              <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-1.5 block">Name</label>
               <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
             </div>
           </div>
 
@@ -822,32 +822,32 @@ function EditSourceDialog({ source, open, onClose, onUpdated }: { source: Articl
             {(typeDef as any).configFields?.map((f: { key: string; label: string; placeholder: string; optional?: boolean }) => (
               <div key={f.key}>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <label className="text-[11px] text-dim font-mono uppercase tracking-wider">{f.label}</label>
-                  {f.optional && <span className="text-[9px] text-dim/60">optional</span>}
+                  <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider">{f.label}</label>
+                  {f.optional && <span className="text-[9px] text-muted-foreground/60">optional</span>}
                 </div>
                 <input type="text" value={(config[f.key] as string) || ""} onChange={(e) => setConfig(prev => ({ ...prev, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
               </div>
             ))}
             {typeDef.format === "apify" && (
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <label className="text-[11px] text-dim font-mono uppercase tracking-wider">API Token</label>
+                  <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider">API Token</label>
                   <span className={`text-[9px] font-mono ${source.hasApiKey ? "text-emerald-400" : "text-red-400"}`}>
                     {source.hasApiKey ? "saved" : "missing"}
                   </span>
                 </div>
                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   placeholder={source.hasApiKey ? "Leave blank to keep current" : "apify_api_..."}
-                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-dim focus:outline-none focus:border-foreground/20" />
+                  className="w-full px-3 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-foreground/20" />
               </div>
             )}
           </div>
         </div>
 
         <div className="flex gap-2 mt-5">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-dim hover:text-foreground transition-colors">Cancel</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="flex-1 px-4 py-2.5 text-[13px] font-medium rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : null}
