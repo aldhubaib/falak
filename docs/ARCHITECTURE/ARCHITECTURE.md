@@ -41,9 +41,10 @@ From a user perspective the workflow is:
    their videos, transcripts, and comments, then runs AI analysis.
 3. **Analytics Dashboard** — view subscriber growth, engagement, content mix,
    publishing patterns, and head-to-head comparisons.
-4. **Story Discovery** — the article pipeline ingests news from RSS and Apify
-   sources, classifies them with AI, translates to Arabic, scores relevance,
-   promotes all scored articles to stories, and auto-generates a draft script
+4. **Story Discovery** — the article pipeline ingests news from RSS, Apify
+   sources, and YouTube channels. YouTube videos are transcribed and split into
+   individual stories. All articles are classified with AI, translated to Arabic,
+   scored for relevance, promoted to stories, and auto-generate a draft script
    (Claude Sonnet) with branded hooks and research context for team evaluation.
 5. **Editorial Workspace** — each story has a plain-text script editor with
    AI script generation (duration picker, auto-uses the profile's channel),
@@ -381,15 +382,16 @@ operations, user notes.
 
 #### ArticleSource
 
-Configuration for an external article source — RSS feed or Apify actor. Each
-source belongs to a channel and has its own fetch schedule, keyword gates, and
-optional per-source API key.
+Configuration for an external article source — RSS feed, Apify actor, or YouTube
+channel. Each source belongs to a channel and has its own fetch schedule, keyword
+gates, and optional per-source API key. YouTube channels use cadence-based polling
+via `nextCheckAt`.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `id` | String | Yes | `cuid()` | Primary key |
 | `channelId` | String | Yes | — | FK → Channel |
-| `type` | String | Yes | — | `rss` or `apify_actor` |
+| `type` | String | Yes | — | `rss`, `apify_actor`, or `youtube_channel` |
 | `label` | String | Yes | — | Display name |
 | `config` | Json | Yes | — | Type-specific config (URL, actorId, keywords, etc.) |
 | `image` | Text | No | — | Source icon (base64) |
@@ -398,6 +400,7 @@ optional per-source API key.
 | `isActive` | Boolean | Yes | true | Enable/disable fetching |
 | `language` | String | Yes | `"en"` | Source language |
 | `lastPolledAt` | DateTime | No | — | Last fetch time |
+| `nextCheckAt` | DateTime | No | — | Cadence-based: next scheduled check time |
 | `fetchLog` | Json | No | — | Last 30 fetch results (ring buffer) |
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
@@ -407,14 +410,16 @@ optional per-source API key.
 
 #### Article
 
-An article fetched from a source, processed through the pipeline
-(imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done).
+An article fetched from a source, processed through the pipeline.
+For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done.
+For YouTube: transcript → story_detect → classify → ... (same downstream pipeline). Videos with multiple stories get split into child articles via `parentArticleId`.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `id` | String | Yes | `cuid()` | Primary key |
 | `channelId` | String | Yes | — | Channel scope |
 | `sourceId` | String | Yes | — | FK → ArticleSource |
+| `parentArticleId` | String | No | — | FK → Article (self-relation for story splits) |
 | `url` | String | Yes | — | Article URL |
 | `title` | String | No | — | Article title |
 | `description` | Text | No | — | Article description |
@@ -438,7 +443,9 @@ An article fetched from a source, processed through the pipeline
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Stages:** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `images` → `done`. Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`.
+**Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `images` → `done`.
+**Stages (YouTube):** `transcript` → `story_detect` → `classify` → ... (same from classify onwards). Parent articles that are split go to `adapter_done`.
+Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`, `adapter_done`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
 
 #### ApifyRun
@@ -942,11 +949,21 @@ reset to `queued`.
 
 ```mermaid
 flowchart LR
-    IM["imported"] --> CO["content"] --> CL["classify"] --> TT["title_translate"] --> SC["score"]
+    subgraph "YouTube path"
+        TS["transcript"] --> SD["story_detect"]
+        SD -->|single story| CL
+        SD -->|multi story| AD["adapter_done"]
+        SD -.->|creates children| CL
+    end
+    subgraph "RSS / Apify path"
+        IM["imported"] --> CO["content"]
+    end
+    CO --> CL["classify"] --> TT["title_translate"] --> SC["score"]
     SC -->|above threshold| RE["research"] --> TR["translated"] --> IMG["images"] --> DO["done"]
     SC -->|below threshold| FI["filtered"]
     CO -.->|needs review| RV["review"]
-    IM -.->|failure| F["failed"]
+    TS -.->|failure| F["failed"]
+    IM -.->|failure| F
     CO -.->|failure| F
     CL -.->|failure| F
     SC -.->|failure| F
@@ -959,6 +976,8 @@ flowchart LR
 
 | Stage | What Happens | External API | DB Writes |
 |---|---|---|---|
+| **transcript** | Fetches YouTube video transcript via youtube-transcript.io API. Also fetches video metadata (title, description, thumbnail). | YouTube Transcript API | `Article.content`, `Article.contentClean`, `Article.analysis.youtubeId` |
+| **story_detect** | AI (Haiku) detects distinct stories/topics in the transcript. Single story: article continues. Multiple stories: creates child articles with `parentArticleId`, parent goes to `adapter_done`. | Anthropic Haiku | Creates child `Article` records, `Article.stage` |
 | **imported** | Logs initial state. | — | — |
 | **content** | Extracts content: raw HTML → Firecrawl scrape → HTTP fetch → title+desc fallback. Min 300 chars or goes to review. | Firecrawl | `Article.contentClean` |
 | **classify** | AI classification (Haiku): topic, tags, contentType, region, summary, uniqueAngle. Works in original language. Retries once if language mismatch. | Anthropic Haiku | `Article.analysis`, `Article.language` |
@@ -970,8 +989,15 @@ flowchart LR
 
 **Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
 
-**Source polling:** Every 5 minutes, checks all active sources for new Apify runs
-and RSS items. Auto-imports new articles.
+**Source polling:** Every 5 minutes, checks all active sources for new Apify runs,
+RSS items, and YouTube channel videos. Uses cadence-based `nextCheckAt` for YouTube
+sources (active: 2d, regular: 5d, slow: 10d, inactive: 20d). Auto-imports new articles.
+
+**YouTube cadence:** Derived from `config.lastVideoFoundAt`:
+- **Active** (<3 days): check every 2 days
+- **Regular** (3–14 days): check every 5 days
+- **Slow** (14–30 days): check every 10 days
+- **Inactive** (>30 days): check every 20 days
 
 **Pause/Resume:** Exposed via API endpoints. State is persisted in the `AppSetting` table
 (key `articlePipelinePaused`) so it survives process restarts. When paused, `tick()` returns immediately.
