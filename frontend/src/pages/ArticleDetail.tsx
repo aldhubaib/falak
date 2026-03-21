@@ -1408,6 +1408,10 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
             </>
           );
         } else if (stepId === "score") {
+          const rawScore = relevance * 0.35 + viral * 0.30 + freshness * 0.35;
+          const weighted = rawScore * 0.60;
+          const biasContrib = prefBias * 0.40;
+          const compositeOut10 = (Math.round(finalScore * 10 * 10) / 10).toFixed(1);
           body = (
             <>
               <div className="space-y-1">
@@ -1415,14 +1419,21 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
                 <ScoreRow label="Viral" value={viral} weight={0.30} result={viral * 0.30} />
                 <ScoreRow label="Freshness" value={freshness} weight={0.35} result={freshness * 0.35} />
               </div>
-              <div className="text-[11px] font-mono mt-1">
-                Raw {(relevance * 0.35 + viral * 0.30 + freshness * 0.35).toFixed(3)}
-                {prefBias !== 0 && ` · Pref ${prefBias > 0 ? "+" : ""}${prefBias.toFixed(2)}`}
-                {competitionPenalty > 0 && ` · Penalty -${competitionPenalty.toFixed(2)}`}
-                {" → "}<span className="font-bold text-success">Final {finalScore.toFixed(2)}</span>
-              </div>
-              <div className="text-[11px] font-mono mt-1.5 text-muted-foreground">
-                {finalScore.toFixed(2)} × 10 = <span className="font-bold text-foreground">{(Math.round(finalScore * 10 * 10) / 10).toFixed(1)}/10</span>
+              <div className="text-[11px] font-mono mt-2 space-y-1">
+                <div className="text-muted-foreground">
+                  Weighted sum = {rawScore.toFixed(3)}
+                </div>
+                <div className="text-muted-foreground">
+                  {rawScore.toFixed(3)} × 0.60 = {weighted.toFixed(3)}
+                  {prefBias !== 0 && <>{" + "}{prefBias.toFixed(2)} × 0.40 = {(weighted + biasContrib).toFixed(3)}</>}
+                  {competitionPenalty > 0 && <>{" − "}{competitionPenalty.toFixed(2)} = {(weighted + biasContrib - competitionPenalty).toFixed(3)}</>}
+                </div>
+                <div>
+                  {"→ "}<span className="font-bold text-success">Final {finalScore.toFixed(2)}</span>
+                </div>
+                <div className="pt-1 border-t border-border mt-1">
+                  {finalScore.toFixed(2)} × 10 = <span className="font-bold text-foreground">{compositeOut10}/10</span>
+                </div>
               </div>
             </>
           );
