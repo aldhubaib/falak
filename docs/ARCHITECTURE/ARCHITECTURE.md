@@ -939,6 +939,44 @@ and RSS items. Auto-imports new articles.
 **Pause/Resume:** Exposed via API endpoints. State is persisted in the `AppSetting` table
 (key `articlePipelinePaused`) so it survives process restarts. When paused, `tick()` returns immediately.
 
+### Self-Describing Pipeline Logs
+
+Every `log.push()` in `articleProcessor.js` and `storyResearcher.js` uses self-describing
+entries. The `STEP_META` table in `articleProcessor.js` is the single source of truth for
+all step rendering metadata.
+
+Each log entry includes:
+
+| Field | Purpose |
+|---|---|
+| `step` | Unique step ID (e.g., `score_similarity`) |
+| `stage` | Which frontend stage section this belongs to (e.g., `score`) |
+| `label` | Display label (e.g., "Competition Match") |
+| `icon` | Lucide icon key (e.g., `target`) |
+| `subtitle` | Optional subtitle (e.g., "Match vs. existing stories") |
+| `display` | Optional array of UI primitive blocks for rich rendering |
+
+The `display` array supports these block types:
+- `text` — plain text
+- `stat` — label + value pair
+- `gauge` — percentage bar (0–1)
+- `badge` — colored pill (variant: success/primary/muted)
+- `breakdown` — score rows with value × weight = contribution
+- `formula` — raw → adjustments → final
+- `list` — array of items with title + subtitle
+- `expandable` — collapsible text block
+- `quality` — quality evaluation badge
+
+**Adding a new pipeline step:** Add the step to `STEP_META` in `articleProcessor.js`
+and use `lp()` for the log entry. The frontend renders it automatically via the
+`UnknownEntries` fallback in `StageSection`. If the step has a `display` array,
+it gets rich rendering; otherwise, it shows status/error/reason from the entry fields.
+
+**Adding a new pipeline stage:** Add a new entry to `FLOW_DEFS` in
+`frontend/src/constants/flowDefs.tsx` (one line). The frontend's `getStepLogs`
+matches entries by `entry.stage`, so all log entries with the new stage ID
+automatically appear in the new section.
+
 ### Rescore Worker (`src/worker-rescore.js`)
 
 Runs every **1 hour** (`CHECK_INTERVAL_MS`). For each "ours" root channel where
