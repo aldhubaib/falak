@@ -6,6 +6,8 @@ const {
   VALID_SOURCE_TYPES,
   validateConfig,
   testSourceFetch,
+  deriveYouTubeStatus,
+  computeYouTubeCadence,
 } = require('../services/articlePipeline')
 
 const router = express.Router()
@@ -95,6 +97,46 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
       return res.status(400).json({ error: 'Image too large (max 2 MB)' })
     }
 
+    // Resolve YouTube channel metadata
+    if (type === 'youtube_channel') {
+      try {
+        const { fetchChannel } = require('../services/youtube')
+        let handleOrId = config.channelUrl || config.handle || config.youtubeChannelId || ''
+        handleOrId = handleOrId.trim()
+        // Extract handle from full YouTube URL
+        const urlMatch = handleOrId.match(/youtube\.com\/@?([\w-]+)/)
+        if (urlMatch) handleOrId = urlMatch[1]
+        if (handleOrId.startsWith('https://')) {
+          const parsed = new URL(handleOrId)
+          handleOrId = parsed.pathname.replace(/^\//, '').replace(/\/$/, '')
+        }
+        const ytData = await fetchChannel(handleOrId, channelId)
+        config.youtubeChannelId = ytData.youtubeId
+        config.handle = ytData.handle
+        config.channelName = ytData.nameAr || ytData.nameEn
+        config.avatarUrl = ytData.avatarUrl
+        config.subscribers = Number(ytData.subscribers || 0)
+        if (!req.body.label || req.body.label === 'YouTube Channel') {
+          req.body.label = ytData.nameAr || ytData.nameEn || handleOrId
+        }
+        if (!req.body.image && ytData.avatarUrl) {
+          req.body.image = null // will use config.avatarUrl instead
+        }
+      } catch (e) {
+        return res.status(400).json({ error: `Could not resolve YouTube channel: ${e.message}` })
+      }
+
+      // Prevent duplicate youtube channels
+      const existing = await db.articleSource.findMany({
+        where: { channelId, type: 'youtube_channel' },
+        select: { label: true, config: true },
+      })
+      const dup = existing.find(s => s.config?.youtubeChannelId === config.youtubeChannelId)
+      if (dup) {
+        return res.status(400).json({ error: `YouTube channel already added as "${dup.label}"` })
+      }
+    }
+
     // Prevent duplicate actorId/datasetId — same config would import same articles and cause wrong source attribution
     if (type === 'apify_actor' && config?.actorId) {
       const existing = await db.articleSource.findMany({
@@ -116,15 +158,16 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
       }
     }
 
+    const finalLabel = (req.body.label || label || type).trim()
     const source = await db.articleSource.create({
       data: {
         channelId,
         type,
-        label: label.trim(),
+        label: finalLabel,
         config,
         image: image || null,
-        apiKeyEncrypted: type === 'apify_actor' ? encrypt(apiKey.trim()) : null,
-        language: language || 'en',
+        apiKeyEncrypted: type === 'apify_actor' && apiKey ? encrypt(apiKey.trim()) : null,
+        language: type === 'youtube_channel' ? (config.language || 'ar') : (language || 'en'),
       },
     })
     res.json(sanitizeSource(source))
@@ -305,6 +348,13 @@ router.get('/field-schema', async (req, res) => {
       docs: 'https://docs.apify.com/',
       fields: [],
     },
+    youtube_channel: {
+      label: 'YouTube Channel',
+      docs: null,
+      fields: [
+        { key: 'channelUrl', label: 'Channel URL or @handle', type: 'text', required: true, placeholder: 'https://youtube.com/@ChannelName or @ChannelName', help: 'YouTube channel URL, handle, or channel ID.' },
+      ],
+    },
   }
   res.json(schema)
 })
@@ -321,6 +371,23 @@ router.post('/test-config', requireRole('owner', 'admin', 'editor'), async (req,
 
     const channel = await db.channel.findUnique({ where: { id: channelId } })
     if (!channel) return res.status(404).json({ error: 'Channel not found' })
+
+    if (type === 'youtube_channel') {
+      const { fetchRecentVideos, fetchChannel } = require('../services/youtube')
+      let handleOrId = config.channelUrl || config.handle || config.youtubeChannelId || ''
+      const urlMatch = handleOrId.match(/youtube\.com\/@?([\w-]+)/)
+      if (urlMatch) handleOrId = urlMatch[1]
+      const ytData = await fetchChannel(handleOrId, channelId)
+      const videos = await fetchRecentVideos(ytData.youtubeId, 10, channelId)
+      const articles = videos
+        .filter(v => v.videoType !== 'short')
+        .slice(0, 10)
+        .map(v => ({
+          url: `https://www.youtube.com/watch?v=${v.youtubeId}`,
+          title: v.titleAr || v.titleEn || '',
+        }))
+      return res.json({ articles, count: articles.length, channel: { name: ytData.nameAr, handle: ytData.handle, avatarUrl: ytData.avatarUrl } })
+    }
 
     const source = type === 'apify_actor' && apiKey ? { apiKeyEncrypted: encrypt(apiKey.trim()) } : null
     const articles = await testSourceFetch(type, config, channel, source)

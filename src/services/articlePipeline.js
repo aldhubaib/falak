@@ -9,7 +9,7 @@ const db = require('../lib/db')
 const logger = require('../lib/logger')
 const { getApifyToken, listSuccessfulRuns, fetchLatestSuccessfulRunWithItems, fetchDatasetItemsByDatasetId } = require('./apify')
 
-const VALID_SOURCE_TYPES = ['rss', 'apify_actor']
+const VALID_SOURCE_TYPES = ['rss', 'apify_actor', 'youtube_channel']
 
 const MAX_FETCH_LOG_ENTRIES = 30
 
@@ -31,6 +31,11 @@ function validateSourceConfig(type, config) {
         return 'apify_actor config.limit must be 0 (all) or an integer between 1 and 50000'
       }
       break
+    case 'youtube_channel': {
+      const hasChannel = config.youtubeChannelId || config.handle || config.channelUrl
+      if (!hasChannel) return 'youtube_channel requires config.youtubeChannelId, config.handle, or config.channelUrl'
+      break
+    }
     default:
       return `Unknown source type: ${type}`
   }
@@ -39,6 +44,7 @@ function validateSourceConfig(type, config) {
 
 function hasApiKey(project, sourceType, source = null) {
   if (sourceType === 'apify_actor') return !!getApifyToken(source)
+  if (sourceType === 'youtube_channel') return true
   return sourceType === 'rss'
 }
 
@@ -497,23 +503,158 @@ async function appendFetchLog(sourceId, entry) {
   await db.articleSource.update({ where: { id: sourceId }, data: { fetchLog: log } })
 }
 
+// ── YouTube channel ingestion ─────────────────────────────────────────────
+
+async function ingestYouTubeSource(source) {
+  const sourceId = source.id
+  const channelId = source.channelId
+  const startTime = Date.now()
+
+  const { fetchRecentVideos, fetchChannel } = require('./youtube')
+  const youtubeChannelId = source.config.youtubeChannelId
+  if (!youtubeChannelId) {
+    return { sourceId, fetched: 0, inserted: 0, dupes: 0, error: 'No youtubeChannelId in config' }
+  }
+
+  let videos
+  try {
+    videos = await fetchRecentVideos(youtubeChannelId, 30, channelId)
+  } catch (e) {
+    const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
+    await appendFetchLog(sourceId, logEntry)
+    logger.error({ sourceId, error: e.message }, '[articlePipeline] YouTube fetch failed')
+    return { sourceId, fetched: 0, inserted: 0, dupes: 0, error: e.message }
+  }
+
+  if (!videos || videos.length === 0) {
+    const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: null, ms: Date.now() - startTime }
+    await appendFetchLog(sourceId, logEntry)
+    await db.articleSource.update({ where: { id: sourceId }, data: { lastPolledAt: new Date() } })
+    return { sourceId, fetched: 0, inserted: 0, dupes: 0, error: null }
+  }
+
+  const toInsert = videos
+    .filter(v => v.videoType !== 'short')
+    .map(v => ({
+      channelId,
+      sourceId,
+      url: `https://www.youtube.com/watch?v=${v.youtubeId}`,
+      title: v.titleAr || v.titleEn || null,
+      description: (v.description || '').slice(0, 500) || null,
+      publishedAt: v.publishedAt || null,
+      language: source.config.language || source.language || 'ar',
+      stage: 'transcript',
+      status: 'queued',
+    }))
+
+  let inserted = 0
+  let dupes = 0
+  if (toInsert.length > 0) {
+    const result = await db.article.createMany({ data: toInsert, skipDuplicates: true })
+    inserted = result.count
+    dupes = toInsert.length - result.count
+  }
+
+  const latestVideo = videos.find(v => v.videoType !== 'short')
+  const configUpdate = { ...source.config }
+  if (latestVideo?.publishedAt) {
+    configUpdate.lastVideoFoundAt = latestVideo.publishedAt.toISOString()
+  }
+
+  const logEntry = {
+    time: new Date().toISOString(),
+    raw: toInsert.length,
+    gated: 0,
+    dupes,
+    inserted,
+    error: null,
+    ms: Date.now() - startTime,
+  }
+  await appendFetchLog(sourceId, logEntry)
+  await db.articleSource.update({
+    where: { id: sourceId },
+    data: { lastPolledAt: new Date(), config: configUpdate },
+  })
+
+  if (inserted > 0) {
+    logger.info({ sourceId, label: source.label, fetched: toInsert.length, inserted }, '[articlePipeline] YouTube ingested')
+  }
+  return { sourceId, fetched: toInsert.length, inserted, dupes, error: null }
+}
+
+// ── Cadence computation ──────────────────────────────────────────────────
+
+const DAY_MS = 86400000
+
+function computeCheckInterval(source) {
+  switch (source.type) {
+    case 'rss':
+      return 30 * 60 * 1000
+    case 'apify_actor':
+      return 5 * 60 * 1000
+    case 'youtube_channel':
+      return computeYouTubeCadence(source)
+    default:
+      return 5 * 60 * 1000
+  }
+}
+
+function computeYouTubeCadence(source) {
+  const lastVideoAt = source.config?.lastVideoFoundAt
+    ? new Date(source.config.lastVideoFoundAt)
+    : null
+  if (!lastVideoAt) return 2 * DAY_MS
+  const daysSince = (Date.now() - lastVideoAt.getTime()) / DAY_MS
+  if (daysSince < 3)  return 2  * DAY_MS
+  if (daysSince < 14) return 5  * DAY_MS
+  if (daysSince < 30) return 10 * DAY_MS
+  return 20 * DAY_MS
+}
+
+function deriveYouTubeStatus(source) {
+  const lastVideoAt = source.config?.lastVideoFoundAt
+    ? new Date(source.config.lastVideoFoundAt)
+    : null
+  if (!lastVideoAt) return 'active'
+  const daysSince = (Date.now() - lastVideoAt.getTime()) / DAY_MS
+  if (daysSince < 3)  return 'active'
+  if (daysSince < 14) return 'regular'
+  if (daysSince < 30) return 'slow'
+  return 'inactive'
+}
+
 // ── INGEST ALL: run for all active sources in a channel ───────────────────
 
-async function ingestAll(channelId) {
+async function ingestAll(channelId, { force = false, sourceId = null } = {}) {
   const channel = await db.channel.findUnique({
     where: { id: channelId },
     select: { id: true },
   })
   if (!channel) throw new Error('Channel not found')
 
-  const sources = await db.articleSource.findMany({
-    where: { channelId, isActive: true, type: { in: VALID_SOURCE_TYPES } },
-  })
+  const where = { channelId, isActive: true, type: { in: VALID_SOURCE_TYPES } }
+  if (sourceId) where.id = sourceId
+  const sources = await db.articleSource.findMany({ where })
 
   const results = []
   for (const source of sources) {
-    const result = await ingestSource(source, channel)
+    if (!force && source.nextCheckAt && new Date(source.nextCheckAt) > new Date()) {
+      continue
+    }
+
+    let result
+    if (source.type === 'youtube_channel') {
+      result = await ingestYouTubeSource(source)
+    } else {
+      result = await ingestSource(source, channel)
+    }
     results.push({ ...result, label: source.label, type: source.type })
+
+    const interval = computeCheckInterval(source)
+    await db.articleSource.update({
+      where: { id: source.id },
+      data: { nextCheckAt: new Date(Date.now() + interval) },
+    })
   }
 
   return results
@@ -546,9 +687,13 @@ module.exports = {
   hasApiKey,
   canonicalizeArticleUrl,
   ingestSource,
+  ingestYouTubeSource,
   ingestAll,
   testSourceFetch,
   applyKeywordGate,
   checkBudget,
   checkCooldown,
+  computeCheckInterval,
+  computeYouTubeCadence,
+  deriveYouTubeStatus,
 }

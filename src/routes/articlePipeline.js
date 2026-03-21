@@ -1,13 +1,13 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { VALID_SOURCE_TYPES, ingestAll, ingestSource, hasApiKey, checkBudget, checkCooldown } = require('../services/articlePipeline')
+const { VALID_SOURCE_TYPES, ingestAll, ingestSource, ingestYouTubeSource, hasApiKey, checkBudget, checkCooldown } = require('../services/articlePipeline')
 const articleEvents = require('../lib/articleEvents')
 
 const router = express.Router()
 router.use(requireAuth)
 
-const PIPELINE_STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
+const PIPELINE_STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
 // ── GET /api/article-pipeline?channelId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
@@ -26,7 +26,8 @@ router.get('/', async (req, res) => {
       stage: true, status: true, error: true, retries: true,
       publishedAt: true, language: true, startedAt: true, finishedAt: true,
       relevanceScore: true, finalScore: true, rankReason: true,
-      storyId: true, createdAt: true, updatedAt: true,
+      storyId: true, parentArticleId: true,
+      createdAt: true, updatedAt: true,
       processingLog: true, analysis: true,
       source: { select: { id: true, label: true, type: true, language: true } },
     }
@@ -54,6 +55,8 @@ router.get('/', async (req, res) => {
 
     const stats = {
       total: totalCount,
+      transcript: stageCountMap.transcript || 0,
+      story_detect: stageCountMap.story_detect || 0,
       imported: stageCountMap.imported || 0,
       content: stageCountMap.content || 0,
       classify: stageCountMap.classify || 0,
@@ -66,9 +69,10 @@ router.get('/', async (req, res) => {
       done: stageCountMap.done || 0,
       filtered: stageCountMap.filtered || 0,
       failed: stageCountMap.failed || 0,
+      adapter_done: stageCountMap.adapter_done || 0,
     }
 
-    const byStage = { imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], images: [], review: [], filtered: [], failed: [], done: [] }
+    const byStage = { transcript: [], story_detect: [], imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], images: [], review: [], filtered: [], failed: [], done: [], adapter_done: [] }
     for (const a of allArticles) {
       if (a.status === 'review') {
         if (byStage.review.length < STAGE_LIMIT) byStage.review.push(a)
@@ -295,11 +299,13 @@ router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res)
         return res.status(400).json({ error: `Unsupported legacy source type: ${source.type}` })
       }
 
-      const result = await ingestSource(source, source.channel, { force: !!force })
+      const result = source.type === 'youtube_channel'
+        ? await ingestYouTubeSource(source)
+        : await ingestSource(source, source.channel, { force: !!force })
       return res.json({ results: [{ ...result, label: source.label, type: source.type }] })
     }
 
-    const results = await ingestAll(channelId)
+    const results = await ingestAll(channelId, { force: !!force })
     res.json({ results })
   } catch (e) {
     res.status(500).json({ error: e.message })

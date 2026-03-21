@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, CheckCircle2, XCircle, SkipForward, Clock, Package, Rss, ImagePlus, Download, RefreshCw, Search } from "lucide-react";
+import { X, ExternalLink, Loader2, Plus, Trash2, Power, TestTube2, Pencil, CheckCircle2, XCircle, SkipForward, Clock, Package, Rss, ImagePlus, Download, RefreshCw, Search, Youtube } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -45,6 +45,7 @@ interface ArticleSourceData {
   language: string;
   isActive: boolean;
   lastPolledAt: string | null;
+  nextCheckAt: string | null;
   articleCount: number;
   stats: Record<string, number>;
   hasApiKey?: boolean;
@@ -55,11 +56,14 @@ interface ArticleSourceData {
 }
 
 const SOURCE_TYPES = [
-  { value: "rss",         label: "RSS Feed",    format: "url",   configFields: [{ key: "url", label: "Feed URL", placeholder: "https://aljazeera.net/feed/crime" }] },
-  { value: "apify_actor", label: "Apify Actor",  format: "apify", configFields: [
+  { value: "rss",         label: "RSS Feed",        format: "url",     configFields: [{ key: "url", label: "Feed URL", placeholder: "https://aljazeera.net/feed/crime" }] },
+  { value: "apify_actor", label: "Apify Actor",      format: "apify",   configFields: [
     { key: "actorId", label: "Actor ID", placeholder: "username/actor-name" },
     { key: "datasetId", label: "Dataset ID (optional)", placeholder: "Optional fixed dataset ID", optional: true },
     { key: "limit", label: "Max items per run (0 = all)", placeholder: "0 (imports entire run)", optional: true },
+  ] },
+  { value: "youtube_channel", label: "YouTube Channel", format: "youtube", configFields: [
+    { key: "channelUrl", label: "Channel URL or @handle", placeholder: "https://youtube.com/@ChannelName or @ChannelName" },
   ] },
 ] as const;
 
@@ -241,12 +245,13 @@ function ApifyLogo({ className }: { className?: string }) {
   );
 }
 
-function SourceLogo({ type, image, size = "md" }: { type: string; image?: string | null; size?: "sm" | "md" }) {
+function SourceLogo({ type, image, config, size = "md" }: { type: string; image?: string | null; config?: Record<string, unknown>; size?: "sm" | "md" }) {
   const dim = size === "sm" ? "w-7 h-7" : "w-9 h-9";
   const iconDim = size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4";
 
-  if (image) {
-    return <img src={image} alt="" className={`${dim} rounded-full object-cover shrink-0`} />;
+  const displayImage = image || (config?.avatarUrl as string) || null;
+  if (displayImage) {
+    return <img src={displayImage} alt="" className={`${dim} rounded-full object-cover shrink-0`} />;
   }
   if (type === "rss") {
     return (
@@ -259,6 +264,13 @@ function SourceLogo({ type, image, size = "md" }: { type: string; image?: string
     return (
       <div className={`${dim} rounded-full bg-[#00d68a]/15 flex items-center justify-center shrink-0`}>
         <ApifyLogo className={`${iconDim} text-[#00d68a]`} />
+      </div>
+    );
+  }
+  if (type === "youtube_channel") {
+    return (
+      <div className={`${dim} rounded-full bg-red-500/15 flex items-center justify-center shrink-0`}>
+        <Youtube className={`${iconDim} text-red-500`} />
       </div>
     );
   }
@@ -449,7 +461,7 @@ function SourceCard({
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <SourceLogo type={s.type} image={s.image} />
+            <SourceLogo type={s.type} image={s.image} config={s.config} />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-[14px] font-semibold truncate">{s.label}</span>
@@ -509,6 +521,11 @@ function SourceCard({
         </div>
       </div>
 
+      {/* YouTube channel cadence info */}
+      {s.type === "youtube_channel" && (
+        <YouTubeCadenceBar source={s} />
+      )}
+
       {/* Apify runs progress + list */}
       {s.type === "apify_actor" && runs.length > 0 && (
         <div className="border-t border-border/50">
@@ -558,6 +575,99 @@ function SourceCard({
   );
 }
 
+// ── YouTube Cadence Bar ───────────────────────────────────────────────────
+
+type YTStatus = "active" | "regular" | "slow" | "inactive";
+
+function deriveYTStatus(config: Record<string, unknown>): YTStatus {
+  const lastVideoAt = config?.lastVideoFoundAt as string | undefined;
+  if (!lastVideoAt) return "active";
+  const days = (Date.now() - new Date(lastVideoAt).getTime()) / 86400000;
+  if (days < 3) return "active";
+  if (days < 14) return "regular";
+  if (days < 30) return "slow";
+  return "inactive";
+}
+
+const YT_STATUS_COLOR: Record<YTStatus, string> = {
+  active: "bg-success",
+  regular: "bg-primary",
+  slow: "bg-orange",
+  inactive: "bg-destructive",
+};
+
+const YT_STATUS_LABEL: Record<YTStatus, string> = {
+  active: "Active",
+  regular: "Regular",
+  slow: "Slow",
+  inactive: "Inactive",
+};
+
+const YT_CADENCE_LABEL: Record<YTStatus, string> = {
+  active: "every 2d",
+  regular: "every 5d",
+  slow: "every 10d",
+  inactive: "every 20d",
+};
+
+function YouTubeCadenceBar({ source: s }: { source: ArticleSourceData }) {
+  const status = deriveYTStatus(s.config);
+  const lastVideoAt = s.config?.lastVideoFoundAt as string | undefined;
+  const handle = (s.config?.handle as string) || "";
+  const subscribers = s.config?.subscribers as number | undefined;
+
+  const doneCount = (s.stats?.done || 0);
+  const filteredCount = (s.stats?.filtered || 0);
+  const totalProcessed = doneCount + filteredCount;
+  const passRate = totalProcessed > 0 ? Math.round((doneCount / totalProcessed) * 100) : 0;
+
+  return (
+    <div className="border-t border-border/50 px-4 py-3">
+      <div className="flex items-center gap-4 mb-2">
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${YT_STATUS_COLOR[status]}`} />
+          <span className="text-[11px] font-medium text-foreground">{YT_STATUS_LABEL[status]}</span>
+          <span className="text-[10px] text-muted-foreground font-mono">{YT_CADENCE_LABEL[status]}</span>
+        </div>
+        {handle && (
+          <a href={`https://youtube.com/${handle.startsWith("@") ? handle : `@${handle}`}`}
+            target="_blank" rel="noopener noreferrer"
+            className="text-[10px] text-muted-foreground font-mono hover:text-foreground transition-colors">
+            {handle.startsWith("@") ? handle : `@${handle}`}
+          </a>
+        )}
+        {subscribers != null && subscribers > 0 && (
+          <span className="text-[10px] text-muted-foreground font-mono">
+            {subscribers >= 1000000 ? `${(subscribers / 1000000).toFixed(1)}M` : subscribers >= 1000 ? `${(subscribers / 1000).toFixed(0)}K` : subscribers} subs
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground">
+        {lastVideoAt && (
+          <span>last video {timeAgo(lastVideoAt)}</span>
+        )}
+        {s.nextCheckAt && (
+          <span>next check {timeAgo(s.nextCheckAt).replace(" ago", "").startsWith("-") ? "soon" : `in ${(() => {
+            const diff = new Date(s.nextCheckAt).getTime() - Date.now();
+            if (diff <= 0) return "soon";
+            const h = Math.floor(diff / 3600000);
+            const d = Math.floor(h / 24);
+            if (d > 0) return `${d}d ${h % 24}h`;
+            if (h > 0) return `${h}h`;
+            return `${Math.floor(diff / 60000)}m`;
+          })()}`}</span>
+        )}
+        {totalProcessed > 0 && (
+          <>
+            <span>pass rate <span className={passRate >= 60 ? "text-success" : passRate >= 30 ? "text-orange" : "text-destructive"}>{passRate}%</span></span>
+            <span>{doneCount} passed / {totalProcessed} processed</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Add Source Dialog ──────────────────────────────────────────────────────
 
 function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: string; open: boolean; onClose: () => void; onCreated: () => void }) {
@@ -588,6 +698,9 @@ function AddSourceDialog({ channelId, open, onClose, onCreated }: { channelId: s
         ...(config.datasetId ? { datasetId: config.datasetId } : {}),
         ...(Number.isFinite(limit) && limit > 0 ? { limit } : {}),
       };
+    }
+    if (typeDef.format === "youtube") {
+      return { channelUrl: config.channelUrl || "" };
     }
     const c: Record<string, string> = {};
     for (const f of (typeDef as any).configFields || []) {

@@ -367,6 +367,7 @@ model ArticleSource {
   isActive     Boolean   @default(true)
   language     String    @default("en")
   lastPolledAt DateTime?
+  nextCheckAt  DateTime?
   fetchLog     Json?
   articles     Article[]
   apifyRuns    ApifyRun[]
@@ -394,37 +395,40 @@ model ApifyRun {
 }
 
 model Article {
-  id             String        @id @default(cuid())
-  channelId      String
-  sourceId       String
-  source         ArticleSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  url            String
-  title          String?
-  description    String?       @db.Text
-  content        String?       @db.Text
-  contentClean   String?       @db.Text
-  contentAr      String?       @db.Text
-  publishedAt    DateTime?
-  language       String?
+  id              String        @id @default(cuid())
+  channelId       String
+  sourceId        String
+  source          ArticleSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  parentArticleId String?
+  parent          Article?      @relation("ArticleSplit", fields: [parentArticleId], references: [id], onDelete: SetNull)
+  children        Article[]     @relation("ArticleSplit")
+  url             String
+  title           String?
+  description     String?       @db.Text
+  content         String?       @db.Text
+  contentClean    String?       @db.Text
+  contentAr       String?       @db.Text
+  publishedAt     DateTime?
+  language        String?
 
-  stage          String        @default("imported")
-  status         String        @default("queued")
-  retries        Int           @default(0)
-  error          String?
-  startedAt      DateTime?
-  finishedAt     DateTime?
+  stage           String        @default("imported")
+  status          String        @default("queued")
+  retries         Int           @default(0)
+  error           String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
 
-  processingLog  Json?
-  analysis       Json?
-  relevanceScore Float?
+  processingLog   Json?
+  analysis        Json?
+  relevanceScore  Float?
 
-  finalScore     Float?
-  rankReason     String?
+  finalScore      Float?
+  rankReason      String?
 
-  storyId        String?
+  storyId         String?
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@unique([channelId, url])
   @@index([sourceId, stage])
@@ -432,6 +436,7 @@ model Article {
   @@index([channelId, createdAt(sort: Desc)])
   @@index([stage, status])
   @@index([storyId])
+  @@index([parentArticleId])
 }
 
 // ─────────────────────────────────────────────

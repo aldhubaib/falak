@@ -19,6 +19,8 @@ const {
   doStageResearch,
   doStageTranslated,
   doStageImages,
+  doStageTranscript,
+  doStageStoryDetect,
 } = require('./services/articleProcessor')
 
 const POLL_MS = 10_000
@@ -29,9 +31,9 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
+const STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
 
-const AI_STAGES = new Set(['classify', 'title_translate', 'score', 'research', 'translated'])
+const AI_STAGES = new Set(['story_detect', 'classify', 'title_translate', 'score', 'research', 'translated'])
 
 let paused = false
 let pauseLoaded = false
@@ -107,6 +109,12 @@ async function processItem(article, { force = false } = {}) {
   try {
     let out
     switch (article.stage) {
+      case 'transcript':
+        out = await doStageTranscript(article, channel)
+        break
+      case 'story_detect':
+        out = await doStageStoryDetect(article, channel)
+        break
       case 'imported':
         out = await doStageImported(article, channel)
         break
@@ -148,7 +156,7 @@ async function processItem(article, { force = false } = {}) {
       return
     }
 
-    const isTerminal = out.nextStage === 'done' || out.nextStage === 'filtered'
+    const isTerminal = out.nextStage === 'done' || out.nextStage === 'filtered' || out.nextStage === 'adapter_done'
     await db.article.update({
       where: { id: article.id },
       data: {

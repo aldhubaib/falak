@@ -90,6 +90,7 @@ interface ApiArticle {
   finalScore: number | null;
   rankReason: string | null;
   storyId: string | null;
+  parentArticleId: string | null;
   createdAt: string;
   updatedAt: string;
   processingLog?: LogEntry[] | null;
@@ -126,6 +127,23 @@ interface SubStep {
 }
 
 const SUB_STEPS: SubStep[] = [
+  // Transcript sub-steps
+  {
+    id: "transcript_fetch", label: "Transcript", subtitle: "YouTube video transcript",
+    icon: FileText, color: "text-red-400", parentStage: "transcript",
+    filterFn: (a) => hasLogStep(a, "transcript_fetch"),
+  },
+  // Story detect sub-steps
+  {
+    id: "story_detect_ai", label: "Story Detect", subtitle: "AI story detection",
+    icon: Brain, color: "text-red-400", parentStage: "story_detect",
+    filterFn: (a) => hasLogStep(a, "story_detect"),
+  },
+  {
+    id: "story_split", label: "Story Split", subtitle: "Split into child articles",
+    icon: FileText, color: "text-red-400", parentStage: "story_detect",
+    filterFn: (a) => hasLogStep(a, "story_split"),
+  },
   // Content sub-steps
   {
     id: "apify_content", label: "Apify Content", subtitle: "Article body from Apify actor",
@@ -225,6 +243,8 @@ const SUB_STEPS: SubStep[] = [
 ];
 
 const STAGE_DEFS = [
+  { id: "transcript", label: "Transcript", subtitle: "Fetching YouTube transcript", color: "text-red-400", number: 0 },
+  { id: "story_detect", label: "Story Detect", subtitle: "Detecting stories in transcript", color: "text-red-400", number: 0 },
   { id: "imported", label: "Imported", subtitle: "Queued for ingestion", color: "text-orange", number: 1 },
   { id: "content", label: "Content", subtitle: "Fetching or processing content", color: "text-primary", number: 2 },
   { id: "classify", label: "Classify", subtitle: "Running classification", color: "text-success", number: 3 },
@@ -235,6 +255,7 @@ const STAGE_DEFS = [
   { id: "images", label: "Images", subtitle: "SerpAPI image search + gallery save", color: "text-primary", number: 8 },
   { id: "review", label: "Review", subtitle: "Needs manual review", color: "text-orange", number: 0 },
   { id: "filtered", label: "Filtered", subtitle: "Below score threshold", color: "text-muted-foreground", number: 0 },
+  { id: "adapter_done", label: "Split Done", subtitle: "Video split into stories", color: "text-muted-foreground", number: 0 },
   { id: "failed", label: "Failed", subtitle: "Errors after retries", color: "text-destructive", number: 0 },
 ];
 

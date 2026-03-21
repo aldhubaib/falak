@@ -1,4 +1,4 @@
-import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Target, ImageIcon } from "lucide-react";
+import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Target, ImageIcon, Youtube, Layers } from "lucide-react";
 
 export interface FlowDef {
   id: string;
@@ -11,6 +11,22 @@ export interface FlowDef {
 
 /** Shared flow definitions for Pipeline dashboard and Article Inspector. */
 export const FLOW_DEFS: FlowDef[] = [
+  {
+    id: "transcript",
+    name: "Transcript",
+    subtitle: "Fetch YouTube video transcript via API. YouTube-sourced articles start here.",
+    icon: Youtube,
+    color: "text-red-400",
+    bgColor: "bg-red-400",
+  },
+  {
+    id: "story_detect",
+    name: "Story Detect",
+    subtitle: "AI detects distinct stories in the transcript. May split into child articles.",
+    icon: Layers,
+    color: "text-red-400",
+    bgColor: "bg-red-400",
+  },
   {
     id: "imported",
     name: "Imported",

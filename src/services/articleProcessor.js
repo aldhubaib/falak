@@ -52,6 +52,9 @@ const STEP_META = {
   threshold_gate:     { stage: 'score',       label: 'Threshold Gate',   icon: 'target',        subtitle: 'Dynamic score threshold check' },
   images:             { stage: 'images',      label: 'Image Search',     icon: 'image',         subtitle: 'SerpAPI Google Images' },
   promote:            { stage: 'promote',     label: 'Promote',          icon: 'check-circle' },
+  transcript_fetch:   { stage: 'transcript',  label: 'Transcript',       icon: 'file-text',     subtitle: 'Fetch YouTube video transcript' },
+  story_detect:       { stage: 'story_detect', label: 'Story Detect',    icon: 'brain',         subtitle: 'Detect stories in transcript' },
+  story_split:        { stage: 'story_detect', label: 'Story Split',     icon: 'layers',        subtitle: 'Split transcript into stories' },
 }
 
 function lp(step, data, display) {
@@ -1481,6 +1484,239 @@ const SERVICE_DESCRIPTOR = {
   keySource: 'googleSearchKey',
 }
 
+// ── Stage: transcript → story_detect ────────────────────────────────────────
+// Fetches the YouTube transcript for a video. Only runs for youtube_channel sources.
+
+async function doStageTranscript(article, project) {
+  const log = getLog(article)
+
+  const videoIdMatch = (article.url || '').match(/[?&]v=([\w-]{11})/)
+  const videoId = videoIdMatch ? videoIdMatch[1] : null
+
+  if (!videoId) {
+    log.push(lp('transcript_fetch', { status: 'review', reason: 'Could not extract YouTube video ID from URL' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'transcript', reviewStatus: 'review', reviewReason: 'Invalid YouTube URL — could not extract video ID' }
+  }
+
+  // Try youtube-transcript.io first, fall back to Whisper
+  let transcriptText = null
+  let transcriptSource = null
+
+  const ytTranscriptAvailable = await registry.hasKey('yt-transcript')
+  if (ytTranscriptAvailable) {
+    try {
+      const { fetchTranscript } = require('./transcript')
+      const result = await fetchTranscript(videoId, article.channelId)
+
+      if (Array.isArray(result) && result.length > 0) {
+        transcriptText = result.map(s => s.text).join(' ')
+        transcriptSource = 'youtube-transcript-io'
+      } else if (typeof result === 'string' && result.length > 0) {
+        transcriptText = result
+        transcriptSource = 'youtube-transcript-io'
+      }
+
+      if (transcriptText) {
+        log.push(lp('transcript_fetch', {
+          processor: 'api', service: 'YouTube Transcript API',
+          status: 'ok', source: transcriptSource,
+          chars: transcriptText.length,
+          segments: Array.isArray(result) ? result.length : null,
+        }))
+      } else {
+        log.push(lp('transcript_fetch', {
+          processor: 'api', service: 'YouTube Transcript API',
+          status: 'empty', reason: 'No transcript returned',
+        }))
+      }
+    } catch (e) {
+      log.push(lp('transcript_fetch', {
+        processor: 'api', service: 'YouTube Transcript API',
+        status: 'failed', error: e.message,
+      }))
+    }
+  }
+
+  if (!transcriptText) {
+    log.push(lp('transcript_fetch', {
+      status: 'review',
+      reason: ytTranscriptAvailable ? 'Transcript API returned no content' : 'No transcript API key configured',
+    }))
+    await saveLog(article.id, log)
+    return {
+      nextStage: 'transcript',
+      reviewStatus: 'review',
+      reviewReason: 'Could not fetch transcript for this video',
+    }
+  }
+
+  // Fetch video metadata for better title/description
+  try {
+    const { fetchVideoMetadata } = require('./youtube')
+    const meta = await fetchVideoMetadata(videoId, article.channelId)
+    const updateData = {
+      content: transcriptText,
+      contentClean: transcriptText,
+      processingLog: log,
+    }
+    if (meta.titleAr) updateData.title = meta.titleAr
+    if (meta.description) updateData.description = meta.description.slice(0, 500)
+    if (meta.publishedAt) updateData.publishedAt = meta.publishedAt
+    if (meta.thumbnailUrl) {
+      const analysis = article.analysis || {}
+      analysis.thumbnailUrl = meta.thumbnailUrl
+      analysis.youtubeId = videoId
+      analysis.duration = meta.duration
+      updateData.analysis = analysis
+    }
+    await db.article.update({ where: { id: article.id }, data: updateData })
+  } catch (e) {
+    await db.article.update({
+      where: { id: article.id },
+      data: { content: transcriptText, contentClean: transcriptText, processingLog: log },
+    })
+    logger.warn({ articleId: article.id, error: e.message }, '[article-processor] video metadata fetch failed, transcript saved')
+  }
+
+  return { nextStage: 'story_detect' }
+}
+
+// ── Stage: story_detect → classify (or adapter_done) ────────────────────────
+// Uses AI to detect distinct stories inside a video transcript.
+// Single story: article continues to classify.
+// Multiple stories: creates child articles, parent goes to adapter_done.
+
+async function doStageStoryDetect(article, project) {
+  const log = getLog(article)
+  const transcript = article.contentClean || article.content || ''
+
+  if (transcript.length < 100) {
+    log.push(lp('story_detect', { status: 'review', reason: 'Transcript too short for story detection' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Transcript too short' }
+  }
+
+  const apiKey = await registry.requireKey('anthropic')
+
+  const prompt = `You are analyzing a YouTube video transcript to identify distinct news stories or topics covered.
+
+Read this transcript carefully and identify each separate story, topic, or news item discussed.
+
+For each story, provide:
+- title: A clear Arabic headline for this story (concise, newsworthy)
+- summary: A 2-3 sentence Arabic summary of what this story covers
+- content: The relevant portion of the transcript for this story (copy the exact text, preserving the original language)
+
+Respond with JSON only. Format:
+{
+  "stories": [
+    { "title": "...", "summary": "...", "content": "..." }
+  ]
+}
+
+Rules:
+- If the entire video is about ONE topic, return exactly 1 story
+- Only split when there are genuinely distinct topics/stories
+- Each story must have substantial content (at least 2-3 sentences of transcript)
+- Titles and summaries MUST be in Arabic
+- Content is the raw transcript portion (keep original language)
+
+Transcript:
+${transcript.slice(0, 30000)}`
+
+  let stories = null
+  try {
+    const raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+      { role: 'user', content: prompt },
+    ], {
+      maxTokens: 4096,
+      channelId: article.channelId,
+      action: 'article-story-detect',
+    })
+    const usage = callAnthropic._lastUsage || {}
+
+    try {
+      const trimmed = (raw || '').trim()
+      const start = trimmed.indexOf('{')
+      const end = trimmed.lastIndexOf('}') + 1
+      if (start !== -1 && end > start) {
+        const parsed = JSON.parse(trimmed.slice(start, end))
+        if (Array.isArray(parsed.stories) && parsed.stories.length > 0) {
+          stories = parsed.stories.filter(s => s.title && s.content && s.content.length >= 50)
+        }
+      }
+    } catch (_) {}
+
+    log.push(lp('story_detect', {
+      processor: 'ai', service: 'Anthropic Claude Haiku',
+      model: 'claude-haiku-4-5-20251001',
+      status: stories ? 'ok' : 'parse_error',
+      storiesDetected: stories ? stories.length : 0,
+      inputTokens: usage.inputTokens || null,
+      outputTokens: usage.outputTokens || null,
+    }))
+  } catch (e) {
+    log.push(lp('story_detect', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message }))
+    await saveLog(article.id, log)
+    throw e
+  }
+
+  if (!stories || stories.length === 0) {
+    log.push(lp('story_detect', { status: 'review', reason: 'AI could not detect stories in transcript' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Could not detect stories in transcript' }
+  }
+
+  // Single story — the article itself continues through the pipeline
+  if (stories.length === 1) {
+    const story = stories[0]
+    log.push(lp('story_split', { status: 'ok', action: 'single', storiesDetected: 1 }))
+    await db.article.update({
+      where: { id: article.id },
+      data: {
+        title: story.title || article.title,
+        description: story.summary || article.description,
+        contentClean: story.content || transcript,
+        processingLog: log,
+      },
+    })
+    return { nextStage: 'classify' }
+  }
+
+  // Multiple stories — create child articles, parent goes to adapter_done
+  const children = stories.map((story, i) => ({
+    channelId: article.channelId,
+    sourceId: article.sourceId,
+    parentArticleId: article.id,
+    url: `${article.url}#story-${i + 1}`,
+    title: story.title,
+    description: story.summary || null,
+    content: story.content,
+    contentClean: story.content,
+    publishedAt: article.publishedAt,
+    language: article.language || 'ar',
+    stage: 'classify',
+    status: 'queued',
+  }))
+
+  const { count } = await db.article.createMany({ data: children, skipDuplicates: true })
+
+  log.push(lp('story_split', {
+    status: 'ok', action: 'split',
+    storiesDetected: stories.length,
+    childrenCreated: count,
+    childUrls: children.map(c => c.url),
+  }))
+  await saveLog(article.id, log)
+
+  logger.info({
+    articleId: article.id, storiesDetected: stories.length, childrenCreated: count,
+  }, '[article-processor] transcript split into stories')
+
+  return { nextStage: 'adapter_done' }
+}
+
 module.exports = {
   doStageImported,
   doStageContent,
@@ -1490,6 +1726,8 @@ module.exports = {
   doStageResearch,
   doStageTranslated,
   doStageImages,
+  doStageTranscript,
+  doStageStoryDetect,
   STEP_META,
   computeDynamicThreshold,
   SERVICE_DESCRIPTOR,
