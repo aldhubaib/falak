@@ -144,6 +144,40 @@ function ContentDNASection({ channelId }: { channelId: string }) {
     setInput("");
   };
 
+  const addMany = (
+    raw: string,
+    tags: string[],
+    setTags: (t: string[]) => void,
+    caseInsensitive: boolean,
+  ) => {
+    const items = raw.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (items.length === 0) return;
+    const next = [...tags];
+    for (const item of items) {
+      if (next.length >= 100) break;
+      const dup = caseInsensitive
+        ? next.some((t) => t.toLowerCase() === item.toLowerCase())
+        : next.includes(item);
+      if (!dup) next.push(item);
+    }
+    setTags(next);
+  };
+
+  const handlePaste = (
+    e: React.ClipboardEvent<HTMLInputElement>,
+    tags: string[],
+    setTags: (t: string[]) => void,
+    setInput: (v: string) => void,
+    caseInsensitive: boolean,
+  ) => {
+    const text = e.clipboardData.getData("text");
+    if (text.includes("\n") || text.includes(",")) {
+      e.preventDefault();
+      addMany(text, tags, setTags, caseInsensitive);
+      setInput("");
+    }
+  };
+
   const handleKey = (
     e: KeyboardEvent<HTMLInputElement>,
     input: string,
@@ -222,8 +256,9 @@ function ContentDNASection({ channelId }: { channelId: string }) {
               value={enInput}
               onChange={(e) => setEnInput(e.target.value)}
               onKeyDown={(e) => handleKey(e, enInput, enTags, setEnTags, setEnInput, true)}
+              onPaste={(e) => handlePaste(e, enTags, setEnTags, setEnInput, true)}
               className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-              placeholder="Type a tag and press Enter…"
+              placeholder="Type a tag and press Enter, or paste a list…"
               disabled={enTags.length >= 100}
             />
           </div>
@@ -257,9 +292,10 @@ function ContentDNASection({ channelId }: { channelId: string }) {
               value={arInput}
               onChange={(e) => setArInput(e.target.value)}
               onKeyDown={(e) => handleKey(e, arInput, arTags, setArTags, setArInput, false)}
+              onPaste={(e) => handlePaste(e, arTags, setArTags, setArInput, false)}
               dir="rtl"
               className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-              placeholder="اكتب وسم واضغط Enter…"
+              placeholder="اكتب وسم واضغط Enter، أو الصق قائمة…"
               disabled={arTags.length >= 100}
             />
           </div>
