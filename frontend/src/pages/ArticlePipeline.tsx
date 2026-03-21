@@ -259,6 +259,8 @@ const STAGE_DEFS = [
   { id: "failed", label: "Failed", subtitle: "Errors after retries", color: "text-destructive", number: 0 },
 ];
 
+const SD = Object.fromEntries(STAGE_DEFS.map(s => [s.id, s])) as Record<string, (typeof STAGE_DEFS)[number]>;
+
 function getLog(a: ApiArticle): LogEntry[] {
   return Array.isArray(a.processingLog) ? a.processingLog as LogEntry[] : [];
 }
@@ -284,6 +286,9 @@ const SENTIMENT_COLORS: Record<string, string> = {
 
 /** Log step id → display label (matches Kanban column titles exactly). */
 const LOG_STEP_LABELS: Record<string, string> = {
+  transcript_fetch: "Transcript",
+  story_detect: "Story Detect",
+  story_split: "Story Split",
   imported: "Imported",
   apify_content: "Apify Content",
   firecrawl: "Firecrawl",
@@ -553,7 +558,14 @@ function PipelineTabContent() {
           <>
             {/* Stats rows */}
             <div className="px-6 max-lg:px-4 mb-5 pt-5 space-y-0">
-              <div className="flex rounded-t-lg overflow-hidden border border-b-0 border-border">
+              {((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_detect ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) && (
+                <div className="flex rounded-t-lg overflow-hidden border border-b-0 border-border">
+                  <StatBox label="Transcript" value={data?.stats.transcript ?? 0} color="text-red-400" />
+                  <StatBox label="Story Detect" value={data?.stats.story_detect ?? 0} color="text-red-400" />
+                  <StatBox label="Split Done" value={data?.stats.adapter_done ?? 0} color="text-muted-foreground" last />
+                </div>
+              )}
+              <div className={`flex overflow-hidden border border-b-0 border-border ${((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_detect ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) ? "" : "rounded-t-lg"}`}>
                 <StatBox label="Total" value={totalArticles} />
                 <StatBox label="Imported" value={data?.stats.imported ?? 0} color="text-orange" />
                 <StatBox label="Content" value={data?.stats.content ?? 0} color="text-primary" />
@@ -661,11 +673,36 @@ function PipelineTabContent() {
               </div>
             )}
 
+            {/* ── TRANSCRIPT (YouTube only) ── */}
+            {((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_detect ?? 0) > 0) && (
+              <>
+                <SectionHeader icon={getFlowDef("transcript")!.icon} title={getFlowDef("transcript")!.name} subtitle={getFlowDef("transcript")!.subtitle} />
+                <div className="px-6 max-lg:px-4 mb-6">
+                  <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+                    <StageColumn stage={SD.transcript} items={data?.byStage.transcript ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                    {SUB_STEPS.filter(s => s.parentStage === "transcript").map((sub) => (
+                      <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                    ))}
+                  </div>
+                </div>
+
+                <SectionHeader icon={getFlowDef("story_detect")!.icon} title={getFlowDef("story_detect")!.name} subtitle={getFlowDef("story_detect")!.subtitle} />
+                <div className="px-6 max-lg:px-4 mb-6">
+                  <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
+                    <StageColumn stage={SD.story_detect} items={data?.byStage.story_detect ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                    {SUB_STEPS.filter(s => s.parentStage === "story_detect").map((sub) => (
+                      <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* ── 1. IMPORTED ── */}
             <SectionHeader icon={getFlowDef("imported")!.icon} title={getFlowDef("imported")!.name} subtitle={getFlowDef("imported")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[0]} items={data?.byStage.imported ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={SD.imported} items={data?.byStage.imported ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
 
@@ -679,7 +716,7 @@ function PipelineTabContent() {
               </div>
               {(data?.byStage.content ?? []).length > 0 && (
                 <div className="mt-3">
-                  <StageColumn stage={STAGE_DEFS[1]} items={data?.byStage.content ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={SD.content} items={data?.byStage.content ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 </div>
               )}
             </div>
@@ -692,7 +729,7 @@ function PipelineTabContent() {
                   <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.classify ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[2]} items={data?.byStage.classify ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={SD.classify} items={data?.byStage.classify ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
@@ -701,7 +738,7 @@ function PipelineTabContent() {
             <SectionHeader icon={getFlowDef("title_translate")!.icon} title={getFlowDef("title_translate")!.name} subtitle={getFlowDef("title_translate")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[3]} items={data?.byStage.title_translate ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={SD.title_translate} items={data?.byStage.title_translate ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
 
@@ -713,7 +750,7 @@ function PipelineTabContent() {
                   <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.score ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={SD.score} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
@@ -728,7 +765,7 @@ function PipelineTabContent() {
               </div>
               {(data?.byStage.research ?? []).length > 0 && (
                 <div className="mt-3">
-                  <StageColumn stage={STAGE_DEFS[5]} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={SD.research} items={data?.byStage.research ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 </div>
               )}
             </div>
@@ -751,7 +788,7 @@ function PipelineTabContent() {
                   <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.translated ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={SD.translated} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
@@ -764,18 +801,19 @@ function PipelineTabContent() {
                   <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.images ?? []).length > 0 && (
-                  <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.images ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <StageColumn stage={SD.images} items={data?.byStage.images ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 )}
               </div>
             </div>
 
-            {/* ── REVIEW + FILTERED + FAILED ── */}
-            <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review, filtered, and failed articles" />
+            {/* ── REVIEW + FILTERED + SPLIT DONE + FAILED ── */}
+            <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review, filtered, split done, and failed articles" />
             <div className="px-6 max-lg:px-4 pb-8">
-              <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[8]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                <StageColumn stage={STAGE_DEFS[9]} items={data?.byStage.filtered ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                <StageColumn stage={STAGE_DEFS[10]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+              <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-1 items-start">
+                <StageColumn stage={SD.review} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={SD.filtered} items={data?.byStage.filtered ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={SD.adapter_done} items={data?.byStage.adapter_done ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={SD.failed} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
           </>
