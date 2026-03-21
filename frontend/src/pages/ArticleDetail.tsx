@@ -5,7 +5,7 @@ import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
   Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2, Info,
-  Loader2, RotateCcw, PenLine,
+  Loader2, RotateCcw, PenLine, ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -606,6 +606,7 @@ const STEP_MAP: Record<string, string[]> = {
   title_translate: ["title_translate"],
   score: ["score_similarity", "score_topic_demand", "score_niche", "score_ai_analysis", "score", "threshold_gate"],
   promote: ["promote"],
+  images: ["images"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
@@ -641,6 +642,7 @@ const STEP_DISPLAY: Record<string, { label: string; subtitle?: string; icon: typ
   threshold_gate: { label: "Threshold Gate", subtitle: "Dynamic score threshold check", icon: Target },
   title_translate: { label: "Title Translate", subtitle: "Arabic title + summary for scoring", icon: Languages },
   promote: { label: "Story Created", subtitle: "Create or link story", icon: CheckCircle2 },
+  images: { label: "Image Search", subtitle: "SerpAPI Google Images", icon: ImageIcon },
 };
 
 /** Single card for one pipeline step — matches Kanban column (title + optional subtitle). */

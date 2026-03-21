@@ -8,7 +8,7 @@ import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
   SkipForward, Trash2, ClipboardPaste, X, Loader2, CheckCircle2,
   ArrowRight, Globe, Languages, Brain, Sparkles, FileText, Download,
-  Search, Target, FlaskConical, Filter,
+  Search, Target, FlaskConical, Filter, ImageIcon,
 } from "lucide-react";
 import { getFlowDef } from "@/constants/flowDefs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -217,6 +217,11 @@ const SUB_STEPS: SubStep[] = [
     icon: CheckCircle2, color: "text-success", parentStage: "promote",
     filterFn: (a) => { const log = getLogStep(a, "promote"); return log?.status === "created"; },
   },
+  {
+    id: "image_results", label: "Image Search", subtitle: "SerpAPI Google Images",
+    icon: ImageIcon, color: "text-primary", parentStage: "images",
+    filterFn: (a) => hasLogStep(a, "images"),
+  },
 ];
 
 const STAGE_DEFS = [
@@ -227,6 +232,7 @@ const STAGE_DEFS = [
   { id: "score", label: "Score", subtitle: "Scoring & threshold gate", color: "text-orange", number: 5 },
   { id: "research", label: "Research", subtitle: "Gathering context", color: "text-purple", number: 6 },
   { id: "translated", label: "Translated", subtitle: "Full Arabic translation + promote", color: "text-primary", number: 7 },
+  { id: "images", label: "Images", subtitle: "SerpAPI image search + gallery save", color: "text-primary", number: 8 },
   { id: "review", label: "Review", subtitle: "Needs manual review", color: "text-orange", number: 0 },
   { id: "filtered", label: "Filtered", subtitle: "Below score threshold", color: "text-muted-foreground", number: 0 },
   { id: "failed", label: "Failed", subtitle: "Errors after retries", color: "text-destructive", number: 0 },
@@ -277,6 +283,7 @@ const LOG_STEP_LABELS: Record<string, string> = {
   score_ai_analysis: "AI Scoring",
   score: "Final Score",
   promote: "Story Created",
+  images: "Image Search",
 };
 
 /* ─── Tabs ─── */
@@ -720,13 +727,26 @@ function PipelineTabContent() {
               </div>
             </div>
 
+            {/* ── 8. IMAGES ── */}
+            <SectionHeader icon={getFlowDef("images")!.icon} title={getFlowDef("images")!.name} subtitle={getFlowDef("images")!.subtitle} />
+            <div className="px-6 max-lg:px-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
+                {SUB_STEPS.filter(s => s.parentStage === "images").map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                ))}
+                {(data?.byStage.images ?? []).length > 0 && (
+                  <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.images ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                )}
+              </div>
+            </div>
+
             {/* ── REVIEW + FILTERED + FAILED ── */}
             <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review, filtered, and failed articles" />
             <div className="px-6 max-lg:px-4 pb-8">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
-                <StageColumn stage={STAGE_DEFS[7]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                <StageColumn stage={STAGE_DEFS[8]} items={data?.byStage.filtered ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                <StageColumn stage={STAGE_DEFS[9]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[8]} items={data?.byStage.review ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[9]} items={data?.byStage.filtered ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                <StageColumn stage={STAGE_DEFS[10]} items={data?.byStage.failed ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
               </div>
             </div>
           </>

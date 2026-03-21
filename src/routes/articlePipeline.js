@@ -61,13 +61,14 @@ router.get('/', async (req, res) => {
       score: stageCountMap.score || 0,
       research: stageCountMap.research || 0,
       translated: stageCountMap.translated || 0,
+      images: stageCountMap.images || 0,
       review: reviewCounts,
       done: stageCountMap.done || 0,
       filtered: stageCountMap.filtered || 0,
       failed: stageCountMap.failed || 0,
     }
 
-    const byStage = { imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], review: [], filtered: [], failed: [], done: [] }
+    const byStage = { imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], images: [], review: [], filtered: [], failed: [], done: [] }
     for (const a of allArticles) {
       if (a.status === 'review') {
         if (byStage.review.length < STAGE_LIMIT) byStage.review.push(a)
