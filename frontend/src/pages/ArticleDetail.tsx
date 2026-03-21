@@ -441,6 +441,11 @@ export default function ArticleDetailPage() {
                 stageState = "waiting";
               }
 
+              if (stage.id === "synthesis" && stageState === "active") {
+                const hasSynthesisLog = log.some((e) => e.step === "synthesis" || (e.stage === "synthesis"));
+                if (!hasSynthesisLog) stageState = "waiting";
+              }
+
               return (
                 <StageSection
                   key={stage.id}
