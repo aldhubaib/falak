@@ -342,6 +342,7 @@ be `passed` or `omit` (negative decisions used for learning).
 | `viralScore` | Int | No | — | 0–100 viral potential |
 | `firstMoverScore` | Int | No | — | 0–100 first-mover advantage |
 | `compositeScore` | Float | No | — | Weighted composite (0–10) |
+| `finalScore` | Float | No | — | Final score (0–1), compositeScore / 10 |
 | `scriptLong` | Text | No | — | Full-length script |
 | `scriptShort` | Text | No | — | Short-form script |
 | `brief` | Json | No | — | Rich metadata (article, research, video, tags, etc.) |
@@ -757,6 +758,8 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/stories/:id/classify-video` | editor+ | Detect Short vs regular video. | YouTube API |
 | PATCH | `/api/stories/:id/link-video` | editor+ | Link story to its produced YouTube video by `youtubeId`. | — |
 | POST | `/api/stories/:id/log` | editor+ | Add a log entry. | — |
+| POST | `/api/stories/:id/rescore` | editor+ | Re-score single story via niche embedding dot product. | — |
+| POST | `/api/stories/rescore-all` | editor+ | Re-score all active stories in channel via niche embedding. | — |
 | POST | `/api/stories/re-evaluate` | admin+ | Full rescore cycle for a channel. | YouTube API + scoring |
 | POST | `/api/stories/recalculate-scores` | admin+ | Batch recalc compositeScore. | — |
 
