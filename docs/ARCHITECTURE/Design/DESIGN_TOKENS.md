@@ -16,7 +16,7 @@ Use as: `hsl(var(--token-name))` in CSS, or `bg-token-name` / `text-token-name` 
 |---|---|---|---|
 | `--background` | `240 4% 6%` | `bg-background` | App background, page base |
 | `--foreground` | `0 0% 93%` | `text-foreground` | Primary text (everywhere) |
-| `--card` | `240 4% 6%` | `bg-card` | All card/panel/surface backgrounds (consolidated) |
+| `--card` | `0 0% 4%` | `bg-card` | All card/panel/surface backgrounds (consolidated) |
 | `--card-foreground` | `0 0% 93%` | `text-card-foreground` | Text inside cards |
 | `--muted-foreground` | `0 0% 45%` | `text-muted-foreground` | Subdued/dimmed text and icons |
 

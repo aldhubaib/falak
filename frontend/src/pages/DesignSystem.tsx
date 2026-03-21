@@ -137,7 +137,7 @@ const TAB2_SECTIONS = [
 
 const COLOR_GROUPS = [
   { label: "Surfaces", tokens: [
-    { id: "--background", hsl: "hsl(240,4%,6%)" }, { id: "--card", hsl: "hsl(240,4%,6%)" },
+    { id: "--background", hsl: "hsl(240,4%,6%)" }, { id: "--card", hsl: "hsl(0,0%,4%)" },
   ]},
   { label: "Text", tokens: [
     { id: "--foreground", hsl: "hsl(0,0%,93%)" }, { id: "--muted-foreground", hsl: "hsl(0,0%,45%)" },
