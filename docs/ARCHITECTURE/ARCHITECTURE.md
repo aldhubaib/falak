@@ -870,6 +870,7 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/settings/google-search-keys` | admin+ | Add Google Search API key. |
 | DELETE | `/api/settings/google-search-keys/:id` | admin+ | Delete Google Search API key. |
 | PATCH | `/api/settings/google-search-keys/:id` | admin+ | Toggle/rename Google Search key. |
+| POST | `/api/settings/test-key` | admin+ | Lightweight test for any API key — sends a minimal request to the service. |
 | POST | `/api/settings/embedding-key` | admin+ | Save OpenAI embedding key. |
 | DELETE | `/api/settings/embedding-key` | admin+ | Clear embedding key. |
 | GET | `/api/settings/embedding-status` | admin+ | Embedding key status + score profile info. |
