@@ -1,4 +1,3 @@
-import type { TiptapContentValue } from "@/data/editorInitialValue";
 import type { ApiStory, Stage } from "@/pages/Stories";
 
 export type { ApiStory, Stage };
@@ -55,8 +54,6 @@ export interface StoryBrief {
   script?: string;
   scriptDuration?: number;
   scriptRaw?: string;
-  /** Tiptap editor content for script (Scripting / Filmed / Publish / Done). */
-  scriptTiptap?: TiptapContentValue;
   channelId?: string;
   youtubeTags?: string[];
   subtitlesSRT?: string;

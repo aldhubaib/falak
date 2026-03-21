@@ -1,10 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { User, ChevronDown, Clock, Sparkles, Check, Loader2, Film, Smartphone } from "lucide-react";
-import type { TiptapContentValue } from "@/data/editorInitialValue";
 import type { ApiChannel } from "./types";
 import { channelName } from "./StoryDetailChannelSelector";
-import { ScriptEditorTiptap, type CollabUser } from "@/components/ScriptEditorTiptap";
-import { scriptTextToEditorValue } from "@/data/editorInitialValue";
 
 export interface StoryDetailScriptSectionProps {
   channels: ApiChannel[];
@@ -16,19 +13,11 @@ export interface StoryDetailScriptSectionProps {
   generating: boolean;
   onGenerate: () => Promise<void>;
   readOnly: boolean;
-  /** Show Generate button + channel/format controls. False in filmed/publish/done. */
   showGenerateControls?: boolean;
-  /** Tiptap value for Scripting / Filmed / Publish / Done. */
-  scriptValue?: TiptapContentValue;
-  onScriptChange?: (value: TiptapContentValue) => void;
-  /** For live collaborators (avatars from Google sign-in). */
-  storyId?: string;
-  currentUser?: { id: string; name: string; avatarUrl: string | null } | null;
-  collaborationWsUrl?: string;
-  /** When true, show "Saving…" (auto-save in progress). */
+  scriptValue?: string;
+  onScriptChange?: (value: string) => void;
   saving?: boolean;
-  editorRef?: React.MutableRefObject<{ setContent: (v: TiptapContentValue) => void } | null>;
-  /** Video format: "short" or "long". Controls duration constraints. */
+  scriptRef?: React.MutableRefObject<{ setContent: (v: string) => void } | null>;
   videoFormat?: "short" | "long";
   onVideoFormatChange?: (format: "short" | "long") => void;
 }
@@ -46,21 +35,17 @@ export function StoryDetailScriptSection({
   showGenerateControls = true,
   scriptValue,
   onScriptChange,
-  storyId,
-  currentUser,
-  collaborationWsUrl,
   saving = false,
-  editorRef,
+  scriptRef,
   videoFormat,
   onVideoFormatChange,
 }: StoryDetailScriptSectionProps) {
   const [channelDropOpen, setChannelDropOpen] = useState(false);
-  const [collaborators, setCollaborators] = useState<{ id: string; name: string; avatar?: string; color?: string }[]>([]);
   const [durationInput, setDurationInput] = useState(() => String(scriptDuration));
   const userClearedRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const selectedCh = channels.find((c) => c.id === selectedChannelId);
 
-  // Sync duration input when format changes (parent sets new default)
   useEffect(() => {
     if (userClearedRef.current && scriptDuration === 0) {
       setDurationInput("");
@@ -69,12 +54,19 @@ export function StoryDetailScriptSection({
       setDurationInput(String(scriptDuration));
     }
   }, [scriptDuration]);
-  const value = scriptValue ?? scriptTextToEditorValue("");
 
-  const roomId = storyId ? `script-${storyId}` : undefined;
-  const onCollaboratorsChange = useCallback((users: CollabUser[]) => {
-    setCollaborators(users.map((u) => ({ id: u.id, name: u.name, avatar: u.avatarUrl ?? undefined })));
-  }, []);
+  useEffect(() => {
+    if (scriptRef) {
+      scriptRef.current = {
+        setContent: (v: string) => {
+          if (textareaRef.current) textareaRef.current.value = v;
+          onScriptChange?.(v);
+        },
+      };
+    }
+  }, [scriptRef, onScriptChange]);
+
+  const value = scriptValue ?? "";
 
   return (
     <section>
@@ -126,60 +118,6 @@ export function StoryDetailScriptSection({
               Saving…
             </span>
           )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {(collaborators.length > 0 || currentUser) && (
-            <span className="text-[10px] text-muted-foreground font-mono">
-              {collaborators.length + (currentUser ? 1 : 0)} editing
-            </span>
-          )}
-          <div className="flex items-center -space-x-2">
-            {currentUser && (
-              <div className="relative z-10">
-                {currentUser.avatarUrl ? (
-                  <img
-                    src={currentUser.avatarUrl}
-                    alt={currentUser.name}
-                    className="w-7 h-7 rounded-full object-cover border-2 border-border ring-2 ring-primary/40"
-                  />
-                ) : (
-                  <div
-                    className="w-7 h-7 rounded-full border-2 border-border ring-2 ring-primary/40 bg-primary/15 flex items-center justify-center text-[10px] font-mono text-primary"
-                    title={`${currentUser.name} (you)`}
-                  >
-                    {(currentUser.name || "?").slice(0, 1).toUpperCase()}
-                  </div>
-                )}
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-border" />
-              </div>
-            )}
-            {collaborators.slice(0, 5).map((u) => (
-              <div key={u.id} className="relative">
-                {u.avatar ? (
-                  <img
-                    src={u.avatar}
-                    alt={u.name}
-                    className="w-7 h-7 rounded-full object-cover border-2 border-border"
-                  />
-                ) : (
-                  <div
-                    className="w-7 h-7 rounded-full border-2 border-border flex items-center justify-center text-[10px] font-mono text-muted-foreground"
-                    style={{ backgroundColor: u.color ? `${u.color}33` : undefined }}
-                    title={u.name}
-                  >
-                    {(u.name || "?").slice(0, 1).toUpperCase()}
-                  </div>
-                )}
-                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-success border border-border" />
-              </div>
-            ))}
-            {collaborators.length > 5 && (
-              <div className="w-7 h-7 rounded-full bg-card border-2 border-border flex items-center justify-center text-[10px] text-muted-foreground font-medium">
-                +{collaborators.length - 5}
-              </div>
-            )}
-          </div>
         </div>
       </div>
       <div className="rounded-lg bg-card border border-border overflow-visible">
@@ -312,14 +250,14 @@ export function StoryDetailScriptSection({
         </div>
 
         <div className="px-5 max-sm:px-3 py-4 overflow-visible bg-card">
-          <ScriptEditorTiptap
+          <textarea
+            ref={textareaRef}
             value={value}
-            onChange={onScriptChange}
+            onChange={(e) => onScriptChange?.(e.target.value)}
             readOnly={readOnly}
-            roomId={roomId}
-            currentUser={currentUser ?? undefined}
-            onCollaboratorsChange={onCollaboratorsChange}
-            editorRef={editorRef}
+            dir="auto"
+            placeholder="Write your script here…"
+            className="w-full min-h-[200px] bg-transparent text-foreground text-[0.95rem] leading-[1.7] resize-y focus:outline-none placeholder:text-muted-foreground/50"
           />
         </div>
       </div>

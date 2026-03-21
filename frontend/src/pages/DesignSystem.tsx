@@ -26,7 +26,6 @@ import { StoryDetailStagePassed } from "@/components/story-detail/StoryDetailSta
 import { StoryDetailChannelSelector } from "@/components/story-detail/StoryDetailChannelSelector";
 import { StoryDetailTopBar } from "@/components/story-detail/StoryDetailTopBar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ScriptEditorTiptap } from "@/components/ScriptEditorTiptap";
 import { StoryDetailScriptSection } from "@/components/story-detail/StoryDetailScriptSection";
 import { StoryDetailStagePublish } from "@/components/story-detail/StoryDetailStagePublish";
 import { StoryDetailArticle } from "@/components/story-detail/StoryDetailArticle";
@@ -215,7 +214,7 @@ export default function DesignSystem() {
   const [brief, setBrief] = useState<StoryBrief>(MOCK_BRIEF);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
-  const editorRef = useRef<{ setContent: (v: any) => void } | null>(null);
+
 
   const sections = tab === "components" ? TAB1_SECTIONS : TAB2_SECTIONS;
   const activeSection = useActiveSection(sections);
@@ -500,12 +499,6 @@ export default function DesignSystem() {
 
               <CidBlock cid="story-script-section" name="StoryDetailScriptSection" source="StoryDetail.tsx">
                 <StoryDetailScriptSection channels={MOCK_API_CHANNELS} selectedChannelId="c1" onChannelSelect={NOOP} scriptDuration={8} onScriptDurationChange={NOOP} canGenerate={true} generating={false} onGenerate={NOOP_ASYNC} readOnly={false} showGenerateControls={true} videoFormat="long" onVideoFormatChange={NOOP} />
-              </CidBlock>
-
-              <CidBlock cid="script-editor-tiptap" name="ScriptEditorTiptap" source="StoryDetail.tsx">
-                <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
-                  <ScriptEditorTiptap readOnly={false} editorRef={editorRef} />
-                </div>
               </CidBlock>
 
               {/* ── SECTION 7: Media ── */}

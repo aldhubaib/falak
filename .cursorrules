@@ -17,7 +17,6 @@
 - **Queue**: Bull 4 on Redis (optional — polling fallback when REDIS_URL is absent)
 - **Object storage**: Cloudflare R2 (S3-compatible API via @aws-sdk/client-s3)
 - **Auth**: Google OAuth 2.0 → JWT in HTTP-only cookie
-- **Realtime**: Hocuspocus (Tiptap collab) + ws
 - **AI**: Anthropic Claude (analysis), OpenAI Embeddings + Whisper, Firecrawl, Perplexity, Apify
 - **Hosting**: Railway (single service, no Docker, no IaC)
 - **CI/CD**: None — Railway auto-deploys on push
@@ -32,7 +31,6 @@ falak/
 │   ├── worker.js        # Video pipeline worker (Bull or polling)
 │   ├── worker-articles.js
 │   ├── worker-rescore.js
-│   ├── ws-server.js     # Hocuspocus WebSocket server
 │   ├── routes/          # Express route handlers
 │   ├── services/        # Business logic and external API integrations
 │   ├── middleware/       # auth, errors, requestId
@@ -93,9 +91,8 @@ falak/
    `worker-rescore.js`). They use Bull queues when Redis is available, otherwise
    they poll the database. Keep this dual-mode pattern when adding new workers.
 
-9. **Frontend proxy:** In dev, Vite proxies `/api` to `:3000` and `/collab` to
-   the WebSocket server. In prod, Express serves `frontend/dist` as static
-   files. Keep this arrangement.
+9. **Frontend proxy:** In dev, Vite proxies `/api` to `:3000`. In prod, Express
+   serves `frontend/dist` as static files. Keep this arrangement.
 
 10. **Node version is 20.x** (see `.nvmrc`). Do not suggest features that
     require Node 22+.

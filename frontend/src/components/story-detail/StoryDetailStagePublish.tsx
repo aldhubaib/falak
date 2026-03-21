@@ -13,7 +13,6 @@ import {
 import { toast } from "sonner";
 import type { StoryBrief } from "./types";
 import { CopyBtn } from "./CopyBtn";
-import { extractScriptBlocks, editorValueToScriptText } from "@/data/editorInitialValue";
 import { scriptToSRT } from "@/data/subtitles";
 
 export interface StoryDetailStagePublishProps {
@@ -63,10 +62,6 @@ export function StoryDetailStagePublish({
   const description = brief.youtubeDescription || "";
 
   const scriptText = useMemo(() => {
-    const blocks = extractScriptBlocks(brief.scriptTiptap);
-    if (blocks.script) return blocks.script;
-    const allText = editorValueToScriptText(brief.scriptTiptap);
-    if (allText && /^\d{1,2}:\d{2}/m.test(allText)) return allText;
     if (brief.script) return brief.script;
     if (brief.scriptRaw) {
       const match = brief.scriptRaw.match(/## SCRIPT\s*\n([\s\S]*?)(?=\n## |$)/i);
@@ -74,7 +69,7 @@ export function StoryDetailStagePublish({
       return brief.scriptRaw;
     }
     return "";
-  }, [brief.scriptTiptap, brief.script, brief.scriptRaw]);
+  }, [brief.script, brief.scriptRaw]);
 
   const scriptSrt = useMemo(() => scriptToSRT(scriptText), [scriptText]);
   const srtContent = brief.subtitlesSRT || scriptSrt;

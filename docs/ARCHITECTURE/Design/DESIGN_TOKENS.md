@@ -54,19 +54,6 @@ Use as: `hsl(var(--token-name))` in CSS, or `bg-token-name` / `text-token-name` 
 | `--sidebar-primary` | `bg-sidebar-primary` | Active sidebar item |
 | `--sidebar-border` | `border-sidebar-border` | Sidebar dividers |
 
-### Script Block Colors
-> Defined in index.css, consumed only by `components/tiptap/ScriptBlock.tsx`.
-> These reference the main token system — change the status colors above to affect these.
-
-| Token | References | Used for |
-|---|---|---|
-| `--script-block-title` | `hsl(var(--orange))` | Title block label color |
-| `--script-block-hook` | `hsl(var(--destructive))` | Hook block label color |
-| `--script-block-hookStart` | `hsl(var(--purple))` | Hook start block label color |
-| `--script-block-script` | `hsl(var(--primary))` | Script block label color |
-| `--script-block-hookEnd` | `hsl(var(--purple))` | Hook end block label color |
-| `--script-block-hashtags` | `hsl(var(--success))` | Hashtags block label color |
-
 ---
 
 ## 2. Radius Tokens

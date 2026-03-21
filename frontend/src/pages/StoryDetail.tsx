@@ -1,13 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import {
-  scriptTextToEditorValue,
-  editorValueToScriptText,
-  extractScriptBlocks,
-  buildScriptBlocksJSON,
-} from "@/data/editorInitialValue";
 import { useChannelPath } from "@/hooks/useChannelPath";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil, X, Copy, Check, History,
@@ -661,26 +654,15 @@ export default function StoryDetail() {
   const { id, channelId } = useParams<{ id: string; channelId: string }>();
   const navigate = useNavigate();
   const channelPath = useChannelPath();
-  const currentUser = useCurrentUser();
-
-  const collaborationWsUrl = useMemo(
-    () =>
-      (import.meta.env.VITE_WS_URL as string | undefined) ||
-      `${typeof window !== "undefined" && window.location.protocol === "https:" ? "wss" : "ws"}://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:1234`,
-    []
-  );
 
   const [brief, setBrief] = useState<StoryBrief>({});
   const [story, setStory] = useState<StoryWithLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSavingState] = useState(false);
   const [ourChannels, setOurChannels] = useState<ApiChannel[]>([]);
-  const scriptEditorRef = useRef<{ setContent: (v: any) => void } | null>(null);
+  const scriptEditorRef = useRef<{ setContent: (v: string) => void } | null>(null);
 
-  const scriptValue = useMemo(
-    () => brief.scriptTiptap ?? scriptTextToEditorValue(brief.script ?? ""),
-    [brief.scriptTiptap, brief.script]
-  );
+  const scriptValue = brief.script ?? "";
 
   // Refs for redirect (avoid effect re-running when navigate/channelPath identity changes)
   const navigateRef = useRef(navigate);
@@ -758,7 +740,7 @@ export default function StoryDetail() {
     };
   }, []);
 
-  // Debounced save of script (scriptTiptap + script text) so refresh keeps content
+  // Debounced save of script so refresh keeps content
   const saveScriptTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveScript = useCallback(
     (storyId: string, newBrief: StoryBrief) => {
@@ -997,16 +979,9 @@ export default function StoryDetail() {
         }
       }
       const sections = parseStructuredScript(fullText);
-      const tiptapValue = buildScriptBlocksJSON({
-        title: sections.title,
-        hook: sections.hook,
-        hookStart: sections.hookStart || brief.hookStart || "",
-        script: sections.script,
-        hookEnd: sections.hookEnd || brief.hookEnd || "",
-        hashtags: sections.hashtags,
-      });
+      const generatedScript = sections.script || fullText.trim();
       if (scriptEditorRef.current) {
-        scriptEditorRef.current.setContent(tiptapValue);
+        scriptEditorRef.current.setContent(generatedScript);
       }
       setBrief((b) => {
         const next: StoryBrief = {
@@ -1014,9 +989,8 @@ export default function StoryDetail() {
           suggestedTitle: sections.title || b.suggestedTitle,
           openingHook: sections.hook || b.openingHook,
           hookStart: sections.hookStart,
-          script: sections.script || b.script,
+          script: generatedScript,
           hookEnd: sections.hookEnd,
-          scriptTiptap: tiptapValue,
           scriptDuration: scriptDurationMinutes,
           scriptRaw: fullText.trim(),
           youtubeTags: sections.hashtags.length > 0 ? sections.hashtags : b.youtubeTags,
@@ -1326,7 +1300,7 @@ export default function StoryDetail() {
                   showGenerateControls={activeStage === "scripting"}
                   scriptValue={scriptValue}
                   saving={saving}
-                  editorRef={scriptEditorRef}
+                  scriptRef={scriptEditorRef}
                   videoFormat={brief.videoFormat || "long"}
                   onVideoFormatChange={(fmt) => {
                     const defaultDuration = fmt === "short" ? 1 : 3;
@@ -1338,26 +1312,13 @@ export default function StoryDetail() {
                     });
                   }}
                   onScriptChange={(value) => {
-                    const blocks = extractScriptBlocks(value);
-                    const scriptText = blocks.script || editorValueToScriptText(value);
                     setBrief((b) => {
-                      const next: StoryBrief = {
-                        ...b,
-                        scriptTiptap: value,
-                        script: scriptText,
-                        suggestedTitle: blocks.title || b.suggestedTitle,
-                        openingHook: blocks.hook || b.openingHook,
-                        hookStart: blocks.hookStart !== "" ? blocks.hookStart : b.hookStart,
-                        hookEnd: blocks.hookEnd !== "" ? blocks.hookEnd : b.hookEnd,
-                        youtubeTags: blocks.hashtags.length > 0 ? blocks.hashtags : b.youtubeTags,
-                      };
+                      const next: StoryBrief = { ...b, script: value };
                       if (id) saveScript(id, next);
                       return next;
                     });
                   }}
-                  storyId={id}
-                  currentUser={currentUser}
-                  collaborationWsUrl={collaborationWsUrl}
+                  scriptRef={scriptEditorRef}
                 />
               </>
             )}
@@ -1391,11 +1352,8 @@ export default function StoryDetail() {
                   showGenerateControls={false}
                   scriptValue={scriptValue}
                   saving={false}
-                  editorRef={scriptEditorRef}
+                  scriptRef={scriptEditorRef}
                   videoFormat={brief.videoFormat || "long"}
-                  storyId={id}
-                  currentUser={currentUser}
-                  collaborationWsUrl={collaborationWsUrl}
                 />
               </>
             )}

@@ -19,10 +19,6 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:3000",
         changeOrigin: true,
       },
-      "/collab": {
-        target: "ws://localhost:3000",
-        ws: true,
-      },
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
@@ -38,7 +34,6 @@ export default defineConfig(({ mode }) => ({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-query': ['@tanstack/react-query'],
           'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-tooltip', '@radix-ui/react-popover'],
-          'vendor-editor': ['@tiptap/react', '@tiptap/starter-kit'],
           'vendor-charts': ['recharts'],
         },
       },

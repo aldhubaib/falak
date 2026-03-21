@@ -248,22 +248,9 @@ async function migrateVideoTypes() {
   }
 }
 
-// ── Hocuspocus (Tiptap real-time collaboration WebSocket server) ──
-const http = require('http')
-const { Hocuspocus } = require('@hocuspocus/server')
-
-const hocuspocus = new Hocuspocus({
-  name: 'falak-collab',
-  quiet: true,
-  onConnect({ documentName }) {
-    logger.info({ doc: documentName }, '[collab] user connected')
-  },
-  onDisconnect({ documentName }) {
-    logger.info({ doc: documentName }, '[collab] user disconnected')
-  },
-})
-
 // ── Start ─────────────────────────────────────────────────────
+const http = require('http')
+
 async function main() {
   await seedApiKeys()
   await migrateChannelTypes()
@@ -272,28 +259,6 @@ async function main() {
   const server = http.createServer(app)
   server.keepAliveTimeout = 65_000
   server.headersTimeout = 66_000
-
-  server.on('upgrade', (req, socket, head) => {
-    if (req.url?.startsWith('/collab')) {
-      try {
-        const token = new URL(req.url, 'http://localhost').searchParams.get('token')
-          || (req.headers.cookie || '').match(/token=([^;]+)/)?.[1]
-        if (!token) {
-          logger.warn('[collab] WebSocket rejected — no auth token')
-          socket.destroy()
-          return
-        }
-        const jwt = require('jsonwebtoken')
-        jwt.verify(token, config.JWT_SECRET, { algorithms: ['HS256'] })
-        hocuspocus.handleUpgrade(req, socket, head)
-      } catch (e) {
-        logger.error(e, '[collab] WebSocket upgrade failed')
-        socket.destroy()
-      }
-    } else {
-      socket.destroy()
-    }
-  })
 
   process.on('uncaughtException', (err) => {
     logger.error(err, '[fatal] Uncaught exception — shutting down')
@@ -332,7 +297,7 @@ async function main() {
   process.on('SIGINT', () => { logger.info('[shutdown] SIGINT received'); gracefulShutdown(server, 0) })
 
   server.listen(config.PORT, () => {
-    logger.info({ port: config.PORT }, 'Falak running (HTTP + WebSocket collab)')
+    logger.info({ port: config.PORT }, 'Falak running')
     // Start the video pipeline worker in-process.
     // Railway runs a single service via `npm start` — there is no separate worker dyno.
     // Requiring here (not at top) avoids any circular-dep issues at module load time.
