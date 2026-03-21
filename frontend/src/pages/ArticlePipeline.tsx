@@ -214,7 +214,7 @@ const SUB_STEPS: SubStep[] = [
   },
   {
     id: "promote", label: "Story Created", subtitle: "Create or link story",
-    icon: CheckCircle2, color: "text-success", parentStage: "score",
+    icon: CheckCircle2, color: "text-success", parentStage: "promote",
     filterFn: (a) => { const log = getLogStep(a, "promote"); return log?.status === "created"; },
   },
 ];
@@ -465,9 +465,14 @@ function PipelineTabContent() {
     ? [...Object.values(data.byStage)].flat()
     : [];
 
-  const doneArticles = data?.byStage?.done ?? [];
   const failedCount = data?.stats.failed ?? 0;
   const totalArticles = data?.stats.total ?? 0;
+
+  const articlesForSection = (parentStage: string): ApiArticle[] => {
+    if (!data) return [];
+    if (parentStage === "promote") return data.byStage.done ?? [];
+    return data.byStage[parentStage] ?? [];
+  };
 
   return (
     <>
@@ -626,7 +631,7 @@ function PipelineTabContent() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "content").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
               {(data?.byStage.content ?? []).length > 0 && (
@@ -641,7 +646,7 @@ function PipelineTabContent() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "classify").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.classify ?? []).length > 0 && (
                   <StageColumn stage={STAGE_DEFS[2]} items={data?.byStage.classify ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
@@ -654,7 +659,7 @@ function PipelineTabContent() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "research" && ["research_decision", "firecrawl_search", "perplexity_context"].includes(s.id)).map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
               {(data?.byStage.research ?? []).length > 0 && (
@@ -669,7 +674,7 @@ function PipelineTabContent() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "research" && ["synthesis", "research"].includes(s.id)).map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
             </div>
@@ -679,7 +684,7 @@ function PipelineTabContent() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-5 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "translated").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.translated ?? []).length > 0 && (
                   <StageColumn stage={STAGE_DEFS[4]} items={data?.byStage.translated ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
@@ -702,7 +707,7 @@ function PipelineTabContent() {
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
                 {SUB_STEPS.filter(s => s.parentStage === "score" && ["score_similarity", "score_ai_analysis", "score"].includes(s.id)).map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
                 {(data?.byStage.score ?? []).length > 0 && (
                   <StageColumn stage={STAGE_DEFS[6]} items={data?.byStage.score ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
@@ -714,8 +719,8 @@ function PipelineTabContent() {
             <SectionHeader icon={getFlowDef("promote")!.icon} title={getFlowDef("promote")!.name} subtitle={getFlowDef("promote")!.subtitle} />
             <div className="px-6 max-lg:px-4 mb-6">
               <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "score" && s.id === "promote").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={doneArticles.filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                {SUB_STEPS.filter(s => s.parentStage === "promote").map((sub) => (
+                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                 ))}
               </div>
             </div>
