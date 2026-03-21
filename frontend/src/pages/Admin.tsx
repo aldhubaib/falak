@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Shield, Mail, Search, Pencil, Trash2, ChevronDown, Key, Eye } from "lucide-react";
+import { Shield, Mail, Search, Pencil, Trash2, ChevronDown, Key, Eye, AlertTriangle, Loader2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 type Role = "admin" | "editor" | "viewer";
 
@@ -289,7 +290,93 @@ export default function Admin() {
             </div>
           </div>
 
+          {/* Danger Zone */}
+          <DangerZone />
+
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DangerZone() {
+  const [resetting, setResetting] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleReset = async () => {
+    if (confirmText !== "DELETE ALL") return;
+    setResetting(true);
+    try {
+      const res = await fetch("/api/article-pipeline/reset", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Reset failed");
+      const summary = Object.entries(data.deleted as Record<string, number>)
+        .filter(([, count]) => count > 0)
+        .map(([table, count]) => `${count} ${table}`)
+        .join(", ");
+      toast.success(summary ? `Deleted: ${summary}` : "Pipeline is already empty");
+      setShowConfirm(false);
+      setConfirmText("");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-5 mb-10">
+      <div className="flex items-center gap-2.5 mb-1">
+        <AlertTriangle className="w-4 h-4 text-destructive" />
+        <span className="text-[14px] font-semibold text-destructive">Danger Zone</span>
+      </div>
+      <p className="text-[12px] text-muted-foreground mb-4">
+        Irreversible actions that affect all pipeline data.
+      </p>
+
+      <div className="rounded-lg border border-border bg-background p-4 flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start">
+        <div>
+          <div className="text-[13px] font-semibold">Reset Article Pipeline</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            Deletes all articles, stories, alerts, score profiles, and Apify run history. Source configs are kept but polling state is reset.
+          </div>
+        </div>
+        {!showConfirm ? (
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="shrink-0 px-4 py-2 text-[12px] font-semibold rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            Reset Pipeline
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 shrink-0 max-sm:w-full">
+            <input
+              type="text"
+              placeholder='Type "DELETE ALL"'
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              className="px-3 py-2 text-[12px] bg-background border border-destructive/30 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-destructive/60 w-[160px]"
+              autoFocus
+            />
+            <button
+              onClick={handleReset}
+              disabled={confirmText !== "DELETE ALL" || resetting}
+              className="px-4 py-2 text-[12px] font-semibold rounded-lg bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {resetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm"}
+            </button>
+            <button
+              onClick={() => { setShowConfirm(false); setConfirmText(""); }}
+              className="px-3 py-2 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
