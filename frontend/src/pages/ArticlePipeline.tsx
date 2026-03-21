@@ -530,14 +530,22 @@ function PipelineTabContent() {
           </div>
         ) : (
           <>
-            {/* Stats row */}
-            <div className="px-6 max-lg:px-4 mb-5 pt-5">
-              <div className="flex rounded-lg overflow-hidden border border-border">
+            {/* Stats rows */}
+            <div className="px-6 max-lg:px-4 mb-5 pt-5 space-y-0">
+              <div className="flex rounded-t-lg overflow-hidden border border-b-0 border-border">
                 <StatBox label="Total" value={totalArticles} />
-                {STAGE_DEFS.filter(s => s.number > 0).map((s) => (
-                  <StatBox key={s.id} label={s.label} value={data?.stats[s.id] ?? 0} color={s.color} />
-                ))}
+                <StatBox label="Imported" value={data?.stats.imported ?? 0} color="text-orange" />
+                <StatBox label="Content" value={data?.stats.content ?? 0} color="text-primary" />
+                <StatBox label="Classify" value={data?.stats.classify ?? 0} color="text-success" />
+                <StatBox label="Title Translate" value={data?.stats.title_translate ?? 0} color="text-primary" />
+                <StatBox label="Score" value={data?.stats.score ?? 0} color="text-orange" last />
+              </div>
+              <div className="flex rounded-b-lg overflow-hidden border border-border">
+                <StatBox label="Research" value={data?.stats.research ?? 0} color="text-purple" />
+                <StatBox label="Translated" value={data?.stats.translated ?? 0} color="text-primary" />
+                <StatBox label="Images" value={data?.stats.images ?? 0} color="text-primary" />
                 <StatBox label="Done" value={data?.stats.done ?? 0} color="text-success" />
+                <StatBox label="Filtered" value={data?.stats.filtered ?? 0} color="text-muted-foreground" />
                 <StatBox label="Review" value={data?.stats.review ?? 0} color="text-orange" />
                 <StatBox label="Failed" value={failedCount} color="text-destructive" last />
               </div>
