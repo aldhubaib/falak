@@ -2,6 +2,7 @@ const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { VALID_SOURCE_TYPES, ingestAll, ingestSource, hasApiKey, checkBudget, checkCooldown } = require('../services/articlePipeline')
+const articleEvents = require('../lib/articleEvents')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -219,6 +220,35 @@ router.get('/:id/detail', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
+})
+
+// ── GET /api/article-pipeline/:id/events — SSE stream for live stage updates ──
+router.get('/:id/events', async (req, res) => {
+  const articleId = req.params.id
+  const article = await db.article.findUnique({ where: { id: articleId }, select: { id: true } })
+  if (!article) return res.status(404).json({ error: 'Article not found' })
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  })
+  res.write(':\n\n')
+
+  const heartbeat = setInterval(() => res.write(':\n\n'), 15_000)
+
+  const onUpdate = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+  }
+  articleEvents.on(`article:${articleId}`, onUpdate)
+
+  const cleanup = () => {
+    clearInterval(heartbeat)
+    articleEvents.removeListener(`article:${articleId}`, onUpdate)
+  }
+  req.on('close', cleanup)
+  res.on('close', cleanup)
 })
 
 // ── GET /api/article-pipeline/:sourceId/articles ──────────────────────────

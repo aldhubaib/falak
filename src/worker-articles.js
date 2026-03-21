@@ -7,6 +7,7 @@
 try { require('dotenv').config() } catch (_) {}
 const db = require('./lib/db')
 const logger = require('./lib/logger')
+const articleEvents = require('./lib/articleEvents')
 const {
   doStageImported,
   doStageContent,
@@ -123,6 +124,7 @@ async function processItem(article, { force = false } = {}) {
           finishedAt: new Date(),
         },
       })
+      articleEvents.emit(`article:${article.id}`, { stage: article.stage, status: 'review' })
       return
     }
 
@@ -135,6 +137,7 @@ async function processItem(article, { force = false } = {}) {
         finishedAt: new Date(),
       },
     })
+    articleEvents.emit(`article:${article.id}`, { stage: out.nextStage, status: out.nextStage === 'done' ? 'done' : 'queued' })
   } catch (err) {
     const errorMsg = (err && err.message) || String(err)
     const updated = await db.article.update({
@@ -152,6 +155,7 @@ async function processItem(article, { force = false } = {}) {
         where: { id: article.id },
         data: { stage: 'failed', status: 'failed' },
       })
+      articleEvents.emit(`article:${article.id}`, { stage: 'failed', status: 'failed' })
     }
   }
 }

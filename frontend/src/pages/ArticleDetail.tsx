@@ -239,10 +239,25 @@ export default function ArticleDetailPage() {
     && !TERMINAL_STATES.current.has(article.status);
 
   useEffect(() => {
-    if (!isProcessing) return;
-    const handle = setInterval(() => fetchArticle(true), 4000);
-    return () => clearInterval(handle);
-  }, [isProcessing, fetchArticle]);
+    if (!isProcessing || !id) return;
+
+    const es = new EventSource(`/api/article-pipeline/${id}/events`, { withCredentials: true });
+    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+
+    es.onmessage = () => fetchArticle(true);
+
+    es.onerror = () => {
+      es.close();
+      if (!fallbackTimer) {
+        fallbackTimer = setInterval(() => fetchArticle(true), 5000);
+      }
+    };
+
+    return () => {
+      es.close();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
+  }, [isProcessing, id, fetchArticle]);
 
   const handleRestart = async (stage?: string) => {
     if (!id || restarting) return;

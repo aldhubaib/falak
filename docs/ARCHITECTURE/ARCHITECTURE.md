@@ -775,6 +775,7 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | GET | `/api/article-pipeline` | Yes | Kanban view — articles by stage or per-source workflow. |
 | GET | `/api/article-pipeline/firecrawl-example` | Yes | Find one Firecrawl-scraped article. |
 | GET | `/api/article-pipeline/:id/detail` | Yes | Full article detail with truncated content. |
+| GET | `/api/article-pipeline/:id/events` | Yes | SSE stream — pushes `{stage,status}` on each stage transition. |
 | GET | `/api/article-pipeline/:sourceId/articles` | Yes | Articles for a specific source. |
 | POST | `/api/article-pipeline/ingest` | editor+ | Trigger article ingestion. |
 | POST | `/api/article-pipeline/pause` | admin+ | Pause article worker (persisted in DB via `AppSetting`). |
@@ -1094,7 +1095,7 @@ Requires ≥3 outcomes.
 | `/c/:channelId/story/:id` | StoryDetail | Story editor with AI tools (~1560 lines) |
 | `/c/:channelId/publish` | PublishQueue | Bulk video upload + processing |
 | `/c/:channelId/article-pipeline` | ArticlePipeline | 3 tabs: Pipeline, Sources, Intelligence |
-| `/c/:channelId/article/:id` | ArticleDetail | Article inspector with 8-stage timeline |
+| `/c/:channelId/article/:id` | ArticleDetail | Article inspector with 9-stage timeline + SSE live updates |
 | `/c/:channelId/gallery` | Gallery | Media gallery with albums |
 | `/c/:channelId/gallery/album/:albumId` | AlbumDetail | Album detail view |
 | `/c/:channelId/settings` | Settings | API keys + usage dashboard |
@@ -1800,4 +1801,14 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 
 ---
 
-*Last updated: 2026-03-20*
+## Section 19 — Article Inspector Live Updates (2026-03-21)
+
+### SSE Push for Stage Transitions
+- **`src/lib/articleEvents.js`** (new): In-process `EventEmitter` singleton shared by the article worker and Express server. The worker emits `article:<id>` events after every stage transition (success, review, or terminal failure). The SSE route subscribes per-client.
+- **`src/worker-articles.js`**: Emits `articleEvents.emit(...)` after each `db.article.update` in `processItem` — covers the next-stage, review, and max-retries-failed paths.
+- **`src/routes/articlePipeline.js`**: New `GET /:id/events` SSE endpoint. Streams `{stage,status}` JSON payloads to the client on each transition. Includes a 15 s heartbeat and cleans up listeners on disconnect.
+- **Frontend `ArticleDetail.tsx`**: Replaced 4 s `setInterval` polling with `EventSource`. On each SSE message the page silently re-fetches full detail. Falls back to 5 s polling if SSE connection fails.
+
+---
+
+*Last updated: 2026-03-21*
