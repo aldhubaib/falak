@@ -404,7 +404,8 @@ export default function ArticleDetailPage() {
             )}
             {article.finalScore != null && (
               <div className="mt-3 flex items-center gap-4 text-[11px] font-mono">
-                <span className="text-foreground font-semibold">Score: {article.finalScore.toFixed(2)} <span className="text-muted-foreground font-normal">({(Math.round(article.finalScore * 10 * 10) / 10).toFixed(1)}/10)</span></span>
+                <span className="text-foreground font-semibold">Score: {article.finalScore.toFixed(2)}</span>
+                <span className="text-muted-foreground">→ {(Math.round(article.finalScore * 10 * 10) / 10).toFixed(1)}/10</span>
                 {article.relevanceScore != null && <span className="text-muted-foreground">Relevance: {article.relevanceScore.toFixed(2)}</span>}
                 {article.rankReason && <span className="text-muted-foreground">{article.rankReason}</span>}
               </div>
@@ -1419,7 +1420,9 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
                 {prefBias !== 0 && ` · Pref ${prefBias > 0 ? "+" : ""}${prefBias.toFixed(2)}`}
                 {competitionPenalty > 0 && ` · Penalty -${competitionPenalty.toFixed(2)}`}
                 {" → "}<span className="font-bold text-success">Final {finalScore.toFixed(2)}</span>
-                <span className="text-muted-foreground ml-1">({(Math.round(finalScore * 10 * 10) / 10).toFixed(1)}/10)</span>
+              </div>
+              <div className="text-[11px] font-mono mt-1.5 text-muted-foreground">
+                {finalScore.toFixed(2)} × 10 = <span className="font-bold text-foreground">{(Math.round(finalScore * 10 * 10) / 10).toFixed(1)}/10</span>
               </div>
             </>
           );
