@@ -25,8 +25,27 @@ interface QualityEval {
   narrativeStrength?: number | null;
 }
 
+interface DisplayBlockDef {
+  type: string;
+  label?: string;
+  value?: string | number;
+  variant?: string;
+  text?: string;
+  rows?: { label: string; value: number; weight: number }[];
+  items?: { title: string; subtitle?: string }[];
+  raw?: number;
+  adjustments?: { label: string; value: number }[];
+  final?: number;
+  quality?: QualityEval;
+}
+
 interface LogEntry {
   step: string;
+  stage?: string;
+  label?: string;
+  icon?: string;
+  subtitle?: string;
+  display?: DisplayBlockDef[];
   status?: string;
   processor?: "ai" | "api" | "server";
   service?: string;
@@ -75,6 +94,19 @@ interface LogEntry {
   summary?: string;
   uniqueAngle?: string;
   isBreaking?: boolean;
+  nicheScore?: number;
+  nicheActive?: boolean;
+  topicDemand?: number;
+  topicDemandSimilarCount?: number;
+  competitionPenalty?: number;
+  similarCount?: number;
+  avgPerformanceRatio?: number;
+  tier?: number;
+  dialect?: string;
+  hasHooks?: boolean;
+  hasResearch?: boolean;
+  rawChars?: number;
+  titlePreview?: string;
 }
 
 interface Analysis {
@@ -548,6 +580,7 @@ function StageSection({
           {stage.id === "script" && <ScriptDetail article={article} log={log} />}
           {stage.id === "score" && <ScoringDetail article={article} log={log} />}
           {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
+          <UnknownEntries stageId={stage.id} log={log} />
         </>
       )}
     </div>
@@ -565,11 +598,13 @@ const STEP_MAP: Record<string, string[]> = {
   synthesis: ["synthesis", "research"],
   translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
   script: ["auto_script"],
-  score: ["score_similarity", "score_ai_analysis", "score"],
+  score: ["score_similarity", "score_topic_demand", "score_niche", "score_ai_analysis", "score"],
   promote: ["promote"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
+  const byStage = log.filter((e) => e.stage === stageId);
+  if (byStage.length > 0) return byStage;
   const steps = STEP_MAP[stageId] || [];
   return log.filter((e) => steps.includes(e.step));
 }
@@ -593,6 +628,8 @@ const STEP_DISPLAY: Record<string, { label: string; subtitle?: string; icon: typ
   translate_analysis: { label: "Translate Fields", subtitle: "Classification fields → Arabic", icon: Brain },
   translate_research: { label: "Translate Brief", subtitle: "Research brief → Arabic", icon: Search },
   score_similarity: { label: "Competition Match", subtitle: "Match vs. existing stories", icon: Target },
+  score_topic_demand: { label: "Topic Demand", subtitle: "Competitor audience engagement", icon: Users },
+  score_niche: { label: "Niche Fit", subtitle: "Channel niche relevance", icon: Target },
   score_ai_analysis: { label: "AI Scoring", subtitle: "Relevance & viral scores", icon: Brain },
   score: { label: "Final Score", subtitle: "Composite score", icon: Sparkles },
   promote: { label: "Story Created", subtitle: "Create or link story", icon: CheckCircle2 },
@@ -837,6 +874,118 @@ function ExpandableText({ label, text, maxLen }: { label: string; text: string; 
   );
 }
 
+/* ─── Icon map for self-describing entries ─── */
+
+const ICON_MAP: Record<string, typeof FileText> = {
+  "file-text": FileText, "globe": Globe, "brain": Brain, "search": Search,
+  "target": Target, "languages": Languages, "sparkles": Sparkles,
+  "check-circle": CheckCircle2, "users": Users, "pen-line": PenLine,
+  "download": ArrowLeft, "server": Server, "cpu": Cpu, "info": Info,
+};
+
+function resolveIcon(iconKey?: string): typeof FileText {
+  if (!iconKey) return FileText;
+  return ICON_MAP[iconKey] || FileText;
+}
+
+/* ─── Display block renderer — renders self-describing UI primitives from backend ─── */
+
+function DisplayBlockList({ blocks }: { blocks: DisplayBlockDef[] }) {
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, i) => (
+        <DisplayBlockItem key={i} block={block} />
+      ))}
+    </div>
+  );
+}
+
+function DisplayBlockItem({ block }: { block: DisplayBlockDef }) {
+  switch (block.type) {
+    case "text":
+      return <span>{String(block.value ?? "")}</span>;
+
+    case "stat":
+      return (
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-muted-foreground">{block.label}:</span>
+          <span className="text-foreground font-medium">{String(block.value ?? "—")}</span>
+        </div>
+      );
+
+    case "gauge":
+      return <ScoreGauge label={block.label ?? ""} value={typeof block.value === "number" ? block.value : 0} />;
+
+    case "badge": {
+      const BADGE_COLORS: Record<string, string> = {
+        success: "bg-success/10 text-success",
+        primary: "bg-primary/10 text-primary",
+        muted: "bg-dim/10 text-muted-foreground",
+      };
+      const color = BADGE_COLORS[block.variant ?? "muted"] || BADGE_COLORS.muted;
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${color}`}>
+          {block.label}
+        </span>
+      );
+    }
+
+    case "breakdown":
+      if (!block.rows || !Array.isArray(block.rows)) return null;
+      return (
+        <div className="space-y-1">
+          {block.rows.map((row, i) => (
+            <ScoreRow
+              key={i}
+              label={row.label}
+              value={row.value}
+              weight={row.weight}
+              result={Math.round(row.value * row.weight * 1000) / 1000}
+            />
+          ))}
+        </div>
+      );
+
+    case "formula": {
+      const rawVal = typeof block.raw === "number" ? block.raw : 0;
+      const adjustments = block.adjustments ?? [];
+      const finalVal = typeof block.final === "number" ? block.final : 0;
+      return (
+        <div className="text-[11px] font-mono mt-1">
+          Raw {rawVal.toFixed(3)}
+          {adjustments.map((adj, i) => (
+            <span key={i}> · {adj.label} {adj.value > 0 ? "+" : ""}{adj.value.toFixed(2)}</span>
+          ))}
+          {" → "}<span className="font-bold text-success">Final {finalVal.toFixed(2)}</span>
+        </div>
+      );
+    }
+
+    case "list":
+      if (!block.items || !Array.isArray(block.items)) return null;
+      return (
+        <ul className="list-disc list-inside text-[11px] space-y-0.5">
+          {block.items.map((item, i) => (
+            <li key={i}>
+              {item.title}
+              {item.subtitle && <span className="text-muted-foreground ml-1">({item.subtitle})</span>}
+            </li>
+          ))}
+        </ul>
+      );
+
+    case "expandable":
+      if (!block.text) return null;
+      return <ExpandableText label={block.label ?? "Details"} text={block.text} maxLen={1500} />;
+
+    case "quality":
+      return <QualityBadge quality={block.quality} />;
+
+    default:
+      return null;
+  }
+}
+
 function QualityBadge({ quality }: { quality?: QualityEval | null }) {
   if (!quality) return null;
   const s = quality.score;
@@ -878,6 +1027,46 @@ function StepHeader({ entry, label, icon: Icon }: { entry: LogEntry; label: stri
       <div className="flex items-center gap-2">
         <TokensBadge entry={entry} />
       </div>
+    </div>
+  );
+}
+
+/* ─── Generic fallback for entries the stage detail components don't know about ─── */
+
+function UnknownEntries({ stageId, log }: { stageId: string; log: LogEntry[] }) {
+  const knownSteps = STEP_MAP[stageId] || [];
+  const unknowns = log.filter(
+    (e) => e.stage === stageId && !knownSteps.includes(e.step)
+  );
+  if (unknowns.length === 0) return null;
+
+  return (
+    <div className="px-4 pb-4 space-y-3">
+      {unknowns.map((entry) => {
+        const entryIcon = resolveIcon(entry.icon);
+        const hasDisplay = entry.display && Array.isArray(entry.display) && entry.display.length > 0;
+        return (
+          <LogStepCard
+            key={entry.step}
+            entry={entry}
+            stepId={entry.step}
+            label={entry.label ?? entry.step}
+            subtitle={entry.subtitle}
+            icon={entryIcon}
+          >
+            {hasDisplay ? (
+              <DisplayBlockList blocks={entry.display!} />
+            ) : (
+              <>
+                {entry.reason && <span className="text-muted-foreground">{entry.reason}</span>}
+                {entry.error && <span className="text-destructive">{entry.error}</span>}
+                {entry.promptSent && <div className="mt-1"><ExpandableText label="prompt" text={entry.promptSent} maxLen={500} /></div>}
+                {entry.rawResponse && <div className="mt-1"><ExpandableText label="response" text={entry.rawResponse} maxLen={500} /></div>}
+              </>
+            )}
+          </LogStepCard>
+        );
+      })}
     </div>
   );
 }
@@ -1135,31 +1324,35 @@ function AiAnalysisDetail({ article, log }: { article: ArticleDetail; log: LogEn
 }
 
 function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
-  const similarityLog = log.find((e) => e.step === "score_similarity");
-  const aiLog = log.find((e) => e.step === "score_ai_analysis");
-  const scoreLog = log.find((e) => e.step === "score");
-
-  const hasAny = similarityLog || aiLog || scoreLog;
+  const stepLog = getStepLogs("score", log);
+  const hasAny = stepLog.length > 0;
   if (!hasAny) {
     return <EmptyState icon={Sparkles} title="No scoring data yet" />;
   }
 
-  const relevance = (aiLog?.relevance ?? scoreLog?.relevance) ?? 0;
-  const viral = (aiLog?.viralPotential ?? scoreLog?.viralPotential) ?? 0;
+  const scoreLog = stepLog.find((e) => e.step === "score");
+  const relevance = scoreLog?.relevance ?? 0;
+  const viral = scoreLog?.viralPotential ?? 0;
   const freshness = scoreLog?.freshness ?? 0;
   const prefBias = scoreLog?.preferenceBias ?? 0;
   const competitionPenalty = scoreLog?.competitionPenalty ?? 0;
   const finalScore = scoreLog?.finalScore ?? 0;
 
-  const steps = STEP_MAP.score;
-
   return (
     <div className="p-4 space-y-4">
-      {steps.map((stepId) => {
-        const entry = log.find((e) => e.step === stepId);
-        const { label, icon } = STEP_DISPLAY[stepId] || { label: stepId, icon: Sparkles };
+      {stepLog.map((entry) => {
+        const stepId = entry.step;
+        const hasDisplay = entry.display && Array.isArray(entry.display) && entry.display.length > 0;
+        const displayInfo = STEP_DISPLAY[stepId];
+        const entryLabel = entry.label ?? displayInfo?.label ?? stepId;
+        const entrySubtitle = entry.subtitle ?? displayInfo?.subtitle;
+        const entryIcon = entry.icon ? resolveIcon(entry.icon) : (displayInfo?.icon ?? Sparkles);
+
         let body: React.ReactNode = null;
-        if (stepId === "score_similarity" && entry) {
+
+        if (hasDisplay) {
+          body = <DisplayBlockList blocks={entry.display!} />;
+        } else if (stepId === "score_similarity") {
           body = (
             <>
               {entry.status === "ok" && (
@@ -1174,23 +1367,46 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
                   )}
                 </>
               )}
-              {entry.status !== "ok" && <span>{(entry as any).reason || (entry as any).error || "Skipped"}</span>}
+              {entry.status !== "ok" && <span>{entry.reason || entry.error || "Skipped"}</span>}
             </>
           );
-        } else if (stepId === "score_ai_analysis" && entry) {
+        } else if (stepId === "score_topic_demand") {
           body = (
             <>
-              {((entry as any).inputTokens != null || (entry as any).outputTokens != null) && (
-                <span>Tokens: {(entry as any).inputTokens ?? "—"} / {(entry as any).outputTokens ?? "—"} / {(entry as any).totalTokens ?? "—"}</span>
+              {entry.status === "ok" && (
+                <>
+                  <ScoreGauge label="Topic Demand" value={entry.topicDemand ?? 0} />
+                  <div className="flex items-center gap-3 text-[11px] mt-1">
+                    <span className="text-muted-foreground">{entry.similarCount ?? 0} competitor videos analysed</span>
+                    {entry.avgPerformanceRatio != null && (
+                      <span className="text-muted-foreground">Avg {entry.avgPerformanceRatio}× channel average</span>
+                    )}
+                  </div>
+                </>
               )}
-              {(entry as any).sentiment && <span className="ml-2">Sentiment: {(entry as any).sentiment}</span>}
-              {(entry as any).viralPotential != null && <span className="ml-2">Viral: {(entry as any).viralPotential}</span>}
-              {(entry as any).relevance != null && <span className="ml-2">Relevance: {(entry as any).relevance}</span>}
+              {entry.status !== "ok" && <span className="text-muted-foreground">{entry.reason || entry.error || "Skipped"}</span>}
+            </>
+          );
+        } else if (stepId === "score_niche") {
+          body = (
+            <>
+              {entry.status === "ok" && (
+                <ScoreGauge label="Niche Score" value={entry.nicheScore ?? 0} />
+              )}
+              {entry.status !== "ok" && <span className="text-muted-foreground">{entry.reason || entry.error || "Skipped"}</span>}
+            </>
+          );
+        } else if (stepId === "score_ai_analysis") {
+          body = (
+            <>
+              {entry.sentiment && <span>Sentiment: {entry.sentiment}</span>}
+              {entry.viralPotential != null && <span className="ml-2">Viral: {entry.viralPotential}</span>}
+              {entry.relevance != null && <span className="ml-2">Relevance: {entry.relevance}</span>}
               {entry.promptSent && <div className="mt-1"><ExpandableText label="prompt" text={entry.promptSent} maxLen={500} /></div>}
               {entry.rawResponse && <div className="mt-1"><ExpandableText label="response" text={entry.rawResponse} maxLen={500} /></div>}
             </>
           );
-        } else if (stepId === "score" && entry) {
+        } else if (stepId === "score") {
           body = (
             <>
               <div className="space-y-1">
@@ -1206,13 +1422,27 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
               </div>
             </>
           );
+        } else {
+          body = (
+            <>
+              {entry.status !== "ok" && entry.reason && <span className="text-muted-foreground">{entry.reason}</span>}
+              {entry.error && <span className="text-destructive">{entry.error}</span>}
+            </>
+          );
         }
-        let skippedReason: string | undefined;
-        if (!entry && stepId === "score_similarity") {
-          skippedReason = similarityLog?.reason ?? "No embedding key";
-        }
-        const { subtitle } = STEP_DISPLAY[stepId] || {};
-        return <LogStepCard key={stepId} entry={entry ?? null} stepId={stepId} label={label} subtitle={subtitle} icon={icon} skippedReason={skippedReason}>{body}</LogStepCard>;
+
+        return (
+          <LogStepCard
+            key={stepId}
+            entry={entry}
+            stepId={stepId}
+            label={entryLabel}
+            subtitle={entrySubtitle}
+            icon={entryIcon}
+          >
+            {body}
+          </LogStepCard>
+        );
       })}
 
       {article.rankReason && (

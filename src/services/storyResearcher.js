@@ -95,11 +95,12 @@ async function researchStory(article, channelId) {
         lang,
       })
       if (result.error) {
-        log.push({ step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API', status: 'failed', error: result.error, query: searchQuery, at: new Date().toISOString() })
+        log.push({ step: 'firecrawl_search', stage: 'research', label: 'Web Search', icon: 'search', subtitle: 'Related articles via search', processor: 'api', service: 'Firecrawl Search API', status: 'failed', error: result.error, query: searchQuery, at: new Date().toISOString() })
       } else {
         firecrawlResults = result.results || []
         log.push({
-          step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API',
+          step: 'firecrawl_search', stage: 'research', label: 'Web Search', icon: 'search', subtitle: 'Related articles via search',
+          processor: 'api', service: 'Firecrawl Search API',
           status: 'ok',
           query: searchQuery,
           resultsCount: firecrawlResults.length,
@@ -109,10 +110,10 @@ async function researchStory(article, channelId) {
         })
       }
     } catch (e) {
-      log.push({ step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'firecrawl_search', stage: 'research', label: 'Web Search', icon: 'search', subtitle: 'Related articles via search', processor: 'api', service: 'Firecrawl Search API', status: 'failed', error: e.message, at: new Date().toISOString() })
     }
   } else {
-    log.push({ step: 'firecrawl_search', processor: 'api', service: 'Firecrawl Search API', status: 'skipped', reason: 'No Firecrawl key', at: new Date().toISOString() })
+    log.push({ step: 'firecrawl_search', stage: 'research', label: 'Web Search', icon: 'search', subtitle: 'Related articles via search', processor: 'api', service: 'Firecrawl Search API', status: 'skipped', reason: 'No Firecrawl key', at: new Date().toISOString() })
   }
 
   // ── Step 2: Perplexity Background Context ──
@@ -128,7 +129,8 @@ async function researchStory(article, channelId) {
       perplexityCitations = result.citations || []
       const pxQuality = evaluatePerplexityQuality(perplexityContext, perplexityCitations)
       log.push({
-        step: 'perplexity_context', processor: 'ai', service: 'Perplexity Sonar',
+        step: 'perplexity_context', stage: 'research', label: 'Background', icon: 'globe', subtitle: 'Context from Perplexity',
+        processor: 'ai', service: 'Perplexity Sonar',
         status: perplexityContext ? 'ok' : 'empty',
         promptSent: bgPrompt.slice(0, 1500),
         rawResponse: (perplexityContext || '').slice(0, 1500),
@@ -141,10 +143,10 @@ async function researchStory(article, channelId) {
         at: new Date().toISOString(),
       })
     } catch (e) {
-      log.push({ step: 'perplexity_context', processor: 'ai', service: 'Perplexity Sonar', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'perplexity_context', stage: 'research', label: 'Background', icon: 'globe', subtitle: 'Context from Perplexity', processor: 'ai', service: 'Perplexity Sonar', status: 'failed', error: e.message, at: new Date().toISOString() })
     }
   } else {
-    log.push({ step: 'perplexity_context', processor: 'ai', service: 'Perplexity Sonar', status: 'skipped', reason: 'No Perplexity key', at: new Date().toISOString() })
+    log.push({ step: 'perplexity_context', stage: 'research', label: 'Background', icon: 'globe', subtitle: 'Context from Perplexity', processor: 'ai', service: 'Perplexity Sonar', status: 'skipped', reason: 'No Perplexity key', at: new Date().toISOString() })
   }
 
   // ── Step 3: Claude Synthesis ──
@@ -177,7 +179,8 @@ async function researchStory(article, channelId) {
       researchBrief = parseSynthesisResponse(raw)
       const synthQuality = evaluateSynthesisQuality(researchBrief)
       log.push({
-        step: 'synthesis', processor: 'ai', service: 'Anthropic Claude Sonnet',
+        step: 'synthesis', stage: 'synthesis', label: 'Synthesis', icon: 'brain', subtitle: 'AI brief (hook, narrative, facts)',
+        processor: 'ai', service: 'Anthropic Claude Sonnet',
         status: researchBrief ? 'ok' : 'parse_error',
         model: 'claude-sonnet-4-6',
         briefKeys: researchBrief ? Object.keys(researchBrief) : [],
@@ -190,7 +193,7 @@ async function researchStory(article, channelId) {
         at: new Date().toISOString(),
       })
     } catch (e) {
-      log.push({ step: 'synthesis', processor: 'ai', service: 'Anthropic Claude Sonnet', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push({ step: 'synthesis', stage: 'synthesis', label: 'Synthesis', icon: 'brain', subtitle: 'AI brief (hook, narrative, facts)', processor: 'ai', service: 'Anthropic Claude Sonnet', status: 'failed', error: e.message, at: new Date().toISOString() })
     }
   }
 

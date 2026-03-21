@@ -21,6 +21,39 @@ const MIN_CONTENT_LENGTH = 300
 const ARABIC_CHAR_REGEX = /[\u0600-\u06FF]/g
 const PREVIEW_LENGTH = 500
 
+// Self-describing step metadata — the single source of truth for all pipeline log rendering.
+// Frontend reads stage/label/icon/subtitle to render generically. No STEP_MAP needed.
+const STEP_META = {
+  imported:           { stage: 'imported',   label: 'Imported',          icon: 'download' },
+  apify_content:      { stage: 'content',    label: 'Apify Content',    icon: 'file-text',    subtitle: 'Article body from Apify actor' },
+  firecrawl:          { stage: 'content',    label: 'Firecrawl',        icon: 'globe',         subtitle: 'Scraped via Firecrawl API' },
+  html_fetch:         { stage: 'content',    label: 'HTML Fetch',       icon: 'globe',         subtitle: 'Fallback HTTP fetch' },
+  content_source:     { stage: 'content',    label: 'Content Source',   icon: 'check-circle' },
+  classify:           { stage: 'classify',   label: 'Classified',       icon: 'brain',         subtitle: 'Topic, tags, region, sentiment' },
+  research_decision:  { stage: 'research',   label: 'Decision',         icon: 'target',        subtitle: 'Whether research is needed' },
+  firecrawl_search:   { stage: 'research',   label: 'Web Search',       icon: 'search',        subtitle: 'Related articles via search' },
+  perplexity_context: { stage: 'research',   label: 'Background',       icon: 'globe',         subtitle: 'Context from Perplexity' },
+  synthesis:          { stage: 'synthesis',   label: 'Synthesis',        icon: 'brain',         subtitle: 'AI brief (hook, narrative, facts)' },
+  research:           { stage: 'synthesis',   label: 'Research Complete', icon: 'search' },
+  detect_language:    { stage: 'translated',  label: 'Language',         icon: 'languages',     subtitle: 'Detect source language' },
+  translate:          { stage: 'translated',  label: 'Translation',      icon: 'languages' },
+  translate_content:  { stage: 'translated',  label: 'Translate Content', icon: 'languages',    subtitle: 'Article text → Arabic' },
+  translate_analysis: { stage: 'translated',  label: 'Translate Fields', icon: 'brain',         subtitle: 'Classification fields → Arabic' },
+  translate_research: { stage: 'translated',  label: 'Translate Brief',  icon: 'search',        subtitle: 'Research brief → Arabic' },
+  auto_script:        { stage: 'script',      label: 'Draft Script',     icon: 'pen-line',      subtitle: 'Auto-generated script' },
+  score_similarity:   { stage: 'score',       label: 'Competition Match', icon: 'target',       subtitle: 'Match vs. existing stories' },
+  score_topic_demand: { stage: 'score',       label: 'Topic Demand',     icon: 'users',         subtitle: 'Competitor audience engagement' },
+  score_niche:        { stage: 'score',       label: 'Niche Fit',        icon: 'target',        subtitle: 'Channel niche relevance' },
+  score_ai_analysis:  { stage: 'score',       label: 'AI Scoring',       icon: 'brain',         subtitle: 'Relevance & viral scores' },
+  score:              { stage: 'score',       label: 'Final Score',      icon: 'sparkles',      subtitle: 'Composite score' },
+  promote:            { stage: 'promote',     label: 'Promote',          icon: 'check-circle' },
+}
+
+function lp(step, data, display) {
+  const meta = STEP_META[step] || { stage: 'unknown', label: step, icon: 'file-text' }
+  return { step, ...meta, ...data, ...(display ? { display } : {}), at: new Date().toISOString() }
+}
+
 function preview(text) {
   if (!text || typeof text !== 'string') return null
   return text.length > PREVIEW_LENGTH ? text.slice(0, PREVIEW_LENGTH) + '…' : text
@@ -62,12 +95,12 @@ async function saveLog(articleId, log) {
 
 async function doStageImported(article, project) {
   const log = getLog(article)
-  log.push({
-    step: 'imported', status: 'ok', at: new Date().toISOString(),
+  log.push(lp('imported', {
+    status: 'ok', processor: 'server',
     rawChars: (article.content || '').length,
     titlePreview: article.title || null,
     contentPreview: preview(article.content),
-  })
+  }))
   await saveLog(article.id, log)
   return { nextStage: 'content' }
 }
@@ -79,14 +112,14 @@ async function doStageContent(article, project) {
   const rawContent = article.content || ''
   const cleanedContent = stripHtml(rawContent).trim()
 
-  log.push({
-    step: 'apify_content', processor: 'server', service: 'Local (check Apify data)',
+  log.push(lp('apify_content', {
+    processor: 'server', service: 'Local (check Apify data)',
     chars: cleanedContent.length, threshold: MIN_CONTENT_LENGTH,
-    at: new Date().toISOString(), contentPreview: preview(cleanedContent),
-  })
+    contentPreview: preview(cleanedContent),
+  }))
 
   if (cleanedContent.length >= MIN_CONTENT_LENGTH) {
-    log.push({ step: 'content_source', processor: 'server', source: 'apify', chars: cleanedContent.length, status: 'ok' })
+    log.push(lp('content_source', { processor: 'server', source: 'apify', chars: cleanedContent.length, status: 'ok' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: cleanedContent, processingLog: log },
@@ -102,15 +135,15 @@ async function doStageContent(article, project) {
       const result = await scrapeUrl(apiKey, article.url)
       if (result.text) {
         fetchedText = preClean(result.text)
-        log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'ok', chars: fetchedText.length })
+        log.push(lp('firecrawl', { processor: 'api', service: 'Firecrawl Scrape API', status: 'ok', chars: fetchedText.length }))
       } else {
-        log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'failed', error: result.error || 'No text returned' })
+        log.push(lp('firecrawl', { processor: 'api', service: 'Firecrawl Scrape API', status: 'failed', error: result.error || 'No text returned' }))
       }
     } catch (e) {
-      log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'failed', error: e.message })
+      log.push(lp('firecrawl', { processor: 'api', service: 'Firecrawl Scrape API', status: 'failed', error: e.message }))
     }
   } else {
-    log.push({ step: 'firecrawl', processor: 'api', service: 'Firecrawl Scrape API', status: 'skipped', reason: 'No API key' })
+    log.push(lp('firecrawl', { processor: 'api', service: 'Firecrawl Scrape API', status: 'skipped', reason: 'No API key' }))
   }
 
   if (!fetchedText) {
@@ -118,17 +151,17 @@ async function doStageContent(article, project) {
       const result = await fetchArticleText(article.url)
       if (result.text) {
         fetchedText = result.text
-        log.push({ step: 'html_fetch', processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'ok', chars: fetchedText.length })
+        log.push(lp('html_fetch', { processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'ok', chars: fetchedText.length }))
       } else {
-        log.push({ step: 'html_fetch', processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'failed', error: result.error || 'No text extracted' })
+        log.push(lp('html_fetch', { processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'failed', error: result.error || 'No text extracted' }))
       }
     } catch (e) {
-      log.push({ step: 'html_fetch', processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'failed', error: e.message })
+      log.push(lp('html_fetch', { processor: 'server', service: 'Direct HTTP fetch + HTML parse', status: 'failed', error: e.message }))
     }
   }
 
   if (fetchedText && fetchedText.length >= MIN_CONTENT_LENGTH) {
-    log.push({ step: 'content_source', processor: 'server', source: 'firecrawl_or_html', chars: fetchedText.length, status: 'ok' })
+    log.push(lp('content_source', { processor: 'server', source: 'firecrawl_or_html', chars: fetchedText.length, status: 'ok' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: fetchedText, processingLog: log },
@@ -138,7 +171,7 @@ async function doStageContent(article, project) {
 
   const fallbackText = [article.title, article.description, cleanedContent].filter(Boolean).join('\n\n').trim()
   if (fallbackText.length >= 100) {
-    log.push({ step: 'content_source', processor: 'server', source: 'title_desc_fallback', chars: fallbackText.length, status: 'ok' })
+    log.push(lp('content_source', { processor: 'server', source: 'title_desc_fallback', chars: fallbackText.length, status: 'ok' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: fallbackText, processingLog: log },
@@ -146,7 +179,7 @@ async function doStageContent(article, project) {
     return { nextStage: 'classify' }
   }
 
-  log.push({ step: 'content_source', processor: 'server', source: 'none', status: 'review', reason: 'No usable content found' })
+  log.push(lp('content_source', { processor: 'server', source: 'none', status: 'review', reason: 'No usable content found' }))
   await saveLog(article.id, log)
   return { nextStage: 'content', reviewStatus: 'review', reviewReason: 'No usable content found' }
 }
@@ -244,8 +277,8 @@ async function doStageClassify(article, project) {
 
   const classifyQuality = evaluateClassifyQuality(analysis)
 
-  log.push({
-    step: 'classify', status: analysis?.parseError ? 'parse_error' : 'ok',
+  log.push(lp('classify', {
+    status: analysis?.parseError ? 'parse_error' : 'ok',
     processor: 'ai', service: 'Anthropic Claude Haiku',
     model: 'claude-haiku-4-5-20251001',
     topic: analysis?.topic || null,
@@ -261,8 +294,7 @@ async function doStageClassify(article, project) {
     promptSent: prompt.slice(0, 1500),
     rawResponse: (raw || '').slice(0, 1500),
     quality: classifyQuality,
-    at: new Date().toISOString(),
-  })
+  }))
 
   await db.article.update({
     where: { id: article.id },
@@ -286,15 +318,14 @@ async function doStageResearch(article, project) {
   const currentAnalysis = freshArticle?.analysis || article.analysis
   const decision = await needsResearch({ ...article, analysis: currentAnalysis })
 
-  log.push({
-    step: 'research_decision', processor: 'server', service: 'Local decision logic',
+  log.push(lp('research_decision', {
+    processor: 'server', service: 'Local decision logic',
     needed: decision.needed,
     reason: decision.reason,
-    at: new Date().toISOString(),
-  })
+  }))
 
   if (!decision.needed) {
-    log.push({ step: 'research', status: 'skipped', reason: decision.reason, at: new Date().toISOString() })
+    log.push(lp('research', { status: 'skipped', reason: decision.reason }))
     await saveLog(article.id, log)
     return { nextStage: 'translated' }
   }
@@ -310,13 +341,11 @@ async function doStageResearch(article, project) {
       log.push(entry)
     }
 
-    log.push({
-      step: 'research',
+    log.push(lp('research', {
       status: result.researchBrief ? 'ok' : 'partial',
       hasBrief: !!result.researchBrief,
       narrativeStrength: result.researchBrief?.narrativeStrength || null,
-      at: new Date().toISOString(),
-    })
+    }))
 
     // Store research results on article.analysis so score stage can include them in the story
     if (result.researchBrief || result.researchData) {
@@ -337,7 +366,7 @@ async function doStageResearch(article, project) {
 
     return { nextStage: 'translated' }
   } catch (e) {
-    log.push({ step: 'research', status: 'partial', error: `${e.message} (non-blocking)`, at: new Date().toISOString() })
+    log.push(lp('research', { status: 'partial', error: `${e.message} (non-blocking)` }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to translated)')
     return { nextStage: 'translated' }
@@ -351,7 +380,7 @@ async function doStageTranslated(article, project) {
   const log = getLog(article)
   const text = article.contentClean || article.content || ''
   if (!text.trim()) {
-    log.push({ step: 'translate', status: 'review', reason: 'No content to translate' })
+    log.push(lp('translate', { status: 'review', reason: 'No content to translate' }))
     await saveLog(article.id, log)
     return { nextStage: 'translated', reviewStatus: 'review', reviewReason: 'No content to translate' }
   }
@@ -360,7 +389,7 @@ async function doStageTranslated(article, project) {
   const analysis = freshArticle?.analysis || article.analysis || {}
   const sourceLang = article.language || detectLanguage(text)
 
-  log.push({ step: 'detect_language', processor: 'server', service: 'Local regex detection', detected: sourceLang, at: new Date().toISOString() })
+  log.push(lp('detect_language', { processor: 'server', service: 'Local regex detection', detected: sourceLang }))
 
   if (sourceLang === 'ar') {
     const arAnalysis = {
@@ -374,9 +403,9 @@ async function doStageTranslated(article, project) {
     if (analysis.research?.brief) {
       arAnalysis.research = { ...(analysis.research || {}), briefAr: analysis.research.brief }
     }
-    log.push({ step: 'translate_content', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
-    log.push({ step: 'translate_analysis', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
-    log.push({ step: 'translate_research', processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic', at: new Date().toISOString() })
+    log.push(lp('translate_content', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
+    log.push(lp('translate_analysis', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
+    log.push(lp('translate_research', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
@@ -412,8 +441,8 @@ async function doStageTranslated(article, project) {
 
   const contentQuality = evaluateTranslationQuality(truncated.length, translatedContent.trim().length, translatedContent.trim())
 
-  log.push({
-    step: 'translate_content', status: 'ok',
+  log.push(lp('translate_content', {
+    status: 'ok',
     processor: 'ai', service: 'Anthropic Claude Haiku',
     model: 'claude-haiku-4-5-20251001',
     inputLang: sourceLang, inputChars: truncated.length, outputChars: translatedContent.trim().length,
@@ -423,8 +452,7 @@ async function doStageTranslated(article, project) {
     promptSent: contentPrompt.slice(0, 1500),
     rawResponse: translatedContent.trim().slice(0, 1500),
     quality: contentQuality,
-    at: new Date().toISOString(),
-  })
+  }))
 
   // ── Step B: Translate classification fields ──
   const fieldsToTranslate = {
@@ -464,8 +492,8 @@ async function doStageTranslated(article, project) {
     arAnalysis.regionAr = parsed.region || analysis.region || null
     arAnalysis.uniqueAngleAr = parsed.uniqueAngle || analysis.uniqueAngle || null
 
-    log.push({
-      step: 'translate_analysis', status: 'ok',
+    log.push(lp('translate_analysis', {
+      status: 'ok',
       processor: 'ai', service: 'Anthropic Claude Haiku',
       model: 'claude-haiku-4-5-20251001',
       fieldsTranslated: Object.keys(parsed).length,
@@ -474,10 +502,9 @@ async function doStageTranslated(article, project) {
       totalTokens: analysisUsage.totalTokens || null,
       promptSent: analysisPrompt.slice(0, 1500),
       rawResponse: (translatedFields || '').trim().slice(0, 1500),
-      at: new Date().toISOString(),
-    })
+    }))
   } else {
-    log.push({ step: 'translate_analysis', processor: 'server', service: 'Skip (no fields)', status: 'skipped', reason: 'No classification fields to translate', at: new Date().toISOString() })
+    log.push(lp('translate_analysis', { processor: 'server', service: 'Skip (no fields)', status: 'skipped', reason: 'No classification fields to translate' }))
   }
 
   // ── Step C: Translate research brief to Arabic ──
@@ -508,8 +535,8 @@ async function doStageTranslated(article, project) {
           ...(arAnalysis.research || {}),
           briefAr,
         }
-        log.push({
-          step: 'translate_research', status: 'ok',
+        log.push(lp('translate_research', {
+          status: 'ok',
           processor: 'ai', service: 'Anthropic Claude Haiku',
           model: 'claude-haiku-4-5-20251001',
           inputChars: briefJson.length,
@@ -519,17 +546,16 @@ async function doStageTranslated(article, project) {
           totalTokens: researchUsage.totalTokens || null,
           promptSent: researchPrompt.slice(0, 1500),
           rawResponse: (translatedBriefRaw || '').trim().slice(0, 1500),
-          at: new Date().toISOString(),
-        })
+        }))
       } else {
-        log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', reason: 'Failed to parse translated brief JSON — non-blocking', at: new Date().toISOString() })
+        log.push(lp('translate_research', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', reason: 'Failed to parse translated brief JSON — non-blocking' }))
       }
     } catch (e) {
-      log.push({ step: 'translate_research', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', error: `${e.message} (non-blocking)`, at: new Date().toISOString() })
+      log.push(lp('translate_research', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', error: `${e.message} (non-blocking)` }))
       logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] translate_research failed (non-fatal)')
     }
   } else {
-    log.push({ step: 'translate_research', processor: 'server', service: 'Skip (no research brief)', status: 'skipped', reason: researchBrief ? 'Invalid brief' : 'No research brief', at: new Date().toISOString() })
+    log.push(lp('translate_research', { processor: 'server', service: 'Skip (no research brief)', status: 'skipped', reason: researchBrief ? 'Invalid brief' : 'No research brief' }))
   }
 
   await db.article.update({
@@ -574,14 +600,14 @@ async function doStageScript(article, project) {
 
   const articleContent = art.contentAr || art.contentClean || ''
   if (!articleContent.trim() || articleContent.length < 100) {
-    log.push({ step: 'auto_script', processor: 'server', status: 'skipped', reason: 'No usable content', at: new Date().toISOString() })
+    log.push(lp('auto_script', { processor: 'server', status: 'skipped', reason: 'No usable content' }))
     await saveLog(article.id, log)
     return { nextStage: 'score' }
   }
 
   const apiKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
   if (!apiKeyRow?.encryptedKey) {
-    log.push({ step: 'auto_script', processor: 'server', status: 'skipped', reason: 'No Anthropic API key', at: new Date().toISOString() })
+    log.push(lp('auto_script', { processor: 'server', status: 'skipped', reason: 'No Anthropic API key' }))
     await saveLog(article.id, log)
     return { nextStage: 'score' }
   }
@@ -591,7 +617,7 @@ async function doStageScript(article, project) {
     select: { id: true, startHook: true, endHook: true, nationality: true },
   })
   if (!ch) {
-    log.push({ step: 'auto_script', processor: 'server', status: 'skipped', reason: 'Channel not found', at: new Date().toISOString() })
+    log.push(lp('auto_script', { processor: 'server', status: 'skipped', reason: 'Channel not found' }))
     await saveLog(article.id, log)
     return { nextStage: 'score' }
   }
@@ -668,8 +694,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     const updatedAnalysis = { ...analysis, draftScript: scriptData }
     await db.article.update({
       where: { id: article.id },
-      data: { analysis: updatedAnalysis, processingLog: [...log, {
-        step: 'auto_script',
+      data: { analysis: updatedAnalysis, processingLog: [...log, lp('auto_script', {
         processor: 'ai',
         service: 'Anthropic Claude Sonnet',
         model: 'claude-sonnet-4-6',
@@ -680,21 +705,18 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
         dialect: dialect ? dialect.short : 'MSA',
         hasHooks: !!(startHook || endHook),
         hasResearch: !!researchContext,
-        at: new Date().toISOString(),
-      }] },
+      })] },
     })
 
     return { nextStage: 'score' }
   } catch (e) {
-    log.push({
-      step: 'auto_script',
+    log.push(lp('auto_script', {
       processor: 'ai',
       service: 'Anthropic Claude Sonnet',
       model: 'claude-sonnet-4-6',
       status: 'partial',
       error: e.message + ' (non-blocking)',
-      at: new Date().toISOString(),
-    })
+    }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] auto-script failed (non-fatal)')
     return { nextStage: 'score' }
@@ -712,10 +734,10 @@ async function doStageScore(article, project) {
   const analysis = art.analysis || {}
 
   if (analysis.parseError) {
-    log.push({ step: 'score_similarity', status: 'skipped', reason: 'Classification had parse error' })
-    log.push({ step: 'score_ai_analysis', status: 'skipped', reason: 'Classification parse error' })
-    log.push({ step: 'score', status: 'skipped', reason: 'Classification parse error' })
-    log.push({ step: 'promote', status: 'skipped', reason: 'Classification parse error' })
+    log.push(lp('score_similarity', { status: 'skipped', reason: 'Classification had parse error' }))
+    log.push(lp('score_ai_analysis', { status: 'skipped', reason: 'Classification parse error' }))
+    log.push(lp('score', { status: 'skipped', reason: 'Classification parse error' }))
+    log.push(lp('promote', { status: 'skipped', reason: 'Classification parse error' }))
     await saveLog(article.id, log)
     return { nextStage: 'done' }
   }
@@ -750,8 +772,7 @@ async function doStageScore(article, project) {
           similarity: typeof v.similarity === 'number' ? Math.round(v.similarity * 100) / 100 : null,
           type: v.videoType || '',
         }))
-        log.push({
-          step: 'score_similarity',
+        log.push(lp('score_similarity', {
           processor: 'server',
           service: 'OpenAI Embeddings + pgvector',
           status: 'ok',
@@ -759,16 +780,19 @@ async function doStageScore(article, project) {
           matchCount: similarVideos.length,
           topMatch: similarVideos[0] ? { title: similarVideos[0].title, similarity: similarVideos[0].similarity } : null,
           similarVideos,
-          at: new Date().toISOString(),
-        })
+        }, [
+          { type: 'stat', label: 'Embedding Input', value: `${embText.length} chars` },
+          { type: 'stat', label: 'Matches', value: `${similarVideos.length}` },
+          ...(similarVideos.length > 0 ? [{ type: 'list', items: similarVideos.slice(0, 5).map(v => ({ title: v.title || '—', subtitle: `${(v.similarity || 0).toFixed(2)} match · ${(v.views || 0).toLocaleString()} views` })) }] : []),
+        ]))
       } else {
-        log.push({ step: 'score_similarity', processor: 'server', service: 'OpenAI Embeddings', status: 'skipped', reason: 'Not enough Arabic text for embedding', at: new Date().toISOString() })
+        log.push(lp('score_similarity', { processor: 'server', service: 'OpenAI Embeddings', status: 'skipped', reason: 'Not enough Arabic text for embedding' }))
       }
     } catch (e) {
-      log.push({ step: 'score_similarity', processor: 'api', service: 'OpenAI Embeddings + pgvector', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push(lp('score_similarity', { processor: 'api', service: 'OpenAI Embeddings + pgvector', status: 'failed', error: e.message }))
     }
   } else {
-    log.push({ step: 'score_similarity', processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key', at: new Date().toISOString() })
+    log.push(lp('score_similarity', { processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key' }))
   }
 
   // ── Sub-step A1: topicDemand — did competitor audiences engage with this topic? ──
@@ -802,24 +826,26 @@ async function doStageScore(article, project) {
         const avgRatio = ratios.reduce((a, b) => a + b, 0) / ratios.length
         topicDemand = Math.round(Math.min(1.0, avgRatio / 2.0) * 100) / 100
 
-        log.push({
-          step: 'score_topic_demand',
+        log.push(lp('score_topic_demand', {
           processor: 'server',
           service: 'competitor performance analysis',
           status: 'ok',
           similarCount: rawSimilar.length,
           avgPerformanceRatio: Math.round(avgRatio * 100) / 100,
           topicDemand,
-          at: new Date().toISOString(),
-        })
+        }, [
+          { type: 'gauge', label: 'Topic Demand', value: topicDemand },
+          { type: 'stat', label: 'Videos Analysed', value: `${rawSimilar.length} competitor videos` },
+          { type: 'stat', label: 'Avg Performance', value: `${(Math.round(avgRatio * 100) / 100)}× channel average` },
+        ]))
       } else {
-        log.push({ step: 'score_topic_demand', status: 'skipped', reason: 'No similar competitor videos found', topicDemand: 0, at: new Date().toISOString() })
+        log.push(lp('score_topic_demand', { status: 'skipped', reason: 'No similar competitor videos found', topicDemand: 0 }))
       }
     } catch (e) {
-      log.push({ step: 'score_topic_demand', status: 'failed', error: e.message, topicDemand: 0, at: new Date().toISOString() })
+      log.push(lp('score_topic_demand', { status: 'failed', error: e.message, topicDemand: 0 }))
     }
   } else {
-    log.push({ step: 'score_topic_demand', status: 'skipped', reason: 'No similar videos', topicDemand: 0, at: new Date().toISOString() })
+    log.push(lp('score_topic_demand', { status: 'skipped', reason: 'No similar videos', topicDemand: 0 }))
   }
 
   // ── Sub-step A2: nicheScore — cosine similarity between article and channel niche ──
@@ -834,19 +860,19 @@ async function doStageScore(article, project) {
           dot += scoreEmbedding[i] * nicheVec[i]
         }
         nicheScore = Math.max(0, Math.min(1, dot))
-        log.push({
-          step: 'score_niche',
+        log.push(lp('score_niche', {
           processor: 'server',
           service: 'pgvector cosine similarity',
           nicheScore: Math.round(nicheScore * 100) / 100,
           status: 'ok',
-          at: new Date().toISOString(),
-        })
+        }, [
+          { type: 'gauge', label: 'Niche Score', value: Math.round(nicheScore * 100) / 100 },
+        ]))
       } else {
-        log.push({ step: 'score_niche', status: 'skipped', reason: 'No niche embedding generated yet', at: new Date().toISOString() })
+        log.push(lp('score_niche', { status: 'skipped', reason: 'No niche embedding generated yet' }))
       }
     } catch (e) {
-      log.push({ step: 'score_niche', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push(lp('score_niche', { status: 'failed', error: e.message }))
     }
   }
 
@@ -895,8 +921,7 @@ ${contentAr.slice(0, 15000)}`
         relevance = typeof parsed.relevance === 'number' ? Math.max(0, Math.min(1, parsed.relevance)) : 0
         viralPotential = typeof parsed.viralPotential === 'number' ? Math.max(0, Math.min(1, parsed.viralPotential)) : 0
         analysis.sentiment = sentiment
-        log.push({
-          step: 'score_ai_analysis',
+        log.push(lp('score_ai_analysis', {
           processor: 'ai',
           service: 'Anthropic Claude Haiku',
           model: 'claude-haiku-4-5-20251001',
@@ -909,16 +934,21 @@ ${contentAr.slice(0, 15000)}`
           sentiment,
           viralPotential,
           relevance,
-          at: new Date().toISOString(),
-        })
+        }, [
+          { type: 'stat', label: 'Sentiment', value: sentiment },
+          { type: 'gauge', label: 'Viral Potential', value: viralPotential },
+          { type: 'gauge', label: 'Relevance', value: relevance },
+          { type: 'expandable', label: 'Prompt', text: scoringPrompt.slice(0, 1500) },
+          { type: 'expandable', label: 'Response', text: (raw || '').slice(0, 1500) },
+        ]))
       } else {
-        log.push({ step: 'score_ai_analysis', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'parse_error', rawResponse: (raw || '').slice(0, 500), at: new Date().toISOString() })
+        log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'parse_error', rawResponse: (raw || '').slice(0, 500) }))
       }
     } catch (e) {
-      log.push({ step: 'score_ai_analysis', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message, at: new Date().toISOString() })
+      log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message }))
     }
   } else {
-    log.push({ step: 'score_ai_analysis', processor: 'ai', service: 'Anthropic Claude Haiku', status: 'skipped', reason: contentAr.trim().length <= 50 ? 'No Arabic content' : 'No Anthropic key', at: new Date().toISOString() })
+    log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'skipped', reason: contentAr.trim().length <= 50 ? 'No Arabic content' : 'No Anthropic key' }))
   }
 
   // ── Sub-step C: score (compute final score) ──
@@ -959,8 +989,33 @@ ${contentAr.slice(0, 15000)}`
   }
   const finalScore = Math.round(Math.min(1, Math.max(0, rawScore * 0.60 + preferenceBias * 0.40 - competitionPenalty)) * 100) / 100
 
-  log.push({
-    step: 'score',
+  const tier = (hasNiche && hasDemand) ? 1 : (hasNiche ? 2 : 3)
+  const tierLabel = tier === 1 ? 'Niche + Demand' : tier === 2 ? 'Niche Only' : 'Fallback'
+  const tierVariant = tier === 1 ? 'success' : tier === 2 ? 'primary' : 'muted'
+
+  let breakdownRows
+  if (tier === 1) {
+    breakdownRows = [
+      { label: 'Relevance', value: relevance, weight: 0.20 },
+      { label: 'Viral Potential', value: viralPotential, weight: 0.15 },
+      { label: 'Niche Fit', value: Math.round(nicheScore * 100) / 100, weight: 0.40 },
+      { label: 'Topic Demand', value: topicDemand, weight: 0.25 },
+    ]
+  } else if (tier === 2) {
+    breakdownRows = [
+      { label: 'Relevance', value: relevance, weight: 0.30 },
+      { label: 'Viral Potential', value: viralPotential, weight: 0.25 },
+      { label: 'Niche Fit', value: Math.round(nicheScore * 100) / 100, weight: 0.45 },
+    ]
+  } else {
+    breakdownRows = [
+      { label: 'Relevance', value: relevance, weight: 0.35 },
+      { label: 'Viral', value: viralPotential, weight: 0.30 },
+      { label: 'Freshness', value: Math.round(freshness * 100) / 100, weight: 0.35 },
+    ]
+  }
+
+  log.push(lp('score', {
     processor: 'server',
     service: 'Score computation',
     relevance,
@@ -973,8 +1028,15 @@ ${contentAr.slice(0, 15000)}`
     preferenceBias: Math.round(preferenceBias * 100) / 100,
     competitionPenalty,
     finalScore,
-    at: new Date().toISOString(),
-  })
+    tier,
+  }, [
+    { type: 'badge', label: tierLabel, variant: tierVariant },
+    { type: 'breakdown', rows: breakdownRows },
+    { type: 'formula', raw: Math.round(rawScore * 1000) / 1000, adjustments: [
+      ...(Math.round(preferenceBias * 100) / 100 !== 0 ? [{ label: 'Pref', value: Math.round(preferenceBias * 100) / 100 }] : []),
+      ...(competitionPenalty > 0 ? [{ label: 'Penalty', value: -competitionPenalty }] : []),
+    ], final: finalScore },
+  ]))
 
   const reasons = []
   if (relevance >= 0.7) reasons.push('high-relevance')
@@ -996,10 +1058,10 @@ ${contentAr.slice(0, 15000)}`
   // ── Sub-step D: promote ──
   try {
     const promotedStoryId = await promoteToStory(art, analysis, relevance, viralPotential, finalScore, scoreEmbedding, project)
-    log.push({ step: 'promote', processor: 'server', service: 'Database write (no 3rd party)', status: promotedStoryId ? 'created' : 'linked', storyId: promotedStoryId || null, at: new Date().toISOString() })
+    log.push(lp('promote', { processor: 'server', service: 'Database write (no 3rd party)', status: promotedStoryId ? 'created' : 'linked', storyId: promotedStoryId || null }))
     await saveLog(article.id, log)
   } catch (e) {
-    log.push({ step: 'promote', processor: 'server', service: 'Database write', status: 'failed', error: e.message, at: new Date().toISOString() })
+    log.push(lp('promote', { processor: 'server', service: 'Database write', status: 'failed', error: e.message }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Story promotion failed (non-fatal)')
   }
@@ -1229,4 +1291,5 @@ module.exports = {
   doStageTranslated,
   doStageScript,
   doStageScore,
+  STEP_META,
 }
