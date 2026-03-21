@@ -1256,8 +1256,6 @@ export default function StoryDetail() {
               relativeDate={relativeDate}
               articleOpen={articleOpen}
               onArticleOpenChange={setArticleOpen}
-              onCleanup={cleanupArticle}
-              onRefetch={async () => fetchArticle(true)}
               onRetryFetch={async () => fetchArticle(true)}
               onArticleChange={(val) => {
                 const newBrief = { ...brief, articleContent: val };

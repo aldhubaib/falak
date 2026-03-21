@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Wand2, RefreshCw, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, ExternalLink } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 export interface StoryDetailArticleProps {
@@ -16,8 +16,6 @@ export interface StoryDetailArticleProps {
   relativeDate?: string | null;
   articleOpen?: boolean;
   onArticleOpenChange?: (open: boolean) => void;
-  onCleanup: () => Promise<void>;
-  onRefetch: () => Promise<void>;
   onRetryFetch: () => Promise<void>;
   onArticleChange?: (value: string) => void;
   onArticleTitleChange?: (value: string) => void;
@@ -55,8 +53,6 @@ export function StoryDetailArticle({
   relativeDate,
   articleOpen: controlledOpen,
   onArticleOpenChange,
-  onCleanup,
-  onRefetch,
   onRetryFetch,
   onArticleChange,
   onArticleTitleChange,
@@ -131,28 +127,6 @@ export function StoryDetailArticle({
 
       {articleOpen && (
         <>
-          {/* Action bar */}
-          <div className="px-4 py-2.5 border-t border-border flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => onCleanup()}
-              disabled={actionsDisabled || isCleaning || !displayValue.trim()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 text-[12px] font-medium text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-30 whitespace-nowrap"
-            >
-              <Wand2 className={`w-3 h-3 shrink-0 ${isCleaning ? "animate-spin" : ""}`} />
-              {isCleaning ? "Cleaning…" : "Clean up with AI"}
-            </button>
-            <button
-              type="button"
-              onClick={() => onRefetch()}
-              disabled={actionsDisabled || !sourceUrl}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 text-[12px] font-medium text-muted-foreground hover:text-muted-foreground transition-colors disabled:opacity-30 whitespace-nowrap"
-            >
-              <RefreshCw className="w-3 h-3 shrink-0" />
-              Re-fetch
-            </button>
-          </div>
-
           {/* Title row */}
           <div className="px-5 pt-4" dir="rtl">
             <label className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider mb-2 flex items-center justify-between" dir="rtl">
