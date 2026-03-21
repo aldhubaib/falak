@@ -9,6 +9,7 @@ const { getDialectForCountry } = require('../lib/dialects')
 const { fetchTranscript } = require('../services/transcript')
 const { transcribeFromR2 } = require('../services/whisper')
 const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
+const { computeSimpleComposite, SIMPLE_COMPOSITE } = require('../lib/scoringConfig')
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
@@ -873,8 +874,7 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
         const r = (data.relevanceScore ?? existing.relevanceScore) || 0
         const v = (data.viralScore ?? existing.viralScore) || 0
         const f = (data.firstMoverScore ?? existing.firstMoverScore) || 0
-        const raw = r * 0.35 + v * 0.40 + f * 0.25
-        data.compositeScore = Math.round(raw / 10 * 10) / 10
+        data.compositeScore = computeSimpleComposite(r, v, f)
       }
     }
 
@@ -925,16 +925,19 @@ router.post('/re-evaluate', requireRole('owner', 'admin'), async (req, res) => {
 // ── POST /api/stories/recalculate-scores — admin-only batch recalculation
 router.post('/recalculate-scores', requireRole('owner', 'admin'), async (req, res) => {
   try {
+    const wR = SIMPLE_COMPOSITE.relevance
+    const wV = SIMPLE_COMPOSITE.viral
+    const wF = SIMPLE_COMPOSITE.firstMover
     const result = await db.$executeRaw`
       UPDATE "Story"
       SET "compositeScore" = ROUND(
-        (COALESCE("relevanceScore", 0) * 0.35 +
-         COALESCE("viralScore", 0) * 0.40 +
-         COALESCE("firstMoverScore", 0) * 0.25) / 10.0 * 10, 1
+        (COALESCE("relevanceScore", 0) * ${wR} +
+         COALESCE("viralScore", 0) * ${wV} +
+         COALESCE("firstMoverScore", 0) * ${wF}) / 10.0 * 10, 1
       )
       WHERE ABS(
         COALESCE("compositeScore", 0) -
-        ROUND((COALESCE("relevanceScore", 0) * 0.35 + COALESCE("viralScore", 0) * 0.40 + COALESCE("firstMoverScore", 0) * 0.25) / 10.0 * 10, 1)
+        ROUND((COALESCE("relevanceScore", 0) * ${wR} + COALESCE("viralScore", 0) * ${wV} + COALESCE("firstMoverScore", 0) * ${wF}) / 10.0 * 10, 1)
       ) > 0.01
     `
     const total = await db.story.count()

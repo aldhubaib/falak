@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
+const { RESCORE_BASE, RESCORE_LEARNED } = require('../lib/scoringConfig')
 
 router.use(requireAuth)
 
@@ -105,6 +106,7 @@ router.get('/status', requireRole('owner', 'admin', 'editor', 'viewer'), async (
       alerts: { items: recentAlerts, unreadCount: unreadAlertCount },
       recentRescores,
       topSimilarity,
+      scoringFormula: { base: RESCORE_BASE, learned: RESCORE_LEARNED },
     })
   } catch (e) {
     console.error('[vector-intelligence/status]', e)

@@ -9,6 +9,7 @@ const logger = require('../lib/logger')
 const { getOrCreateProfile, getConfidence } = require('./scoreLearner')
 const { findSimilarVideos, findSimilarOwnStories } = require('./embeddings')
 const { getChannelStats } = require('./statsRefresher')
+const { w } = require('../lib/scoringConfig')
 
 const ACTIVE_STAGES = ['suggestion', 'liked', 'scripting', 'filmed', 'publish']
 
@@ -255,18 +256,18 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
 
   // ── 7. Compute final score ──
   const baseScore = (
-    (story.relevanceScore || 0) * 0.25 +
-    correctedViral * 0.25 +
-    adjustedFirstMover * 0.15 +
-    (freshness * 100) * 0.10
+    (story.relevanceScore || 0) * w('relevance') +
+    correctedViral * w('correctedViral') +
+    adjustedFirstMover * w('firstMover') +
+    (freshness * 100) * w('freshness')
   )
 
   const learnedBoost = (
-    provenViralBoost * 0.10 +
-    ownChannelBoost * 0.05 +
-    (tagBoost * 100) * 0.05 +
-    (contentTypeBoost * 100) * 0.03 +
-    (regionBoost * 100) * 0.02
+    provenViralBoost * w('provenViral') +
+    ownChannelBoost * w('ownChannel') +
+    (tagBoost * 100) * w('tagSignals') +
+    (contentTypeBoost * 100) * w('contentType') +
+    (regionBoost * 100) * w('region')
   )
 
   // Blend base AI score with learned adjustments based on confidence

@@ -49,6 +49,10 @@ interface VectorIntelligenceData {
     id: string; headline: string; competitionMatches: number;
     viralBoost: number; freshness: number; compositeScore: number;
   }>;
+  scoringFormula?: {
+    base: Array<{ key: string; weight: number; label: string; description: string }>;
+    learned: Array<{ key: string; weight: number; label: string; description: string }>;
+  };
 }
 
 /* ─── Main Component ─── */
@@ -511,25 +515,20 @@ export default function VectorIntelligence() {
         <div className="px-6 max-lg:px-4 mb-6">
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
-              {/* Base Score */}
               <div>
                 <div className="text-[11px] font-mono font-semibold text-foreground mb-2">Base Score (AI predictions)</div>
                 <div className="space-y-1.5">
-                  <FormulaRow label="Relevance" weight="25%" description="AI-predicted audience relevance" />
-                  <FormulaRow label="Viral (corrected)" weight="25%" description="Viral potential × AI accuracy multiplier" />
-                  <FormulaRow label="First Mover" weight="15%" description="Adjusted for competitor coverage + time decay" />
-                  <FormulaRow label="Freshness" weight="10%" description="Exponential decay (half-life: 7 days)" />
+                  {(data.scoringFormula?.base ?? []).map((r) => (
+                    <FormulaRow key={r.key} label={r.label} weight={`${Math.round(r.weight * 100)}%`} description={r.description} />
+                  ))}
                 </div>
               </div>
-              {/* Learned Boost */}
               <div>
                 <div className="text-[11px] font-mono font-semibold text-foreground mb-2">Learned Boost (× confidence {Math.round(confidence * 100)}%)</div>
                 <div className="space-y-1.5">
-                  <FormulaRow label="Proven Viral" weight="10%" description="Competition video performance ratio" />
-                  <FormulaRow label="Own Channel" weight="5%" description="Similar own stories performance" />
-                  <FormulaRow label="Tag Signals" weight="5%" description="Learned tag preference weights" />
-                  <FormulaRow label="Content Type" weight="3%" description="Learned content type bias" />
-                  <FormulaRow label="Region" weight="2%" description="Learned regional performance" />
+                  {(data.scoringFormula?.learned ?? []).map((r) => (
+                    <FormulaRow key={r.key} label={r.label} weight={`${Math.round(r.weight * 100)}%`} description={r.description} />
+                  ))}
                 </div>
               </div>
             </div>
