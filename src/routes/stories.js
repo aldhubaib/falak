@@ -817,6 +817,31 @@ router.post('/:id/classify-video', requireRole('owner', 'admin', 'editor'), asyn
   }
 })
 
+// ── PATCH /api/stories/:id/link-video — link a story to its produced YouTube video
+router.patch('/:id/link-video', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { youtubeId } = req.body
+    if (!youtubeId || typeof youtubeId !== 'string') {
+      return res.status(400).json({ error: 'youtubeId is required' })
+    }
+
+    const video = await db.video.findUnique({ where: { youtubeId: youtubeId.trim() } })
+    if (!video) {
+      return res.status(400).json({ error: 'Video not found — sync your channel first' })
+    }
+
+    await db.story.update({
+      where: { id: req.params.id },
+      data: { producedVideoId: video.id },
+    })
+
+    res.json({ ok: true, videoId: video.id, title: video.titleAr })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── POST /api/stories
 router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {

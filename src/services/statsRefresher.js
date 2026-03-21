@@ -103,12 +103,14 @@ async function refreshCompetitionData(channelId) {
 }
 
 /**
- * Fetch YouTube stats for our own published videos (stories in "done" with a youtubeUrl).
+ * Fetch YouTube stats for our own published videos.
+ * Primary path: stories with producedVideoId — read stats from the Video model (already fresh).
+ * Fallback path: stories with brief.youtubeUrl but no producedVideoId — fetch via YouTube API.
  */
 async function fetchOwnVideoStats(channelId) {
   const doneStories = await db.story.findMany({
     where: { channelId, stage: 'done' },
-    select: { id: true, brief: true },
+    select: { id: true, brief: true, producedVideoId: true },
   })
 
   let updated = 0
@@ -116,6 +118,30 @@ async function fetchOwnVideoStats(channelId) {
 
   for (const story of doneStories) {
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+
+    if (story.producedVideoId) {
+      try {
+        const video = await db.video.findUnique({
+          where: { id: story.producedVideoId },
+          select: { viewCount: true, likeCount: true, commentCount: true, publishedAt: true },
+        })
+        if (video) {
+          const newBrief = {
+            ...brief,
+            views: Number(video.viewCount),
+            likes: Number(video.likeCount),
+            comments: Number(video.commentCount),
+            statsUpdatedAt: new Date().toISOString(),
+          }
+          pendingUpdates.push({ id: story.id, brief: newBrief })
+          updated++
+        }
+      } catch (e) {
+        logger.warn({ storyId: story.id, error: e.message }, '[stats-refresh] linked video stats read failed')
+      }
+      continue
+    }
+
     const youtubeUrl = brief.youtubeUrl
     if (!youtubeUrl) continue
 

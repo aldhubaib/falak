@@ -99,6 +99,7 @@ model Video {
   omitFromAnalytics Boolean   @default(false)
   embedding     Unsupported("vector(1536)")?
   pipelineItem  PipelineItem?
+  producedStory Story?        @relation("StoryProducedVideo")
   comments      Comment[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -170,6 +171,8 @@ model Story {
   scriptLong      String?    @db.Text
   scriptShort     String?    @db.Text
   brief           Json?
+  producedVideoId String?    @unique
+  producedVideo   Video?     @relation("StoryProducedVideo", fields: [producedVideoId], references: [id], onDelete: SetNull)
   embedding       Unsupported("vector(1536)")?
   lastRescoredAt  DateTime?
   rescoreLog      Json?

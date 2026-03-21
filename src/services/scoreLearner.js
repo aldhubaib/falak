@@ -140,22 +140,40 @@ async function learnFromOutcomes(channelId) {
   const doneStories = await db.story.findMany({
     where: { channelId, stage: 'done' },
     select: {
-      id: true, brief: true,
+      id: true, brief: true, producedVideoId: true,
       relevanceScore: true, viralScore: true, firstMoverScore: true,
     },
   })
 
-  // Filter to stories that have actual YouTube performance data
-  const withStats = doneStories.filter(s => {
-    const brief = (s.brief && typeof s.brief === 'object') ? s.brief : {}
-    return brief.views != null && brief.views > 0
-  })
+  const withStats = []
+  for (const story of doneStories) {
+    const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+
+    if (brief.views != null && brief.views > 0) {
+      withStats.push({ ...story, _views: brief.views, _likes: brief.likes || 0, _comments: brief.comments || 0 })
+      continue
+    }
+
+    if (story.producedVideoId) {
+      const video = await db.video.findUnique({
+        where: { id: story.producedVideoId },
+        select: { viewCount: true, likeCount: true, commentCount: true },
+      })
+      if (video && Number(video.viewCount) > 0) {
+        withStats.push({
+          ...story,
+          _views: Number(video.viewCount),
+          _likes: Number(video.likeCount),
+          _comments: Number(video.commentCount),
+        })
+      }
+    }
+  }
 
   if (withStats.length < MIN_OUTCOMES_FOR_ACCURACY) {
     return { totalOutcomes: withStats.length, learned: false, reason: `Need at least ${MIN_OUTCOMES_FOR_ACCURACY} outcomes with YouTube stats` }
   }
 
-  // Compute channel baseline from own videos
   const ownVideos = await db.video.findMany({
     where: { channelId, viewCount: { gt: 0 } },
     select: { viewCount: true },
@@ -168,15 +186,17 @@ async function learnFromOutcomes(channelId) {
   const channelMedianViews = BigInt(Math.round(median(viewCounts)))
   const avgViewsNum = Number(channelAvgViews) || 1
 
-  // Calculate how accurate the AI's predictions were
   let viralAccuracySum = 0
-  let relevanceAccuracySum = 0
   let count = 0
 
   for (const story of withStats) {
-    const brief = story.brief
-    const actualViews = brief.views || 0
-    const performanceRatio = actualViews / avgViewsNum // >1 = better than average
+    const engagementRatio = story._views > 0
+      ? (story._likes + story._comments) / story._views
+      : 0
+
+    const viewRatio = story._views / avgViewsNum
+    const engagementSignal = engagementRatio > 0 ? Math.min(2, engagementRatio / 0.02) : 1
+    const performanceRatio = viewRatio * 0.70 + engagementSignal * 0.30
 
     const predictedViral = (story.viralScore || 50) / 100
     const actualViral = Math.min(1, performanceRatio)
@@ -195,11 +215,10 @@ async function learnFromOutcomes(channelId) {
     ) / 100
   }
 
-  // Also learn tag signals from outcome performance (not just decisions)
   const tagPerformance = {}
   for (const story of withStats) {
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
-    const ratio = (brief.views || 0) / avgViewsNum
+    const ratio = story._views / avgViewsNum
     const tags = Array.isArray(brief.tags) ? brief.tags : []
     for (const tag of tags) {
       if (!tagPerformance[tag]) tagPerformance[tag] = []
@@ -214,7 +233,6 @@ async function learnFromOutcomes(channelId) {
     outcomeTagSignals[tag] = Math.round(Math.min(0.5, Math.max(-0.5, (avgRatio - 1) * 0.3)) * 100) / 100
   }
 
-  // Merge outcome-based tag signals with decision-based ones (outcomes weighted more)
   const existingTagSignals = profile.tagSignals || {}
   for (const [tag, signal] of Object.entries(outcomeTagSignals)) {
     const prev = existingTagSignals[tag] || 0
