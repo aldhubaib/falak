@@ -365,8 +365,12 @@ function PipelineTabContent() {
   const handlePauseResume = () => {
     const endpoint = paused ? "/api/article-pipeline/resume" : "/api/article-pipeline/pause";
     fetch(endpoint, { method: "POST", credentials: "include" })
-      .then((r) => { if (!r.ok) throw new Error(); setPaused(!paused); toast.success(paused ? "Resumed" : "Paused"); })
-      .catch(() => toast.error("Failed"));
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status === 403 ? "Permission denied" : "Request failed");
+        return r.json();
+      })
+      .then((d) => { setPaused(d.paused); toast.success(d.paused ? "Pipeline paused" : "Pipeline resumed"); })
+      .catch((e) => toast.error(e.message || "Failed"));
   };
 
   const handleRetryAll = () => {
@@ -437,9 +441,10 @@ function PipelineTabContent() {
               setTestResults(p.items);
               setTestProgress(p.finished ? null : `${p.completed} / ${p.total}${p.currentlyProcessing ? ` · ${p.currentlyProcessing}` : ""}`);
 
+              fetchPipeline();
+
               if (p.finished) {
                 setTestRunning(false);
-                fetchPipeline();
                 const ok = p.items.filter(i => i.status === "done").length;
                 const errors = p.items.filter(i => i.status === "error").length;
                 toast.success(`Test done: ${ok} processed${errors ? `, ${errors} errors` : ""}`);

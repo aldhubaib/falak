@@ -196,6 +196,7 @@ async function tick() {
   if (paused) return
   await rescueStuckItems()
   for (const stage of STAGES) {
+    if (paused) return
     await runStage(stage)
   }
 }
@@ -234,7 +235,7 @@ async function runPollingWorker() {
   for (;;) {
     try {
       await tick()
-      await pollSources()
+      if (!paused) await pollSources()
     } catch (e) {
       logger.error({ error: e.message }, '[article-worker] tick error')
     }

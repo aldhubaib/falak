@@ -305,14 +305,14 @@ router.post('/ingest', requireRole('owner', 'admin', 'editor'), async (req, res)
 })
 
 // ── POST /api/article-pipeline/pause ──────────────────────────────────────
-router.post('/pause', requireRole('owner', 'admin'), async (req, res) => {
+router.post('/pause', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   const { setPaused } = require('../worker-articles')
   await setPaused(true)
   res.json({ paused: true })
 })
 
 // ── POST /api/article-pipeline/resume ─────────────────────────────────────
-router.post('/resume', requireRole('owner', 'admin'), async (req, res) => {
+router.post('/resume', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   const { setPaused } = require('../worker-articles')
   await setPaused(false)
   res.json({ paused: false })
