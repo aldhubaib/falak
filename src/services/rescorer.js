@@ -272,6 +272,7 @@ async function rescoreStory(story, profile, confidence, channelAvgMap, channelId
 
   // Blend base AI score with learned adjustments based on confidence
   const rawComposite = baseScore + learnedBoost * confidence
+  // compositeScore = 0–10 scale (multiply by 10 from 0–1 rawComposite)
   const newCompositeScore = Math.round(Math.max(0, Math.min(100, rawComposite)) / 10 * 10) / 10
 
   const after = {

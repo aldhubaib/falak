@@ -1148,7 +1148,9 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
   const relevanceScore = Math.round(relevance * 100)
   const viralScore = Math.round(viralPotential * 100)
   const firstMoverScore = analysis.isBreaking ? 80 : 40
-  const compositeScore = computeSimpleComposite(relevanceScore, viralScore, firstMoverScore)
+  // compositeScore is finalScore on a 0–10 scale
+  // finalScore already incorporates nicheScore, topicDemand, relevance, viralPotential
+  const compositeScore = Math.round(finalScore * 10 * 10) / 10
 
   const brief = {
     articleContent: article.contentAr || article.contentClean,
