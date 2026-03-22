@@ -1666,7 +1666,7 @@ ${transcript.slice(0, 30000)}`
     return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Could not detect stories in transcript' }
   }
 
-  // Single story — the article itself continues through the pipeline
+  // Single story — keep the full transcript, just set title/summary from AI
   if (stories.length === 1) {
     const story = stories[0]
     log.push(lp('story_split', { status: 'ok', action: 'single', storiesDetected: 1 }))
@@ -1675,14 +1675,15 @@ ${transcript.slice(0, 30000)}`
       data: {
         title: story.title || article.title,
         description: story.summary || article.description,
-        contentClean: story.content || transcript,
         processingLog: log,
       },
     })
     return { nextStage: 'classify' }
   }
 
-  // Multiple stories — create child articles, parent goes to adapter_done
+  // Multiple stories — each child gets the full transcript with its story context
+  // The title+description scope what this story is about; the full transcript
+  // provides context for classify/research/translate to work with
   const children = stories.map((story, i) => ({
     channelId: article.channelId,
     sourceId: article.sourceId,
@@ -1690,8 +1691,8 @@ ${transcript.slice(0, 30000)}`
     url: `${article.url}#story-${i + 1}`,
     title: story.title,
     description: story.summary || null,
-    content: story.content,
-    contentClean: story.content,
+    content: transcript,
+    contentClean: transcript,
     publishedAt: article.publishedAt,
     language: null,
     stage: 'classify',
