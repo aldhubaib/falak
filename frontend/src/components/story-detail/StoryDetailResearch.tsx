@@ -400,7 +400,7 @@ export function StoryDetailResearch({
       </button>
 
       {isOpen && (
-        <div className="px-6 max-sm:px-4 pb-8" dir="rtl">
+        <div className="px-[100px] max-sm:px-4 pb-8" dir="rtl">
           {isShowingEnglish && storyId && (
             <div className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-lg bg-orange/5 border border-orange/20">
               <span className="text-[12px] text-orange">البحث معروض بالإنجليزية — اضغط لترجمته للعربية</span>
