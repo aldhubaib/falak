@@ -31,6 +31,8 @@ const INTER_BATCH_MS = 1_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 const MAX_ROUNDS_PER_STAGE = 5
+const CATCHUP_THRESHOLD = 30
+const CATCHUP_ROUNDS = 10
 
 const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
@@ -283,6 +285,33 @@ async function tick() {
     const processed = await runStage(stage)
     if (processed > 0) hadWork = true
   }
+
+  // Catch-up pass: re-drain non-serial stages that still have large backlogs.
+  // Prevents slow downstream stages from starving fast upstream stages.
+  if (!paused && hadWork) {
+    for (const stage of STAGES) {
+      if (paused || SERIAL_AI_STAGES.has(stage)) continue
+      const queued = await db.article.count({ where: { stage, status: 'queued', retries: { lt: MAX_RETRIES } } })
+      if (queued >= CATCHUP_THRESHOLD) {
+        logger.info({ stage, queued }, '[article-worker] catch-up drain')
+        const batchSize = STAGE_BATCH[stage] || 1
+        for (let r = 0; r < CATCHUP_ROUNDS; r++) {
+          if (paused) break
+          const items = await pickItems(stage)
+          if (!items.length) break
+          const results = await Promise.allSettled(items.map(processItem))
+          for (let i = 0; i < results.length; i++) {
+            if (results[i].status === 'rejected') {
+              logger.warn({ articleId: items[i]?.id, error: results[i].reason?.message }, `[article-worker] ${stage} catch-up failed`)
+            }
+          }
+          if (items.length < batchSize) break
+          await new Promise(resolve => setTimeout(resolve, INTER_BATCH_MS))
+        }
+      }
+    }
+  }
+
   return hadWork
 }
 
