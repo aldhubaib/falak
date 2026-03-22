@@ -251,13 +251,16 @@ async function pollSources() {
   lastSourcePoll = Date.now()
 
   try {
-    const { ingestAll } = require('./services/articlePipeline')
+    const { ingestAll, hasNicheEmbedding } = require('./services/articlePipeline')
     const channels = await db.channel.findMany({
       where: { type: 'ours', status: 'active', parentChannelId: null },
       select: { id: true },
     })
     for (const channel of channels) {
       try {
+        const hasDna = await hasNicheEmbedding(channel.id)
+        if (!hasDna) continue
+
         const results = await ingestAll(channel.id)
         const totalInserted = results.reduce((s, r) => s + (r.inserted || 0), 0)
         if (totalInserted > 0) {

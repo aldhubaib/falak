@@ -1,7 +1,7 @@
 const express = require('express')
 const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { VALID_SOURCE_TYPES, ingestAll, ingestSource, ingestYouTubeSource, hasApiKey, checkBudget, checkCooldown } = require('../services/articlePipeline')
+const { VALID_SOURCE_TYPES, ingestAll, ingestSource, ingestYouTubeSource, hasApiKey, hasNicheEmbedding, checkBudget, checkCooldown } = require('../services/articlePipeline')
 const articleEvents = require('../lib/articleEvents')
 
 const router = express.Router()
@@ -456,6 +456,7 @@ router.patch('/:id/content', requireRole('owner', 'admin', 'editor'), async (req
 })
 
 // ── POST /api/article-pipeline/reset — wipe all stories & articles to start fresh
+// Preserves ScoreProfile rows (Content DNA, niche embedding) — only resets scoring weights
 router.post('/reset', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const results = await db.$transaction([
@@ -464,10 +465,19 @@ router.post('/reset', requireRole('owner', 'admin'), async (req, res) => {
       db.article.deleteMany({}),
       db.apifyRun.deleteMany({}),
       db.story.deleteMany({}),
-      db.scoreProfile.deleteMany({}),
+      db.scoreProfile.updateMany({
+        data: {
+          weightAdjustments: null,
+          tagSignals: null,
+          contentTypeSignals: null,
+          regionSignals: null,
+          aiViralAccuracy: 1.0,
+          aiRelevanceAccuracy: 1.0,
+        },
+      }),
     ])
 
-    const labels = ['StoryLog', 'Alert', 'Article', 'ApifyRun', 'Story', 'ScoreProfile']
+    const labels = ['StoryLog', 'Alert', 'Article', 'ApifyRun', 'Story', 'ScoreProfile (weights reset)']
     const deleted = {}
     results.forEach((r, i) => { deleted[labels[i]] = r.count })
 
@@ -505,6 +515,11 @@ router.post('/test-run', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { channelId, limit = 5 } = req.body
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
+
+    const hasDna = await hasNicheEmbedding(channelId)
+    if (!hasDna) {
+      return res.status(400).json({ error: 'Content DNA embedding not generated. Go to Channel Settings → Content DNA and click "Generate Embedding" first.' })
+    }
 
     const cap = Math.min(Math.max(1, Number(limit) || 5), 20)
 
@@ -618,6 +633,11 @@ router.post('/test-video', requireRole('owner', 'admin'), async (req, res) => {
   try {
     const { channelId } = req.body
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
+
+    const hasDna = await hasNicheEmbedding(channelId)
+    if (!hasDna) {
+      return res.status(400).json({ error: 'Content DNA embedding not generated. Go to Channel Settings → Content DNA and click "Generate Embedding" first.' })
+    }
 
     let articles = await db.article.findMany({
       where: { channelId, stage: 'transcript', status: 'queued' },

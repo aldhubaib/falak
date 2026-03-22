@@ -625,12 +625,27 @@ function deriveYouTubeStatus(source) {
 
 // ── INGEST ALL: run for all active sources in a channel ───────────────────
 
+async function hasNicheEmbedding(channelId) {
+  const profile = await db.scoreProfile.findUnique({
+    where: { channelId },
+    select: { nicheEmbeddingGeneratedAt: true },
+  })
+  return !!profile?.nicheEmbeddingGeneratedAt
+}
+
 async function ingestAll(channelId, { force = false, sourceId = null } = {}) {
   const channel = await db.channel.findUnique({
     where: { id: channelId },
-    select: { id: true },
+    select: { id: true, type: true },
   })
   if (!channel) throw new Error('Channel not found')
+
+  if (channel.type === 'ours') {
+    const hasDna = await hasNicheEmbedding(channelId)
+    if (!hasDna) {
+      throw new Error('Content DNA embedding not generated. Go to Channel Settings → Content DNA and click "Generate Embedding" before running the pipeline.')
+    }
+  }
 
   const where = { channelId, isActive: true, type: { in: VALID_SOURCE_TYPES } }
   if (sourceId) where.id = sourceId
@@ -685,6 +700,7 @@ module.exports = {
   VALID_SOURCE_TYPES,
   validateConfig: validateSourceConfig,
   hasApiKey,
+  hasNicheEmbedding,
   canonicalizeArticleUrl,
   ingestSource,
   ingestYouTubeSource,
