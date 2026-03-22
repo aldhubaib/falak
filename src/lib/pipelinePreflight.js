@@ -33,9 +33,8 @@ const ARTICLE_STAGE_DEPS = {
   classify:        [{ service: 'anthropic', required: true }],
   title_translate: [{ service: 'anthropic', required: false }],
   score:           [{ service: 'embedding', required: false }, { service: 'anthropic', required: false }],
-  research:        [{ service: 'firecrawl', required: false }, { service: 'perplexity', required: false }, { service: 'anthropic', required: false }],
+  research:        [{ service: 'google_search', required: false }, { service: 'perplexity', required: false }, { service: 'anthropic', required: false }],
   translated:      [{ service: 'anthropic', required: true }],
-  images:          [{ service: 'google_search', required: false }],
 }
 
 const RESCORE_DEPS = [

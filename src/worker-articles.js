@@ -1,6 +1,6 @@
 /**
  * Article pipeline worker: polls for queued articles and processes them through stages.
- * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → images → translated → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done
  *
  * Mirrors the video pipeline worker pattern (worker.js).
  */
@@ -18,7 +18,6 @@ const {
   doStageScore,
   doStageResearch,
   doStageTranslated,
-  doStageImages,
   doStageTranscript,
   doStageStoryCount,
   doStageStorySplit,
@@ -32,7 +31,7 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'images', 'translated']
+const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
 const AI_STAGES = new Set(['story_split', 'classify', 'title_translate', 'score', 'research', 'translated'])
 
@@ -139,9 +138,6 @@ async function processItem(article, { force = false } = {}) {
         break
       case 'translated':
         out = await doStageTranslated(article, channel)
-        break
-      case 'images':
-        out = await doStageImages(article, channel)
         break
       default:
         return

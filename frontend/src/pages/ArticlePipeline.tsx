@@ -9,7 +9,7 @@ import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
   SkipForward, Trash2, ClipboardPaste, X, Loader2, CheckCircle2,
   ArrowRight, Globe, Languages, Brain, Sparkles, FileText, Download,
-  Search, Target, FlaskConical, Filter, ImageIcon, Youtube,
+  Search, Target, FlaskConical, Filter, Youtube,
 } from "lucide-react";
 import { getFlowDef } from "@/constants/flowDefs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -237,11 +237,6 @@ const SUB_STEPS: SubStep[] = [
     icon: CheckCircle2, color: "text-success", parentStage: "promote",
     filterFn: (a) => { const log = getLogStep(a, "promote"); return log?.status === "created"; },
   },
-  {
-    id: "image_results", label: "Image Search", subtitle: "SerpAPI Google Images",
-    icon: ImageIcon, color: "text-primary", parentStage: "images",
-    filterFn: (a) => hasLogStep(a, "images"),
-  },
 ];
 
 const STAGE_DEFS = [
@@ -253,9 +248,8 @@ const STAGE_DEFS = [
   { id: "classify", label: "Classify", subtitle: "Running classification", color: "text-success", number: 3 },
   { id: "title_translate", label: "Title Translate", subtitle: "Arabic title for scoring", color: "text-primary", number: 4 },
   { id: "score", label: "Score", subtitle: "Scoring & threshold gate", color: "text-orange", number: 5 },
-  { id: "research", label: "Research", subtitle: "Gathering context", color: "text-purple", number: 6 },
+  { id: "research", label: "Research", subtitle: "Google News + Images + Perplexity", color: "text-purple", number: 6 },
   { id: "translated", label: "Translated", subtitle: "Full Arabic translation + promote", color: "text-primary", number: 7 },
-  { id: "images", label: "Images", subtitle: "SerpAPI image search + gallery save", color: "text-primary", number: 8 },
   { id: "review", label: "Review", subtitle: "Needs manual review", color: "text-orange", number: 0 },
   { id: "filtered", label: "Filtered", subtitle: "Below score threshold", color: "text-muted-foreground", number: 0 },
   { id: "adapter_done", label: "Split Done", subtitle: "Video split into stories", color: "text-muted-foreground", number: 0 },
@@ -879,18 +873,6 @@ function PipelineTabContent() {
               </div>
             </div>
 
-            {/* ── 8. IMAGES ── */}
-            <SectionHeader icon={getFlowDef("images")!.icon} title={getFlowDef("images")!.name} subtitle={getFlowDef("images")!.subtitle} />
-            <div className="px-6 max-lg:px-4 mb-6">
-              <div className="grid grid-cols-1 gap-3 max-lg:grid-cols-1 items-start">
-                {SUB_STEPS.filter(s => s.parentStage === "images").map((sub) => (
-                  <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                ))}
-                {(data?.byStage.images ?? []).length > 0 && (
-                  <StageColumn stage={SD.images} items={data?.byStage.images ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                )}
-              </div>
-            </div>
 
             {/* ── REVIEW + FILTERED + SPLIT DONE + FAILED ── */}
             <SectionHeader icon={AlertTriangle} title="Needs Attention" subtitle="Review, filtered, split done, and failed articles" />

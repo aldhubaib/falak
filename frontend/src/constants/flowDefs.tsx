@@ -1,4 +1,4 @@
-import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Target, ImageIcon, Youtube, Layers, Hash } from "lucide-react";
+import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Target, Youtube, Layers, Hash } from "lucide-react";
 
 export interface FlowDef {
   id: string;
@@ -78,7 +78,7 @@ export const FLOW_DEFS: FlowDef[] = [
   {
     id: "research",
     name: "Research",
-    subtitle: "Decision (need research?) → Web Search → Background (Perplexity). One goal: gather external context.",
+    subtitle: "Google News search + Image search + Perplexity background. One goal: gather external context and images.",
     icon: Search,
     color: "text-purple",
     bgColor: "bg-purple",
@@ -96,14 +96,6 @@ export const FLOW_DEFS: FlowDef[] = [
     name: "Translation",
     subtitle: "Full Arabic translation + story promotion. Only articles that passed the threshold reach here.",
     icon: Languages,
-    color: "text-primary",
-    bgColor: "bg-primary",
-  },
-  {
-    id: "images",
-    name: "Images",
-    subtitle: "SerpAPI Google Images search. Downloads related images to the Stories gallery album.",
-    icon: ImageIcon,
     color: "text-primary",
     bgColor: "bg-primary",
   },

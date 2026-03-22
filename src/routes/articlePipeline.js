@@ -7,7 +7,7 @@ const articleEvents = require('../lib/articleEvents')
 const router = express.Router()
 router.use(requireAuth)
 
-const PIPELINE_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'images', 'translated']
+const PIPELINE_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
 const RESTARTABLE_STAGES = [
   { id: 'transcript', label: 'Transcript' },
@@ -19,7 +19,6 @@ const RESTARTABLE_STAGES = [
   { id: 'title_translate', label: 'Title Translate' },
   { id: 'score', label: 'Score' },
   { id: 'research', label: 'Research' },
-  { id: 'images', label: 'Images' },
   { id: 'translated', label: 'Translation' },
 ]
 const VALID_RESTART_IDS = RESTARTABLE_STAGES.map(s => s.id)
@@ -80,7 +79,6 @@ router.get('/', async (req, res) => {
       score: stageCountMap.score || 0,
       research: stageCountMap.research || 0,
       translated: stageCountMap.translated || 0,
-      images: stageCountMap.images || 0,
       review: reviewCounts,
       done: stageCountMap.done || 0,
       filtered: stageCountMap.filtered || 0,
@@ -88,7 +86,7 @@ router.get('/', async (req, res) => {
       adapter_done: stageCountMap.adapter_done || 0,
     }
 
-    const byStage = { transcript: [], story_count: [], story_split: [], imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], images: [], review: [], filtered: [], failed: [], done: [], adapter_done: [] }
+    const byStage = { transcript: [], story_count: [], story_split: [], imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], review: [], filtered: [], failed: [], done: [], adapter_done: [] }
     for (const a of allArticles) {
       if (a.status === 'review') {
         if (byStage.review.length < STAGE_LIMIT) byStage.review.push(a)
@@ -202,7 +200,6 @@ const SHARED_STAGES = [
   { id: 'title_translate', label: 'Title Translate',  icon: 'languages',  type: 'linear' },
   { id: 'score',           label: 'Score',            icon: 'sparkles',   type: 'gate', passLabel: 'Above threshold', failLabel: 'Below threshold', failTarget: 'filtered' },
   { id: 'research',        label: 'Research',         icon: 'search',     type: 'linear' },
-  { id: 'images',          label: 'Images',           icon: 'image',      type: 'linear' },
   { id: 'translated',      label: 'Translation',      icon: 'languages',  type: 'gate', passLabel: 'Translation complete', failLabel: 'No content', failTarget: 'review' },
   { id: 'done',            label: 'Done',             icon: 'check-circle', type: 'terminal' },
 ]

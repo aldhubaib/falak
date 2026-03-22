@@ -2,7 +2,7 @@
  * Article pipeline stage processors.
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
- * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done
  *
  * Key design: classify runs on ORIGINAL language content. Title translate provides
  * a lightweight Arabic translation for scoring/niche matching. Score runs early
@@ -34,7 +34,8 @@ const STEP_META = {
   content_source:     { stage: 'content',    label: 'Content Source',   icon: 'check-circle' },
   classify:           { stage: 'classify',   label: 'Classified',       icon: 'brain',         subtitle: 'Topic, tags, region, sentiment' },
   research_decision:  { stage: 'research',   label: 'Decision',         icon: 'target',        subtitle: 'Whether research is needed' },
-  firecrawl_search:   { stage: 'research',   label: 'Web Search',       icon: 'search',        subtitle: 'Related articles via search' },
+  serpapi_search:     { stage: 'research',   label: 'Web Search',       icon: 'search',        subtitle: 'Related news via Google Search' },
+  images:             { stage: 'research',   label: 'Image Search',     icon: 'image',         subtitle: 'SerpAPI Google Images' },
   perplexity_context: { stage: 'research',   label: 'Background',       icon: 'globe',         subtitle: 'Context from Perplexity' },
   synthesis:          { stage: 'synthesis',   label: 'Synthesis',        icon: 'brain',         subtitle: 'AI brief (hook, narrative, facts)' },
   research:           { stage: 'synthesis',   label: 'Research Complete', icon: 'search' },
@@ -50,7 +51,6 @@ const STEP_META = {
   score_ai_analysis:  { stage: 'score',       label: 'AI Scoring',       icon: 'brain',         subtitle: 'Relevance & viral scores' },
   score:              { stage: 'score',       label: 'Final Score',      icon: 'sparkles',      subtitle: 'Composite score' },
   threshold_gate:     { stage: 'score',       label: 'Threshold Gate',   icon: 'target',        subtitle: 'Dynamic score threshold check' },
-  images:             { stage: 'images',      label: 'Image Search',     icon: 'image',         subtitle: 'SerpAPI Google Images' },
   promote:            { stage: 'promote',     label: 'Promote',          icon: 'check-circle' },
   transcript_fetch:   { stage: 'transcript',  label: 'Transcript',       icon: 'file-text',     subtitle: 'Fetch YouTube video transcript' },
   story_count:        { stage: 'story_count',  label: 'Story Count',     icon: 'hash',          subtitle: 'Server-side multi-story detection' },
@@ -67,8 +67,7 @@ const VERDICT_PATHS = {
   classify:        { passPath: { nextStage: 'title_translate', label: 'Classification done' } },
   title_translate: { passPath: { nextStage: 'score', label: 'Ready for scoring' } },
   score:           { passPath: { nextStage: 'research', label: 'Above threshold' },          failPath: { nextStage: 'filtered', label: 'Below threshold' } },
-  research:        { passPath: { nextStage: 'images', label: 'Ready for image search' } },
-  images:          { passPath: { nextStage: 'translated', label: 'Ready for translation' } },
+  research:        { passPath: { nextStage: 'translated', label: 'Ready for translation' } },
   translated:      { passPath: { nextStage: 'done', label: 'Translation complete' },         failPath: { nextStage: 'review', label: 'No content to translate' } },
 }
 
@@ -434,6 +433,7 @@ async function doStageTitleTranslate(article, project) {
 
 // ── Stage 4: research → translated ──────────────────────────────────────────
 // Runs BEFORE translation so web searches use the original language.
+// Includes: SerpAPI Google Search + Image Search, Perplexity background, Claude synthesis.
 
 async function doStageResearch(article, project) {
   const log = getLog(article)
@@ -450,9 +450,9 @@ async function doStageResearch(article, project) {
 
   if (!decision.needed) {
     log.push(lp('research', { status: 'skipped', reason: decision.reason }))
-    log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'images' }))
+    log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'translated' }))
     await saveLog(article.id, log)
-    return { nextStage: 'images' }
+    return { nextStage: 'translated' }
   }
 
   try {
@@ -470,33 +470,42 @@ async function doStageResearch(article, project) {
       status: result.researchBrief ? 'ok' : 'partial',
       hasBrief: !!result.researchBrief,
       narrativeStrength: result.researchBrief?.narrativeStrength || null,
+      imageCount: (result.images || []).length,
     }))
 
-    // Store research results on article.analysis so score stage can include them in the story
-    log.push(lp('verdict', { stage: 'research', result: result.researchBrief ? 'pass' : 'pass', reason: result.researchBrief ? 'Research brief generated' : 'Research completed (no brief)', nextStage: 'images' }))
-    if (result.researchBrief || result.researchData) {
-      const existing = freshArticle?.analysis || article.analysis || {}
-      await db.article.update({
-        where: { id: article.id },
-        data: {
-          analysis: {
-            ...existing,
-            research: result.researchData || null,
-          },
-          processingLog: log,
-        },
-      })
-    } else {
-      await saveLog(article.id, log)
+    const existing = freshArticle?.analysis || article.analysis || {}
+    const updatedAnalysis = {
+      ...existing,
+      research: result.researchData || null,
+      images: result.images?.length > 0 ? result.images : (existing.images || null),
     }
 
-    return { nextStage: 'images' }
+    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: result.researchBrief ? 'Research brief generated' : 'Research completed (no brief)', nextStage: 'translated' }))
+
+    await db.article.update({
+      where: { id: article.id },
+      data: {
+        analysis: updatedAnalysis,
+        processingLog: log,
+      },
+    })
+
+    if (result.images && result.images.length > 0) {
+      try {
+        const gallerySaved = await saveImagesToGallery(article.channelId, result.images, article.title)
+        logger.info({ articleId: article.id, gallerySaved }, '[articleProcessor] research images saved to gallery')
+      } catch (e) {
+        logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] gallery save failed (non-fatal)')
+      }
+    }
+
+    return { nextStage: 'translated' }
   } catch (e) {
     log.push(lp('research', { status: 'partial', error: `${e.message} (non-blocking)` }))
-    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, continuing)', nextStage: 'images' }))
+    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, continuing)', nextStage: 'translated' }))
     await saveLog(article.id, log)
-    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to images)')
-    return { nextStage: 'images' }
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to translated)')
+    return { nextStage: 'translated' }
   }
 }
 
@@ -1351,10 +1360,7 @@ function parseAutoScript(text) {
   }
 }
 
-// ── Stage: images → done ────────────────────────────────────────────────────
-// Searches SerpAPI Google Images Light for article-related images,
-// saves results to analysis.images, and downloads originals into a
-// locked "Stories" gallery album per channel.
+// ── Gallery helpers (used by research stage for image downloads) ─────────────
 
 async function getOrCreateStoriesAlbum(channelId) {
   let album = await db.galleryAlbum.findFirst({
@@ -1432,103 +1438,9 @@ async function saveImagesToGallery(channelId, images, articleTitle) {
   return saved
 }
 
-async function doStageImages(article, project) {
-  const log = getLog(article)
-
-  const title = article.title
-  if (!title || !title.trim()) {
-    log.push(lp('images', { status: 'skipped', reason: 'No title for image search' }))
-    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No title available for image search', nextStage: 'translated' }))
-    await saveLog(article.id, log)
-    return { nextStage: 'translated' }
-  }
-
-  const keys = await db.googleSearchKey.findMany({
-    where: { isActive: true },
-    orderBy: [{ lastUsedAt: { sort: 'asc', nulls: 'first' } }, { sortOrder: 'asc' }],
-  })
-
-  if (!keys.length) {
-    log.push(lp('images', { status: 'skipped', reason: 'No active Google Search API key configured' }))
-    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No Google Search API key', nextStage: 'translated' }))
-    await saveLog(article.id, log)
-    return { nextStage: 'translated' }
-  }
-
-  const keyEntry = keys[0]
-  const apiKey = decrypt(keyEntry.encryptedKey)
-
-  await db.googleSearchKey.update({
-    where: { id: keyEntry.id },
-    data: { lastUsedAt: new Date(), usageCount: { increment: 1 } },
-  })
-
-  try {
-    const url = new URL('https://serpapi.com/search')
-    url.searchParams.set('engine', 'google_images_light')
-    url.searchParams.set('q', title.trim())
-    url.searchParams.set('api_key', apiKey)
-
-    const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(30000) })
-    if (!resp.ok) {
-      throw new Error(`SerpAPI responded ${resp.status}: ${resp.statusText}`)
-    }
-    const data = await resp.json()
-
-    const rawImages = (data.images_results || []).slice(0, 10)
-    const images = rawImages.map(img => ({
-      thumbnail: img.thumbnail || null,
-      original: img.original || null,
-      title: img.title || null,
-      source: img.source || null,
-      link: img.link || null,
-    }))
-
-    const freshArticle = await db.article.findUnique({ where: { id: article.id } })
-    const analysis = { ...(freshArticle?.analysis || article.analysis || {}), images }
-
-    log.push(lp('images', {
-      status: 'ok',
-      processor: 'api',
-      service: 'SerpAPI Google Images Light',
-      query: title.trim(),
-      resultCount: images.length,
-      keyLabel: keyEntry.label,
-    }))
-    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: `${images.length} images found`, nextStage: 'translated' }))
-
-    await db.article.update({
-      where: { id: article.id },
-      data: { analysis, processingLog: log },
-    })
-
-    if (images.length > 0) {
-      try {
-        const gallerySaved = await saveImagesToGallery(article.channelId, images, article.title)
-        logger.info({ articleId: article.id, gallerySaved }, '[articleProcessor] images saved to gallery')
-      } catch (e) {
-        logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] gallery save failed (non-fatal)')
-      }
-    }
-
-    return { nextStage: 'translated' }
-  } catch (e) {
-    log.push(lp('images', {
-      status: 'error',
-      error: e.message,
-      processor: 'api',
-      service: 'SerpAPI Google Images Light',
-    }))
-    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: 'Image search failed (non-blocking)', nextStage: 'translated' }))
-    await saveLog(article.id, log)
-    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] images stage failed (non-fatal)')
-    return { nextStage: 'translated' }
-  }
-}
-
 const SERVICE_DESCRIPTOR = {
   name: 'google_search',
-  displayName: 'SerpAPI (Google Images Light)',
+  displayName: 'SerpAPI (Google Search + Images)',
   keySource: 'googleSearchKey',
 }
 
@@ -1890,7 +1802,6 @@ module.exports = {
   doStageScore,
   doStageResearch,
   doStageTranslated,
-  doStageImages,
   doStageTranscript,
   doStageStoryCount,
   doStageStorySplit,

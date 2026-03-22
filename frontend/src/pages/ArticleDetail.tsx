@@ -228,7 +228,7 @@ function resolveNodeIcon(key: string): typeof FileText {
   return NODE_ICON_MAP[key] || FileText;
 }
 
-const STAGE_ORDER = ["transcript", "story_count", "story_split", "imported", "content", "classify", "title_translate", "score", "research", "images", "translated", "done"];
+const STAGE_ORDER = ["transcript", "story_count", "story_split", "imported", "content", "classify", "title_translate", "score", "research", "translated", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -977,7 +977,7 @@ function StageDrawer({
           {(stageId === "research" || stageId === "translated") && <SynthesisDetail article={article} log={log} />}
           {stageId === "title_translate" && <TitleTranslateDetail article={article} log={log} />}
           {stageId === "score" && <ScoringDetail article={article} log={log} />}
-          {stageId === "images" && <ImagesDetail article={article} log={log} />}
+          {stageId === "research" && <ImagesDetail article={article} log={log} />}
           {stageId === "done" && <PromoteDetail article={article} log={log} pp={pp} />}
           <UnknownEntries stageId={stageId} log={log} />
         </div>
@@ -996,13 +996,12 @@ const STEP_MAP: Record<string, string[]> = {
   imported: ["imported"],
   content: ["apify_content", "firecrawl", "html_fetch", "title_desc"],
   classify: ["classify"],
-  research: ["research_decision", "firecrawl_search", "perplexity_context"],
+  research: ["research_decision", "serpapi_search", "images", "perplexity_context"],
   synthesis: ["synthesis", "research"],
   translated: ["detect_language", "translate_content", "translate_analysis", "translate_research"],
   title_translate: ["title_translate"],
   score: ["score_similarity", "score_topic_demand", "score_niche", "score_ai_analysis", "score", "threshold_gate"],
   promote: ["promote"],
-  images: ["images"],
 };
 
 function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
