@@ -45,13 +45,22 @@ profiles.get('/', async (req, res) => {
       include: { _count: { select: { stories: true, competitors: true } } },
       orderBy: { createdAt: 'asc' }
     })
-    res.json(items)
+    const { role, channelAccess } = req.user
+    if (role === 'owner' || role === 'admin' || !channelAccess) {
+      return res.json(items)
+    }
+    const allowed = Array.isArray(channelAccess) ? channelAccess : []
+    res.json(items.filter(ch => allowed.includes(ch.id)))
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })
 
-profiles.post('/', requireRole('owner', 'admin'), async (req, res) => {
+profiles.post('/', (req, res, next) => {
+  const { role, canCreateProfile } = req.user
+  if (role === 'owner' || role === 'admin' || canCreateProfile) return next()
+  return res.status(403).json({ error: 'You do not have permission to create profiles' })
+}, async (req, res) => {
   try {
     const { handle, color } = req.body
     if (!handle) return res.status(400).json({ error: 'YouTube handle required' })

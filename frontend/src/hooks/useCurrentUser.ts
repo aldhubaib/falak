@@ -5,6 +5,10 @@ export interface CurrentUser {
   name: string;
   email?: string | null;
   avatarUrl: string | null;
+  role: string;
+  pageAccess: string[] | null;
+  channelAccess: string[] | null;
+  canCreateProfile: boolean;
 }
 
 const AUTH_ME_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
@@ -16,13 +20,21 @@ function fetchCurrentUser(): Promise<CurrentUser | null> {
       if (r.ok) return r.json();
       return null;
     })
-    .then((data: { id?: string; name?: string; email?: string | null; avatarUrl?: string | null } | null) => {
+    .then((data: {
+      id?: string; name?: string; email?: string | null; avatarUrl?: string | null;
+      role?: string; pageAccess?: string[] | null; channelAccess?: string[] | null;
+      canCreateProfile?: boolean;
+    } | null) => {
       if (!data?.id) return null;
       return {
         id: data.id,
         name: data.name ?? "Anonymous",
         email: data.email ?? null,
         avatarUrl: data.avatarUrl ?? null,
+        role: data.role ?? "viewer",
+        pageAccess: data.pageAccess ?? null,
+        channelAccess: data.channelAccess ?? null,
+        canCreateProfile: data.canCreateProfile ?? false,
       };
     })
     .catch(() => null);

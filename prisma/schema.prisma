@@ -210,11 +210,12 @@ model User {
   name          String?
   avatarUrl     String?
   googleId      String?    @unique
-  role          String     @default("viewer")
-  note          String?
-  isActive      Boolean    @default(true)
-  pageAccess    Json?
-  channelAccess Json?
+  role             String     @default("viewer")
+  note             String?
+  isActive         Boolean    @default(true)
+  canCreateProfile Boolean    @default(false)
+  pageAccess       Json?
+  channelAccess    Json?
   storyLogs     StoryLog[]
   uploadedMedia GalleryMedia[] @relation("GalleryMediaUploadedBy")
   createdAlbums GalleryAlbum[] @relation("GalleryAlbumCreatedBy")

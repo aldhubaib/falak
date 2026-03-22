@@ -6,6 +6,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface Profile {
   id: string;
@@ -18,6 +19,7 @@ interface Profile {
 
 export default function ProfilePicker() {
   const navigate = useNavigate();
+  const currentUser = useCurrentUser();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
@@ -192,16 +194,18 @@ export default function ProfilePicker() {
           </div>
         ))}
 
-        {/* Add card */}
-        <div
-          onClick={() => setAddOpen(true)}
-          className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 px-4 py-6 cursor-pointer hover:border-primary/40 hover:bg-card transition-all min-h-[160px]"
-        >
-          <div className="w-16 h-16 rounded-full bg-card/40 flex items-center justify-center mb-3">
-            <Plus className="w-7 h-7 text-muted-foreground" />
+        {/* Add card — only shown to users who can create profiles */}
+        {(currentUser?.role === "owner" || currentUser?.role === "admin" || currentUser?.canCreateProfile) && (
+          <div
+            onClick={() => setAddOpen(true)}
+            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 px-4 py-6 cursor-pointer hover:border-primary/40 hover:bg-card transition-all min-h-[160px]"
+          >
+            <div className="w-16 h-16 rounded-full bg-card/40 flex items-center justify-center mb-3">
+              <Plus className="w-7 h-7 text-muted-foreground" />
+            </div>
+            <span className="text-[13px] text-muted-foreground font-medium">Add</span>
           </div>
-          <span className="text-[13px] text-muted-foreground font-medium">Add</span>
-        </div>
+        )}
       </div>
 
       {/* Add dialog */}

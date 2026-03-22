@@ -5,21 +5,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { LayoutDashboard, Swords, GitBranch, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, FileText, Home, Images, Palette } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Home", path: "" },
-  { icon: Swords, label: "Competitors", path: "/competitors" },
-  { icon: GitBranch, label: "Pipeline", path: "/pipeline" },
-  { icon: TrendingUp, label: "Analytics", path: "/analytics" },
-  { icon: Sparkles, label: "AI Intelligence", path: "/stories" },
-  { icon: FileText, label: "Article Pipeline", path: "/article-pipeline" },
-  { icon: Images, label: "Gallery", path: "/gallery" },
-  { icon: Settings, label: "Settings", path: "/settings" },
-  { icon: Palette, label: "Design System", path: "/design-system" },
+const allNavItems = [
+  { icon: LayoutDashboard, label: "Home", path: "", slug: "home" },
+  { icon: Swords, label: "Competitors", path: "/competitors", slug: "competitors" },
+  { icon: GitBranch, label: "Pipeline", path: "/pipeline", slug: "pipeline" },
+  { icon: TrendingUp, label: "Analytics", path: "/analytics", slug: "analytics" },
+  { icon: Sparkles, label: "AI Intelligence", path: "/stories", slug: "stories" },
+  { icon: FileText, label: "Article Pipeline", path: "/article-pipeline", slug: "article-pipeline" },
+  { icon: Images, label: "Gallery", path: "/gallery", slug: "gallery" },
+  { icon: Settings, label: "Settings", path: "/settings", slug: "settings" },
+  { icon: Palette, label: "Design System", path: "/design-system", slug: "design-system" },
 ];
 
-const adminItems = [
-  { icon: Circle, label: "Admin", path: "/admin" },
-];
+const adminItem = { icon: Circle, label: "Admin", path: "/admin", slug: "admin" };
 
 interface ChannelInfo {
   id: string;
@@ -141,67 +139,83 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
 
       {/* Nav */}
       <nav className="flex-1 py-1.5 px-2 bg-sidebar overflow-y-auto">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          const target = `${base}${item.path}`;
-          const link = (
-            <Link
-              key={item.path}
-              to={target}
-              onClick={() => onClose?.()}
-              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
-                active
-                  ? "bg-card text-foreground"
-                  : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-              {!collapsed && item.label}
-            </Link>
+        {(() => {
+          const role = currentUser?.role;
+          const pa = currentUser?.pageAccess;
+          const hasFullAccess = role === "owner" || role === "admin" || !pa;
+
+          const navItems = hasFullAccess
+            ? allNavItems
+            : allNavItems.filter((item) => pa!.includes(item.slug));
+
+          const showAdmin = hasFullAccess || (pa && pa.includes("admin"));
+
+          return (
+            <>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                const target = `${base}${item.path}`;
+                const link = (
+                  <Link
+                    key={item.path}
+                    to={target}
+                    onClick={() => onClose?.()}
+                    className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
+                      active
+                        ? "bg-card text-foreground"
+                        : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+                    {!collapsed && item.label}
+                  </Link>
+                );
+
+                if (collapsed) {
+                  return (
+                    <Tooltip key={item.path}>
+                      <TooltipTrigger asChild>{link}</TooltipTrigger>
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return link;
+              })}
+
+              {showAdmin && (() => {
+                const Icon = adminItem.icon;
+                const active = isActive(adminItem.path);
+                const target = `${base}${adminItem.path}`;
+                const link = (
+                  <Link
+                    key={adminItem.path}
+                    to={target}
+                    onClick={() => onClose?.()}
+                    className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
+                      active
+                        ? "bg-card text-foreground"
+                        : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+                    {!collapsed && adminItem.label}
+                  </Link>
+                );
+
+                if (collapsed) {
+                  return (
+                    <Tooltip key={adminItem.path}>
+                      <TooltipTrigger asChild>{link}</TooltipTrigger>
+                      <TooltipContent side="right">{adminItem.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return link;
+              })()}
+            </>
           );
-
-          if (collapsed) {
-            return (
-              <Tooltip key={item.path}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
-              </Tooltip>
-            );
-          }
-          return link;
-        })}
-
-        {adminItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          const target = `${base}${item.path}`;
-          const link = (
-            <Link
-              key={item.path}
-              to={target}
-              onClick={() => onClose?.()}
-              className={`w-full flex items-center ${collapsed ? "justify-center" : ""} gap-2.5 ${collapsed ? "px-0 py-2" : "px-2.5 py-[7px]"} rounded-full text-[13px] font-medium transition-colors mb-0.5 no-underline ${
-                active
-                  ? "bg-card text-foreground"
-                  : "text-muted-foreground hover:bg-card/60 hover:text-muted-foreground"
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-              {!collapsed && item.label}
-            </Link>
-          );
-
-          if (collapsed) {
-            return (
-              <Tooltip key={item.path}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
-              </Tooltip>
-            );
-          }
-          return link;
-        })}
+        })()}
       </nav>
 
       {/* User */}
