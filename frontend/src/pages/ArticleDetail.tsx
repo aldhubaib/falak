@@ -2108,8 +2108,8 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
         const brief = research?.briefAr ?? research?.brief;
         if (!brief?.competitionInsight) return null;
         return (
-          <ResultCard label="Competition Insight" icon={Target}>
-            <div className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{brief.competitionInsight}</div>
+          <ResultCard label="تحليل المنافسة" icon={Target}>
+            <div className="text-[12px] text-foreground/85 leading-relaxed" dir="rtl">{brief.competitionInsight}</div>
           </ResultCard>
         );
       })()}
@@ -2155,81 +2155,81 @@ function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEnt
       })}
 
       {brief?.suggestedHook && (
-        <ResultCard label="Video Hook" icon={Sparkles}>
-          <div className="text-[14px] text-foreground font-medium leading-relaxed" dir="auto">"{brief.suggestedHook}"</div>
+        <ResultCard label="فكرة الفيديو" icon={Sparkles}>
+          <div className="text-[14px] text-foreground font-medium leading-relaxed" dir="rtl">&ldquo;{brief.suggestedHook}&rdquo;</div>
         </ResultCard>
       )}
       {(brief?.whatHappened || brief?.howItHappened || brief?.whatWasTheResult) && (
-        <ResultCard label="Core Narrative" icon={FileText}>
-          <div className="space-y-3">
+        <ResultCard label="السرد الأساسي" icon={FileText}>
+          <div className="space-y-3" dir="rtl">
             {brief?.whatHappened && (
               <div>
-                <div className="text-[10px] font-mono text-primary uppercase tracking-wider mb-1.5">What happened?</div>
-                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatHappened}</div>
+                <div className="text-[10px] font-mono text-primary tracking-wider mb-1.5">ماذا حدث؟</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.9]">{brief.whatHappened}</div>
               </div>
             )}
             {brief?.howItHappened && (
               <div>
-                <div className="text-[10px] font-mono text-orange uppercase tracking-wider mb-1.5">How did it happen?</div>
-                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.howItHappened}</div>
+                <div className="text-[10px] font-mono text-orange tracking-wider mb-1.5">كيف حدث ذلك؟</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.9]">{brief.howItHappened}</div>
               </div>
             )}
             {brief?.whatWasTheResult && (
               <div>
-                <div className="text-[10px] font-mono text-success uppercase tracking-wider mb-1.5">What was the result?</div>
-                <div className="text-[13px] text-foreground/90 leading-[1.8]" dir="auto">{brief.whatWasTheResult}</div>
+                <div className="text-[10px] font-mono text-success tracking-wider mb-1.5">ما كانت النتيجة؟</div>
+                <div className="text-[13px] text-foreground/90 leading-[1.9]">{brief.whatWasTheResult}</div>
               </div>
             )}
           </div>
         </ResultCard>
       )}
       {brief?.keyFacts && brief.keyFacts.length > 0 && (
-        <ResultCard label="Key Facts" icon={ListOrdered}>
-          <div className="space-y-1.5">
+        <ResultCard label="الحقائق الرئيسية" icon={ListOrdered}>
+          <div className="space-y-1.5" dir="rtl">
             {brief.keyFacts.map((fact, i) => (
               <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-card/50 border border-border">
                 <span className="text-[10px] font-mono text-purple font-bold mt-0.5 shrink-0">{i + 1}</span>
-                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{fact}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed">{fact}</span>
               </div>
             ))}
           </div>
         </ResultCard>
       )}
       {brief?.timeline && brief.timeline.length > 0 && (
-        <ResultCard label="Timeline" icon={ListOrdered}>
-          <div className="space-y-1">
+        <ResultCard label="التسلسل الزمني" icon={ListOrdered}>
+          <div className="space-y-1" dir="rtl">
             {brief.timeline.map((entry, i) => (
               <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-card/50 border border-border">
-                <span className="text-[11px] font-mono text-primary shrink-0 w-24">{entry.date}</span>
-                <span className="text-[12px] text-foreground/85 leading-relaxed" dir="auto">{entry.event}</span>
+                <span className="text-[11px] font-mono text-primary shrink-0 w-24" dir="ltr">{entry.date}</span>
+                <span className="text-[12px] text-foreground/85 leading-relaxed">{entry.event}</span>
               </div>
             ))}
           </div>
         </ResultCard>
       )}
       {brief?.mainCharacters && brief.mainCharacters.length > 0 && (
-        <ResultCard label="Key People" icon={Users}>
-          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
+        <ResultCard label="الشخصيات الرئيسية" icon={Users}>
+          <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1" dir="rtl">
             {brief.mainCharacters.map((person, i) => (
               <div key={i} className="px-3 py-2.5 rounded-lg bg-card/50 border border-border">
-                <div className="text-[12px] font-semibold text-foreground" dir="auto">{person.name}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5" dir="auto">{person.role}</div>
+                <div className="text-[12px] font-semibold text-foreground">{person.name}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{person.role}</div>
               </div>
             ))}
           </div>
         </ResultCard>
       )}
       {brief?.sources && brief.sources.length > 0 && (
-        <ResultCard label="Sources" icon={Link2}>
-          <div className="flex flex-wrap gap-1.5">
+        <ResultCard label="المصادر" icon={Link2}>
+          <div className="flex flex-wrap gap-1.5" dir="rtl">
             {brief.sources.map((s, i) => (
               s.url ? (
                 <a key={i} href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-mono hover:bg-primary/20 transition-colors">
+                  className="px-2 py-1 rounded bg-primary/10 text-primary text-[10px] font-mono hover:bg-primary/20 transition-colors" dir="auto">
                   {s.title || s.url}
                 </a>
               ) : (
-                <span key={i} className="px-2 py-1 rounded bg-dim/10 text-muted-foreground text-[10px] font-mono">{s.title}</span>
+                <span key={i} className="px-2 py-1 rounded bg-dim/10 text-muted-foreground text-[10px] font-mono" dir="auto">{s.title}</span>
               )
             ))}
           </div>
