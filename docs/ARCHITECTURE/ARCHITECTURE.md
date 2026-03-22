@@ -428,6 +428,10 @@ For YouTube: transcript → story_count → [story_split] → classify → ... (
 | `contentAr` | Text | No | — | Arabic translation |
 | `publishedAt` | DateTime | No | — | Article publish date |
 | `language` | String | No | — | Detected language |
+| `category` | String | No | — | Article category from source |
+| `tags` | Json | No | — | Article tags array from source |
+| `featuredImage` | String | No | — | Featured image URL from source |
+| `images` | Json | No | — | Article image URLs array from source |
 | `stage` | String | Yes | `"imported"` | Pipeline stage |
 | `status` | String | Yes | `"queued"` | `queued`, `running`, `done`, `filtered`, `failed`, `review` |
 | `retries` | Int | Yes | 0 | Retry count |
