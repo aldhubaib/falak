@@ -1072,7 +1072,9 @@ AI calls) to stay within Anthropic/OpenAI rate limits.
 with per-item results in `PipelineBatchItem`. Each item records its status
 (succeeded/failed/blocked/review), error message, processing duration, and
 retry attempt number. Persistence is fire-and-forget (async, non-blocking)
-so it adds zero latency to the pipeline.
+so it adds zero latency to the pipeline. The batch items endpoint also
+computes a `stepSummary` — per-sub-step aggregate (ok/failed/skipped/total)
+derived from articles' `processingLog` entries for that stage.
 
 **Batch lifecycle:** Batches are partial-completion — items that succeed move
 to the next stage immediately, items that fail go back to the queue for a
@@ -2208,6 +2210,8 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
   batch history for a stage. Supports channel filtering via `channelIds` array.
 - **`GET /api/article-pipeline/batches/:id/items`**: Returns batch detail with
   per-article results (status, error, duration, attempt) joined with current article state.
+  Includes a `stepSummary` array — per-sub-step aggregation (ok/failed/skipped/total)
+  computed from all articles' `processingLog` entries for the batch's stage.
 
 ### Frontend changes
 - **`ArticlePipelineV2.tsx`**: New page at `/article-pipeline-v2` with:
@@ -2216,6 +2220,9 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
   - SSE subscription to `/api/article-pipeline/live` with fallback to 5s polling.
   - Stages show queued count, active batch indicator, bottleneck pulsing dot.
   - Clicking a stage expands to show batch history (batch #, item count, failures).
+  - **Per-sub-step breakdown**: Drawer sub-steps section shows aggregate counts
+    (ok/failed/skipped) from batch history with progress bars. Expanding a batch
+    shows its per-sub-step summary with inline progress bars before individual items.
   - **Live sub-step trail**: When a stage is active, shows pills for each completed
     API call (e.g. "Classified", "Web Search", "Background", "Synthesis") with
     status coloring (green/ok, red/failed, gray/skipped). Per-article dot progress
@@ -2226,4 +2233,4 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
 
 ---
 
-*Last updated: 2026-03-22*
+*Last updated: 2026-03-23*
