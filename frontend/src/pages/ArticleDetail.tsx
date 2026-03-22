@@ -6,10 +6,10 @@ import {
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
   Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2, Info,
   Loader2, RotateCcw, PenLine, ImageIcon, ShieldCheck, ArrowRight,
+  X, Youtube, Layers, Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FLOW_DEFS } from "@/constants/flowDefs";
 
 /* ─── Types ─── */
 
@@ -169,6 +169,16 @@ interface Analysis {
   }[];
 }
 
+interface PipelineFlowNode {
+  id: string;
+  label: string;
+  icon: string;
+  type: "linear" | "gate" | "terminal";
+  passLabel?: string;
+  failLabel?: string;
+  failTarget?: string;
+}
+
 interface ArticleDetail {
   id: string;
   channelId: string;
@@ -198,26 +208,21 @@ interface ArticleDetail {
   source: { id: string; label: string; type: string; language: string } | null;
   createdAt: string;
   updatedAt: string;
+  pipelineFlow?: PipelineFlowNode[];
+  sourceType?: string;
 }
 
-/* ─── Timeline stage definitions (aligned with Pipeline mother flows) ─── */
+/* ─── Tree node icon map ─── */
 
-interface TimelineStage {
-  id: string;
-  label: string;
-  icon: typeof FileText;
-  color: string;
-  bgColor: string;
+const NODE_ICON_MAP: Record<string, typeof FileText> = {
+  "youtube": Youtube, "layers": Layers, "download": Download, "file-text": FileText,
+  "brain": Brain, "languages": Languages, "sparkles": Sparkles, "search": Search,
+  "image": ImageIcon, "check-circle": CheckCircle2, "target": Target,
+};
+
+function resolveNodeIcon(key: string): typeof FileText {
+  return NODE_ICON_MAP[key] || FileText;
 }
-
-/** Timeline uses the 8 flow definitions (Imported, Content, Classify, Research, Synthesis, Translation, Score, Promote). */
-const TIMELINE_STAGES: TimelineStage[] = FLOW_DEFS.map((f) => ({
-  id: f.id,
-  label: f.name,
-  icon: f.icon,
-  color: f.color,
-  bgColor: f.bgColor,
-}));
 
 const STAGE_ORDER = ["transcript", "story_detect", "imported", "content", "classify", "title_translate", "score", "research", "translated", "images", "done"];
 
@@ -225,6 +230,41 @@ function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
   return idx === -1 ? 0 : idx;
 }
+
+type NodeState = "completed" | "failed" | "review" | "active" | "waiting";
+
+function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): NodeState {
+  const currentIdx = stageIndex(article.stage);
+  const nodeIdx = stageIndex(nodeId);
+  const verdict = log.find((e) => e.step === "verdict" && e.stage === nodeId);
+
+  if (verdict) {
+    const r = verdict.result;
+    if (r === "fail") return "failed";
+    if (r === "review") return "review";
+    return "completed";
+  }
+
+  if (article.stage === "done" || article.stage === "adapter_done") {
+    return nodeIdx <= currentIdx ? "completed" : "waiting";
+  }
+  if (article.stage === "filtered" && nodeId === "score") return "failed";
+  if (nodeIdx < currentIdx) return "completed";
+  if (nodeIdx === currentIdx) {
+    if (article.status === "review") return "review";
+    if (article.status === "failed") return "failed";
+    return "active";
+  }
+  return "waiting";
+}
+
+const STAGE_LABEL_MAP: Record<string, string> = {
+  transcript: "Transcript", story_detect: "Story Detect", imported: "Imported",
+  content: "Content", classify: "Classify", title_translate: "Title Translate",
+  score: "Score", research: "Research", translated: "Translation",
+  images: "Images", promote: "Promote", review: "Review", filtered: "Filtered",
+  done: "Done", adapter_done: "Split Done",
+};
 
 /* ─── Helpers ─── */
 
@@ -265,6 +305,7 @@ export default function ArticleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
+  const [drawerStage, setDrawerStage] = useState<string | null>(null);
 
   const fetchArticle = useCallback((silent = false) => {
     if (!id) return;
@@ -346,9 +387,10 @@ export default function ArticleDetailPage() {
   }
 
   const log: LogEntry[] = Array.isArray(article.processingLog) ? article.processingLog : [];
-  const currentStageIdx = stageIndex(article.stage);
   const isDone = article.stage === "done";
   const isFailed = article.stage === "failed";
+  const flow: PipelineFlowNode[] = article.pipelineFlow || [];
+  const isVideo = article.sourceType === "youtube_channel";
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -358,23 +400,31 @@ export default function ArticleDetailPage() {
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <h1 className="text-sm font-semibold text-foreground truncate">Article Inspector</h1>
-        <span className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-          isDone ? "bg-success/15 text-success" :
-          isFailed ? "bg-destructive/15 text-destructive" :
-          article.status === "review" ? "bg-orange/15 text-orange" :
-          "bg-primary/15 text-primary"
-        }`}>
-          {isDone ? "Completed" : isFailed ? "Failed" : article.status === "review" ? "Review" : article.stage}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold ${
+            isVideo ? "bg-red-500/15 text-red-400" : "bg-primary/15 text-primary"
+          }`}>
+            {isVideo ? <Youtube className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+            {isVideo ? "Video" : "Article"}
+          </span>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+            isDone ? "bg-success/15 text-success" :
+            isFailed ? "bg-destructive/15 text-destructive" :
+            article.status === "review" ? "bg-orange/15 text-orange" :
+            "bg-primary/15 text-primary"
+          }`}>
+            {isDone ? "Completed" : isFailed ? "Failed" : article.status === "review" ? "Review" : article.stage}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto px-6 py-6 max-lg:px-4">
+        <div className="max-w-xl mx-auto px-6 py-6 max-lg:px-4">
 
           {/* Article header card */}
-          <div className="rounded-lg border border-border bg-card p-5 mb-6">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <h2 className="text-[16px] font-semibold text-foreground leading-snug" dir="auto">
+          <div className="rounded-xl border border-border bg-card p-5 mb-8">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <h2 className="text-[15px] font-semibold text-foreground leading-snug" dir="auto">
                 {article.title || "Untitled"}
               </h2>
               <a href={article.url} target="_blank" rel="noopener noreferrer"
@@ -383,96 +433,79 @@ export default function ArticleDetailPage() {
               </a>
             </div>
             {article.description && (
-              <p className="text-[12px] text-muted-foreground leading-relaxed mb-3 line-clamp-2" dir="auto">
+              <p className="text-[11px] text-muted-foreground leading-relaxed mb-2 line-clamp-2" dir="auto">
                 {article.description}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-muted-foreground">
               <span>{extractDomain(article.url)}</span>
-              {article.source && <span className="px-1.5 py-0.5 rounded bg-card text-foreground/70">{article.source.label}</span>}
+              {article.source && <span className="px-1.5 py-0.5 rounded bg-card border border-border text-foreground/70">{article.source.label}</span>}
               {article.language && (
                 <span className={`px-1.5 py-0.5 rounded font-bold ${
                   article.language === "ar" ? "bg-success/15 text-success" : "bg-primary/15 text-primary"
                 }`}>{article.language.toUpperCase()}</span>
               )}
-              {article.publishedAt && <span>Published: {fmtDate(article.publishedAt)}</span>}
-              <span>Created: {fmtDate(article.createdAt)}</span>
-              {article.startedAt && <span>Started: {fmtDate(article.startedAt)}</span>}
-              {article.finishedAt && (
-                <span>Finished: {fmtDate(article.finishedAt)} ({fmtElapsed(article.startedAt, article.finishedAt)})</span>
+              {article.finalScore != null && (
+                <span className="px-1.5 py-0.5 rounded bg-orange/10 text-orange font-bold">
+                  Score: {(Math.round(article.finalScore * 100) / 10).toFixed(1)}/10
+                </span>
               )}
-              {article.retries > 0 && <span className="text-orange">{article.retries} retries</span>}
+              {article.storyId && (
+                <Link to={pp(`/story/${article.storyId}`)} className="px-1.5 py-0.5 rounded bg-success/10 text-success font-bold hover:bg-success/20">
+                  Story →
+                </Link>
+              )}
             </div>
             {article.error && (
-              <div className="mt-3 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-[11px] font-mono">
+              <div className="mt-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-[11px] font-mono">
                 {article.error}
               </div>
             )}
-            {article.status !== "running" && (
-              <RestartControl
-                stage={article.stage}
-                restarting={restarting}
-                onRestart={handleRestart}
-              />
-            )}
-            {article.finalScore != null && (
-              <div className="mt-3 flex items-center gap-4 text-[11px] font-mono">
-                <span className="text-foreground font-semibold">Score: {article.finalScore.toFixed(2)}</span>
-                <span className="text-muted-foreground">→ {(Math.round(article.finalScore * 100) / 10).toFixed(1)}/10</span>
-                {article.relevanceScore != null && <span className="text-muted-foreground">Relevance: {article.relevanceScore.toFixed(2)}</span>}
-                {article.rankReason && <span className="text-muted-foreground">{article.rankReason}</span>}
-              </div>
-            )}
-            {article.storyId && (
-              <div className="mt-3">
-                <Link to={pp(`/story/${article.storyId}`)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 text-success text-[11px] font-semibold hover:bg-success/20 transition-colors">
-                  <CheckCircle2 className="w-3 h-3" /> View Story
-                </Link>
-              </div>
-            )}
           </div>
 
-          {/* Stage detail sections */}
-          <div className="space-y-4">
-            {TIMELINE_STAGES.map((stage) => {
-              const mappedStage = stage.id === "promote" ? null : stage.id === "synthesis" ? "research" : stage.id;
-
-              let stageState: "completed" | "active" | "waiting";
-              if (stage.id === "promote") {
-                stageState = isDone ? "completed" : "waiting";
-              } else if (mappedStage != null) {
-                const mappedIdx = stageIndex(mappedStage);
-                if (isDone || currentStageIdx > mappedIdx) {
-                  stageState = "completed";
-                } else if (currentStageIdx === mappedIdx) {
-                  stageState = isFailed || article.status === "review" ? "completed" : "active";
-                } else {
-                  stageState = "waiting";
-                }
-              } else {
-                stageState = "waiting";
-              }
-
-              if (stage.id === "synthesis" && stageState === "active") {
-                const hasSynthesisLog = log.some((e) => e.step === "synthesis" || (e.stage === "synthesis"));
-                if (!hasSynthesisLog) stageState = "waiting";
-              }
+          {/* ═══ Visual Decision Tree ═══ */}
+          <div className="flex flex-col items-center">
+            {flow.map((node, i) => {
+              const state = getNodeState(node.id, article, log);
+              const verdict = log.find((e) => e.step === "verdict" && e.stage === node.id);
+              const isLast = i === flow.length - 1;
 
               return (
-                <StageSection
-                  key={stage.id}
-                  stage={stage}
-                  stageState={stageState}
-                  article={article}
-                  log={log}
-                  pp={pp}
-                />
+                <React.Fragment key={node.id}>
+                  <TreeNode
+                    node={node}
+                    state={state}
+                    verdict={verdict || null}
+                    onClick={() => setDrawerStage(node.id)}
+                  />
+                  {!isLast && node.type === "gate" && (
+                    <GateFork node={node} verdict={verdict || null} state={state} />
+                  )}
+                  {!isLast && node.type === "linear" && (
+                    <LinearConnector active={state === "completed"} />
+                  )}
+                </React.Fragment>
               );
             })}
           </div>
+
+          {/* Restart control */}
+          <div className="mt-8 flex justify-center">
+            <RestartControl stage={article.stage} restarting={restarting} onRestart={handleRestart} />
+          </div>
         </div>
       </div>
+
+      {/* ═══ Stage Detail Drawer ═══ */}
+      {drawerStage && (
+        <StageDrawer
+          stageId={drawerStage}
+          article={article}
+          log={log}
+          pp={pp}
+          onClose={() => setDrawerStage(null)}
+        />
+      )}
     </div>
   );
 }
@@ -541,73 +574,220 @@ function RestartControl({
   );
 }
 
-/* ─── Stage Section (flat collapsible card — no timeline dots/lines) ─── */
+/* ─── Tree Node ─── */
 
-function StageSection({
-  stage, stageState, article, log, pp,
+const NODE_STATE_STYLES: Record<NodeState, { border: string; bg: string; text: string; ring: string }> = {
+  completed: { border: "border-success/40", bg: "bg-success/8", text: "text-success", ring: "ring-success/20" },
+  failed:    { border: "border-destructive/40", bg: "bg-destructive/8", text: "text-destructive", ring: "ring-destructive/20" },
+  review:    { border: "border-orange/40", bg: "bg-orange/8", text: "text-orange", ring: "ring-orange/20" },
+  active:    { border: "border-primary/40", bg: "bg-primary/8", text: "text-primary", ring: "ring-primary/20" },
+  waiting:   { border: "border-border/50", bg: "bg-card/40", text: "text-muted-foreground", ring: "" },
+};
+
+function TreeNode({
+  node, state, verdict, onClick,
 }: {
-  stage: TimelineStage;
-  stageState: "completed" | "active" | "waiting";
+  node: PipelineFlowNode;
+  state: NodeState;
+  verdict: LogEntry | null;
+  onClick: () => void;
+}) {
+  const Icon = resolveNodeIcon(node.icon);
+  const s = NODE_STATE_STYLES[state];
+  const reason = verdict?.reason;
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full max-w-[340px] rounded-xl border-2 ${s.border} ${s.bg} px-4 py-3 text-left transition-all hover:ring-4 ${s.ring} hover:scale-[1.02] ${
+        state === "waiting" ? "opacity-40" : ""
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        {state === "active" ? (
+          <Loader2 className={`w-5 h-5 ${s.text} shrink-0 animate-spin`} />
+        ) : (
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+            state === "completed" ? "bg-success/15" :
+            state === "failed" ? "bg-destructive/15" :
+            state === "review" ? "bg-orange/15" :
+            state === "active" ? "bg-primary/15" :
+            "bg-card"
+          }`}>
+            <Icon className={`w-4 h-4 ${s.text}`} />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-[13px] font-semibold ${state === "waiting" ? "text-muted-foreground" : "text-foreground"}`}>
+              {node.label}
+            </span>
+            {state === "completed" && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
+            {state === "failed" && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
+            {state === "review" && <AlertTriangle className="w-3.5 h-3.5 text-orange shrink-0" />}
+            {state === "active" && (
+              <span className="text-[9px] font-mono text-primary px-1.5 py-0.5 rounded bg-primary/10">Processing…</span>
+            )}
+          </div>
+          {reason && state !== "waiting" && (
+            <p className="text-[10px] text-muted-foreground truncate mt-0.5">{reason}</p>
+          )}
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+      </div>
+    </button>
+  );
+}
+
+/* ─── Gate Fork (visual YES/NO split between gate nodes) ─── */
+
+function GateFork({
+  node, verdict, state,
+}: {
+  node: PipelineFlowNode;
+  verdict: LogEntry | null;
+  state: NodeState;
+}) {
+  const result = verdict?.result;
+  const isPass = result === "pass" || result === "skip";
+  const isFail = result === "fail" || result === "review";
+  const hasVerdict = !!verdict;
+  const isWaiting = state === "waiting";
+
+  const FAIL_LABELS: Record<string, string> = {
+    filtered: "Filtered", review: "Review", done: "Done",
+  };
+  const failTargetLabel = FAIL_LABELS[node.failTarget || "review"] || node.failTarget || "Review";
+  const dim = isWaiting ? "opacity-30" : "";
+
+  return (
+    <div className={`flex flex-col items-center w-full max-w-[340px] ${dim}`}>
+      {/* Stem from node */}
+      <div className="w-px h-4 bg-border" />
+
+      {/* Horizontal bar connecting the two circles */}
+      <div className="relative w-[70%] h-[22px]">
+        <div className="absolute top-[11px] left-[25%] right-[25%] h-px bg-border" />
+        {/* Pass circle (left) */}
+        <div className="absolute left-[25%] top-0 -translate-x-1/2 flex flex-col items-center">
+          <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold ${
+            !hasVerdict ? "bg-card border border-border text-muted-foreground" :
+            isPass ? "bg-success text-white shadow-sm shadow-success/30" :
+            "bg-card border border-border text-muted-foreground/40"
+          }`}>✓</div>
+        </div>
+        {/* Fail circle (right) */}
+        <div className="absolute right-[25%] top-0 translate-x-1/2 flex flex-col items-center">
+          <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold ${
+            !hasVerdict ? "bg-card border border-border text-muted-foreground" :
+            isFail ? "bg-destructive text-white shadow-sm shadow-destructive/30" :
+            "bg-card border border-border text-muted-foreground/40"
+          }`}>✗</div>
+        </div>
+      </div>
+
+      {/* Labels row */}
+      <div className="flex w-[70%]">
+        <div className="w-1/2 flex flex-col items-center">
+          <span className={`text-[9px] font-mono text-center leading-tight max-w-[100px] ${
+            !hasVerdict ? "text-muted-foreground/50" :
+            isPass ? "text-success font-semibold" : "text-muted-foreground/40"
+          }`}>{node.passLabel || "Pass"}</span>
+        </div>
+        <div className="w-1/2 flex flex-col items-center">
+          <span className={`text-[9px] font-mono text-center leading-tight max-w-[100px] ${
+            !hasVerdict ? "text-muted-foreground/50" :
+            isFail ? "text-destructive font-semibold" : "text-muted-foreground/40"
+          }`}>{node.failLabel || "Fail"}</span>
+          {/* Dead-end line + box */}
+          <div className={`w-px h-3 mt-1 ${isFail ? "bg-destructive/30" : "bg-border/30"}`} />
+          <div className={`px-3 py-1 rounded-lg border text-[9px] font-mono ${
+            isFail ? "border-destructive/30 bg-destructive/10 text-destructive font-semibold" :
+            "border-border/30 bg-card/30 text-muted-foreground/30"
+          }`}>{failTargetLabel}</div>
+        </div>
+      </div>
+
+      {/* Continue line — aligned with pass side (left quarter) */}
+      <div className="w-[70%] flex">
+        <div className="w-1/2 flex justify-center">
+          <div className={`w-px h-4 ${isPass || !hasVerdict ? "bg-border" : "bg-border/40"}`} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Linear Connector ─── */
+
+function LinearConnector({ active }: { active: boolean }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`w-px h-8 ${active ? "bg-border" : "bg-border/30"}`} />
+    </div>
+  );
+}
+
+/* ─── Stage Detail Drawer ─── */
+
+function StageDrawer({
+  stageId, article, log, pp, onClose,
+}: {
+  stageId: string;
   article: ArticleDetail;
   log: LogEntry[];
   pp: (p: string) => string;
+  onClose: () => void;
 }) {
-  const [expanded, setExpanded] = useState(stageState !== "waiting");
-  const Icon = stage.icon;
-  const stepLog = getStepLogs(stage.id, log);
-  const timestamp = stepLog.length > 0 ? stepLog[0].at : null;
-  const isWaiting = stageState === "waiting";
-  const isActive = stageState === "active";
+  const nodeLabel = STAGE_LABEL_MAP[stageId] || stageId;
+  const verdict = log.find((e) => e.step === "verdict" && e.stage === stageId);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
 
   return (
-    <div className={`rounded-lg border overflow-hidden ${
-      isWaiting ? "border-border/50 bg-card/60" : "border-border bg-card"
-    }`}>
-      <button
-        onClick={() => !isWaiting && setExpanded(!expanded)}
-        className={`flex items-center gap-2.5 w-full text-left px-4 py-3 transition-colors ${
-          isWaiting ? "cursor-default" : "hover:bg-card/50"
-        }`}
-      >
-        {isActive ? (
-          <Loader2 className={`w-4 h-4 ${stage.color} shrink-0 animate-spin`} />
-        ) : (
-          <Icon className={`w-4 h-4 ${isWaiting ? "text-muted-foreground" : stage.color} shrink-0`} />
-        )}
-        <span className={`text-[13px] font-semibold ${isWaiting ? "text-muted-foreground" : "text-foreground"}`}>
-          {stage.label}
-        </span>
-        {isActive && (
-          <span className="text-[10px] font-mono text-primary px-1.5 py-0.5 rounded bg-primary/10">Processing…</span>
-        )}
-        {isWaiting && (
-          <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-card">Waiting</span>
-        )}
-        {timestamp && <span className="text-[10px] text-muted-foreground font-mono">{fmtDate(timestamp)}</span>}
-        {!isWaiting && (
-          expanded
-            ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
-            : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
-        )}
-      </button>
-      {expanded && !isWaiting && (
-        <>
-          {stage.id === "transcript" && <TranscriptDetail article={article} log={log} />}
-          {stage.id === "story_detect" && <StoryDetectDetail article={article} log={log} pp={pp} />}
-          {stage.id === "imported" && <ImportedDetail article={article} log={log} />}
-          {stage.id === "content" && <ContentDetail article={article} log={log} />}
-          {stage.id === "classify" && <AiAnalysisDetail article={article} log={log} />}
-          {stage.id === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
-          {stage.id === "translated" && <TranslatedDetail article={article} log={log} />}
-          {stage.id === "synthesis" && <SynthesisDetail article={article} log={log} />}
-          {stage.id === "title_translate" && <TitleTranslateDetail article={article} log={log} />}
-          {stage.id === "score" && <ScoringDetail article={article} log={log} />}
-          {stage.id === "images" && <ImagesDetail article={article} log={log} />}
-          {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
-          <UnknownEntries stageId={stage.id} log={log} />
-          <VerdictBanner stageId={stage.id === "synthesis" ? "research" : stage.id} log={log} />
-        </>
-      )}
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-[640px] bg-background border-l border-border overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-200">
+        {/* Drawer header */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-5 py-3 flex items-center justify-between">
+          <div>
+            <h3 className="text-[14px] font-semibold text-foreground">{nodeLabel}</h3>
+            {verdict?.reason && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{verdict.reason}</p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-card border border-border transition-colors"
+          >
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Verdict banner */}
+        {verdict && <VerdictBanner stageId={stageId} log={log} />}
+
+        {/* Stage detail content */}
+        <div>
+          {stageId === "transcript" && <TranscriptDetail article={article} log={log} />}
+          {stageId === "story_detect" && <StoryDetectDetail article={article} log={log} pp={pp} />}
+          {stageId === "imported" && <ImportedDetail article={article} log={log} />}
+          {stageId === "content" && <ContentDetail article={article} log={log} />}
+          {stageId === "classify" && <AiAnalysisDetail article={article} log={log} />}
+          {stageId === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
+          {stageId === "translated" && <TranslatedDetail article={article} log={log} />}
+          {(stageId === "research" || stageId === "translated") && <SynthesisDetail article={article} log={log} />}
+          {stageId === "title_translate" && <TitleTranslateDetail article={article} log={log} />}
+          {stageId === "score" && <ScoringDetail article={article} log={log} />}
+          {stageId === "images" && <ImagesDetail article={article} log={log} />}
+          {stageId === "done" && <PromoteDetail article={article} log={log} pp={pp} />}
+          <UnknownEntries stageId={stageId} log={log} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1083,14 +1263,6 @@ interface VerdictPath {
   nextStage: string;
   label: string;
 }
-
-const STAGE_LABEL_MAP: Record<string, string> = {
-  transcript: "Transcript", story_detect: "Story Detect", imported: "Imported",
-  content: "Content", classify: "Classify", title_translate: "Title Translate",
-  score: "Score", research: "Research", translated: "Translation",
-  images: "Images", promote: "Promote", review: "Review", filtered: "Filtered",
-  done: "Done", adapter_done: "Split Done",
-};
 
 function VerdictBanner({ stageId, log }: { stageId: string; log: LogEntry[] }) {
   const verdict = log.find((e) => e.step === "verdict" && e.stage === stageId);

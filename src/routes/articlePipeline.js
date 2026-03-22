@@ -179,6 +179,33 @@ async function getSourcesView(req, res, channelId) {
   res.json({ workflows, totals })
 }
 
+// ── Pipeline flow definitions (backend-driven decision tree) ──
+
+const SHARED_STAGES = [
+  { id: 'classify',        label: 'Classify',        icon: 'brain',      type: 'linear' },
+  { id: 'title_translate', label: 'Title Translate',  icon: 'languages',  type: 'linear' },
+  { id: 'score',           label: 'Score',            icon: 'sparkles',   type: 'gate', passLabel: 'Above threshold', failLabel: 'Below threshold', failTarget: 'filtered' },
+  { id: 'research',        label: 'Research',         icon: 'search',     type: 'linear' },
+  { id: 'translated',      label: 'Translation',      icon: 'languages',  type: 'gate', passLabel: 'Translation complete', failLabel: 'No content', failTarget: 'review' },
+  { id: 'images',          label: 'Images',           icon: 'image',      type: 'linear' },
+  { id: 'done',            label: 'Done',             icon: 'check-circle', type: 'terminal' },
+]
+
+const VIDEO_PREFIX = [
+  { id: 'transcript',   label: 'Transcript',    icon: 'youtube',  type: 'gate', passLabel: 'Transcript fetched', failLabel: 'No transcript', failTarget: 'review' },
+  { id: 'story_detect', label: 'Story Detect',  icon: 'layers',   type: 'gate', passLabel: 'Stories identified', failLabel: 'Detection failed', failTarget: 'review' },
+]
+
+const ARTICLE_PREFIX = [
+  { id: 'imported', label: 'Imported', icon: 'download', type: 'linear' },
+  { id: 'content',  label: 'Content',  icon: 'file-text', type: 'gate', passLabel: 'Content extracted', failLabel: 'No usable content', failTarget: 'review' },
+]
+
+function buildPipelineFlow(sourceType) {
+  const prefix = sourceType === 'youtube_channel' ? VIDEO_PREFIX : ARTICLE_PREFIX
+  return [...prefix, ...SHARED_STAGES]
+}
+
 // ── GET /api/article-pipeline/:id/detail — full article with all content fields ──
 router.get('/:id/detail', async (req, res) => {
   try {
@@ -192,6 +219,7 @@ router.get('/:id/detail', async (req, res) => {
 
     const contentPreviewLen = 5000
     const truncate = (s) => s && s.length > contentPreviewLen ? s.slice(0, contentPreviewLen) + '…' : s
+    const sourceType = article.source?.type || 'rss'
 
     res.json({
       id: article.id,
@@ -222,6 +250,8 @@ router.get('/:id/detail', async (req, res) => {
       source: article.source,
       createdAt: article.createdAt,
       updatedAt: article.updatedAt,
+      pipelineFlow: buildPipelineFlow(sourceType),
+      sourceType,
     })
   } catch (e) {
     res.status(500).json({ error: e.message })
