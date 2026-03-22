@@ -524,7 +524,8 @@ An album within a channel's media gallery.
 | `channelId` | String | Yes | — | FK → Channel |
 | `name` | String | Yes | — | Album name |
 | `description` | String | No | — | Album description |
-| `isLocked` | Boolean | Yes | `false` | Prevents deletion/removal of media (used by auto-generated "Stories" album) |
+| `isLocked` | Boolean | Yes | `false` | Prevents deletion/removal/rename/upload (used by auto-generated "Stories" album) |
+| `showInAllMedia` | Boolean | Yes | `true` | When `false`, media in this album is excluded from the "All Media" view |
 | `coverMediaId` | String | No | — | FK → GalleryMedia (album cover) |
 | `createdById` | String | Yes | — | FK → User |
 | `createdAt` | DateTime | Yes | `now()` | — |
@@ -918,10 +919,10 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | GET | `/api/gallery/:channelId/albums` | Yes | List albums with counts. |
 | POST | `/api/gallery/:channelId/albums` | editor+ | Create album. |
 | GET | `/api/gallery/:channelId/albums/:albumId` | Yes | Album detail with media. |
-| PATCH | `/api/gallery/:channelId/albums/:albumId` | editor+ | Update album. |
-| DELETE | `/api/gallery/:channelId/albums/:albumId` | editor+ | Delete album (media unassigned). |
-| POST | `/api/gallery/:channelId/albums/:albumId/add` | editor+ | Add media to album. |
-| POST | `/api/gallery/:channelId/albums/:albumId/remove` | editor+ | Remove media from album. |
+| PATCH | `/api/gallery/:channelId/albums/:albumId` | editor+ | Update album. Locked albums only accept `showInAllMedia`. |
+| DELETE | `/api/gallery/:channelId/albums/:albumId` | editor+ | Delete album (media unassigned). Blocked for locked albums. |
+| POST | `/api/gallery/:channelId/albums/:albumId/add` | editor+ | Add media to album. Blocked for locked albums. |
+| POST | `/api/gallery/:channelId/albums/:albumId/remove` | editor+ | Remove media from album. Blocked for locked albums. |
 | GET | `/api/gallery/:channelId/:mediaId` | Yes | Single media with signed URLs. |
 | PATCH | `/api/gallery/:channelId/:mediaId` | editor+ | Rename or move media. |
 | GET | `/api/gallery/:channelId/:mediaId/download` | Yes | Signed download URL. |
