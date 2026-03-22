@@ -542,7 +542,7 @@ async function ingestYouTubeSource(source) {
       title: v.titleAr || v.titleEn || null,
       description: (v.description || '').slice(0, 500) || null,
       publishedAt: v.publishedAt || null,
-      language: source.config.language || source.language || 'ar',
+      language: null,
       stage: 'transcript',
       status: 'queued',
     }))

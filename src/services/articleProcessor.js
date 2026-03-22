@@ -1695,7 +1695,7 @@ ${transcript.slice(0, 30000)}`
     content: story.content,
     contentClean: story.content,
     publishedAt: article.publishedAt,
-    language: article.language || 'ar',
+    language: null,
     stage: 'classify',
     status: 'queued',
   }))
