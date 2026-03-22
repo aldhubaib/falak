@@ -578,7 +578,7 @@ and published video outcome.
 | `totalDecisions` | Int | Yes | 0 | Total liked/skip/trash decisions |
 | `currentThreshold` | Float | Yes | 0.30 | Dynamic filtering threshold (updated by threshold gate) |
 | `lastLearnedAt` | DateTime | No | — | Last learning cycle |
-| `storyPatterns` | Json | No | — | Configurable story detection patterns (title regexes, transition markers, thresholds). Managed via Story Rules UI tab. |
+| `storyPatterns` | Json | No | — | Configurable story detection patterns: `titleWords` (plain words), `transitionPhrases` (plain phrases), `minTransitions` (int). Managed via Story Rules UI tab. |
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
@@ -834,8 +834,8 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/article-pipeline/retry-all-failed` | editor+ | Retry all failed articles. |
 | POST | `/api/article-pipeline/test-run` | admin+ | Force-pick N imported articles (any status), reset & process end-to-end (returns runId for polling). **Requires Content DNA embedding.** |
 | POST | `/api/article-pipeline/test-video` | admin+ | Force-pick 1 transcript-stage YouTube article, process through transcript → story_count → [story_split] → full pipeline. **Requires Content DNA embedding.** |
-| GET | `/api/article-pipeline/story-patterns?channelId=X` | Yes | Get story detection patterns for a channel (title patterns, transition markers, thresholds). |
-| PUT | `/api/article-pipeline/story-patterns` | editor+ | Save story detection patterns for a channel. |
+| GET | `/api/article-pipeline/story-patterns?channelId=X` | Yes | Get story detection patterns for a channel (title words, transition phrases, min threshold). |
+| PUT | `/api/article-pipeline/story-patterns` | editor+ | Save story detection patterns for a channel (plain words/phrases, no regex). |
 | POST | `/api/article-pipeline/story-patterns/reset` | editor+ | Reset story patterns to defaults. |
 | GET | `/api/article-pipeline/test-run/:runId` | Yes | Poll test run progress (shared by test-run and test-video). |
 
