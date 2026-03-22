@@ -627,34 +627,8 @@ function PipelineTabContent() {
           </div>
         ) : (
           <>
-            {/* Stats rows */}
-            <div className="px-6 max-lg:px-4 mb-5 pt-5 space-y-0">
-              {((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_count ?? 0) > 0 || (data?.stats.story_split ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) && (
-                <div className="flex rounded-t-lg overflow-hidden border border-b-0 border-border">
-                  <StatBox label="Transcript" value={data?.stats.transcript ?? 0} color="text-red-400" />
-                  <StatBox label="Story Count" value={data?.stats.story_count ?? 0} color="text-red-400" />
-                  <StatBox label="Story Split" value={data?.stats.story_split ?? 0} color="text-red-400" />
-                  <StatBox label="Split Done" value={data?.stats.adapter_done ?? 0} color="text-muted-foreground" last />
-                </div>
-              )}
-              <div className={`flex overflow-hidden border border-b-0 border-border ${((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_count ?? 0) > 0 || (data?.stats.story_split ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) ? "" : "rounded-t-lg"}`}>
-                <StatBox label="Total" value={totalArticles} />
-                <StatBox label="Imported" value={data?.stats.imported ?? 0} color="text-orange" />
-                <StatBox label="Content" value={data?.stats.content ?? 0} color="text-primary" />
-                <StatBox label="Classify" value={data?.stats.classify ?? 0} color="text-success" />
-                <StatBox label="Title Translate" value={data?.stats.title_translate ?? 0} color="text-primary" />
-                <StatBox label="Score" value={data?.stats.score ?? 0} color="text-orange" last />
-              </div>
-              <div className="flex rounded-b-lg overflow-hidden border border-border">
-                <StatBox label="Research" value={data?.stats.research ?? 0} color="text-purple" />
-                <StatBox label="Translated" value={data?.stats.translated ?? 0} color="text-primary" />
-                <StatBox label="Images" value={data?.stats.images ?? 0} color="text-primary" />
-                <StatBox label="Done" value={data?.stats.done ?? 0} color="text-success" />
-                <StatBox label="Filtered" value={data?.stats.filtered ?? 0} color="text-muted-foreground" />
-                <StatBox label="Review" value={data?.stats.review ?? 0} color="text-orange" />
-                <StatBox label="Failed" value={failedCount} color="text-destructive" last />
-              </div>
-            </div>
+            {/* Pipeline Overview */}
+            <PipelineOverview stats={data?.stats ?? {}} totalArticles={totalArticles} failedCount={failedCount} />
 
             {/* ── TEST RUN RESULTS ── */}
             {testResults && testResults.length > 0 && (
@@ -909,14 +883,186 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: typeof FileText;
   );
 }
 
-/* ─── Stat Box ─── */
+/* ─── Pipeline Overview ─── */
 
-function StatBox({ label, value, color, sub, last }: { label: string; value: number; color?: string; sub?: string; last?: boolean }) {
+function PipelineOverview({ stats, totalArticles, failedCount }: { stats: Record<string, number>; totalArticles: number; failedCount: number }) {
+  const doneCount = stats.done ?? 0;
+  const donePct = totalArticles > 0 ? ((doneCount / totalArticles) * 100).toFixed(1) : "0";
+
+  const hasYoutube = (stats.transcript ?? 0) > 0 || (stats.story_count ?? 0) > 0 || (stats.story_split ?? 0) > 0 || (stats.adapter_done ?? 0) > 0;
+
+  const activeStages = [
+    { key: "imported", label: "Imported", color: "text-orange", bg: "bg-orange" },
+    { key: "content", label: "Content", color: "text-primary", bg: "bg-primary" },
+    { key: "classify", label: "Classify", color: "text-success", bg: "bg-success" },
+    { key: "title_translate", label: "Title Translate", color: "text-primary", bg: "bg-primary" },
+    { key: "score", label: "Score", color: "text-orange", bg: "bg-orange" },
+    { key: "research", label: "Research", color: "text-purple", bg: "bg-purple" },
+    { key: "translated", label: "Translated", color: "text-primary", bg: "bg-primary" },
+    { key: "images", label: "Images", color: "text-primary", bg: "bg-primary" },
+  ];
+
+  const youtubeStages = [
+    { key: "transcript", label: "Transcript", color: "text-red-400", bg: "bg-red-400" },
+    { key: "story_count", label: "Story Count", color: "text-red-400", bg: "bg-red-400" },
+    { key: "story_split", label: "Story Split", color: "text-red-400", bg: "bg-red-400" },
+    { key: "adapter_done", label: "Split Done", color: "text-muted-foreground", bg: "bg-muted-foreground" },
+  ];
+
+  const outcomes = [
+    { key: "done", label: "Done", color: "text-success", bg: "bg-success", icon: CheckCircle2 },
+    { key: "filtered", label: "Filtered", color: "text-muted-foreground", bg: "bg-muted-foreground", icon: Filter },
+    { key: "review", label: "Review", color: "text-orange", bg: "bg-orange", icon: AlertTriangle },
+    { key: "failed", label: "Failed", color: "text-destructive", bg: "bg-destructive", icon: AlertTriangle },
+  ];
+
+  const activeCounts = activeStages.map(s => stats[s.key] ?? 0);
+  const maxActive = Math.max(...activeCounts, 1);
+  const bottleneckIdx = activeCounts.indexOf(Math.max(...activeCounts));
+  const bottleneck = activeCounts[bottleneckIdx] > 0 ? activeStages[bottleneckIdx] : null;
+
+  const processing = activeStages.reduce((sum, s) => sum + (stats[s.key] ?? 0), 0)
+    + youtubeStages.reduce((sum, s) => sum + (stats[s.key] ?? 0), 0);
+
   return (
-    <div className={`flex-1 px-4 py-3.5 bg-card ${!last ? "border-r border-border" : ""}`}>
-      <div className={`text-xl font-semibold font-mono tracking-tight ${color || ""}`}>{value}</div>
-      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5">{label}</div>
-      {sub && <div className="text-[10px] text-muted-foreground font-mono mt-1">{sub}</div>}
+    <div className="px-6 max-lg:px-4 mb-5 pt-5 space-y-4">
+      {/* Summary bar */}
+      <div className="rounded-lg bg-card border border-border px-5 py-4">
+        <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+          <div className="flex items-center gap-5">
+            <div>
+              <span className="text-2xl font-semibold font-mono">{totalArticles}</span>
+              <span className="text-[11px] text-muted-foreground ml-1.5">total articles</span>
+            </div>
+            <div className="w-px h-8 bg-border" />
+            <div className="flex items-center gap-4">
+              <div className="text-center">
+                <span className="text-lg font-semibold font-mono text-success">{doneCount}</span>
+                <span className="text-[10px] text-muted-foreground block font-mono">done ({donePct}%)</span>
+              </div>
+              <div className="text-center">
+                <span className="text-lg font-semibold font-mono text-primary">{processing}</span>
+                <span className="text-[10px] text-muted-foreground block font-mono">processing</span>
+              </div>
+              {(stats.review ?? 0) > 0 && (
+                <div className="text-center">
+                  <span className="text-lg font-semibold font-mono text-orange">{stats.review}</span>
+                  <span className="text-[10px] text-muted-foreground block font-mono">review</span>
+                </div>
+              )}
+              {failedCount > 0 && (
+                <div className="text-center">
+                  <span className="text-lg font-semibold font-mono text-destructive">{failedCount}</span>
+                  <span className="text-[10px] text-muted-foreground block font-mono">failed</span>
+                </div>
+              )}
+            </div>
+          </div>
+          {bottleneck && (stats[bottleneck.key] ?? 0) > 0 && (
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border border-border ${bottleneck.bg}/10`}>
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${bottleneck.bg}/60 opacity-75`} />
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${bottleneck.bg}`} />
+              </span>
+              <span className="text-[11px] font-mono">
+                <span className={`font-semibold ${bottleneck.color}`}>{stats[bottleneck.key]}</span>
+                <span className="text-muted-foreground ml-1">stuck at {bottleneck.label}</span>
+              </span>
+            </div>
+          )}
+        </div>
+        {/* Progress bar */}
+        <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-success rounded-full transition-all duration-500"
+            style={{ width: `${totalArticles > 0 ? (doneCount / totalArticles) * 100 : 0}%` }}
+          />
+        </div>
+      </div>
+
+      {/* YouTube flow (if applicable) */}
+      {hasYoutube && (
+        <div className="rounded-lg bg-card border border-border px-5 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Youtube className="w-4 h-4 text-red-400" />
+            <span className="text-[12px] font-semibold text-foreground">YouTube Video Path</span>
+          </div>
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {youtubeStages.map((stage, i) => {
+              const count = stats[stage.key] ?? 0;
+              return (
+                <div key={stage.key} className="flex items-center gap-1 shrink-0">
+                  <FlowNode label={stage.label} count={count} color={stage.color} bg={stage.bg} isBottleneck={false} maxCount={maxActive} />
+                  {i < youtubeStages.length - 1 && <ArrowRight className="w-3.5 h-3.5 text-border shrink-0" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Article pipeline flow */}
+      <div className="rounded-lg bg-card border border-border px-5 py-4">
+        <div className="flex items-center gap-2 mb-3">
+          <FileText className="w-4 h-4 text-primary" />
+          <span className="text-[12px] font-semibold text-foreground">Article Processing Flow</span>
+        </div>
+        <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          {activeStages.map((stage, i) => {
+            const count = stats[stage.key] ?? 0;
+            const isBottleneck = bottleneck?.key === stage.key && count > 0;
+            return (
+              <div key={stage.key} className="flex items-center gap-1 shrink-0">
+                <FlowNode label={stage.label} count={count} color={stage.color} bg={stage.bg} isBottleneck={isBottleneck} maxCount={maxActive} />
+                {i < activeStages.length - 1 && <ArrowRight className="w-3.5 h-3.5 text-border shrink-0" />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Outcomes */}
+      <div className="grid grid-cols-4 gap-3 max-sm:grid-cols-2">
+        {outcomes.map((o) => {
+          const count = stats[o.key] ?? 0;
+          const Icon = o.icon;
+          return (
+            <div key={o.key} className={`rounded-lg border border-border bg-card px-4 py-3 ${count === 0 ? "opacity-40" : ""}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <Icon className={`w-3.5 h-3.5 ${o.color}`} />
+                <span className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider">{o.label}</span>
+              </div>
+              <span className={`text-xl font-semibold font-mono ${o.color}`}>{count}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Flow Node ─── */
+
+function FlowNode({ label, count, color, bg, isBottleneck, maxCount }: {
+  label: string; count: number; color: string; bg: string; isBottleneck: boolean; maxCount: number;
+}) {
+  const isEmpty = count === 0;
+  return (
+    <div className={`relative flex flex-col items-center rounded-lg border px-3 py-2.5 min-w-[90px] transition-all ${
+      isBottleneck
+        ? `border-current ${color} ${bg}/10 shadow-sm`
+        : isEmpty
+          ? "border-border/50 opacity-40"
+          : "border-border"
+    }`}>
+      {isBottleneck && (
+        <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3">
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${bg}/60 opacity-75`} />
+          <span className={`relative inline-flex rounded-full h-3 w-3 ${bg}`} />
+        </span>
+      )}
+      <span className={`text-lg font-semibold font-mono ${isEmpty ? "text-muted-foreground/50" : color}`}>{count}</span>
+      <span className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5 text-center leading-tight">{label}</span>
     </div>
   );
 }
