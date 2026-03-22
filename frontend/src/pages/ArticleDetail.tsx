@@ -261,6 +261,7 @@ function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): 
 
   // Terminal states
   if (article.stage === "done" || article.stage === "adapter_done") {
+    if (nodeId === article.stage) return "completed";
     if (nodeIdx > currentIdx) return "waiting";
     const hasLog = log.some((e) => e.step === nodeId || e.stage === nodeId || (e.step === "verdict" && e.stage === nodeId));
     return hasLog ? "completed" : "skipped";
