@@ -487,8 +487,9 @@ A Google-authenticated user with role-based access control.
 | `role` | String | Yes | `"viewer"` | `owner`, `admin`, `editor`, `viewer` |
 | `note` | String | No | — | Admin note |
 | `isActive` | Boolean | Yes | true | Enable/disable access |
-| `pageAccess` | Json | No | — | Page-level access control |
-| `channelAccess` | Json | No | — | Channel-level access control |
+| `canCreateProfile` | Boolean | Yes | false | Allow non-admin users to create profiles |
+| `pageAccess` | Json | No | — | Array of page slugs user can access (`null` = all). Slugs: `home`, `competitors`, `pipeline`, `analytics`, `stories`, `article-pipeline`, `gallery`, `settings`, `design-system`, `admin` |
+| `channelAccess` | Json | No | — | Array of channel IDs user can access (`null` = all) |
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
@@ -723,7 +724,18 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | GET | `/api/auth/google/url` | No | Returns Google OAuth consent URL. `?returnTo=` for post-login redirect. |
 | GET | `/api/auth/google/callback` | No | OAuth callback — exchanges code, creates user/session, sets JWT cookie, redirects. |
 | POST | `/api/auth/logout` | No | Clears session and cookie. |
-| GET | `/api/auth/me` | Yes | Returns current user profile `{ id, email, name, avatarUrl, role, pageAccess }`. |
+| GET | `/api/auth/me` | Yes | Returns current user profile `{ id, email, name, avatarUrl, role, pageAccess, channelAccess, canCreateProfile }`. |
+
+### Admin — `/api/admin`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/admin/pages` | owner/admin | Lists all assignable page slugs and labels. |
+| GET | `/api/admin/profiles` | owner/admin | Lists all profiles (channels) for assignment. |
+| GET | `/api/admin/users` | owner/admin | Lists all users with access settings. |
+| POST | `/api/admin/users` | owner/admin | Creates a new user by email (pre-login provisioning). |
+| PATCH | `/api/admin/users/:id` | owner/admin | Updates role, note, pageAccess, channelAccess, canCreateProfile, isActive. |
+| DELETE | `/api/admin/users/:id` | owner/admin | Removes user and their sessions. Cannot remove owner. |
 
 ### Profiles — `/api/profiles`
 
