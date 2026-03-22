@@ -25,15 +25,27 @@ const {
 
 const POLL_MS = 10_000
 const SOURCE_POLL_MS = 5 * 60 * 1000 // check sources for new Apify runs every 5 min
-const BATCH_FAST = 5
-const BATCH_AI = 1
 const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
 const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
-const AI_STAGES = new Set(['story_split', 'classify', 'title_translate', 'score', 'research', 'translated'])
+const STAGE_BATCH = {
+  transcript:      5,
+  story_count:     5,
+  story_split:     1,
+  imported:        5,
+  content:         5,
+  classify:        5,
+  title_translate: 5,
+  score:           2,
+  research:        1,
+  translated:      1,
+}
+
+// Expensive multi-step stages that must run serially with inter-item delays
+const SERIAL_AI_STAGES = new Set(['story_split', 'score', 'research', 'translated'])
 
 let paused = false
 let pauseLoaded = false
@@ -64,8 +76,7 @@ async function setPaused(v) {
 }
 
 async function pickItems(stage) {
-  const limit = AI_STAGES.has(stage) ? BATCH_AI : BATCH_FAST
-  // Atomic claim: find candidates then conditionally update only those still queued
+  const limit = STAGE_BATCH[stage] || 1
   const candidates = await db.article.findMany({
     where: { stage, status: 'queued', retries: { lt: MAX_RETRIES } },
     select: { id: true },
@@ -204,7 +215,7 @@ async function processItem(article, { force = false } = {}) {
 
 async function runStage(stage) {
   const items = await pickItems(stage)
-  if (AI_STAGES.has(stage)) {
+  if (SERIAL_AI_STAGES.has(stage)) {
     for (let i = 0; i < items.length; i++) {
       await processItem(items[i])
       if (i < items.length - 1) {
