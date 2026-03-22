@@ -378,7 +378,7 @@ export function StoryDetailResearch({
           <article className="max-w-none space-y-8">
             {/* ── Hook ── */}
             {brief?.suggestedHook && (
-              <div className="relative py-6 px-5 mx-[100px] max-sm:mx-4 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/15">
+              <div className="relative py-6 px-5 rounded-xl bg-gradient-to-br from-primary/5 via-primary/3 to-transparent border border-primary/15">
                 <Sparkles className="absolute top-4 left-4 w-5 h-5 text-primary/40" />
                 <p className="text-[16px] sm:text-[18px] font-semibold text-foreground leading-[1.9] pr-1">
                   &ldquo;{brief.suggestedHook}&rdquo;
