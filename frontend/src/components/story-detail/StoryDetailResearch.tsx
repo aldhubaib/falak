@@ -394,7 +394,7 @@ export function StoryDetailResearch({
         </div>
         {research.researchedAt && (
           <span className="text-[10px] text-muted-foreground font-mono">
-            {new Date(research.researchedAt).toLocaleDateString("ar-SA")}
+            {new Date(research.researchedAt).toLocaleDateString("en-US")}
           </span>
         )}
       </button>
