@@ -1137,7 +1137,7 @@ export default function StoryDetail() {
         )}
 
         <div className="flex-1 overflow-auto">
-          <div className="max-w-[1000px] mx-auto px-[150px] max-lg:px-10 max-sm:px-4 py-5 pb-16 space-y-5">
+          <div className="max-w-[800px] mx-auto px-16 max-lg:px-10 max-sm:px-4 py-5 pb-16 space-y-5">
             {/* ── MANUAL STORY LAYOUT ─────────────────────────────────── */}
             {story.origin === "manual" ? (
               <ManualStoryWorkflow
