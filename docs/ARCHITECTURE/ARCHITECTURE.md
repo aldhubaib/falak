@@ -75,7 +75,7 @@ Three worker loops start in-process inside `server.js` after boot:
   transcribe → comments → AI analysis). If Redis is available, it consumes a
   Bull queue; otherwise it polls the database every 10 seconds.
 - **Article pipeline worker** — polls every 10 seconds for articles to process
-  through 8 stages (content → classify → title_translate → score → research → images → translated → done).
+  through 7 stages (content → classify → title_translate → score → research → translated → done).
   A dynamic threshold gate after scoring filters out low-scoring articles before
   expensive research and translation. Also polls article sources every 5 minutes for new imports.
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
@@ -187,7 +187,7 @@ flowchart TB
 | **AI — embeddings** | OpenAI text-embedding-3-small | Semantic similarity search | `src/services/embeddings.js` |
 | **AI — transcription** | OpenAI Whisper | Audio → text for uploaded videos | `src/services/whisper.js` |
 | **AI — research** | Perplexity Sonar | Background research for articles | `src/services/storyResearcher.js` |
-| **Scraping** | Firecrawl | Article extraction, web search | `src/services/firecrawl.js` |
+| **Scraping** | Firecrawl | Article content extraction | `src/services/firecrawl.js` |
 | **Scraping** | Apify | Per-source actor-based web crawling | `src/services/apify.js` |
 | **YouTube data** | YouTube Data API v3 | Channel/video metadata, comments | `src/services/youtube.js` |
 | **Transcripts** | youtube-transcript.io | YouTube subtitle fetching | `src/services/transcript.js` |
@@ -411,7 +411,7 @@ via `nextCheckAt`.
 #### Article
 
 An article fetched from a source, processed through the pipeline.
-For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → images → translated → done.
+For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done.
 For YouTube: transcript → story_count → [story_split] → classify → ... (same downstream pipeline). `story_count` uses server-side pattern matching (no AI). Only videos flagged as multi-story reach `story_split` (AI). Videos with multiple stories get split into child articles via `parentArticleId`.
 
 | Field | Type | Required | Default | Description |
@@ -443,7 +443,7 @@ For YouTube: transcript → story_count → [story_split] → classify → ... (
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `images` → `translated` → `done`.
+**Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `done`.
 **Stages (YouTube):** `transcript` → `story_count` → [`story_split`] → `classify` → ... (same from classify onwards). `story_count` is pure server logic (regex patterns). `story_split` only runs when multi-story is detected. Parent articles that are split go to `adapter_done`.
 Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`, `adapter_done`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
@@ -965,7 +965,7 @@ flowchart LR
         IM["imported"] --> CO["content"]
     end
     CO --> CL["classify"] --> TT["title_translate"] --> SC["score"]
-    SC -->|above threshold| RE["research"] --> IMG["images"] --> TR["translated"] --> DO["done"]
+    SC -->|above threshold| RE["research"] --> TR["translated"] --> DO["done"]
     SC -->|below threshold| FI["filtered"]
     CO -.->|needs review| RV["review"]
     TS -.->|failure| F["failed"]
@@ -975,7 +975,6 @@ flowchart LR
     SC -.->|failure| F
     RE -.->|failure| F
     TR -.->|failure| F
-    IMG -.->|failure| F
 ```
 
 **Execution mode:** Polling only (10s interval). No Bull queue support.
@@ -990,9 +989,8 @@ flowchart LR
 | **classify** | AI classification (Haiku): topic, tags, contentType, region, summary, uniqueAngle. Works in original language. Retries once if language mismatch. | Anthropic Haiku | `Article.analysis`, `Article.language` |
 | **title_translate** | Lightweight Arabic translation of title + first 2 sentences via Haiku. Stored in `analysis.titleTranslateAr` for scoring/niche match. Non-blocking on failure. | Anthropic Haiku | `Article.analysis.titleTranslateAr` |
 | **score** | Generates embedding from Arabic title translation → similarity search → AI scoring (Haiku on original content) → final score formula → dynamic threshold gate. Articles below threshold are set to `filtered`. | OpenAI Embeddings, Anthropic Haiku | `Article.finalScore`, `Article.stage` (→ `filtered` or `research`) |
-| **research** | Multi-source research: Firecrawl search (5 related articles) → Perplexity context → Claude synthesis into structured brief. Non-fatal on failure. Only runs for articles above threshold. | Firecrawl, Perplexity, Anthropic Sonnet | `Article.analysis.research` |
+| **research** | Multi-source research: SerpAPI Google News (5 related articles) + SerpAPI Google Images (10 images) run in parallel → Perplexity context (fed with found URLs) → Claude Sonnet synthesis into structured brief. Images downloaded to R2 "Stories" gallery album. Non-fatal on failure. Only runs for articles above threshold. Includes retry logic for transient failures (502, timeouts). | SerpAPI, Perplexity, Anthropic Sonnet | `Article.analysis.research`, `Article.analysis.images`, creates `GalleryMedia` |
 | **translated** | Translates content + fields + research brief to Arabic via Haiku. Promotes to Story at end. Skips translation if source is already Arabic. | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar`, creates `Story` |
-| **images** | Searches SerpAPI Google Images Light using the article's original title. Downloads up to 10 images to R2 and saves them in a locked "Stories" gallery album per channel. Results stored in `analysis.images`. Non-fatal on failure. | SerpAPI | `Article.analysis.images`, creates `GalleryMedia` in "Stories" `GalleryAlbum` |
 
 **Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
 
@@ -1450,18 +1448,19 @@ guard) → Page.
 | **Fallback** | Failure is non-fatal in research pipeline |
 | **Used by** | Article research (background context) |
 
-### SerpAPI Google Images
+### SerpAPI (Google Search + Images)
 
 | Item | Detail |
 |---|---|
-| **Service file** | `src/services/articleProcessor.js` (`doStageImages`) |
-| **Engine** | `google_images_light` |
-| **Endpoint** | `GET https://serpapi.com/search?engine=google_images_light` |
+| **Service file** | `src/services/storyResearcher.js` |
+| **Engines** | `google` (with `tbm=nws` for Google News) and `google_images_light` |
+| **Endpoints** | `GET https://serpapi.com/search?engine=google` and `GET https://serpapi.com/search?engine=google_images_light` |
 | **Key storage** | `GoogleSearchKey` table (multiple keys), rotated by `lastUsedAt ASC` |
 | **Rate limit handling** | Key rotation (least-recently-used first). `lastUsedAt` and `usageCount` updated on each call. |
-| **Result limit** | 10 images per article |
-| **Fallback** | Failure is non-fatal — article continues to `done` stage |
-| **Used by** | Article images stage — fetches related images, downloads to R2, saves in locked "Stories" gallery album |
+| **Result limits** | 5 news articles, 10 images per article |
+| **Retry** | 1 retry on transient failures (5xx, timeouts) with 2s delay |
+| **Fallback** | Failure is non-fatal — article continues to translation stage |
+| **Used by** | Article research stage — Google News search finds related articles (URLs fed to Perplexity), Image search fetches related images (downloaded to R2 "Stories" gallery album). Both run in parallel. |
 
 ### Apify
 
