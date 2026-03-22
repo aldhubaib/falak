@@ -74,10 +74,12 @@ Three worker loops start in-process inside `server.js` after boot:
 - **Video pipeline worker** — processes videos through 4 stages (import →
   transcribe → comments → AI analysis). If Redis is available, it consumes a
   Bull queue; otherwise it polls the database every 10 seconds.
-- **Article pipeline worker** — polls every 10 seconds for articles to process
-  through 7 stages (content → classify → title_translate → score → research → translated → done).
-  A dynamic threshold gate after scoring filters out low-scoring articles before
-  expensive research and translation. Also polls article sources every 5 minutes for new imports.
+- **Article pipeline worker** — runs concurrent per-stage loops (each stage has its
+  own independent polling loop within one Node.js process). AI stages share a
+  concurrency semaphore (max 3). Every batch is persisted to `PipelineBatch` +
+  `PipelineBatchItem` for full history. Stages: transcript → story_count →
+  story_split → imported → content → classify → title_translate → score → research
+  → translated → done. Also polls article sources every 5 minutes for new imports.
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
   from YouTube, learns from editorial decisions and published-video outcomes, and
   re-scores all active stories.
@@ -617,6 +619,43 @@ Simple key-value store for persistent application state (e.g., worker pause flag
 | `value` | String | Yes | — | Setting value |
 | `updatedAt` | DateTime | Yes | auto | Last update |
 
+#### PipelineBatch
+
+Persisted record of each worker batch. Created asynchronously after batch completes.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `id` | String (CUID) | Yes | auto | Primary key |
+| `pipeline` | String | Yes | — | `"article"` or `"video"` |
+| `stage` | String | Yes | — | Pipeline stage (e.g., `classify`) |
+| `batchSeq` | Int | Yes | — | Auto-incrementing batch number |
+| `itemCount` | Int | Yes | — | Total items in this batch |
+| `succeededCount` | Int | Yes | 0 | Items that passed this stage |
+| `failedCount` | Int | Yes | 0 | Items that failed |
+| `catchup` | Boolean | Yes | false | Whether this was a catch-up drain |
+| `channelIds` | String[] | Yes | — | Channels represented in this batch |
+| `startedAt` | DateTime | Yes | now | Batch processing start |
+| `finishedAt` | DateTime | No | — | Batch processing end |
+
+Indexes: `[pipeline, stage, finishedAt DESC]`, `[channelIds]`
+
+#### PipelineBatchItem
+
+Per-article result within a batch. Captures status, error, timing, and retry attempt.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `id` | String (CUID) | Yes | auto | Primary key |
+| `batchId` | String | Yes | — | FK → PipelineBatch (cascade delete) |
+| `articleId` | String | Yes | — | The article processed |
+| `status` | String | Yes | — | `succeeded`, `failed`, `blocked`, `review` |
+| `error` | String | No | — | Error message if failed |
+| `durationMs` | Int | No | — | Processing time in milliseconds |
+| `attempt` | Int | Yes | 1 | Which retry attempt this was |
+| `createdAt` | DateTime | Yes | now | When recorded |
+
+Indexes: `[batchId]`, `[articleId, createdAt DESC]`
+
 ### Config
 
 #### ApiKey
@@ -1010,22 +1049,36 @@ flowchart LR
 | **research** | Multi-source research: SerpAPI Google News (5 related articles) + SerpAPI Google Images (10 images) run in parallel → Perplexity context (fed with found URLs) → Claude Sonnet synthesis into structured brief. Images downloaded to R2 "Stories" gallery album. Non-fatal on failure. Only runs for articles above threshold. Includes retry logic for transient failures (502, timeouts). | SerpAPI, Perplexity, Anthropic Sonnet | `Article.analysis.research`, `Article.analysis.images`, creates `GalleryMedia` |
 | **translated** | Translates content + fields + research brief to Arabic via Haiku. Research brief translation is **mandatory** — if it fails the article stays in `translate` stage for retry and no Story is created. Skips translation if source is already Arabic. | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar`, creates `Story` |
 
-**Concurrency & draining:** Per-stage batch sizes — classify and title_translate
-process 8 items in parallel, score processes 3, research and translated process 2.
-Lightweight stages (transcript, story_count, imported, content) process 5 in parallel.
-Heavy stages (story_split, score, research, translated) run serially with 3s
-inter-item delays. Non-serial stages drain up to 5 rounds per tick (up to 40 classify
-items per tick) with 1s inter-batch delays, preventing large backlogs from stalling.
+**Concurrent per-stage loops:** Each pipeline stage runs its own independent
+polling loop within a single Node.js process. This means classify can process
+8 items while score processes 3 and research processes 2 — all simultaneously.
+No stage blocks another. AI stages share a concurrency semaphore (max 3 concurrent
+AI calls) to stay within Anthropic/OpenAI rate limits.
 
-**Adaptive polling:** When the worker finds work, the next tick fires after 2s
-(`POLL_BUSY_MS`). When idle, it waits the full 10s (`POLL_IDLE_MS`). This cuts
-backlog drain time by ~5× compared to the previous fixed 10s interval.
+| Stage | Batch | Poll Interval | Serial? | AI? |
+|---|---|---|---|---|
+| transcript | 5 | 5s | No | No |
+| story_count | 5 | 3s | No | No |
+| story_split | 1 | 10s | Yes | Yes |
+| imported | 5 | 3s | No | No |
+| content | 5 | 5s | No | No |
+| classify | 8 | 5s | No | Yes |
+| title_translate | 8 | 5s | No | Yes |
+| score | 3 | 8s | Yes | Yes |
+| research | 2 | 10s | Yes | Yes |
+| translated | 2 | 10s | Yes | Yes |
 
-**Catch-up drain:** After the normal stage loop, the worker checks non-serial
-stages for backlogs (≥30 queued items). If found, it runs up to 10 extra rounds
-of that stage. This prevents slow downstream stages (research ~2.5 min for 2
-items) from starving fast upstream stages like classify. Result: ~120 classify
-items per tick instead of 40.
+**Batch persistence:** Every batch is persisted to the `PipelineBatch` table
+with per-item results in `PipelineBatchItem`. Each item records its status
+(succeeded/failed/blocked/review), error message, processing duration, and
+retry attempt number. Persistence is fire-and-forget (async, non-blocking)
+so it adds zero latency to the pipeline.
+
+**Batch lifecycle:** Batches are partial-completion — items that succeed move
+to the next stage immediately, items that fail go back to the queue for a
+future batch. A batch with 6/8 succeeded is recorded as "partial" (75%).
+Failed items increment their retry counter and are picked up in subsequent
+batches until MAX_RETRIES (3), after which they move to "failed" permanently.
 
 **Content DNA gate:** The pipeline requires a niche embedding (Content DNA) before any
 articles can be ingested. Both manual ingestion (`POST /ingest`, `test-run`, `test-video`)
@@ -2151,6 +2204,10 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
   step). On connect, replays events from the last 60s so the client catches up.
 - **`GET /api/article-pipeline/stats-combined?channelId=X`**: Lightweight endpoint
   returning counts for both article and video pipelines in one call.
+- **`GET /api/article-pipeline/batches?stage=X&channelId=Y`**: Returns persisted
+  batch history for a stage. Supports channel filtering via `channelIds` array.
+- **`GET /api/article-pipeline/batches/:id/items`**: Returns batch detail with
+  per-article results (status, error, duration, attempt) joined with current article state.
 
 ### Frontend changes
 - **`ArticlePipelineV2.tsx`**: New page at `/article-pipeline-v2` with:
