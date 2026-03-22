@@ -36,6 +36,7 @@ export interface StoryDetailTopBarProps {
   nextStageKey: string | null;
   nextStageLabel: string | null;
   saving?: boolean;
+  compositeScore?: number | null;
   onBack: () => void;
   onMoveToNextStage: () => void;
   onPass?: () => void;
@@ -76,6 +77,7 @@ export function StoryDetailTopBar({
   nextStageKey,
   nextStageLabel,
   saving = false,
+  compositeScore,
   onBack,
   onMoveToNextStage,
   onPass,
@@ -114,14 +116,21 @@ export function StoryDetailTopBar({
   return (
     <>
       <div className="h-auto min-h-[48px] flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4 max-sm:px-3 max-sm:flex-wrap max-sm:gap-2 max-sm:py-2">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-[13px] text-muted-foreground cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
-          type="button"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span className="max-sm:hidden">AI Intelligence</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-[13px] text-muted-foreground cursor-pointer bg-transparent border-none font-sans hover:text-foreground transition-colors"
+            type="button"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="max-sm:hidden">AI Intelligence</span>
+          </button>
+          {compositeScore != null && (
+            <span className="text-[12px] font-mono font-bold text-foreground px-2 py-0.5 rounded-full bg-primary/10">
+              {Number(compositeScore).toFixed(1)}/10
+            </span>
+          )}
+        </div>
 
         <div className="flex items-center gap-1.5 max-sm:gap-1 flex-wrap justify-end">
           {/* Clock — Edit History */}

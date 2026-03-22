@@ -121,11 +121,7 @@ export function StoryDetailArticle({
               </div>
             );
           })()}
-          {compositeScore != null && (
-            <span className="text-[12px] font-mono font-bold shrink-0">
-              {Number(compositeScore).toFixed(1)}/10
-            </span>
-          )}
+          {}
           {relativeDate != null && relativeDate !== "" && (
             <span className="text-[11px] text-muted-foreground font-mono max-sm:hidden">{relativeDate}</span>
           )}

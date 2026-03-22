@@ -1057,6 +1057,7 @@ export default function StoryDetail() {
           nextStageKey={nextStageKey}
           nextStageLabel={nextStageLabel}
           saving={saving}
+          compositeScore={story.compositeScore}
           onBack={() => navigate(channelPath("/stories"))}
           onMoveToNextStage={() => nextStageKey && moveToStage(nextStageKey)}
           onPass={() => moveToStage("skip")}
