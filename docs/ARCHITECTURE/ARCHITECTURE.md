@@ -1010,7 +1010,10 @@ flowchart LR
 | **research** | Multi-source research: SerpAPI Google News (5 related articles) + SerpAPI Google Images (10 images) run in parallel → Perplexity context (fed with found URLs) → Claude Sonnet synthesis into structured brief. Images downloaded to R2 "Stories" gallery album. Non-fatal on failure. Only runs for articles above threshold. Includes retry logic for transient failures (502, timeouts). | SerpAPI, Perplexity, Anthropic Sonnet | `Article.analysis.research`, `Article.analysis.images`, creates `GalleryMedia` |
 | **translated** | Translates content + fields + research brief to Arabic via Haiku. Research brief translation is **mandatory** — if it fails the article stays in `translate` stage for retry and no Story is created. Skips translation if source is already Arabic. | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar`, creates `Story` |
 
-**Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
+**Concurrency:** Per-stage batch sizes — lightweight stages (transcript, story_count,
+imported, content, classify, title_translate) process 5 items in parallel. Score
+processes 2 items serially with 3s gap. Expensive stages (story_split, research,
+translated) process 1 item serially with 3s gap.
 
 **Content DNA gate:** The pipeline requires a niche embedding (Content DNA) before any
 articles can be ingested. Both manual ingestion (`POST /ingest`, `test-run`, `test-video`)
