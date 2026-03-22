@@ -118,7 +118,11 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
       .then((r) => r.ok ? r.json() : r.json().then(d => Promise.reject(d)))
       .then((d) => {
         const r = d.results?.[0];
-        toast.success(`Fetched ${r?.fetched ?? 0} articles, ${r?.inserted ?? 0} new`);
+        if (r?.error) {
+          toast.error(r.error);
+        } else {
+          toast.success(`Fetched ${r?.fetched ?? 0} articles, ${r?.inserted ?? 0} new`);
+        }
         fetchSources();
       })
       .catch((e) => toast.error(e?.error || "Fetch failed"))

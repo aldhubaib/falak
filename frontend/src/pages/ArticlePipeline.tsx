@@ -431,10 +431,16 @@ function PipelineTabContent() {
       body: JSON.stringify({ channelId }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { results: { label: string; inserted: number; fetched: number }[] }) => {
+      .then((d: { results: { label: string; inserted: number; fetched: number; error?: string | null }[] }) => {
+        const errors = d.results.filter((r) => r.error);
         const total = d.results.reduce((s, r) => s + (r.inserted || 0), 0);
         const fetched = d.results.reduce((s, r) => s + (r.fetched || 0), 0);
-        toast.success(`Fetched ${fetched} articles, ${total} new`);
+        if (errors.length > 0) {
+          for (const e of errors) toast.error(`${e.label}: ${e.error}`);
+        }
+        if (fetched > 0 || errors.length === 0) {
+          toast.success(`Fetched ${fetched} articles, ${total} new`);
+        }
         fetchPipeline();
       })
       .catch(() => toast.error("Fetch failed"))

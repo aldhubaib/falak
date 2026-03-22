@@ -3,7 +3,7 @@
  * Called by the rescore worker (scheduled) and the manual re-evaluate endpoint.
  */
 const db = require('../lib/db')
-const { fetchChannel, fetchRecentVideos, fetchVideoMetadata } = require('./youtube')
+const { fetchChannel, fetchRecentVideos, refreshVideoStats, fetchVideoMetadata } = require('./youtube')
 const { trackUsage } = require('./usageTracker')
 const logger = require('../lib/logger')
 
@@ -70,22 +70,48 @@ async function refreshCompetitionData(channelId) {
         },
       })
 
-      const videos = await fetchRecentVideos(channel.youtubeId, 50, channelId)
-      const BATCH = 25
-      for (let i = 0; i < videos.length; i += BATCH) {
-        const batch = videos.slice(i, i + BATCH)
-        await db.$transaction(
-          batch.map(v => db.video.upsert({
-            where: { youtubeId: v.youtubeId },
-            create: { ...v, channelId: channel.id },
-            update: { viewCount: v.viewCount, likeCount: v.likeCount, commentCount: v.commentCount },
-          }))
-        )
+      // 1. Discover new videos only (early-stop at known IDs)
+      const existingVideos = await db.video.findMany({
+        where: { channelId: channel.id },
+        select: { youtubeId: true },
+      })
+      const knownIds = new Set(existingVideos.map(v => v.youtubeId))
+
+      const newVideos = await fetchRecentVideos(channel.youtubeId, 500, channelId, knownIds)
+      if (newVideos.length > 0) {
+        const BATCH = 25
+        for (let i = 0; i < newVideos.length; i += BATCH) {
+          const batch = newVideos.slice(i, i + BATCH)
+          await db.$transaction(
+            batch.map(v => db.video.create({ data: { ...v, channelId: channel.id } }))
+          )
+        }
       }
-      videosUpdated += videos.length
+
+      // 2. Refresh stats for recent 50 existing videos (cheap — only videos endpoint, no playlistItems)
+      const recentInDb = await db.video.findMany({
+        where: { channelId: channel.id },
+        select: { youtubeId: true },
+        orderBy: { publishedAt: 'desc' },
+        take: 50,
+      })
+      if (recentInDb.length > 0) {
+        const stats = await refreshVideoStats(recentInDb.map(v => v.youtubeId), channelId)
+        const BATCH = 25
+        for (let i = 0; i < stats.length; i += BATCH) {
+          const batch = stats.slice(i, i + BATCH)
+          await db.$transaction(
+            batch.map(s => db.video.update({
+              where: { youtubeId: s.youtubeId },
+              data: { viewCount: s.viewCount, likeCount: s.likeCount, commentCount: s.commentCount },
+            }))
+          )
+        }
+      }
+      videosUpdated += newVideos.length + recentInDb.length
 
       channelsRefreshed++
-      logger.info({ channelId: channel.id, videos: videos.length }, '[stats-refresh] channel refreshed')
+      logger.info({ channelId: channel.id, newVideos: newVideos.length, statsRefreshed: recentInDb.length }, '[stats-refresh] channel refreshed')
     } catch (e) {
       logger.warn({ channelId: channel.id, error: e.message }, '[stats-refresh] channel refresh failed')
       trackUsage({ channelId, service: 'youtube-data', action: 'stats-refresh', status: 'fail', error: e.message })
