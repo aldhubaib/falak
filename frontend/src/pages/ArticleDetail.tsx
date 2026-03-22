@@ -495,6 +495,8 @@ export default function ArticleDetailPage() {
                     state={state}
                     verdict={verdict || null}
                     onClick={() => setDrawerStage(node.id)}
+                    startedAt={state === "active" ? article.startedAt : null}
+                    retries={article.stage === node.id ? article.retries : 0}
                   />
                   {!isLast && node.type === "gate" && (
                     <GateFork node={node} verdict={verdict || null} state={state} />
@@ -602,13 +604,32 @@ const NODE_STATE_STYLES: Record<NodeState, { border: string; bg: string; text: s
   waiting:   { border: "border-border/50", bg: "bg-card", text: "text-muted-foreground", ring: "" },
 };
 
+function LiveTimer({ since }: { since: string }) {
+  const [elapsed, setElapsed] = useState("");
+  useEffect(() => {
+    const start = new Date(since).getTime();
+    const tick = () => {
+      const s = Math.floor((Date.now() - start) / 1000);
+      if (s < 60) setElapsed(`${s}s`);
+      else if (s < 3600) setElapsed(`${Math.floor(s / 60)}m ${s % 60}s`);
+      else setElapsed(`${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [since]);
+  return <span className="text-[10px] font-mono text-primary tabular-nums">{elapsed}</span>;
+}
+
 function TreeNode({
-  node, state, verdict, onClick,
+  node, state, verdict, onClick, startedAt, retries,
 }: {
   node: PipelineFlowNode;
   state: NodeState;
   verdict: LogEntry | null;
   onClick: () => void;
+  startedAt?: string | null;
+  retries?: number;
 }) {
   const Icon = resolveNodeIcon(node.icon);
   const s = NODE_STATE_STYLES[state];
@@ -650,10 +671,20 @@ function TreeNode({
             {state === "completed" && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
             {state === "failed" && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
             {state === "review" && <AlertTriangle className="w-3.5 h-3.5 text-orange shrink-0" />}
-            {/* spinner is enough for active state */}
           </div>
-          {reason && state !== "waiting" && (
+          {state === "active" && startedAt && (
+            <div className="flex items-center gap-2 mt-0.5">
+              <LiveTimer since={startedAt} />
+              {(retries ?? 0) > 0 && (
+                <span className="text-[10px] font-mono text-orange">{retries} {retries === 1 ? "retry" : "retries"}</span>
+              )}
+            </div>
+          )}
+          {reason && state !== "waiting" && state !== "active" && (
             <p className="text-[10px] text-muted-foreground truncate mt-0.5">{reason}</p>
+          )}
+          {state !== "active" && (retries ?? 0) > 0 && (
+            <span className="text-[10px] font-mono text-orange">{retries} {retries === 1 ? "retry" : "retries"}</span>
           )}
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
