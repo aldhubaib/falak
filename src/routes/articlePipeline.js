@@ -392,9 +392,19 @@ router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req,
       return res.status(400).json({ error: `Invalid stage "${targetStage}"` })
     }
 
+    // Clear stale log entries for the target stage and all later stages
+    const targetIdx = VALID_STAGES.indexOf(targetStage)
+    const stagesToClear = new Set(VALID_STAGES.slice(targetIdx))
+    const oldLog = Array.isArray(article.processingLog) ? article.processingLog : []
+    const cleanedLog = oldLog.filter(entry => {
+      if (entry.step === 'verdict' && stagesToClear.has(entry.stage)) return false
+      if (entry.stage && stagesToClear.has(entry.stage)) return false
+      return true
+    })
+
     await db.article.update({
       where: { id: article.id },
-      data: { stage: targetStage, status: 'queued', error: null, retries: 0 },
+      data: { stage: targetStage, status: 'queued', error: null, retries: 0, processingLog: cleanedLog },
     })
     res.json({ ok: true, stage: targetStage })
   } catch (e) {

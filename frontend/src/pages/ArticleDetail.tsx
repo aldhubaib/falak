@@ -237,8 +237,35 @@ type NodeState = "completed" | "failed" | "review" | "active" | "waiting";
 function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): NodeState {
   const currentIdx = stageIndex(article.stage);
   const nodeIdx = stageIndex(nodeId);
-  const verdict = log.find((e) => e.step === "verdict" && e.stage === nodeId);
 
+  // Current or future stage: use live article status, not stale verdicts
+  if (nodeIdx >= currentIdx && article.stage !== "done" && article.stage !== "adapter_done" && article.stage !== "filtered") {
+    if (nodeIdx > currentIdx) return "waiting";
+    // nodeIdx === currentIdx → this is the active stage
+    if (article.status === "queued" || article.status === "running" || article.status === "blocked") return "active";
+    if (article.status === "review") return "review";
+    if (article.status === "failed") return "failed";
+    // If the article has a verdict for this stage, use it (stage completed and moved on)
+    const verdict = log.find((e) => e.step === "verdict" && e.stage === nodeId);
+    if (verdict) {
+      const r = verdict.result;
+      if (r === "fail") return "failed";
+      if (r === "review") return "review";
+      return "completed";
+    }
+    return "active";
+  }
+
+  // Terminal states
+  if (article.stage === "done" || article.stage === "adapter_done") {
+    return nodeIdx <= currentIdx ? "completed" : "waiting";
+  }
+  if (article.stage === "filtered" && nodeId === "score") return "failed";
+  if (article.stage === "filtered" && nodeIdx < stageIndex("score")) return "completed";
+  if (article.stage === "filtered") return "waiting";
+
+  // Past stages: use verdict if available
+  const verdict = log.find((e) => e.step === "verdict" && e.stage === nodeId);
   if (verdict) {
     const r = verdict.result;
     if (r === "fail") return "failed";
@@ -246,17 +273,7 @@ function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): 
     return "completed";
   }
 
-  if (article.stage === "done" || article.stage === "adapter_done") {
-    return nodeIdx <= currentIdx ? "completed" : "waiting";
-  }
-  if (article.stage === "filtered" && nodeId === "score") return "failed";
-  if (nodeIdx < currentIdx) return "completed";
-  if (nodeIdx === currentIdx) {
-    if (article.status === "review") return "review";
-    if (article.status === "failed") return "failed";
-    return "active";
-  }
-  return "waiting";
+  return nodeIdx < currentIdx ? "completed" : "waiting";
 }
 
 const STAGE_LABEL_MAP: Record<string, string> = {
