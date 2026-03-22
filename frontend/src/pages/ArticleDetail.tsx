@@ -501,7 +501,9 @@ export default function ArticleDetailPage() {
 
           {/* ═══ Visual Decision Tree ═══ */}
           <div className="flex flex-col items-center">
-            {flow.map((node, i) => {
+            {(() => {
+              const durations = getStageDurations(log);
+              return flow.map((node, i) => {
               const state = getNodeState(node.id, article, log);
               const verdict = log.find((e) => e.step === "verdict" && e.stage === node.id);
               const isLast = i === flow.length - 1;
@@ -515,6 +517,7 @@ export default function ArticleDetailPage() {
                     onClick={() => setDrawerStage(node.id)}
                     startedAt={state === "active" ? article.startedAt : null}
                     retries={article.stage === node.id ? article.retries : 0}
+                    durationMs={durations[node.id] ?? null}
                   />
                   {!isLast && node.type === "gate" && (
                     <GateFork node={node} verdict={verdict || null} state={state} />
@@ -524,7 +527,8 @@ export default function ArticleDetailPage() {
                   )}
                 </React.Fragment>
               );
-            })}
+            });
+            })()}
           </div>
 
           {/* Children section (for split parent videos) */}
@@ -668,6 +672,37 @@ const NODE_STATE_STYLES: Record<NodeState, { border: string; bg: string; text: s
   waiting:   { border: "border-border/50", bg: "bg-card", text: "text-muted-foreground", ring: "" },
 };
 
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  const h = Math.floor(s / 3600);
+  if (h < 24) return `${h}h ${Math.floor((s % 3600) / 60)}m`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+function getStageDurations(log: LogEntry[]): Record<string, number> {
+  const durations: Record<string, number> = {};
+  const stageFirstAt: Record<string, number> = {};
+
+  for (const entry of log) {
+    const stage = entry.stage;
+    if (!stage || !entry.at) continue;
+    const ts = new Date(entry.at).getTime();
+    if (!ts || isNaN(ts)) continue;
+
+    if (!(stage in stageFirstAt) || ts < stageFirstAt[stage]) {
+      stageFirstAt[stage] = ts;
+    }
+
+    if (entry.step === "verdict" && stageFirstAt[stage]) {
+      durations[stage] = ts - stageFirstAt[stage];
+    }
+  }
+
+  return durations;
+}
+
 function LiveTimer({ since }: { since: string }) {
   const [elapsed, setElapsed] = useState("");
   useEffect(() => {
@@ -686,7 +721,7 @@ function LiveTimer({ since }: { since: string }) {
 }
 
 function TreeNode({
-  node, state, verdict, onClick, startedAt, retries,
+  node, state, verdict, onClick, startedAt, retries, durationMs,
 }: {
   node: PipelineFlowNode;
   state: NodeState;
@@ -694,10 +729,13 @@ function TreeNode({
   onClick: () => void;
   startedAt?: string | null;
   retries?: number;
+  durationMs?: number | null;
 }) {
   const Icon = resolveNodeIcon(node.icon);
   const s = NODE_STATE_STYLES[state];
   const reason = verdict?.reason;
+
+  const showStaticDuration = state !== "active" && state !== "waiting" && durationMs != null && durationMs > 0;
 
   return (
     <button
@@ -723,15 +761,6 @@ function TreeNode({
             <span className="text-[13px] font-semibold text-foreground">
               {node.label}
             </span>
-            {node.sourceTag && (
-              <span className={`text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                node.sourceTag === "video"
-                  ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                  : "bg-primary/10 text-primary border border-primary/20"
-              }`}>
-                {node.sourceTag === "video" ? "Video Only" : "Article Only"}
-              </span>
-            )}
             {state === "completed" && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
             {state === "failed" && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
             {state === "review" && <AlertTriangle className="w-3.5 h-3.5 text-orange shrink-0" />}
@@ -744,11 +773,18 @@ function TreeNode({
               )}
             </div>
           )}
-          {reason && state !== "waiting" && state !== "active" && (
-            <p className="text-[10px] text-muted-foreground truncate mt-0.5">{reason}</p>
-          )}
-          {state !== "active" && (retries ?? 0) > 0 && (
-            <span className="text-[10px] font-mono text-orange">{retries} {retries === 1 ? "retry" : "retries"}</span>
+          {state !== "active" && (
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              {reason && state !== "waiting" && (
+                <p className="text-[10px] text-muted-foreground truncate">{reason}</p>
+              )}
+              {showStaticDuration && (
+                <span className="text-[10px] font-mono text-muted-foreground tabular-nums">{formatDuration(durationMs)}</span>
+              )}
+              {(retries ?? 0) > 0 && (
+                <span className="text-[10px] font-mono text-orange">{retries} {retries === 1 ? "retry" : "retries"}</span>
+              )}
+            </div>
           )}
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
