@@ -386,7 +386,7 @@ router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req,
       return res.status(400).json({ error: 'Article is currently running — wait or let rescue handle it' })
     }
 
-    const VALID_STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
+    const VALID_STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
     const targetStage = req.body.stage || article.stage
     if (!VALID_STAGES.includes(targetStage)) {
       return res.status(400).json({ error: `Invalid stage "${targetStage}"` })
@@ -408,7 +408,7 @@ router.post('/restart-stage', requireRole('owner', 'admin', 'editor'), async (re
   try {
     const { channelId, stage } = req.body
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
-    const VALID_STAGES = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
+    const VALID_STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
     if (!VALID_STAGES.includes(stage)) {
       return res.status(400).json({ error: `Invalid stage "${stage}"` })
     }
