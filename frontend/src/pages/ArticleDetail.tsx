@@ -177,6 +177,7 @@ interface PipelineFlowNode {
   passLabel?: string;
   failLabel?: string;
   failTarget?: string;
+  sourceTag?: "video" | "article";
 }
 
 interface ArticleDetail {
@@ -622,6 +623,15 @@ function TreeNode({
             <span className={`text-[13px] font-semibold ${state === "waiting" ? "text-muted-foreground" : "text-foreground"}`}>
               {node.label}
             </span>
+            {node.sourceTag && (
+              <span className={`text-[8px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                node.sourceTag === "video"
+                  ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                  : "bg-primary/10 text-primary border border-primary/20"
+              }`}>
+                {node.sourceTag === "video" ? "Video Only" : "Article Only"}
+              </span>
+            )}
             {state === "completed" && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
             {state === "failed" && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
             {state === "review" && <AlertTriangle className="w-3.5 h-3.5 text-orange shrink-0" />}

@@ -192,13 +192,13 @@ const SHARED_STAGES = [
 ]
 
 const VIDEO_PREFIX = [
-  { id: 'transcript',   label: 'Transcript',    icon: 'youtube',  type: 'gate', passLabel: 'Transcript fetched', failLabel: 'No transcript', failTarget: 'review' },
-  { id: 'story_detect', label: 'Story Detect',  icon: 'layers',   type: 'gate', passLabel: 'Stories identified', failLabel: 'Detection failed', failTarget: 'review' },
+  { id: 'transcript',   label: 'Transcript',    icon: 'youtube',  type: 'gate', passLabel: 'Transcript fetched', failLabel: 'No transcript', failTarget: 'review', sourceTag: 'video' },
+  { id: 'story_detect', label: 'Story Detect',  icon: 'layers',   type: 'gate', passLabel: 'Stories identified', failLabel: 'Detection failed', failTarget: 'review', sourceTag: 'video' },
 ]
 
 const ARTICLE_PREFIX = [
-  { id: 'imported', label: 'Imported', icon: 'download', type: 'linear' },
-  { id: 'content',  label: 'Content',  icon: 'file-text', type: 'gate', passLabel: 'Content extracted', failLabel: 'No usable content', failTarget: 'review' },
+  { id: 'imported', label: 'Imported', icon: 'download', type: 'linear', sourceTag: 'article' },
+  { id: 'content',  label: 'Content',  icon: 'file-text', type: 'gate', passLabel: 'Content extracted', failLabel: 'No usable content', failTarget: 'review', sourceTag: 'article' },
 ]
 
 function buildPipelineFlow(sourceType) {
