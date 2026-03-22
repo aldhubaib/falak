@@ -336,37 +336,6 @@ function PipelineView() {
           </div>
         </div>
 
-        {/* Video Pipeline */}
-        {hasVideo && (
-          <>
-            <div className="flex items-center gap-2 mb-4">
-              <Youtube className="w-4 h-4 text-red-400" />
-              <span className="text-[13px] font-semibold text-foreground">Video Pipeline</span>
-              <span className="text-[11px] text-muted-foreground font-mono">{videoStats.total ?? 0} total</span>
-            </div>
-            <div className="flex flex-col items-center mb-10">
-              {VIDEO_STAGES.map((stage, i) => {
-                const count = videoStats[stage.id] ?? 0;
-                const isActive = activeBatchesByStage("video", stage.id).length > 0;
-                const batches = activeBatchesByStage("video", stage.id);
-                const isLast = i === VIDEO_STAGES.length - 1;
-                return (
-                  <div key={stage.id} className="flex flex-col items-center w-full">
-                    <StageNode
-                      stage={stage} count={count} isActive={isActive} activeBatches={batches}
-                      isBottleneck={false} isDone={count === 0 && i === 0 && (videoStats.done ?? 0) > 0}
-                      onClick={() => setDrawerStage(`video:${stage.id}`)} liveSteps={stepsByStage(stage.id)}
-                    />
-                    {!isLast && <Connector active={count === 0} />}
-                  </div>
-                );
-              })}
-              <Connector active={(videoStats.done ?? 0) > 0} />
-              <OutcomeNode label="Done" count={videoStats.done ?? 0} color="text-success" bg="bg-success" icon={CheckCircle2} />
-            </div>
-          </>
-        )}
-
         {/* Article Pipeline */}
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-4 h-4 text-primary" />
