@@ -1414,8 +1414,9 @@ guard) → Page.
 | **Key storage** | `YoutubeApiKey` table (multiple keys), randomly selected per call |
 | **Rate limit handling** | No retry. Random key selection provides basic load distribution. |
 | **Shorts detection** | `HEAD https://www.youtube.com/shorts/{id}` — 200 = short, redirect = regular. Falls back to duration ≤180s. |
+| **Pagination** | `fetchRecentVideos` paginates through `playlistItems` using `nextPageToken` (50 per page). Video details fetched in batches of 50. Default limit: 500 videos per channel. |
 | **Fallback** | Comments disabled → returns `[]`. Shorts check fails → duration heuristic. |
-| **Used by** | Channel add/refresh, video fetch, comment fetch, rescore stats refresh |
+| **Used by** | Channel add/refresh, video fetch, comment fetch, rescore stats refresh, article pipeline ingest |
 
 ### youtube-transcript.io
 
@@ -1678,7 +1679,7 @@ managed PostgreSQL includes it by default.
 | 3 | All workers | Max retries before failure |
 | 10 min | All workers | Stuck item timeout |
 | 100 | youtube.js | Max comments per fetch |
-| 50 | youtube.js | Max recent videos per channel |
+| 500 | youtube.js | Max recent videos per channel (paginated, 50/page) |
 | 50,000 chars | pipelineProcessor.js | Transcript truncation for AI |
 | 8,000 chars | pipelineProcessor.js | Comment text truncation for AI |
 | 120,000 chars | firecrawl.js, articleFetcher.js | Max scraped content length |
