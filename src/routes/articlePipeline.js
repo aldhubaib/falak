@@ -356,11 +356,13 @@ router.get('/stats-combined', async (req, res) => {
 
     const { isPaused } = require('../worker-articles')
 
-    const [articleCounts, reviewCount, videoCounts, videoTotal] = await Promise.all([
+    const [articleCounts, reviewCount, videoCounts, videoTotal, articleBatchCounts, videoBatchCounts] = await Promise.all([
       db.article.groupBy({ by: ['stage'], where: { channelId, status: { not: 'review' } }, _count: true }),
       db.article.count({ where: { channelId, status: 'review' } }),
       db.pipelineItem.groupBy({ by: ['stage'], where: { video: { channelId } }, _count: true }),
       db.pipelineItem.count({ where: { video: { channelId } } }),
+      db.pipelineBatch.groupBy({ by: ['stage'], where: { pipeline: 'article', channelIds: { has: channelId } }, _count: true }),
+      db.pipelineBatch.groupBy({ by: ['stage'], where: { pipeline: 'video', channelIds: { has: channelId } }, _count: true }),
     ])
 
     const articleStats = {}
@@ -372,7 +374,12 @@ router.get('/stats-combined', async (req, res) => {
     for (const row of videoCounts) videoStats[row.stage] = row._count
     videoStats.total = videoTotal
 
-    res.json({ articleStats, videoStats, paused: isPaused() })
+    const articleBatches = {}
+    for (const row of articleBatchCounts) articleBatches[row.stage] = row._count
+    const videoBatches = {}
+    for (const row of videoBatchCounts) videoBatches[row.stage] = row._count
+
+    res.json({ articleStats, videoStats, articleBatches, videoBatches, paused: isPaused() })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

@@ -178,6 +178,8 @@ function PipelineView() {
   const pp = useChannelPath();
   const [articleStats, setArticleStats] = useState<Record<string, number>>({});
   const [videoStats, setVideoStats] = useState<Record<string, number>>({});
+  const [articleBatches, setArticleBatches] = useState<Record<string, number>>({});
+  const [videoBatches, setVideoBatches] = useState<Record<string, number>>({});
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<BatchEvent[]>([]);
@@ -194,6 +196,8 @@ function PipelineView() {
       .then((d) => {
         setArticleStats(d.articleStats || {});
         setVideoStats(d.videoStats || {});
+        setArticleBatches(d.articleBatches || {});
+        setVideoBatches(d.videoBatches || {});
         setPaused(d.paused);
       })
       .catch(() => {})
@@ -362,11 +366,12 @@ function PipelineView() {
             const batches = activeBatchesByStage("article", stage.id);
             const isBottleneck = bottleneck?.id === stage.id && bottleneck.count > 0;
             const isLast = i === ARTICLE_STAGES.length - 1;
+            const batchCount = articleBatches[stage.id] ?? 0;
             return (
               <div key={stage.id} className="flex flex-col items-center w-full">
                 <StageNode
                   stage={stage} count={count} isActive={isActive} activeBatches={batches}
-                  isBottleneck={isBottleneck} isDone={false}
+                  isBottleneck={isBottleneck} isDone={false} batchCount={batchCount}
                   onClick={() => setDrawerStage(`article:${stage.id}`)} liveSteps={stepsByStage(stage.id)}
                 />
                 {!isLast && <Connector active={count === 0} />}
@@ -437,11 +442,11 @@ function PipelineView() {
 /* ─── Stage Node ─── */
 
 function StageNode({
-  stage, count, isActive, activeBatches, isBottleneck, isDone, onClick, liveSteps = [],
+  stage, count, isActive, activeBatches, isBottleneck, isDone, onClick, liveSteps = [], batchCount = 0,
 }: {
   stage: { id: string; label: string; icon: typeof FileText; color: string; bg: string };
   count: number; isActive: boolean; activeBatches: BatchEvent[]; isBottleneck: boolean;
-  isDone: boolean; onClick: () => void; liveSteps?: BatchEvent[];
+  isDone: boolean; onClick: () => void; liveSteps?: BatchEvent[]; batchCount?: number;
 }) {
   const Icon = stage.icon;
   const isEmpty = count === 0 && !isActive;
@@ -489,6 +494,11 @@ function StageNode({
             )}
             {!isActive && count === 0 && !isDone && (
               <span className="text-[10px] text-muted-foreground/50">Empty</span>
+            )}
+            {batchCount > 0 && (
+              <span className="text-[10px] font-mono text-muted-foreground/60">
+                {batchCount} {batchCount === 1 ? "batch" : "batches"}
+              </span>
             )}
           </div>
         </div>
