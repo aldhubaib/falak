@@ -820,10 +820,10 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | GET | `/api/article-pipeline/:id/detail` | Yes | Full article detail with truncated content. |
 | GET | `/api/article-pipeline/:id/events` | Yes | SSE stream — pushes `{stage,status}` on each stage transition. |
 | GET | `/api/article-pipeline/:sourceId/articles` | Yes | Articles for a specific source. |
-| POST | `/api/article-pipeline/ingest` | editor+ | Trigger article ingestion. |
+| POST | `/api/article-pipeline/ingest` | editor+ | Trigger article ingestion. **Requires Content DNA embedding** — returns 400 if niche embedding not generated. |
 | POST | `/api/article-pipeline/pause` | admin+ | Pause article worker (persisted in DB via `AppSetting`). |
 | POST | `/api/article-pipeline/resume` | admin+ | Resume article worker (persisted in DB via `AppSetting`). |
-| POST | `/api/article-pipeline/reset` | admin+ | Wipe all stories, articles, alerts, and score profiles. Resets source polling state. |
+| POST | `/api/article-pipeline/reset` | admin+ | Wipe all stories, articles, alerts; reset scoring weights in ScoreProfile. **Preserves Content DNA** (niche tags + embedding). Resets source polling state. |
 | POST | `/api/article-pipeline/:id/retry` | editor+ | Retry failed article. |
 | POST | `/api/article-pipeline/:id/restart` | editor+ | Restart article from a stage. |
 | POST | `/api/article-pipeline/restart-stage` | editor+ | Bulk restart all articles in a stage. |
@@ -831,8 +831,8 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/article-pipeline/:id/drop` | editor+ | Mark article as dropped. |
 | PATCH | `/api/article-pipeline/:id/content` | editor+ | Paste content manually. |
 | POST | `/api/article-pipeline/retry-all-failed` | editor+ | Retry all failed articles. |
-| POST | `/api/article-pipeline/test-run` | admin+ | Force-pick N imported articles (any status), reset & process end-to-end (returns runId for polling). |
-| POST | `/api/article-pipeline/test-video` | admin+ | Force-pick 1 transcript-stage YouTube article, process through transcript → story_detect → full pipeline. Uses same polling endpoint. |
+| POST | `/api/article-pipeline/test-run` | admin+ | Force-pick N imported articles (any status), reset & process end-to-end (returns runId for polling). **Requires Content DNA embedding.** |
+| POST | `/api/article-pipeline/test-video` | admin+ | Force-pick 1 transcript-stage YouTube article, process through transcript → story_detect → full pipeline. **Requires Content DNA embedding.** |
 | GET | `/api/article-pipeline/test-run/:runId` | Yes | Poll test run progress (shared by test-run and test-video). |
 
 ### Upload — `/api/upload`
@@ -990,9 +990,16 @@ flowchart LR
 
 **Concurrency:** 5 items for non-AI stages, 1 for AI stages (3s gap).
 
+**Content DNA gate:** The pipeline requires a niche embedding (Content DNA) before any
+articles can be ingested. Both manual ingestion (`POST /ingest`, `test-run`, `test-video`)
+and the worker's auto-poll silently skip channels without a generated niche embedding.
+This ensures all scored articles have a meaningful niche relevance score rather than
+defaulting to 0.
+
 **Source polling:** Every 5 minutes, checks all active sources for new Apify runs,
-RSS items, and YouTube channel videos. Uses cadence-based `nextCheckAt` for YouTube
-sources (active: 2d, regular: 5d, slow: 10d, inactive: 20d). Auto-imports new articles.
+RSS items, and YouTube channel videos. Channels without a Content DNA embedding are
+skipped. Uses cadence-based `nextCheckAt` for YouTube sources (active: 2d, regular: 5d,
+slow: 10d, inactive: 20d). Auto-imports new articles.
 
 **YouTube cadence:** Derived from `config.lastVideoFoundAt`:
 - **Active** (<3 days): check every 2 days
