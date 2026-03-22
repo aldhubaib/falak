@@ -542,16 +542,27 @@ router.patch('/:id/content', requireRole('owner', 'admin', 'editor'), async (req
   }
 })
 
-// ── POST /api/article-pipeline/reset — wipe all stories & articles to start fresh
-// Preserves ScoreProfile rows (Content DNA, niche embedding) — only resets scoring weights
+// ── POST /api/article-pipeline/reset — wipe all AI stories & articles to start fresh
+// Preserves manual stories (publish queue videos) and ScoreProfile niche data
 router.post('/reset', requireRole('owner', 'admin'), async (req, res) => {
   try {
+    const manualStoryIds = (await db.story.findMany({
+      where: { origin: 'manual' },
+      select: { id: true },
+    })).map(s => s.id)
+
     const results = await db.$transaction([
-      db.storyLog.deleteMany({}),
-      db.alert.deleteMany({}),
+      db.storyLog.deleteMany({
+        where: manualStoryIds.length > 0 ? { storyId: { notIn: manualStoryIds } } : {},
+      }),
+      db.alert.deleteMany({
+        where: manualStoryIds.length > 0 ? { storyId: { notIn: manualStoryIds } } : {},
+      }),
       db.article.deleteMany({}),
       db.apifyRun.deleteMany({}),
-      db.story.deleteMany({}),
+      db.story.deleteMany({
+        where: { origin: { not: 'manual' } },
+      }),
       db.scoreProfile.updateMany({
         data: {
           weightAdjustments: null,
