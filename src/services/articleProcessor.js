@@ -1676,6 +1676,7 @@ Transcript:
 ${transcript.slice(0, 30000)}`
 
   let stories = null
+  let parseError = null
   try {
     const raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
       { role: 'user', content: prompt },
@@ -1688,21 +1689,26 @@ ${transcript.slice(0, 30000)}`
 
     try {
       const trimmed = (raw || '').trim()
-      const start = trimmed.indexOf('{')
-      const end = trimmed.lastIndexOf('}') + 1
+      // Strip markdown code fences if present
+      const cleaned = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+      const start = cleaned.indexOf('{')
+      const end = cleaned.lastIndexOf('}') + 1
       if (start !== -1 && end > start) {
-        const parsed = JSON.parse(trimmed.slice(start, end))
+        const parsed = JSON.parse(cleaned.slice(start, end))
         if (Array.isArray(parsed.stories) && parsed.stories.length > 0) {
           stories = parsed.stories.filter(s => s.title && s.content && s.content.length >= 50)
         }
       }
-    } catch (_) {}
+    } catch (pe) {
+      parseError = pe.message
+    }
 
     log.push(lp('story_detect', {
       processor: 'ai', service: 'Anthropic Claude Haiku',
       model: 'claude-haiku-4-5-20251001',
-      status: stories ? 'ok' : 'parse_error',
+      status: stories && stories.length > 0 ? 'ok' : parseError ? 'parse_error' : 'empty',
       storiesDetected: stories ? stories.length : 0,
+      ...(parseError ? { parseError, rawPreview: (raw || '').slice(0, 300) } : {}),
       inputTokens: usage.inputTokens || null,
       outputTokens: usage.outputTokens || null,
     }))
@@ -1713,10 +1719,11 @@ ${transcript.slice(0, 30000)}`
   }
 
   if (!stories || stories.length === 0) {
-    log.push(lp('story_detect', { status: 'review', reason: 'AI could not detect stories in transcript' }))
-    log.push(lp('verdict', { stage: 'story_detect', result: 'review', reason: 'AI could not detect stories in transcript', nextStage: 'review' }))
+    // Fallback: treat the entire transcript as a single story rather than blocking the pipeline
+    log.push(lp('story_detect', { status: 'ok', reason: parseError ? 'JSON parse failed — treating as single story' : 'No distinct stories found — continuing as single story' }))
+    log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: parseError ? 'Parse error fallback → single story' : 'Single-story fallback → classify', nextStage: 'classify' }))
     await saveLog(article.id, log)
-    return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Could not detect stories in transcript' }
+    return { nextStage: 'classify' }
   }
 
   // Single story — keep the full transcript, just set title/summary from AI
