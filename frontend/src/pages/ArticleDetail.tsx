@@ -449,9 +449,13 @@ export default function ArticleDetailPage() {
             isDone ? "bg-success/15 text-success" :
             isFailed ? "bg-destructive/15 text-destructive" :
             article.status === "review" ? "bg-orange/15 text-orange" :
-            "bg-primary/15 text-primary"
+            "bg-muted text-muted-foreground"
           }`}>
-            {isDone ? "Completed" : isFailed ? "Failed" : article.status === "review" ? "Review" : article.stage}
+            {isDone ? <CheckCircle2 className="w-3 h-3" /> :
+             isFailed ? <AlertTriangle className="w-3 h-3" /> :
+             article.status === "review" ? null :
+             <Loader2 className="w-3 h-3 animate-spin" />}
+            {isDone ? "Completed" : isFailed ? "Failed" : article.status === "review" ? "Review" : (STAGE_LABEL_MAP[article.stage] || article.stage)}
           </span>
         </div>
       </div>
