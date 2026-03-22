@@ -685,6 +685,10 @@ function GateFork({
   const failTargetLabel = FAIL_LABELS[node.failTarget || "review"] || node.failTarget || "Review";
   const dim = isWaiting ? "opacity-30" : "";
 
+  // Use the actual verdict reason when available, otherwise fall back to static labels
+  const passLabel = hasVerdict && isPass && verdict?.reason ? verdict.reason : (node.passLabel || "Pass");
+  const failLabel = hasVerdict && isFail && verdict?.reason ? verdict.reason : (node.failLabel || "Fail");
+
   return (
     <div className={`flex flex-col items-center w-full max-w-[340px] ${dim}`}>
       {/* Stem from node */}
@@ -714,16 +718,16 @@ function GateFork({
       {/* Labels row */}
       <div className="flex w-[70%]">
         <div className="w-1/2 flex flex-col items-center">
-          <span className={`text-[9px] font-mono text-center leading-tight max-w-[100px] ${
+          <span className={`text-[9px] font-mono text-center leading-tight max-w-[120px] ${
             !hasVerdict ? "text-foreground/50" :
             isPass ? "text-success font-semibold" : "text-foreground/40"
-          }`}>{node.passLabel || "Pass"}</span>
+          }`}>{passLabel}</span>
         </div>
         <div className="w-1/2 flex flex-col items-center">
-          <span className={`text-[9px] font-mono text-center leading-tight max-w-[100px] ${
+          <span className={`text-[9px] font-mono text-center leading-tight max-w-[120px] ${
             !hasVerdict ? "text-foreground/50" :
             isFail ? "text-destructive font-semibold" : "text-foreground/40"
-          }`}>{node.failLabel || "Fail"}</span>
+          }`}>{failLabel}</span>
           {/* Dead-end line + box */}
           <div className={`w-px h-3 mt-1 ${isFail ? "bg-destructive/30" : "bg-border/30"}`} />
           <div className={`px-3 py-1 rounded-lg border text-[9px] font-mono ${
