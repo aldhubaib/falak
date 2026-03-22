@@ -19,6 +19,7 @@ const { needsResearch, researchStory } = require('./storyResearcher')
 const logger = require('../lib/logger')
 const { computeSimpleComposite, finalScoreToComposite } = require('../lib/scoringConfig')
 const registry = require('../lib/serviceRegistry')
+const { emitBatch } = require('../lib/pipelineEvents')
 
 const MIN_CONTENT_LENGTH = 300
 const ARABIC_CHAR_REGEX = /[\u0600-\u06FF]/g
@@ -112,7 +113,35 @@ function detectLanguage(text) {
 }
 
 function getLog(article) {
-  return Array.isArray(article.processingLog) ? [...article.processingLog] : []
+  const entries = Array.isArray(article.processingLog) ? [...article.processingLog] : []
+  const articleId = article.id
+  const stage = article.stage
+  // Wrap in a proxy so every push() emits a real-time step event
+  return new Proxy(entries, {
+    get(target, prop) {
+      if (prop === 'push') {
+        return function (...items) {
+          const result = Array.prototype.push.apply(target, items)
+          for (const entry of items) {
+            if (entry && entry.step && entry.step !== 'verdict') {
+              emitBatch('article', {
+                type: 'step',
+                articleId,
+                stage,
+                step: entry.step,
+                label: entry.label || entry.step,
+                status: entry.status || 'ok',
+                service: entry.service || null,
+                processor: entry.processor || null,
+              })
+            }
+          }
+          return result
+        }
+      }
+      return target[prop]
+    },
+  })
 }
 
 async function saveLog(articleId, log) {
@@ -460,11 +489,7 @@ async function doStageResearch(article, project) {
       where: { id: article.id },
       include: { source: { include: { channel: true } } },
     })
-    const result = await researchStory(fullArticle || article, article.channelId)
-
-    for (const entry of result.log) {
-      log.push(entry)
-    }
+    const result = await researchStory(fullArticle || article, article.channelId, { log })
 
     log.push(lp('research', {
       status: result.researchBrief ? 'ok' : 'partial',

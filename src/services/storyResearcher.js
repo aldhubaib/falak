@@ -188,8 +188,8 @@ async function queryPerplexityWithRetry(apiKey, prompt, opts) {
  * Run the full research pipeline for an article.
  * Returns research data + images to be stored on article.analysis.
  */
-async function researchStory(article, channelId) {
-  const log = []
+async function researchStory(article, channelId, opts = {}) {
+  const log = opts.log || []
   const analysis = article.analysis || {}
 
   const topic = analysis.topic || article.title || ''

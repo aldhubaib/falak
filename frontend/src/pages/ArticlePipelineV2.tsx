@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 interface BatchEvent {
   pipeline: "article" | "video";
-  type: "tick_start" | "tick_end" | "batch_start" | "batch_done" | "stage_done";
+  type: "tick_start" | "tick_end" | "batch_start" | "batch_done" | "stage_done" | "step";
   stage?: string;
   batchId?: number;
   count?: number;
@@ -25,6 +25,12 @@ interface BatchEvent {
   processed?: number;
   hadWork?: boolean;
   catchup?: boolean;
+  step?: string;
+  label?: string;
+  status?: string;
+  service?: string;
+  processor?: string;
+  articleId?: string;
   ts: number;
 }
 
@@ -122,6 +128,7 @@ function PipelineView() {
   const [activeBatches, setActiveBatches] = useState<Map<number, BatchEvent>>(new Map());
   const [connected, setConnected] = useState(false);
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
+  const [stepEvents, setStepEvents] = useState<BatchEvent[]>([]);
   const eventsEndRef = useRef<HTMLDivElement>(null);
 
   const fetchStats = useCallback(() => {
@@ -169,9 +176,17 @@ function PipelineView() {
           });
         }
 
+        if (evt.type === "step") {
+          setStepEvents((prev) => {
+            const next = [...prev, evt];
+            return next.length > 500 ? next.slice(-500) : next;
+          });
+        }
+
         // Refresh stats on tick_end or stage_done
         if (evt.type === "tick_end" || evt.type === "stage_done") {
           fetchStats();
+          setStepEvents([]); // clear step events on tick boundary
         }
       } catch (_) {}
     };
@@ -222,6 +237,11 @@ function PipelineView() {
     return Array.from(activeBatches.values()).filter(
       (b) => b.pipeline === pipeline && b.stage === stageId
     );
+  };
+
+  // Recent step events per stage (for sub-step indicators)
+  const stepsByStage = (stageId: string) => {
+    return stepEvents.filter((e) => e.stage === stageId);
   };
 
   if (loading) {
@@ -324,6 +344,7 @@ function PipelineView() {
                       expanded={expandedStage === `video:${stage.id}`}
                       onToggle={() => setExpandedStage(expandedStage === `video:${stage.id}` ? null : `video:${stage.id}`)}
                       recentBatches={batchDoneEvents.filter((e) => e.pipeline === "video" && e.stage === stage.id)}
+                      liveSteps={stepsByStage(stage.id)}
                     />
                     {!isLast && <Connector active={count === 0} />}
                   </div>
@@ -362,6 +383,7 @@ function PipelineView() {
                   expanded={expandedStage === `article:${stage.id}`}
                   onToggle={() => setExpandedStage(expandedStage === `article:${stage.id}` ? null : `article:${stage.id}`)}
                   recentBatches={batchDoneEvents.filter((e) => e.pipeline === "article" && e.stage === stage.id)}
+                  liveSteps={stepsByStage(stage.id)}
                 />
                 {!isLast && <Connector active={count === 0} />}
               </div>
@@ -423,6 +445,7 @@ function StageNode({
   expanded,
   onToggle,
   recentBatches,
+  liveSteps = [],
 }: {
   stage: { id: string; label: string; icon: typeof FileText; color: string; bg: string };
   count: number;
@@ -433,6 +456,7 @@ function StageNode({
   expanded: boolean;
   onToggle: () => void;
   recentBatches: BatchEvent[];
+  liveSteps?: BatchEvent[];
 }) {
   const Icon = stage.icon;
   const isEmpty = count === 0 && !isActive;
@@ -514,6 +538,11 @@ function StageNode({
         </div>
         <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`} />
       </div>
+
+      {/* Live sub-step progress (shown when stage is active) */}
+      {liveSteps.length > 0 && (
+        <LiveStepTrail steps={liveSteps} stageColor={stage.color} />
+      )}
 
       {/* Expanded batch history */}
       {expanded && (
@@ -600,6 +629,97 @@ function ActivityRow({ event }: { event: BatchEvent }) {
       {(event.failed ?? 0) > 0 && <span className="text-destructive">{event.failed} failed</span>}
       {event.catchup && <span className="text-orange">catch-up</span>}
       <span className="text-muted-foreground/50 ml-auto">{fmtAgo(event.ts)}</span>
+    </div>
+  );
+}
+
+/* ─── Live Sub-Step Trail ─── */
+
+const STEP_STATUS_STYLES: Record<string, { icon: typeof CheckCircle2; color: string }> = {
+  ok:         { icon: CheckCircle2, color: "text-success" },
+  created:    { icon: CheckCircle2, color: "text-success" },
+  linked:     { icon: CheckCircle2, color: "text-success" },
+  skipped:    { icon: ArrowRight, color: "text-muted-foreground" },
+  failed:     { icon: AlertTriangle, color: "text-destructive" },
+  parse_error:{ icon: AlertTriangle, color: "text-destructive" },
+  partial:    { icon: AlertTriangle, color: "text-orange" },
+  empty:      { icon: AlertTriangle, color: "text-orange" },
+};
+
+function LiveStepTrail({ steps, stageColor }: { steps: BatchEvent[]; stageColor: string }) {
+  // Deduplicate by step name, keep latest per step
+  const byStep = new Map<string, BatchEvent>();
+  for (const s of steps) {
+    if (s.step) byStep.set(s.step, s);
+  }
+  const uniqueSteps = Array.from(byStep.values());
+
+  // Group by articleId to show per-article progress
+  const byArticle = new Map<string, BatchEvent[]>();
+  for (const s of steps) {
+    const key = s.articleId || "unknown";
+    if (!byArticle.has(key)) byArticle.set(key, []);
+    byArticle.get(key)!.push(s);
+  }
+
+  // Show compact view: unique steps as pills
+  if (uniqueSteps.length === 0) return null;
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/30 space-y-1.5">
+      <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground uppercase tracking-wider">
+        <Zap className="w-2.5 h-2.5" />
+        <span>Live Steps ({byArticle.size} {byArticle.size === 1 ? "article" : "articles"})</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {uniqueSteps.map((s) => {
+          const style = STEP_STATUS_STYLES[s.status || "ok"] || { icon: CheckCircle2, color: stageColor };
+          const StepIcon = style.icon;
+          return (
+            <span
+              key={s.step}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
+                s.status === "ok" || s.status === "created"
+                  ? "bg-success/5 border-success/20 text-success"
+                  : s.status === "failed" || s.status === "parse_error"
+                    ? "bg-destructive/5 border-destructive/20 text-destructive"
+                    : s.status === "skipped"
+                      ? "bg-card border-border/50 text-muted-foreground"
+                      : `bg-primary/5 border-primary/20 ${stageColor}`
+              }`}
+            >
+              <StepIcon className="w-2.5 h-2.5" />
+              {s.label || s.step}
+              {s.service && <span className="text-muted-foreground/60 ml-0.5">{s.service}</span>}
+            </span>
+          );
+        })}
+      </div>
+      {/* Per-article breakdown when multiple articles are being processed */}
+      {byArticle.size > 1 && (
+        <div className="space-y-1 mt-1">
+          {Array.from(byArticle.entries()).slice(0, 5).map(([artId, artSteps]) => (
+            <div key={artId} className="flex items-center gap-1.5 text-[9px] font-mono">
+              <span className="text-muted-foreground/50 w-16 truncate">{artId.slice(-6)}</span>
+              <div className="flex gap-0.5">
+                {artSteps.map((s, i) => {
+                  const isOk = s.status === "ok" || s.status === "created" || s.status === "linked";
+                  const isFail = s.status === "failed" || s.status === "parse_error";
+                  return (
+                    <span
+                      key={`${s.step}-${i}`}
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        isOk ? "bg-success" : isFail ? "bg-destructive" : "bg-primary"
+                      }`}
+                      title={`${s.label || s.step}: ${s.status}`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

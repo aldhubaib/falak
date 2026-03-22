@@ -2132,14 +2132,23 @@ the worker was actually processing.
 Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparison.
 
 ### Backend changes
-- **`src/lib/pipelineEvents.js`**: In-memory EventEmitter with a 100-event ring buffer.
+- **`src/lib/pipelineEvents.js`**: In-memory EventEmitter with a 500-event ring buffer.
   Workers call `emitBatch(pipeline, event)` with types: `tick_start`, `tick_end`,
-  `batch_start`, `batch_done`, `stage_done`.
+  `batch_start`, `batch_done`, `stage_done`, `step`.
+- **`src/services/articleProcessor.js`**: `getLog()` returns a Proxy-wrapped array.
+  Every `log.push(lp(...))` call automatically emits a `step` event via `emitBatch()`,
+  giving real-time sub-step visibility for all 100+ log-push sites across every stage
+  (content, classify, title_translate, score, research, translated).
+  Each step event includes: `articleId`, `stage`, `step`, `label`, `status`, `service`.
+- **`src/services/storyResearcher.js`**: `researchStory()` now accepts an optional
+  `{ log }` option. When the caller passes the observable log, research sub-steps
+  (SerpAPI search, image search, Perplexity, Claude synthesis) emit in real-time as
+  they complete — not batched at the end.
 - **`src/worker-articles.js`**: Emits batch events for every round (including catch-up
   drains). Each batch gets an auto-incrementing `batchId`.
 - **`src/worker.js`**: Same pattern for the video pipeline.
-- **`GET /api/article-pipeline/live`**: SSE endpoint that streams all batch events.
-  On connect, replays events from the last 60s so the client catches up instantly.
+- **`GET /api/article-pipeline/live`**: SSE endpoint that streams all events (batch +
+  step). On connect, replays events from the last 60s so the client catches up.
 - **`GET /api/article-pipeline/stats-combined?channelId=X`**: Lightweight endpoint
   returning counts for both article and video pipelines in one call.
 
@@ -2150,6 +2159,10 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
   - SSE subscription to `/api/article-pipeline/live` with fallback to 5s polling.
   - Stages show queued count, active batch indicator, bottleneck pulsing dot.
   - Clicking a stage expands to show batch history (batch #, item count, failures).
+  - **Live sub-step trail**: When a stage is active, shows pills for each completed
+    API call (e.g. "Classified", "Web Search", "Background", "Synthesis") with
+    status coloring (green/ok, red/failed, gray/skipped). Per-article dot progress
+    when multiple articles are processing concurrently.
   - Live Activity feed at the bottom showing recent batch completions.
 - V1 (`ArticlePipeline.tsx`) untouched — "Try V2 (Live)" link in the actions bar.
 - `App.tsx` routes both `/article-pipeline` (V1) and `/article-pipeline-v2` (V2).
