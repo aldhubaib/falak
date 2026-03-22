@@ -9,6 +9,21 @@ router.use(requireAuth)
 
 const PIPELINE_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
+const RESTARTABLE_STAGES = [
+  { id: 'transcript', label: 'Transcript' },
+  { id: 'story_count', label: 'Story Count' },
+  { id: 'story_split', label: 'Story Split' },
+  { id: 'imported', label: 'Imported' },
+  { id: 'content', label: 'Content' },
+  { id: 'classify', label: 'Classify' },
+  { id: 'title_translate', label: 'Title Translate' },
+  { id: 'score', label: 'Score' },
+  { id: 'research', label: 'Research' },
+  { id: 'translated', label: 'Translation' },
+  { id: 'images', label: 'Images' },
+]
+const VALID_RESTART_IDS = RESTARTABLE_STAGES.map(s => s.id)
+
 // ── GET /api/article-pipeline?channelId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
   try {
@@ -219,6 +234,11 @@ function buildPipelineFlow(sourceType, articleStage) {
   return stages
 }
 
+// ── GET /api/article-pipeline/restartable-stages — stages the frontend can restart from ──
+router.get('/restartable-stages', (_req, res) => {
+  res.json(RESTARTABLE_STAGES)
+})
+
 // ── GET /api/article-pipeline/:id/detail — full article with all content fields ──
 router.get('/:id/detail', async (req, res) => {
   try {
@@ -418,15 +438,14 @@ router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req,
       }
     }
 
-    const VALID_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
     const targetStage = req.body.stage || article.stage
-    if (!VALID_STAGES.includes(targetStage)) {
+    if (!VALID_RESTART_IDS.includes(targetStage)) {
       return res.status(400).json({ error: `Invalid stage "${targetStage}"` })
     }
 
     // Clear stale log entries for the target stage and all later stages
-    const targetIdx = VALID_STAGES.indexOf(targetStage)
-    const stagesToClear = new Set(VALID_STAGES.slice(targetIdx))
+    const targetIdx = VALID_RESTART_IDS.indexOf(targetStage)
+    const stagesToClear = new Set(VALID_RESTART_IDS.slice(targetIdx))
     const oldLog = Array.isArray(article.processingLog) ? article.processingLog : []
     const cleanedLog = oldLog.filter(entry => {
       if (entry.step === 'verdict' && stagesToClear.has(entry.stage)) return false
@@ -450,8 +469,7 @@ router.post('/restart-stage', requireRole('owner', 'admin', 'editor'), async (re
   try {
     const { channelId, stage } = req.body
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
-    const VALID_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
-    if (!VALID_STAGES.includes(stage)) {
+    if (!VALID_RESTART_IDS.includes(stage)) {
       return res.status(400).json({ error: `Invalid stage "${stage}"` })
     }
 

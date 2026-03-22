@@ -6,7 +6,7 @@ import {
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
   Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2, Info,
   Loader2, RotateCcw, PenLine, ImageIcon, ShieldCheck, ArrowRight,
-  X, Youtube, Layers, Download,
+  X, Youtube, Layers, Download, SkipForward,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -235,7 +235,7 @@ function stageIndex(stage: string): number {
   return idx === -1 ? 0 : idx;
 }
 
-type NodeState = "completed" | "failed" | "review" | "active" | "waiting";
+type NodeState = "completed" | "failed" | "review" | "active" | "waiting" | "skipped";
 
 function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): NodeState {
   const currentIdx = stageIndex(article.stage);
@@ -261,10 +261,15 @@ function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): 
 
   // Terminal states
   if (article.stage === "done" || article.stage === "adapter_done") {
-    return nodeIdx <= currentIdx ? "completed" : "waiting";
+    if (nodeIdx > currentIdx) return "waiting";
+    const hasLog = log.some((e) => e.step === nodeId || e.stage === nodeId || (e.step === "verdict" && e.stage === nodeId));
+    return hasLog ? "completed" : "skipped";
   }
   if (article.stage === "filtered" && nodeId === "score") return "failed";
-  if (article.stage === "filtered" && nodeIdx < stageIndex("score")) return "completed";
+  if (article.stage === "filtered" && nodeIdx < stageIndex("score")) {
+    const hasLog = log.some((e) => e.step === nodeId || e.stage === nodeId || (e.step === "verdict" && e.stage === nodeId));
+    return hasLog ? "completed" : "skipped";
+  }
   if (article.stage === "filtered") return "waiting";
 
   // Past stages: use verdict if available
@@ -276,7 +281,11 @@ function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): 
     return "completed";
   }
 
-  return nodeIdx < currentIdx ? "completed" : "waiting";
+  if (nodeIdx < currentIdx) {
+    const hasLogEntries = log.some((e) => e.step === nodeId || e.stage === nodeId);
+    return hasLogEntries ? "completed" : "skipped";
+  }
+  return "waiting";
 }
 
 const STAGE_LABEL_MAP: Record<string, string> = {
@@ -327,6 +336,7 @@ export default function ArticleDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
   const [drawerStage, setDrawerStage] = useState<string | null>(null);
+  const [restartableStages, setRestartableStages] = useState<{ id: string; label: string }[]>([]);
 
   const fetchArticle = useCallback((silent = false) => {
     if (!id) return;
@@ -339,6 +349,13 @@ export default function ArticleDetailPage() {
   }, [id]);
 
   useEffect(() => { fetchArticle(); }, [fetchArticle]);
+
+  useEffect(() => {
+    fetch("/api/article-pipeline/restartable-stages", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => { if (Array.isArray(d)) setRestartableStages(d); })
+      .catch(() => {});
+  }, []);
 
   const TERMINAL_STATES = useRef(new Set(["done", "failed", "review", "adapter_done"]));
   const isProcessing = article != null
@@ -579,7 +596,7 @@ export default function ArticleDetailPage() {
 
           {/* Restart control */}
           <div className="mt-8 flex justify-center">
-            <RestartControl stage={article.stage} restarting={restarting} onRestart={handleRestart} />
+            <RestartControl stage={article.stage} restarting={restarting} onRestart={handleRestart} stages={restartableStages} />
           </div>
         </div>
       </div>
@@ -600,30 +617,19 @@ export default function ArticleDetailPage() {
 
 /* ─── Restart Control ─── */
 
-const RESTARTABLE_STAGES = [
-  { id: "transcript", label: "Transcript" },
-  { id: "story_count", label: "Story Count" },
-  { id: "story_split", label: "Story Split" },
-  { id: "imported", label: "Imported" },
-  { id: "content", label: "Content" },
-  { id: "classify", label: "Classify" },
-  { id: "title_translate", label: "Title Translate" },
-  { id: "score", label: "Score" },
-  { id: "research", label: "Research" },
-  { id: "translated", label: "Translation" },
-];
-
 function RestartControl({
   stage,
   restarting,
   onRestart,
+  stages,
 }: {
   stage: string;
   restarting: boolean;
   onRestart: (stage?: string) => void;
+  stages: { id: string; label: string }[];
 }) {
   const [showPicker, setShowPicker] = useState(false);
-  const currentIdx = RESTARTABLE_STAGES.findIndex((s) => s.id === stage);
+  const currentIdx = stages.findIndex((s) => s.id === stage);
   const canRestartCurrent = currentIdx !== -1 || stage === "done" || stage === "failed";
 
   return (
@@ -646,7 +652,7 @@ function RestartControl({
         </button>
         {showPicker && (
           <div className="absolute top-full left-0 mt-1 z-50 min-w-[140px] rounded-lg border border-border bg-card shadow-lg py-1">
-            {RESTARTABLE_STAGES.map((s) => (
+            {stages.map((s) => (
               <button
                 key={s.id}
                 onClick={() => { setShowPicker(false); onRestart(s.id); }}
@@ -671,6 +677,7 @@ const NODE_STATE_STYLES: Record<NodeState, { border: string; bg: string; text: s
   review:    { border: "border-orange/40", bg: "bg-card", text: "text-orange", ring: "ring-orange/20" },
   active:    { border: "border-primary/40", bg: "bg-card", text: "text-primary", ring: "ring-primary/20" },
   waiting:   { border: "border-border/50", bg: "bg-card", text: "text-muted-foreground", ring: "" },
+  skipped:   { border: "border-border/50", bg: "bg-card", text: "text-muted-foreground", ring: "ring-border/20" },
 };
 
 function formatDuration(ms: number): string {
@@ -752,6 +759,7 @@ function TreeNode({
             state === "failed" ? "bg-destructive/15" :
             state === "review" ? "bg-orange/15" :
             state === "active" ? "bg-primary/15" :
+            state === "skipped" ? "bg-muted/50" :
             "bg-card"
           }`}>
             <Icon className={`w-4 h-4 ${s.text}`} />
@@ -765,6 +773,7 @@ function TreeNode({
             {state === "completed" && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
             {state === "failed" && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
             {state === "review" && <AlertTriangle className="w-3.5 h-3.5 text-orange shrink-0" />}
+            {state === "skipped" && <SkipForward className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
           </div>
           {state === "active" && startedAt && (
             <div className="flex items-center gap-2 mt-0.5">
@@ -776,7 +785,10 @@ function TreeNode({
           )}
           {state !== "active" && (
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              {reason && state !== "waiting" && (
+              {state === "skipped" && (
+                <p className="text-[10px] text-muted-foreground truncate">Skipped</p>
+              )}
+              {reason && state !== "waiting" && state !== "skipped" && (
                 <p className="text-[10px] text-muted-foreground truncate">{reason}</p>
               )}
               {showStaticDuration && (
@@ -808,6 +820,20 @@ function GateFork({
   const isFail = result === "fail" || result === "review";
   const hasVerdict = !!verdict;
   const isWaiting = state === "waiting";
+  const isSkipped = state === "skipped";
+
+  if (isSkipped) {
+    return (
+      <div className="flex flex-col items-center w-full max-w-[340px] opacity-40">
+        <div className="w-px h-4 bg-border/50" />
+        <div className="flex items-center gap-1.5 px-3 py-1">
+          <SkipForward className="w-3 h-3 text-muted-foreground" />
+          <span className="text-[9px] font-mono text-muted-foreground">Skipped</span>
+        </div>
+        <div className="w-px h-4 bg-border/50" />
+      </div>
+    );
+  }
 
   const FAIL_LABELS: Record<string, string> = {
     filtered: "Filtered", review: "Review", done: "Done",
@@ -815,7 +841,6 @@ function GateFork({
   const failTargetLabel = FAIL_LABELS[node.failTarget || "review"] || node.failTarget || "Review";
   const dim = isWaiting ? "opacity-30" : "";
 
-  // Use the actual verdict reason when available, otherwise fall back to static labels
   const passLabel = hasVerdict && isPass && verdict?.reason ? verdict.reason : (node.passLabel || "Pass");
   const failLabel = hasVerdict && isFail && verdict?.reason ? verdict.reason : (node.failLabel || "Fail");
 
