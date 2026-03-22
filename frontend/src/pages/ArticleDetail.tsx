@@ -2358,13 +2358,39 @@ function ResearchDetail({ article, log, pp }: { article: ArticleDetail; log: Log
         let body: React.ReactNode = null;
         if (stepId === "research_decision" && entry) {
           body = <>{entry.reason ?? (entry.needed ? "Research needed" : "Skipped")}</>;
-        } else if (stepId === "firecrawl_search" && entry) {
+        } else if (stepId === "serpapi_search" && entry) {
+          const results = (entry as any).results as Array<{ title: string; url: string; source: string; snippet: string; date: string }> | undefined;
           body = (
             <>
-              {entry.reason && <span>{entry.reason}</span>}
-              {entry.query && <div className="mt-1 font-mono text-[11px]">Query: {entry.query}</div>}
-              {entry.resultsCount != null && <div className="mt-1">{entry.resultsCount} results</div>}
-              {entry.titles?.slice(0, 3).map((t: string, i: number) => <div key={i} className="text-[11px] truncate">· {t}</div>)}
+              {entry.query && <div className="font-mono text-[11px] text-muted-foreground">q: <span className="text-foreground">{entry.query}</span></div>}
+              {entry.resultsCount != null && <div className="mt-1">{entry.resultsCount} article{entry.resultsCount !== 1 ? "s" : ""} found</div>}
+              {results && results.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {results.map((r, i) => (
+                    <div key={i} className="text-[11px] pl-2 border-l-2 border-border">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground shrink-0">{i + 1}.</span>
+                        {r.url ? (
+                          <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-primary truncate">{r.title || r.url}</a>
+                        ) : (
+                          <span className="text-foreground truncate">{r.title}</span>
+                        )}
+                      </div>
+                      {r.source && <div className="text-[10px] text-muted-foreground pl-4">{r.source}{r.date ? ` · ${r.date}` : ""}</div>}
+                      {r.snippet && <div className="text-[10px] text-muted-foreground pl-4 line-clamp-1">{r.snippet}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {entry.error && <div className="text-destructive mt-1">{entry.error}</div>}
+            </>
+          );
+        } else if (stepId === "images" && entry) {
+          body = (
+            <>
+              {entry.query && <div className="font-mono text-[11px] text-muted-foreground">q: <span className="text-foreground">{entry.query}</span></div>}
+              {(entry as any).resultCount != null && <div className="mt-1">{(entry as any).resultCount} image{(entry as any).resultCount !== 1 ? "s" : ""} found</div>}
+              {entry.error && <div className="text-destructive mt-1">{entry.error}</div>}
             </>
           );
         } else if (stepId === "perplexity_context" && entry) {

@@ -107,12 +107,22 @@ async function fetchWithRetry(url, opts = {}) {
   throw lastError
 }
 
+const VIDEO_URL_PATTERNS = [
+  /youtube\.com/i, /youtu\.be/i, /vimeo\.com/i, /dailymotion\.com/i,
+  /tiktok\.com/i, /twitch\.tv/i, /rumble\.com/i, /bitchute\.com/i,
+  /\/video\//i, /\/videos\//i, /\/watch\//i, /\/clip\//i,
+]
+
+function isVideoUrl(url) {
+  return VIDEO_URL_PATTERNS.some(p => p.test(url))
+}
+
 async function serpApiGoogleSearch(apiKey, query, lang) {
   const url = new URL('https://serpapi.com/search')
   url.searchParams.set('engine', 'google')
   url.searchParams.set('q', query)
   url.searchParams.set('tbm', 'nws')
-  url.searchParams.set('num', String(SERPAPI_RESULT_LIMIT))
+  url.searchParams.set('num', String(SERPAPI_RESULT_LIMIT + 5))
   url.searchParams.set('api_key', apiKey)
   if (lang === 'ar') {
     url.searchParams.set('hl', 'ar')
@@ -123,13 +133,16 @@ async function serpApiGoogleSearch(apiKey, query, lang) {
   if (!resp.ok) throw new Error(`SerpAPI Google Search responded ${resp.status}: ${resp.statusText}`)
   const data = await resp.json()
 
-  return (data.news_results || []).slice(0, SERPAPI_RESULT_LIMIT).map(r => ({
-    title: r.title || '',
-    url: r.link || '',
-    snippet: r.snippet || '',
-    source: r.source || '',
-    date: r.date || '',
-  }))
+  return (data.news_results || [])
+    .map(r => ({
+      title: r.title || '',
+      url: r.link || '',
+      snippet: r.snippet || '',
+      source: r.source || '',
+      date: r.date || '',
+    }))
+    .filter(r => r.url && !isVideoUrl(r.url))
+    .slice(0, SERPAPI_RESULT_LIMIT)
 }
 
 async function serpApiImageSearch(apiKey, query) {
@@ -207,8 +220,13 @@ async function researchStory(article, channelId) {
         status: 'ok',
         query: searchQuery,
         resultsCount: newsResults.length,
-        titles: newsResults.map(r => r.title).filter(Boolean),
-        snippets: newsResults.map(r => (r.snippet || '').slice(0, 200)).filter(Boolean),
+        results: newsResults.map(r => ({
+          title: r.title,
+          url: r.url,
+          source: r.source,
+          snippet: (r.snippet || '').slice(0, 200),
+          date: r.date,
+        })),
         keyLabel: serpKey.label,
         at: new Date().toISOString(),
       })
