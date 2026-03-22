@@ -142,6 +142,7 @@ export default function PublishQueue() {
   const [loading, setLoading] = useState(true);
   const processingRef = useRef<Set<string>>(new Set());
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const autoResumedRef = useRef(false);
 
   const uploadTasks = useSyncExternalStore(storyQueue.subscribe, storyQueue.getSnapshot);
 
@@ -183,6 +184,28 @@ export default function PublishQueue() {
   useEffect(() => {
     loadExistingStories();
   }, [loadExistingStories]);
+
+  // Auto-resume stalled processing pipelines on page load
+  useEffect(() => {
+    if (loading || autoResumedRef.current) return;
+    autoResumedRef.current = true;
+
+    const RESUMABLE: ProcessingStep[] = ["transcribing", "title", "description", "tags"];
+    const toResume = existingStories.filter(
+      (s) => RESUMABLE.includes(s.step) && !processingRef.current.has(s.storyId),
+    );
+    if (toResume.length === 0) return;
+
+    for (const item of toResume) {
+      processingRef.current.add(item.storyId);
+      setQueue((prev) => {
+        if (prev.some((q) => q.storyId === item.storyId)) return prev;
+        return [{ ...item }, ...prev];
+      });
+      runPipeline(item.storyId, item.step);
+    }
+    toast.info(`Resuming ${toResume.length} stalled ${toResume.length === 1 ? "video" : "videos"}…`);
+  }, [loading, existingStories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setQueue((prev) => {

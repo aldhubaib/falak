@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, type ReactNode } from "react";
+import { Component, lazy, Suspense, type ReactNode, type ComponentType } from "react";
 import { Loader2 } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -10,26 +10,43 @@ import { PageError } from "@/components/PageError";
 import { AppLayout } from "@/components/AppLayout";
 import { ChannelLayout } from "@/components/ChannelLayout";
 
-const Login = lazy(() => import("./pages/Login"));
-const ProfilePicker = lazy(() => import("./pages/ProfilePicker"));
-const Competitions = lazy(() => import("./pages/Competitions"));
-const ChannelDetail = lazy(() => import("./pages/ChannelDetail"));
-const VideoDetail = lazy(() => import("./pages/VideoDetail"));
-const Pipeline = lazy(() => import("./pages/Pipeline"));
-const Analytics = lazy(() => import("./pages/Analytics"));
-const Admin = lazy(() => import("./pages/Admin"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Stories = lazy(() => import("./pages/Stories"));
-const StoryDetail = lazy(() => import("./pages/StoryDetail"));
-const PublishQueue = lazy(() => import("./pages/PublishQueue"));
-const ArticlePipeline = lazy(() => import("./pages/ArticlePipeline"));
-const ArticlePipelineV2 = lazy(() => import("./pages/ArticlePipelineV2"));
-const ArticleDetail = lazy(() => import("./pages/ArticleDetail"));
-const ProfileHome = lazy(() => import("./pages/ProfileHome"));
-const Gallery = lazy(() => import("./pages/Gallery"));
-const AlbumDetail = lazy(() => import("./pages/AlbumDetail"));
-const DesignSystem = lazy(() => import("./pages/DesignSystem"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+function lazyRetry<T extends ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>,
+): React.LazyExoticComponent<T> {
+  return lazy(() =>
+    factory().catch((err: unknown) => {
+      const alreadyRetried = sessionStorage.getItem("chunk-retry");
+      if (!alreadyRetried) {
+        sessionStorage.setItem("chunk-retry", "1");
+        window.location.reload();
+        return new Promise<never>(() => {});
+      }
+      sessionStorage.removeItem("chunk-retry");
+      throw err;
+    }),
+  );
+}
+
+const Login = lazyRetry(() => import("./pages/Login"));
+const ProfilePicker = lazyRetry(() => import("./pages/ProfilePicker"));
+const Competitions = lazyRetry(() => import("./pages/Competitions"));
+const ChannelDetail = lazyRetry(() => import("./pages/ChannelDetail"));
+const VideoDetail = lazyRetry(() => import("./pages/VideoDetail"));
+const Pipeline = lazyRetry(() => import("./pages/Pipeline"));
+const Analytics = lazyRetry(() => import("./pages/Analytics"));
+const Admin = lazyRetry(() => import("./pages/Admin"));
+const Settings = lazyRetry(() => import("./pages/Settings"));
+const Stories = lazyRetry(() => import("./pages/Stories"));
+const StoryDetail = lazyRetry(() => import("./pages/StoryDetail"));
+const PublishQueue = lazyRetry(() => import("./pages/PublishQueue"));
+const ArticlePipeline = lazyRetry(() => import("./pages/ArticlePipeline"));
+const ArticlePipelineV2 = lazyRetry(() => import("./pages/ArticlePipelineV2"));
+const ArticleDetail = lazyRetry(() => import("./pages/ArticleDetail"));
+const ProfileHome = lazyRetry(() => import("./pages/ProfileHome"));
+const Gallery = lazyRetry(() => import("./pages/Gallery"));
+const AlbumDetail = lazyRetry(() => import("./pages/AlbumDetail"));
+const DesignSystem = lazyRetry(() => import("./pages/DesignSystem"));
+const NotFound = lazyRetry(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,14 +72,29 @@ class AppErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       const err = this.state.error;
+      const isChunkError =
+        err?.message?.includes("Failed to fetch dynamically imported module") ||
+        err?.message?.includes("Loading chunk") ||
+        err?.message?.includes("Loading CSS chunk");
       return (
         <div className="min-h-screen flex items-center justify-center bg-card p-6">
           <PageError
-            title="Something went wrong"
-            message={err?.message ?? "An unexpected error occurred. Try refreshing the page."}
-            detail={err?.stack}
-            componentStack={this.state.componentStack ?? undefined}
-            onRetry={() => this.setState({ hasError: false, error: null, componentStack: null })}
+            title={isChunkError ? "App updated" : "Something went wrong"}
+            message={
+              isChunkError
+                ? "A new version was deployed. Reloading…"
+                : (err?.message ?? "An unexpected error occurred. Try refreshing the page.")
+            }
+            detail={isChunkError ? undefined : err?.stack}
+            componentStack={isChunkError ? undefined : (this.state.componentStack ?? undefined)}
+            onRetry={() => {
+              if (isChunkError) {
+                sessionStorage.removeItem("chunk-retry");
+                window.location.reload();
+              } else {
+                this.setState({ hasError: false, error: null, componentStack: null });
+              }
+            }}
             showHome
           />
         </div>
