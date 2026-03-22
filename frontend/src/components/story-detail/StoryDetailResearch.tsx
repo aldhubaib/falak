@@ -12,8 +12,6 @@ import {
   Download,
   BookOpen,
   X,
-  Languages,
-  Loader2,
   ChevronLeft,
   ChevronRight,
   ZoomIn,
@@ -24,8 +22,6 @@ export interface StoryDetailResearchProps {
   research: StoryResearch | undefined | null;
   researchOpen?: boolean;
   onResearchOpenChange?: (open: boolean) => void;
-  storyId?: string;
-  onDataRefresh?: () => void;
 }
 
 function downloadImageFile(src: string, index: number) {
@@ -327,37 +323,13 @@ export function StoryDetailResearch({
   research,
   researchOpen: controlledOpen,
   onResearchOpenChange,
-  storyId,
-  onDataRefresh,
 }: StoryDetailResearchProps) {
   const [internalOpen, setInternalOpen] = useState(true);
   const isOpen = controlledOpen ?? internalOpen;
   const setOpen = onResearchOpenChange ?? setInternalOpen;
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const [retranslating, setRetranslating] = useState(false);
-
   const brief: ResearchBrief | undefined = research?.briefAr ?? research?.brief;
   const images = research?.images;
-  const isShowingEnglish = !research?.briefAr && !!research?.brief;
-
-  const handleRetranslate = async () => {
-    if (!storyId || retranslating) return;
-    setRetranslating(true);
-    try {
-      const res = await fetch(`/api/stories/${storyId}/retranslate-research`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Translation failed");
-      }
-      onDataRefresh?.();
-    } catch (e: unknown) {
-      console.error("Retranslate failed:", e);
-    } finally {
-      setRetranslating(false);
-    }
-  };
 
   const hasContent = !!(
     brief?.whatHappened ||
@@ -403,26 +375,6 @@ export function StoryDetailResearch({
 
       {isOpen && (
         <div className="px-6 max-sm:px-4 pb-8" dir="rtl">
-          {isShowingEnglish && storyId && (
-            <div className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-lg bg-orange/5 border border-orange/20">
-              <span className="text-[12px] text-orange">
-                البحث معروض بالإنجليزية — اضغط لترجمته للعربية
-              </span>
-              <button
-                type="button"
-                onClick={handleRetranslate}
-                disabled={retranslating}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange/10 hover:bg-orange/20 text-orange text-[11px] font-semibold transition-colors disabled:opacity-50"
-              >
-                {retranslating ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Languages className="w-3.5 h-3.5" />
-                )}
-                {retranslating ? "جاري الترجمة..." : "ترجمة"}
-              </button>
-            </div>
-          )}
           <article className="max-w-none space-y-8">
             {/* ── Hook ── */}
             {brief?.suggestedHook && (

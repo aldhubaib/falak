@@ -776,7 +776,7 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// ── POST /api/stories/:id/retranslate-research — re-translate English research brief to Arabic
+// ── POST /api/stories/:id/retranslate-research — copy Arabic brief from article (AI fallback only if missing)
 router.post('/:id/retranslate-research', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
@@ -787,32 +787,47 @@ router.post('/:id/retranslate-research', requireRole('owner', 'admin', 'editor')
     })
 
     const storyBrief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-    const researchBrief = storyBrief.research?.brief || linkedArticle?.analysis?.research?.brief
-    if (!researchBrief || typeof researchBrief !== 'object') {
-      return res.status(400).json({ error: 'No research brief found to translate' })
-    }
 
-    const apiKey = await registry.requireKey('anthropic')
-    const briefJson = JSON.stringify(researchBrief)
-    const prompt = `Translate this research brief to Arabic. Keep the exact same JSON structure and keys. Translate all string values to Arabic (whatHappened, howItHappened, whatWasTheResult, keyFacts array, timeline[].event, mainCharacters[].role, competitionInsight, suggestedHook). Keep narrativeStrength as a number. Keep sources[].url unchanged; you may translate sources[].title to Arabic. Reply with ONLY valid JSON, no markdown fences, no explanation.\n\n${briefJson}`
-
-    const rawResponse = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
-      { role: 'user', content: prompt },
-    ], { maxTokens: 8192, channelId: linkedArticle?.channelId || story.channelId, action: 'retranslate-research' })
+    // Reuse existing Arabic translation from the article pipeline — no extra AI cost
+    const existingBriefAr =
+      storyBrief.research?.briefAr ||
+      linkedArticle?.analysis?.research?.briefAr
 
     let briefAr = null
-    if (rawResponse && rawResponse.trim()) {
-      const trimmed = rawResponse.trim()
-      const start = trimmed.indexOf('{')
-      const end = trimmed.lastIndexOf('}') + 1
-      if (start !== -1 && end > start) {
-        const jsonStr = trimmed.slice(start, end)
-        try {
-          briefAr = JSON.parse(jsonStr)
-        } catch (_) {
-          briefAr = repairAndParseJson(jsonStr)
+    let source = null
+
+    if (existingBriefAr && typeof existingBriefAr === 'object') {
+      briefAr = existingBriefAr
+      source = 'copied'
+    } else {
+      // Fallback: translate via AI only when no Arabic version exists anywhere
+      const researchBrief = storyBrief.research?.brief || linkedArticle?.analysis?.research?.brief
+      if (!researchBrief || typeof researchBrief !== 'object') {
+        return res.status(400).json({ error: 'No research brief found to translate' })
+      }
+
+      const apiKey = await registry.requireKey('anthropic')
+      const briefJson = JSON.stringify(researchBrief)
+      const prompt = `Translate this research brief to Arabic. Keep the exact same JSON structure and keys. Translate all string values to Arabic (whatHappened, howItHappened, whatWasTheResult, keyFacts array, timeline[].event, mainCharacters[].role, competitionInsight, suggestedHook). Keep narrativeStrength as a number. Keep sources[].url unchanged; you may translate sources[].title to Arabic. Reply with ONLY valid JSON, no markdown fences, no explanation.\n\n${briefJson}`
+
+      const rawResponse = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+        { role: 'user', content: prompt },
+      ], { maxTokens: 8192, channelId: linkedArticle?.channelId || story.channelId, action: 'retranslate-research' })
+
+      if (rawResponse && rawResponse.trim()) {
+        const trimmed = rawResponse.trim()
+        const start = trimmed.indexOf('{')
+        const end = trimmed.lastIndexOf('}') + 1
+        if (start !== -1 && end > start) {
+          const jsonStr = trimmed.slice(start, end)
+          try {
+            briefAr = JSON.parse(jsonStr)
+          } catch (_) {
+            briefAr = repairAndParseJson(jsonStr)
+          }
         }
       }
+      source = 'ai'
     }
 
     if (!briefAr) {
@@ -834,8 +849,11 @@ router.post('/:id/retranslate-research', requireRole('owner', 'admin', 'editor')
       await db.article.update({ where: { id: linkedArticle.id }, data: { analysis: artAnalysis } })
     }
 
-    await addLog(story.id, req.user.id, 'retranslate', 'Research brief re-translated to Arabic')
-    res.json({ ok: true, briefAr })
+    const logNote = source === 'copied'
+      ? 'Arabic brief copied from article pipeline (no AI cost)'
+      : 'Research brief translated to Arabic via AI (no existing translation found)'
+    await addLog(story.id, req.user.id, 'retranslate', logNote)
+    res.json({ ok: true, briefAr, source })
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     console.error('[stories/retranslate-research]', req.params.id, e?.message || e)

@@ -643,61 +643,57 @@ async function doStageTranslated(article, project) {
     log.push(lp('translate_analysis', { processor: 'server', service: 'Skip (no fields)', status: 'skipped', reason: 'No classification fields to translate' }))
   }
 
-  // ── Step C: Translate research brief to Arabic ──
+  // ── Step C: Translate research brief to Arabic (BLOCKING — story cannot be created without it) ──
   const researchBrief = analysis.research?.brief
   if (researchBrief && typeof researchBrief === 'object') {
-    try {
-      const briefJson = JSON.stringify(researchBrief)
-      const researchPrompt = `Translate this research brief to Arabic. Keep the exact same JSON structure and keys. Translate all string values to Arabic (whatHappened, howItHappened, whatWasTheResult, keyFacts array, timeline[].event, mainCharacters[].role, competitionInsight, suggestedHook). Keep narrativeStrength as a number. Keep sources[].url unchanged; you may translate sources[].title to Arabic. Reply with ONLY valid JSON, no markdown fences, no explanation.\n\n${briefJson}`
-      const translatedBriefRaw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
-        { role: 'user', content: researchPrompt },
-      ], {
-        maxTokens: 8192,
-        channelId: article.channelId,
-        action: 'article-translate-research',
-      })
-      const researchUsage = callAnthropic._lastUsage || {}
-      let briefAr = null
-      let repaired = false
-      if (translatedBriefRaw && translatedBriefRaw.trim()) {
-        const trimmed = translatedBriefRaw.trim()
-        const start = trimmed.indexOf('{')
-        const end = trimmed.lastIndexOf('}') + 1
-        if (start !== -1 && end > start) {
-          const jsonStr = trimmed.slice(start, end)
-          try {
-            briefAr = JSON.parse(jsonStr)
-          } catch (_parseErr) {
-            briefAr = repairAndParseJson(jsonStr)
-            repaired = !!briefAr
-          }
+    const briefJson = JSON.stringify(researchBrief)
+    const researchPrompt = `Translate this research brief to Arabic. Keep the exact same JSON structure and keys. Translate all string values to Arabic (whatHappened, howItHappened, whatWasTheResult, keyFacts array, timeline[].event, mainCharacters[].role, competitionInsight, suggestedHook). Keep narrativeStrength as a number. Keep sources[].url unchanged; you may translate sources[].title to Arabic. Reply with ONLY valid JSON, no markdown fences, no explanation.\n\n${briefJson}`
+    const translatedBriefRaw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+      { role: 'user', content: researchPrompt },
+    ], {
+      maxTokens: 8192,
+      channelId: article.channelId,
+      action: 'article-translate-research',
+    })
+    const researchUsage = callAnthropic._lastUsage || {}
+    let briefAr = null
+    let repaired = false
+    if (translatedBriefRaw && translatedBriefRaw.trim()) {
+      const trimmed = translatedBriefRaw.trim()
+      const start = trimmed.indexOf('{')
+      const end = trimmed.lastIndexOf('}') + 1
+      if (start !== -1 && end > start) {
+        const jsonStr = trimmed.slice(start, end)
+        try {
+          briefAr = JSON.parse(jsonStr)
+        } catch (_parseErr) {
+          briefAr = repairAndParseJson(jsonStr)
+          repaired = !!briefAr
         }
       }
-      if (briefAr) {
-        arAnalysis.research = {
-          ...(arAnalysis.research || {}),
-          briefAr,
-        }
-        log.push(lp('translate_research', {
-          status: repaired ? 'ok_repaired' : 'ok',
-          processor: 'ai', service: 'Anthropic Claude Haiku',
-          model: 'claude-haiku-4-5-20251001',
-          inputChars: briefJson.length,
-          outputChars: (translatedBriefRaw || '').trim().length,
-          inputTokens: researchUsage.inputTokens || null,
-          outputTokens: researchUsage.outputTokens || null,
-          totalTokens: researchUsage.totalTokens || null,
-          promptSent: researchPrompt.slice(0, 1500),
-          rawResponse: (translatedBriefRaw || '').trim().slice(0, 1500),
-          repaired,
-        }))
-      } else {
-        log.push(lp('translate_research', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', reason: 'Failed to parse translated brief JSON — non-blocking' }))
-      }
-    } catch (e) {
-      log.push(lp('translate_research', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', error: `${e.message} (non-blocking)` }))
-      logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] translate_research failed (non-fatal)')
     }
+    if (!briefAr) {
+      log.push(lp('translate_research', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', reason: 'Failed to parse translated brief JSON — will retry' }))
+      await saveLog(article.id, log)
+      throw new Error('Research brief translation failed — article will retry (Arabic is mandatory)')
+    }
+    arAnalysis.research = {
+      ...(arAnalysis.research || {}),
+      briefAr,
+    }
+    log.push(lp('translate_research', {
+      status: repaired ? 'ok_repaired' : 'ok',
+      processor: 'ai', service: 'Anthropic Claude Haiku',
+      model: 'claude-haiku-4-5-20251001',
+      inputChars: briefJson.length,
+      outputChars: (translatedBriefRaw || '').trim().length,
+      inputTokens: researchUsage.inputTokens || null,
+      outputTokens: researchUsage.outputTokens || null,
+      totalTokens: researchUsage.totalTokens || null,
+      promptSent: researchPrompt.slice(0, 1500),
+      rawResponse: (translatedBriefRaw || '').trim().slice(0, 1500),
+      repaired,
+    }))
   } else {
     log.push(lp('translate_research', { processor: 'server', service: 'Skip (no research brief)', status: 'skipped', reason: researchBrief ? 'Invalid brief' : 'No research brief' }))
   }
@@ -1268,6 +1264,10 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
   }
 
   if (analysis.research) {
+    if (analysis.research.brief && !analysis.research.briefAr) {
+      logger.warn({ articleId: article.id }, '[articleProcessor] Refusing to create story — research brief exists but briefAr is missing')
+      return null
+    }
     const research = { ...analysis.research }
     if (analysis.research.briefAr) {
       research.brief = analysis.research.briefAr

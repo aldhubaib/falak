@@ -1188,16 +1188,6 @@ export default function StoryDetail() {
               research={brief.research}
               researchOpen={researchOpen}
               onResearchOpenChange={setResearchOpen}
-              storyId={id}
-              onDataRefresh={async () => {
-                const res = await fetch(`/api/stories/${id}`, { credentials: "include" });
-                if (res.ok) {
-                  const data = await res.json();
-                  setStory(data as StoryWithLog);
-                  const b = data.brief && typeof data.brief === "object" ? data.brief as StoryBrief : {};
-                  setBrief(b);
-                }
-              }}
             />
 
             <StoryDetailArticle
