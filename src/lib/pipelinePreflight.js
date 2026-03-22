@@ -26,6 +26,8 @@ const VIDEO_STAGE_DEPS = {
 }
 
 const ARTICLE_STAGE_DEPS = {
+  story_count:     [],
+  story_split:     [{ service: 'anthropic', required: true }],
   imported:        [],
   content:         [{ service: 'firecrawl', required: false }],
   classify:        [{ service: 'anthropic', required: true }],

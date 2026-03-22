@@ -53,14 +53,15 @@ const STEP_META = {
   images:             { stage: 'images',      label: 'Image Search',     icon: 'image',         subtitle: 'SerpAPI Google Images' },
   promote:            { stage: 'promote',     label: 'Promote',          icon: 'check-circle' },
   transcript_fetch:   { stage: 'transcript',  label: 'Transcript',       icon: 'file-text',     subtitle: 'Fetch YouTube video transcript' },
-  story_detect:       { stage: 'story_detect', label: 'Story Detect',    icon: 'brain',         subtitle: 'Detect stories in transcript' },
-  story_split:        { stage: 'story_detect', label: 'Story Split',     icon: 'layers',        subtitle: 'Split transcript into stories' },
+  story_count:        { stage: 'story_count',  label: 'Story Count',     icon: 'hash',          subtitle: 'Server-side multi-story detection' },
+  story_split:        { stage: 'story_split',  label: 'Story Split',     icon: 'layers',        subtitle: 'AI splits transcript into stories' },
   verdict:            { stage: 'verdict',      label: 'Verdict',          icon: 'shield-check',  subtitle: 'Stage gate decision' },
 }
 
 const VERDICT_PATHS = {
-  transcript:      { passPath: { nextStage: 'story_detect', label: 'Transcript fetched' },   failPath: { nextStage: 'review', label: 'No transcript available' } },
-  story_detect:    { passPath: { nextStage: 'classify', label: 'Stories identified' },       failPath: { nextStage: 'review', label: 'Detection failed' } },
+  transcript:      { passPath: { nextStage: 'story_count', label: 'Transcript fetched' },    failPath: { nextStage: 'review', label: 'No transcript available' } },
+  story_count:     { passPath: { nextStage: 'classify', label: 'Single story' },             failPath: { nextStage: 'story_split', label: 'Multi-story → AI split' } },
+  story_split:     { passPath: { nextStage: 'classify', label: 'Stories split' },             failPath: { nextStage: 'review', label: 'Split failed' } },
   imported:        { passPath: { nextStage: 'content', label: 'Content extraction' } },
   content:         { passPath: { nextStage: 'classify', label: 'Content extracted' },        failPath: { nextStage: 'review', label: 'No usable content' } },
   classify:        { passPath: { nextStage: 'title_translate', label: 'Classification done' } },
@@ -1531,7 +1532,7 @@ const SERVICE_DESCRIPTOR = {
   keySource: 'googleSearchKey',
 }
 
-// ── Stage: transcript → story_detect ────────────────────────────────────────
+// ── Stage: transcript → story_count ──────────────────────────────────────────
 // Fetches the YouTube transcript for a video. Only runs for youtube_channel sources.
 
 async function doStageTranscript(article, project) {
@@ -1610,7 +1611,7 @@ async function doStageTranscript(article, project) {
     analysis.originalDescription = (meta.description || '').slice(0, 500) || null
     if (meta.thumbnailUrl) analysis.thumbnailUrl = meta.thumbnailUrl
     if (meta.duration) analysis.duration = meta.duration
-    log.push(lp('verdict', { stage: 'transcript', result: 'pass', reason: `Transcript fetched (${transcriptText.length} chars)`, nextStage: 'story_detect' }))
+    log.push(lp('verdict', { stage: 'transcript', result: 'pass', reason: `Transcript fetched (${transcriptText.length} chars)`, nextStage: 'story_count' }))
     const updateData = {
       content: transcriptText,
       contentClean: transcriptText,
@@ -1620,7 +1621,7 @@ async function doStageTranscript(article, project) {
     if (meta.publishedAt) updateData.publishedAt = meta.publishedAt
     await db.article.update({ where: { id: article.id }, data: updateData })
   } catch (e) {
-    log.push(lp('verdict', { stage: 'transcript', result: 'pass', reason: `Transcript fetched (${transcriptText.length} chars), metadata failed`, nextStage: 'story_detect' }))
+    log.push(lp('verdict', { stage: 'transcript', result: 'pass', reason: `Transcript fetched (${transcriptText.length} chars), metadata failed`, nextStage: 'story_count' }))
     await db.article.update({
       where: { id: article.id },
       data: { content: transcriptText, contentClean: transcriptText, processingLog: log },
@@ -1628,43 +1629,117 @@ async function doStageTranscript(article, project) {
     logger.warn({ articleId: article.id, error: e.message }, '[article-processor] video metadata fetch failed, transcript saved')
   }
 
-  return { nextStage: 'story_detect' }
+  return { nextStage: 'story_count' }
 }
 
-// ── Stage: story_detect → classify (or adapter_done) ────────────────────────
-// Uses AI to detect distinct stories inside a video transcript.
-// Single story: article continues to classify.
-// Multiple stories: creates child articles, parent goes to adapter_done.
-
-const MULTI_STORY_SIGNALS = /\b(أخبار|نشرة|ملخص|أبرز|عناوين|headlines|roundup|recap|top stories|news wrap|weekly update|daily brief|bulletin|digest)\b/i
-
-function titleSuggestsMultipleStories(title) {
-  if (!title) return false
-  return MULTI_STORY_SIGNALS.test(title)
+// ── Default story detection patterns ──────────────────────────────────────────
+const DEFAULT_STORY_PATTERNS = {
+  titlePatterns: [
+    { id: 'tp1', pattern: '(\\d+)\\s*(stories|headlines|topics|things|events|news\\s*items|updates|takeaways|points|reasons)', label: 'Number + plural noun', active: true },
+    { id: 'tp2', pattern: '(top|best|worst|biggest|latest)\\s*(\\d+)', label: 'Top/best + number', active: true },
+    { id: 'tp3', pattern: '\\b(stories|headlines|updates)\\s*(about|from|of|on)\\b', label: 'Plural stories/headlines about', active: true },
+    { id: 'tp4', pattern: '\\b(roundup|round-up|recap|digest|wrap-up|wrap|bulletin|briefing)\\b', label: 'Roundup/recap words', active: true },
+    { id: 'tp5', pattern: '\\ball\\s+the\\s+(news|stories|headlines)\\b', label: 'All the news/stories', active: true },
+    { id: 'tp6', pattern: '(\\d+|٢|٣|٤|٥|٦|٧|٨|٩|١٠)\\s*(أخبار|قصص|عناوين|أحداث|مواضيع)', label: 'Arabic: number + story words', active: true },
+    { id: 'tp7', pattern: '(أبرز|أهم)\\s*(\\d+|٢|٣|٤|٥|٦|٧|٨|٩|١٠)', label: 'Arabic: top + number', active: true },
+  ],
+  transitionPatterns: [
+    { id: 'tr1', pattern: 'وننتقل\\s+(إلى|الى)', label: 'Arabic: moving to', active: true },
+    { id: 'tr2', pattern: 'في\\s+خبر\\s+آخر', label: 'Arabic: in other news', active: true },
+    { id: 'tr3', pattern: 'أما\\s+على\\s+صعيد', label: 'Arabic: as for', active: true },
+    { id: 'tr4', pattern: 'من\\s+جهة\\s+أخرى', label: 'Arabic: on the other hand', active: true },
+    { id: 'tr5', pattern: 'على\\s+صعيد\\s+آخر', label: 'Arabic: on another level', active: true },
+    { id: 'tr6', pattern: 'في\\s+سياق\\s+(آخر|متصل)', label: 'Arabic: in another context', active: true },
+    { id: 'tr7', pattern: 'ومن\\s+الأخبار\\s+أيضا', label: 'Arabic: also from the news', active: true },
+    { id: 'tr8', pattern: 'in\\s+other\\s+news', label: 'English: in other news', active: true },
+    { id: 'tr9', pattern: 'moving\\s+on', label: 'English: moving on', active: true },
+    { id: 'tr10', pattern: 'next\\s+up', label: 'English: next up', active: true },
+  ],
+  minTransitions: 3,
+  minStoryNumber: 2,
 }
 
-async function doStageStoryDetect(article, project) {
+function getStoryPatterns(channel) {
+  try {
+    const profile = channel?.scoreProfile
+    if (profile?.storyPatterns && typeof profile.storyPatterns === 'object') {
+      return { ...DEFAULT_STORY_PATTERNS, ...profile.storyPatterns }
+    }
+  } catch (_) {}
+  return DEFAULT_STORY_PATTERNS
+}
+
+function needsAiSplit(title, transcript, patterns) {
+  const activeTitle = (patterns.titlePatterns || []).filter(p => p.active)
+  for (const p of activeTitle) {
+    try {
+      if (new RegExp(p.pattern, 'i').test(title)) return { multi: true, reason: `Title matches: "${p.label}"` }
+    } catch (_) {}
+  }
+
+  const activeTransition = (patterns.transitionPatterns || []).filter(p => p.active)
+  let transitionCount = 0
+  for (const p of activeTransition) {
+    try {
+      const matches = transcript.match(new RegExp(p.pattern, 'gi'))
+      if (matches) transitionCount += matches.length
+    } catch (_) {}
+  }
+
+  const minTransitions = patterns.minTransitions || 3
+  if (transitionCount >= minTransitions) {
+    return { multi: true, reason: `${transitionCount} transition markers found (threshold: ${minTransitions})` }
+  }
+
+  return { multi: false, reason: 'No multi-story signals' }
+}
+
+// ── Stage: story_count → classify (single) or story_split (multi) ───────────
+// Pure server logic — no AI. Checks title patterns and transcript markers.
+
+async function doStageStoryCount(article, channel) {
   const log = getLog(article)
   const transcript = article.contentClean || article.content || ''
   const analysis = article.analysis || {}
   const title = analysis.originalTitle || article.title || ''
 
   if (transcript.length < 100) {
-    log.push(lp('story_detect', { status: 'review', reason: 'Transcript too short for story detection' }))
-    log.push(lp('verdict', { stage: 'story_detect', result: 'review', reason: `Transcript too short (${transcript.length} chars)`, nextStage: 'review' }))
+    log.push(lp('story_count', { status: 'review', reason: 'Transcript too short for story detection' }))
+    log.push(lp('verdict', { stage: 'story_count', result: 'review', reason: `Transcript too short (${transcript.length} chars)`, nextStage: 'review' }))
     await saveLog(article.id, log)
-    return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Transcript too short' }
+    return { nextStage: 'story_count', reviewStatus: 'review', reviewReason: 'Transcript too short' }
   }
 
-  // Fast path: title clearly indicates a single-topic video — skip AI entirely
-  if (!titleSuggestsMultipleStories(title)) {
-    log.push(lp('story_detect', { status: 'ok', reason: `Title-based: "${title}" — single topic, skipping AI analysis` }))
-    log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: `Single topic video — "${title.slice(0, 60)}"`, nextStage: 'classify' }))
+  let patterns = DEFAULT_STORY_PATTERNS
+  try {
+    const profile = await db.scoreProfile.findUnique({ where: { channelId: article.channelId }, select: { storyPatterns: true } })
+    if (profile?.storyPatterns && typeof profile.storyPatterns === 'object') {
+      patterns = { ...DEFAULT_STORY_PATTERNS, ...profile.storyPatterns }
+    }
+  } catch (_) {}
+
+  const result = needsAiSplit(title, transcript, patterns)
+
+  if (result.multi) {
+    log.push(lp('story_count', { status: 'multi', reason: result.reason, title: title.slice(0, 80) }))
+    log.push(lp('verdict', { stage: 'story_count', result: 'fail', reason: result.reason, nextStage: 'story_split' }))
     await saveLog(article.id, log)
-    return { nextStage: 'classify' }
+    return { nextStage: 'story_split' }
   }
 
-  // Multi-story signal detected in title — use AI to split transcript
+  log.push(lp('story_count', { status: 'single', reason: result.reason, title: title.slice(0, 80) }))
+  log.push(lp('verdict', { stage: 'story_count', result: 'pass', reason: `Single story — ${result.reason}`, nextStage: 'classify' }))
+  await saveLog(article.id, log)
+  return { nextStage: 'classify' }
+}
+
+// ── Stage: story_split → classify (or adapter_done) ─────────────────────────
+// AI splits transcript into child articles. Only reached when story_count detects multi-story.
+
+async function doStageStorySplit(article, channel) {
+  const log = getLog(article)
+  const transcript = article.contentClean || article.content || ''
+
   const apiKey = await registry.requireKey('anthropic')
 
   const prompt = `You are analyzing a YouTube video transcript to identify distinct news stories or topics covered.
@@ -1701,13 +1776,12 @@ ${transcript.slice(0, 30000)}`
     ], {
       maxTokens: 4096,
       channelId: article.channelId,
-      action: 'article-story-detect',
+      action: 'article-story-split',
     })
     const usage = callAnthropic._lastUsage || {}
 
     try {
       const trimmed = (raw || '').trim()
-      // Strip markdown code fences if present
       const cleaned = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
       const start = cleaned.indexOf('{')
       const end = cleaned.lastIndexOf('}') + 1
@@ -1721,7 +1795,7 @@ ${transcript.slice(0, 30000)}`
       parseError = pe.message
     }
 
-    log.push(lp('story_detect', {
+    log.push(lp('story_split', {
       processor: 'ai', service: 'Anthropic Claude Haiku',
       model: 'claude-haiku-4-5-20251001',
       status: stories && stories.length > 0 ? 'ok' : parseError ? 'parse_error' : 'empty',
@@ -1731,24 +1805,22 @@ ${transcript.slice(0, 30000)}`
       outputTokens: usage.outputTokens || null,
     }))
   } catch (e) {
-    log.push(lp('story_detect', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message }))
+    log.push(lp('story_split', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message }))
     await saveLog(article.id, log)
     throw e
   }
 
   if (!stories || stories.length === 0) {
-    // Fallback: treat the entire transcript as a single story rather than blocking the pipeline
-    log.push(lp('story_detect', { status: 'ok', reason: parseError ? 'JSON parse failed — treating as single story' : 'No distinct stories found — continuing as single story' }))
-    log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: parseError ? 'Parse error fallback → single story' : 'Single-story fallback → classify', nextStage: 'classify' }))
+    log.push(lp('story_split', { status: 'ok', reason: parseError ? 'JSON parse failed — treating as single story' : 'No distinct stories found — single story fallback' }))
+    log.push(lp('verdict', { stage: 'story_split', result: 'pass', reason: parseError ? 'Parse error fallback → classify' : 'Single-story fallback → classify', nextStage: 'classify' }))
     await saveLog(article.id, log)
     return { nextStage: 'classify' }
   }
 
-  // Single story — keep the full transcript, just set title/summary from AI
   if (stories.length === 1) {
     const story = stories[0]
     log.push(lp('story_split', { status: 'ok', action: 'single', storiesDetected: 1 }))
-    log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: 'Single story detected — continuing to classify', nextStage: 'classify' }))
+    log.push(lp('verdict', { stage: 'story_split', result: 'pass', reason: 'Single story detected — continuing to classify', nextStage: 'classify' }))
     await db.article.update({
       where: { id: article.id },
       data: {
@@ -1760,9 +1832,6 @@ ${transcript.slice(0, 30000)}`
     return { nextStage: 'classify' }
   }
 
-  // Multiple stories — each child gets the full transcript with its story context
-  // The title+description scope what this story is about; the full transcript
-  // provides context for classify/research/translate to work with
   const children = stories.map((story, i) => ({
     channelId: article.channelId,
     sourceId: article.sourceId,
@@ -1786,7 +1855,7 @@ ${transcript.slice(0, 30000)}`
     childrenCreated: count,
     childUrls: children.map(c => c.url),
   }))
-  log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: `Split into ${stories.length} stories → ${count} child articles`, nextStage: 'adapter_done' }))
+  log.push(lp('verdict', { stage: 'story_split', result: 'pass', reason: `Split into ${stories.length} stories → ${count} child articles`, nextStage: 'adapter_done' }))
   await saveLog(article.id, log)
 
   logger.info({
@@ -1806,7 +1875,9 @@ module.exports = {
   doStageTranslated,
   doStageImages,
   doStageTranscript,
-  doStageStoryDetect,
+  doStageStoryCount,
+  doStageStorySplit,
+  DEFAULT_STORY_PATTERNS,
   STEP_META,
   computeDynamicThreshold,
   SERVICE_DESCRIPTOR,

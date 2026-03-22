@@ -228,7 +228,7 @@ function resolveNodeIcon(key: string): typeof FileText {
   return NODE_ICON_MAP[key] || FileText;
 }
 
-const STAGE_ORDER = ["transcript", "story_detect", "imported", "content", "classify", "title_translate", "score", "research", "translated", "images", "done"];
+const STAGE_ORDER = ["transcript", "story_count", "story_split", "imported", "content", "classify", "title_translate", "score", "research", "translated", "images", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -280,7 +280,7 @@ function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): 
 }
 
 const STAGE_LABEL_MAP: Record<string, string> = {
-  transcript: "Transcript", story_detect: "Story Detect", imported: "Imported",
+  transcript: "Transcript", story_count: "Story Count", story_split: "Story Split", imported: "Imported",
   content: "Content", classify: "Classify", title_translate: "Title Translate",
   score: "Score", research: "Research", translated: "Translation",
   images: "Images", promote: "Promote", review: "Review", filtered: "Filtered",
@@ -602,7 +602,8 @@ export default function ArticleDetailPage() {
 
 const RESTARTABLE_STAGES = [
   { id: "transcript", label: "Transcript" },
-  { id: "story_detect", label: "Story Detect" },
+  { id: "story_count", label: "Story Count" },
+  { id: "story_split", label: "Story Split" },
   { id: "imported", label: "Imported" },
   { id: "content", label: "Content" },
   { id: "classify", label: "Classify" },
@@ -932,7 +933,7 @@ function StageDrawer({
         {/* Stage detail content */}
         <div>
           {stageId === "transcript" && <TranscriptDetail article={article} log={log} />}
-          {stageId === "story_detect" && <StoryDetectDetail article={article} log={log} pp={pp} />}
+          {(stageId === "story_count" || stageId === "story_split") && <StoryDetectDetail article={article} log={log} pp={pp} />}
           {stageId === "imported" && <ImportedDetail article={article} log={log} />}
           {stageId === "content" && <ContentDetail article={article} log={log} />}
           {stageId === "classify" && <AiAnalysisDetail article={article} log={log} />}
@@ -955,7 +956,8 @@ function StageDrawer({
 /** Step order and ids per stage — must match Article Pipeline Kanban exactly. */
 const STEP_MAP: Record<string, string[]> = {
   transcript: ["transcript_fetch"],
-  story_detect: ["story_detect", "story_split"],
+  story_count: ["story_count"],
+  story_split: ["story_split"],
   imported: ["imported"],
   content: ["apify_content", "firecrawl", "html_fetch", "title_desc"],
   classify: ["classify"],
@@ -978,7 +980,7 @@ function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
 /** Step id → label, subtitle, icon (matches Pipeline Kanban columns exactly). */
 const STEP_DISPLAY: Record<string, { label: string; subtitle?: string; icon: typeof FileText }> = {
   transcript_fetch: { label: "Transcript", subtitle: "Fetch YouTube video transcript", icon: FileText },
-  story_detect: { label: "Story Detect", subtitle: "Detect stories in transcript", icon: Brain },
+  story_count: { label: "Story Count", subtitle: "Server-side multi-story detection", icon: Brain },
   story_split: { label: "Story Split", subtitle: "Split transcript into stories", icon: FileText },
   imported: { label: "Imported", subtitle: "Queued for ingestion", icon: FileText },
   apify_content: { label: "Apify Content", subtitle: "Article body from Apify actor", icon: FileText },
@@ -1607,23 +1609,26 @@ function TranscriptDetail({ article, log }: { article: ArticleDetail; log: LogEn
 }
 
 function StoryDetectDetail({ article, log, pp }: { article: ArticleDetail; log: LogEntry[]; pp: (p: string) => string }) {
-  const detectEntry = log.find((e) => e.step === "story_detect");
+  const countEntry = log.find((e) => e.step === "story_count");
   const splitEntry = log.find((e) => e.step === "story_split");
 
   return (
     <div className="p-4 space-y-3">
       <LogStepCard
-        entry={detectEntry ?? null}
-        stepId="story_detect"
-        label={STEP_DISPLAY.story_detect?.label || "Story Detect"}
-        subtitle={STEP_DISPLAY.story_detect?.subtitle}
-        icon={STEP_DISPLAY.story_detect?.icon || Brain}
+        entry={countEntry ?? null}
+        stepId="story_count"
+        label={STEP_DISPLAY.story_count?.label || "Story Count"}
+        subtitle={STEP_DISPLAY.story_count?.subtitle}
+        icon={STEP_DISPLAY.story_count?.icon || Brain}
       >
-        {detectEntry?.storiesDetected != null && (
-          <span>{detectEntry.storiesDetected} {detectEntry.storiesDetected === 1 ? "story" : "stories"} detected</span>
+        {countEntry?.status === "single" && (
+          <span className="text-success">Single story — no AI needed</span>
         )}
-        {detectEntry?.error && <span className="block text-destructive">{detectEntry.error}</span>}
-        {detectEntry?.reason && <span className="block text-muted-foreground">{detectEntry.reason}</span>}
+        {countEntry?.status === "multi" && (
+          <span className="text-orange">Multi-story detected → AI split</span>
+        )}
+        {countEntry?.error && <span className="block text-destructive">{countEntry.error}</span>}
+        {countEntry?.reason && <span className="block text-muted-foreground">{countEntry.reason}</span>}
       </LogStepCard>
 
       {splitEntry && (

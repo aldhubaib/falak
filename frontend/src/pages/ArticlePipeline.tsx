@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import SourceTab from "./Source";
 import VectorIntelligenceTab from "./VectorIntelligence";
+import StoryRulesTab from "./StoryRules";
 import { fmtDateTime } from "@/lib/utils";
 import {
   RotateCw, Pause, Play, Circle, AlertTriangle, ExternalLink,
@@ -133,15 +134,16 @@ const SUB_STEPS: SubStep[] = [
     icon: FileText, color: "text-red-400", parentStage: "transcript",
     filterFn: (a) => hasLogStep(a, "transcript_fetch"),
   },
-  // Story detect sub-steps
+  // Story count sub-steps
   {
-    id: "story_detect_ai", label: "Story Detect", subtitle: "AI story detection",
-    icon: Brain, color: "text-red-400", parentStage: "story_detect",
-    filterFn: (a) => hasLogStep(a, "story_detect"),
+    id: "story_count_result", label: "Story Count", subtitle: "Server-side multi-story detection",
+    icon: Brain, color: "text-red-400", parentStage: "story_count",
+    filterFn: (a) => hasLogStep(a, "story_count"),
   },
+  // Story split sub-steps
   {
-    id: "story_split", label: "Story Split", subtitle: "Split into child articles",
-    icon: FileText, color: "text-red-400", parentStage: "story_detect",
+    id: "story_split_result", label: "Story Split", subtitle: "AI split into child articles",
+    icon: FileText, color: "text-red-400", parentStage: "story_split",
     filterFn: (a) => hasLogStep(a, "story_split"),
   },
   // Content sub-steps
@@ -244,7 +246,8 @@ const SUB_STEPS: SubStep[] = [
 
 const STAGE_DEFS = [
   { id: "transcript", label: "Transcript", subtitle: "Fetching YouTube transcript", color: "text-red-400", number: 0 },
-  { id: "story_detect", label: "Story Detect", subtitle: "Detecting stories in transcript", color: "text-red-400", number: 0 },
+  { id: "story_count", label: "Story Count", subtitle: "Server-side multi-story check", color: "text-red-400", number: 0 },
+  { id: "story_split", label: "Story Split", subtitle: "AI splitting transcript", color: "text-red-400", number: 0 },
   { id: "imported", label: "Imported", subtitle: "Queued for ingestion", color: "text-orange", number: 1 },
   { id: "content", label: "Content", subtitle: "Fetching or processing content", color: "text-primary", number: 2 },
   { id: "classify", label: "Classify", subtitle: "Running classification", color: "text-success", number: 3 },
@@ -287,7 +290,7 @@ const SENTIMENT_COLORS: Record<string, string> = {
 /** Log step id → display label (matches Kanban column titles exactly). */
 const LOG_STEP_LABELS: Record<string, string> = {
   transcript_fetch: "Transcript",
-  story_detect: "Story Detect",
+  story_count: "Story Count",
   story_split: "Story Split",
   imported: "Imported",
   apify_content: "Apify Content",
@@ -314,12 +317,13 @@ const LOG_STEP_LABELS: Record<string, string> = {
 
 /* ─── Tabs ─── */
 
-const TABS = ["pipeline", "sources", "intelligence"] as const;
+const TABS = ["pipeline", "sources", "story_rules", "intelligence"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   pipeline: "Pipeline",
   sources: "Sources",
+  story_rules: "Story Rules",
   intelligence: "Intelligence",
 };
 
@@ -335,6 +339,7 @@ export default function ArticlePipeline() {
   };
 
   if (activeTab === "sources") return <ArticlePipelineShell activeTab={activeTab} setTab={setTab}><SourceTab /></ArticlePipelineShell>;
+  if (activeTab === "story_rules") return <ArticlePipelineShell activeTab={activeTab} setTab={setTab}><StoryRulesTab /></ArticlePipelineShell>;
   if (activeTab === "intelligence") return <ArticlePipelineShell activeTab={activeTab} setTab={setTab}><VectorIntelligenceTab /></ArticlePipelineShell>;
   return <ArticlePipelineShell activeTab={activeTab} setTab={setTab}><PipelineTabContent /></ArticlePipelineShell>;
 }
@@ -624,14 +629,15 @@ function PipelineTabContent() {
           <>
             {/* Stats rows */}
             <div className="px-6 max-lg:px-4 mb-5 pt-5 space-y-0">
-              {((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_detect ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) && (
+              {((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_count ?? 0) > 0 || (data?.stats.story_split ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) && (
                 <div className="flex rounded-t-lg overflow-hidden border border-b-0 border-border">
                   <StatBox label="Transcript" value={data?.stats.transcript ?? 0} color="text-red-400" />
-                  <StatBox label="Story Detect" value={data?.stats.story_detect ?? 0} color="text-red-400" />
+                  <StatBox label="Story Count" value={data?.stats.story_count ?? 0} color="text-red-400" />
+                  <StatBox label="Story Split" value={data?.stats.story_split ?? 0} color="text-red-400" />
                   <StatBox label="Split Done" value={data?.stats.adapter_done ?? 0} color="text-muted-foreground" last />
                 </div>
               )}
-              <div className={`flex overflow-hidden border border-b-0 border-border ${((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_detect ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) ? "" : "rounded-t-lg"}`}>
+              <div className={`flex overflow-hidden border border-b-0 border-border ${((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_count ?? 0) > 0 || (data?.stats.story_split ?? 0) > 0 || (data?.stats.adapter_done ?? 0) > 0) ? "" : "rounded-t-lg"}`}>
                 <StatBox label="Total" value={totalArticles} />
                 <StatBox label="Imported" value={data?.stats.imported ?? 0} color="text-orange" />
                 <StatBox label="Content" value={data?.stats.content ?? 0} color="text-primary" />
@@ -740,7 +746,7 @@ function PipelineTabContent() {
             )}
 
             {/* ── TRANSCRIPT (YouTube only) ── */}
-            {((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_detect ?? 0) > 0) && (
+            {((data?.stats.transcript ?? 0) > 0 || (data?.stats.story_count ?? 0) > 0 || (data?.stats.story_split ?? 0) > 0) && (
               <>
                 <SectionHeader icon={getFlowDef("transcript")!.icon} title={getFlowDef("transcript")!.name} subtitle={getFlowDef("transcript")!.subtitle} />
                 <div className="px-6 max-lg:px-4 mb-6">
@@ -752,15 +758,29 @@ function PipelineTabContent() {
                   </div>
                 </div>
 
-                <SectionHeader icon={getFlowDef("story_detect")!.icon} title={getFlowDef("story_detect")!.name} subtitle={getFlowDef("story_detect")!.subtitle} />
+                <SectionHeader icon={getFlowDef("story_count")!.icon} title={getFlowDef("story_count")!.name} subtitle={getFlowDef("story_count")!.subtitle} />
                 <div className="px-6 max-lg:px-4 mb-6">
-                  <div className="grid grid-cols-3 gap-3 max-lg:grid-cols-1 items-start">
-                    <StageColumn stage={SD.story_detect} items={data?.byStage.story_detect ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
-                    {SUB_STEPS.filter(s => s.parentStage === "story_detect").map((sub) => (
+                  <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
+                    <StageColumn stage={SD.story_count} items={data?.byStage.story_count ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                    {SUB_STEPS.filter(s => s.parentStage === "story_count").map((sub) => (
                       <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
                     ))}
                   </div>
                 </div>
+
+                {(data?.stats.story_split ?? 0) > 0 && (
+                  <>
+                    <SectionHeader icon={getFlowDef("story_split")!.icon} title={getFlowDef("story_split")!.name} subtitle={getFlowDef("story_split")!.subtitle} />
+                    <div className="px-6 max-lg:px-4 mb-6">
+                      <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
+                        <StageColumn stage={SD.story_split} items={data?.byStage.story_split ?? []} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                        {SUB_STEPS.filter(s => s.parentStage === "story_split").map((sub) => (
+                          <SubStepColumn key={sub.id} sub={sub} articles={articlesForSection(sub.parentStage).filter(sub.filterFn)} onRefresh={fetchPipeline} channelId={channelId} pp={pp} />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 

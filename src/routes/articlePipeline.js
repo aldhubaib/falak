@@ -7,7 +7,7 @@ const articleEvents = require('../lib/articleEvents')
 const router = express.Router()
 router.use(requireAuth)
 
-const PIPELINE_STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
+const PIPELINE_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
 // ── GET /api/article-pipeline?channelId=X — Kanban view data ──────────────
 router.get('/', async (req, res) => {
@@ -56,7 +56,8 @@ router.get('/', async (req, res) => {
     const stats = {
       total: totalCount,
       transcript: stageCountMap.transcript || 0,
-      story_detect: stageCountMap.story_detect || 0,
+      story_count: stageCountMap.story_count || 0,
+      story_split: stageCountMap.story_split || 0,
       imported: stageCountMap.imported || 0,
       content: stageCountMap.content || 0,
       classify: stageCountMap.classify || 0,
@@ -72,7 +73,7 @@ router.get('/', async (req, res) => {
       adapter_done: stageCountMap.adapter_done || 0,
     }
 
-    const byStage = { transcript: [], story_detect: [], imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], images: [], review: [], filtered: [], failed: [], done: [], adapter_done: [] }
+    const byStage = { transcript: [], story_count: [], story_split: [], imported: [], content: [], classify: [], title_translate: [], score: [], research: [], translated: [], images: [], review: [], filtered: [], failed: [], done: [], adapter_done: [] }
     for (const a of allArticles) {
       if (a.status === 'review') {
         if (byStage.review.length < STAGE_LIMIT) byStage.review.push(a)
@@ -193,7 +194,8 @@ const SHARED_STAGES = [
 
 const VIDEO_PREFIX = [
   { id: 'transcript',   label: 'Transcript',    icon: 'youtube',  type: 'gate', passLabel: 'Transcript fetched', failLabel: 'No transcript', failTarget: 'review', sourceTag: 'video' },
-  { id: 'story_detect', label: 'Story Detect',  icon: 'layers',   type: 'gate', passLabel: 'Stories identified', failLabel: 'Detection failed', failTarget: 'review', sourceTag: 'video' },
+  { id: 'story_count',  label: 'Story Count',   icon: 'hash',     type: 'gate', passLabel: 'Single story', failLabel: 'Multi-story → split', failTarget: 'story_split', sourceTag: 'video' },
+  { id: 'story_split',  label: 'Story Split',   icon: 'layers',   type: 'gate', passLabel: 'Stories split', failLabel: 'Split failed', failTarget: 'review', sourceTag: 'video' },
 ]
 
 const ARTICLE_PREFIX = [
@@ -206,7 +208,7 @@ function buildPipelineFlow(sourceType, articleStage) {
   const stages = [...prefix, ...SHARED_STAGES]
 
   // If the article reached adapter_done (multi-story split), replace the shared
-  // stages after story_detect with a terminal adapter_done node
+  // stages after story_count/story_split with a terminal adapter_done node
   if (articleStage === 'adapter_done' && sourceType === 'youtube_channel') {
     return [
       ...VIDEO_PREFIX,
@@ -416,7 +418,7 @@ router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req,
       }
     }
 
-    const VALID_STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
+    const VALID_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
     const targetStage = req.body.stage || article.stage
     if (!VALID_STAGES.includes(targetStage)) {
       return res.status(400).json({ error: `Invalid stage "${targetStage}"` })
@@ -448,7 +450,7 @@ router.post('/restart-stage', requireRole('owner', 'admin', 'editor'), async (re
   try {
     const { channelId, stage } = req.body
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
-    const VALID_STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
+    const VALID_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
     if (!VALID_STAGES.includes(stage)) {
       return res.status(400).json({ error: `Invalid stage "${stage}"` })
     }
@@ -470,7 +472,7 @@ router.post('/:id/skip', requireRole('owner', 'admin', 'editor'), async (req, re
     if (!article) return res.status(404).json({ error: 'Article not found' })
     if (article.status !== 'review') return res.status(400).json({ error: 'Article is not in review' })
 
-    const stageOrder = ['imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'done']
+    const stageOrder = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'done']
     const idx = stageOrder.indexOf(article.stage)
     const nextStage = idx >= 0 && idx < stageOrder.length - 1 ? stageOrder[idx + 1] : 'done'
 
@@ -819,6 +821,89 @@ router.get('/test-run/:runId', async (req, res) => {
     finished: done === run.items.length,
     items: run.items,
   })
+})
+
+// ── GET /api/article-pipeline/story-patterns?channelId=X ──────────────────
+router.get('/story-patterns', async (req, res) => {
+  try {
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
+
+    const { DEFAULT_STORY_PATTERNS } = require('../services/articleProcessor')
+    const profile = await db.scoreProfile.findUnique({
+      where: { channelId },
+      select: { storyPatterns: true },
+    })
+
+    const patterns = profile?.storyPatterns && typeof profile.storyPatterns === 'object'
+      ? { ...DEFAULT_STORY_PATTERNS, ...profile.storyPatterns }
+      : DEFAULT_STORY_PATTERNS
+
+    res.json({ patterns, isDefault: !profile?.storyPatterns })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── PUT /api/article-pipeline/story-patterns ──────────────────────────────
+router.put('/story-patterns', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { channelId, patterns } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
+    if (!patterns || typeof patterns !== 'object') return res.status(400).json({ error: 'patterns object required' })
+
+    const { titlePatterns, transitionPatterns, minTransitions, minStoryNumber } = patterns
+
+    if (titlePatterns && !Array.isArray(titlePatterns)) return res.status(400).json({ error: 'titlePatterns must be an array' })
+    if (transitionPatterns && !Array.isArray(transitionPatterns)) return res.status(400).json({ error: 'transitionPatterns must be an array' })
+
+    for (const p of (titlePatterns || [])) {
+      try { new RegExp(p.pattern, 'i') } catch (e) {
+        return res.status(400).json({ error: `Invalid regex in title pattern "${p.label}": ${e.message}` })
+      }
+    }
+    for (const p of (transitionPatterns || [])) {
+      try { new RegExp(p.pattern, 'gi') } catch (e) {
+        return res.status(400).json({ error: `Invalid regex in transition pattern "${p.label}": ${e.message}` })
+      }
+    }
+
+    const data = {
+      titlePatterns: titlePatterns || [],
+      transitionPatterns: transitionPatterns || [],
+      minTransitions: typeof minTransitions === 'number' ? minTransitions : 3,
+      minStoryNumber: typeof minStoryNumber === 'number' ? minStoryNumber : 2,
+    }
+
+    await db.scoreProfile.upsert({
+      where: { channelId },
+      update: { storyPatterns: data },
+      create: { channelId, storyPatterns: data },
+    })
+
+    res.json({ ok: true, patterns: data })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/article-pipeline/story-patterns/reset ───────────────────────
+router.post('/story-patterns/reset', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const { channelId } = req.body
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
+
+    await db.scoreProfile.update({
+      where: { channelId },
+      data: { storyPatterns: null },
+    })
+
+    const { DEFAULT_STORY_PATTERNS } = require('../services/articleProcessor')
+    res.json({ ok: true, patterns: DEFAULT_STORY_PATTERNS })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Score profile not found' })
+    res.status(500).json({ error: e.message })
+  }
 })
 
 module.exports = router

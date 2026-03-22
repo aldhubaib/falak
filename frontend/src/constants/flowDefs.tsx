@@ -1,4 +1,4 @@
-import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Target, ImageIcon, Youtube, Layers } from "lucide-react";
+import { LucideIcon, FileText, Brain, Search, Languages, Sparkles, Download, LayoutTemplate, CheckCircle2, Target, ImageIcon, Youtube, Layers, Hash } from "lucide-react";
 
 export interface FlowDef {
   id: string;
@@ -20,9 +20,17 @@ export const FLOW_DEFS: FlowDef[] = [
     bgColor: "bg-red-400",
   },
   {
-    id: "story_detect",
-    name: "Story Detect",
-    subtitle: "AI detects distinct stories in the transcript. May split into child articles.",
+    id: "story_count",
+    name: "Story Count",
+    subtitle: "Server-side detection: single or multi-story video. No AI cost.",
+    icon: Hash,
+    color: "text-red-400",
+    bgColor: "bg-red-400",
+  },
+  {
+    id: "story_split",
+    name: "Story Split",
+    subtitle: "AI splits multi-story transcript into child articles. Only runs when Story Count detects multiple stories.",
     icon: Layers,
     color: "text-red-400",
     bgColor: "bg-red-400",

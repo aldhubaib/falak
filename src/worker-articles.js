@@ -20,7 +20,8 @@ const {
   doStageTranslated,
   doStageImages,
   doStageTranscript,
-  doStageStoryDetect,
+  doStageStoryCount,
+  doStageStorySplit,
 } = require('./services/articleProcessor')
 
 const POLL_MS = 10_000
@@ -31,9 +32,9 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
+const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
 
-const AI_STAGES = new Set(['story_detect', 'classify', 'title_translate', 'score', 'research', 'translated'])
+const AI_STAGES = new Set(['story_split', 'classify', 'title_translate', 'score', 'research', 'translated'])
 
 let paused = false
 let pauseLoaded = false
@@ -112,8 +113,11 @@ async function processItem(article, { force = false } = {}) {
       case 'transcript':
         out = await doStageTranscript(article, channel)
         break
-      case 'story_detect':
-        out = await doStageStoryDetect(article, channel)
+      case 'story_count':
+        out = await doStageStoryCount(article, channel)
+        break
+      case 'story_split':
+        out = await doStageStorySplit(article, channel)
         break
       case 'imported':
         out = await doStageImported(article, channel)
