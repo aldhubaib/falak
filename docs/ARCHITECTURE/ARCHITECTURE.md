@@ -50,8 +50,9 @@ From a user perspective the workflow is:
    AI script generation (duration picker, auto-uses the profile's channel),
    video upload, transcription (Whisper), title / description / tag generation,
    and an SRT subtitle builder.
-6. **Publish Queue** — bulk video upload with an automated pipeline
-   (transcribe → title → description → tags).
+6. **Publish Queue** — bulk video upload; AI processing (transcribe → title →
+   description + tags) runs entirely in the background via `POST /api/stories/:id/process`.
+   Users can navigate to the story detail immediately after upload.
 7. **Gallery** — per-channel media library for photos and videos stored in R2.
 8. **Vector Intelligence** — pgvector-powered similarity search and a
    self-learning scoring profile that improves with every editorial decision.
@@ -836,6 +837,7 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | GET | `/api/stories/:id` | Yes | Single story with full log history. Research images merged from linked article's analysis. | — |
 | POST | `/api/stories` | editor+ | Create a story. | — |
 | POST | `/api/stories/manual` | editor+ | Create manual story in "publish" stage. | — |
+| POST | `/api/stories/:id/process` | editor+ | Kick off background AI processing (transcribe → title → description + tags in parallel). Returns immediately. | Updates `brief.processingStatus` |
 | PATCH | `/api/stories/:id` | editor+ | Update story (stage change triggers learning). | StoryLog, refreshPreferenceProfile, learnFromDecisions |
 | DELETE | `/api/stories/:id` | admin+ | Delete a story. | — |
 | POST | `/api/stories/:id/fetch-article` | editor+ | Scrape source URL content. | Firecrawl API → updates Story.brief |
