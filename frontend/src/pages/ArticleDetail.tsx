@@ -696,17 +696,17 @@ function GateFork({
         {/* Pass circle (left) */}
         <div className="absolute left-[25%] top-0 -translate-x-1/2 flex flex-col items-center">
           <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold ${
-            !hasVerdict ? "bg-card border border-border text-muted-foreground" :
+            !hasVerdict ? "bg-card border border-border text-foreground" :
             isPass ? "bg-success text-white shadow-sm shadow-success/30" :
-            "bg-card border border-border text-muted-foreground/40"
+            "bg-card border border-border text-foreground/40"
           }`}>✓</div>
         </div>
         {/* Fail circle (right) */}
         <div className="absolute right-[25%] top-0 translate-x-1/2 flex flex-col items-center">
           <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold ${
-            !hasVerdict ? "bg-card border border-border text-muted-foreground" :
+            !hasVerdict ? "bg-card border border-border text-foreground" :
             isFail ? "bg-destructive text-white shadow-sm shadow-destructive/30" :
-            "bg-card border border-border text-muted-foreground/40"
+            "bg-card border border-border text-foreground/40"
           }`}>✗</div>
         </div>
       </div>
@@ -715,14 +715,14 @@ function GateFork({
       <div className="flex w-[70%]">
         <div className="w-1/2 flex flex-col items-center">
           <span className={`text-[9px] font-mono text-center leading-tight max-w-[100px] ${
-            !hasVerdict ? "text-muted-foreground/50" :
-            isPass ? "text-success font-semibold" : "text-muted-foreground/40"
+            !hasVerdict ? "text-foreground/50" :
+            isPass ? "text-success font-semibold" : "text-foreground/40"
           }`}>{node.passLabel || "Pass"}</span>
         </div>
         <div className="w-1/2 flex flex-col items-center">
           <span className={`text-[9px] font-mono text-center leading-tight max-w-[100px] ${
-            !hasVerdict ? "text-muted-foreground/50" :
-            isFail ? "text-destructive font-semibold" : "text-muted-foreground/40"
+            !hasVerdict ? "text-foreground/50" :
+            isFail ? "text-destructive font-semibold" : "text-foreground/40"
           }`}>{node.failLabel || "Fail"}</span>
           {/* Dead-end line + box */}
           <div className={`w-px h-3 mt-1 ${isFail ? "bg-destructive/30" : "bg-border/30"}`} />
