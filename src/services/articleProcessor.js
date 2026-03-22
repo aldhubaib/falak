@@ -1555,21 +1555,19 @@ async function doStageTranscript(article, project) {
   try {
     const { fetchVideoMetadata } = require('./youtube')
     const meta = await fetchVideoMetadata(videoId, article.channelId)
+    const analysis = article.analysis || {}
+    analysis.youtubeId = videoId
+    analysis.originalTitle = meta.titleAr || meta.titleEn || null
+    analysis.originalDescription = (meta.description || '').slice(0, 500) || null
+    if (meta.thumbnailUrl) analysis.thumbnailUrl = meta.thumbnailUrl
+    if (meta.duration) analysis.duration = meta.duration
     const updateData = {
       content: transcriptText,
       contentClean: transcriptText,
       processingLog: log,
+      analysis,
     }
-    if (meta.titleAr) updateData.title = meta.titleAr
-    if (meta.description) updateData.description = meta.description.slice(0, 500)
     if (meta.publishedAt) updateData.publishedAt = meta.publishedAt
-    if (meta.thumbnailUrl) {
-      const analysis = article.analysis || {}
-      analysis.thumbnailUrl = meta.thumbnailUrl
-      analysis.youtubeId = videoId
-      analysis.duration = meta.duration
-      updateData.analysis = analysis
-    }
     await db.article.update({ where: { id: article.id }, data: updateData })
   } catch (e) {
     await db.article.update({
@@ -1604,9 +1602,9 @@ async function doStageStoryDetect(article, project) {
 Read this transcript carefully and identify each separate story, topic, or news item discussed.
 
 For each story, provide:
-- title: A clear Arabic headline for this story (concise, newsworthy)
-- summary: A 2-3 sentence Arabic summary of what this story covers
-- content: The relevant portion of the transcript for this story (copy the exact text, preserving the original language)
+- title: A clear, concise headline for this story in the SAME language as the transcript
+- summary: A 2-3 sentence summary of what this story covers in the SAME language as the transcript
+- content: The relevant portion of the transcript for this story (copy the exact text)
 
 Respond with JSON only. Format:
 {
@@ -1619,8 +1617,8 @@ Rules:
 - If the entire video is about ONE topic, return exactly 1 story
 - Only split when there are genuinely distinct topics/stories
 - Each story must have substantial content (at least 2-3 sentences of transcript)
-- Titles and summaries MUST be in Arabic
-- Content is the raw transcript portion (keep original language)
+- Keep EVERYTHING in the original language of the transcript — do NOT translate
+- Content must be copied exactly from the transcript
 
 Transcript:
 ${transcript.slice(0, 30000)}`
