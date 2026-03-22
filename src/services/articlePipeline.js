@@ -520,9 +520,20 @@ async function ingestYouTubeSource(source) {
     return { sourceId, fetched: 0, inserted: 0, dupes: 0, error: 'No youtubeChannelId in config' }
   }
 
+  // Build a set of video IDs we already have so we can stop early
+  const existingArticles = await db.article.findMany({
+    where: { sourceId },
+    select: { url: true },
+  })
+  const knownVideoIds = new Set(
+    existingArticles
+      .map(a => { const m = a.url.match(/[?&]v=([^&]+)/); return m ? m[1] : null })
+      .filter(Boolean)
+  )
+
   let videos
   try {
-    videos = await fetchRecentVideos(youtubeChannelId, 500, channelId)
+    videos = await fetchRecentVideos(youtubeChannelId, 500, channelId, knownVideoIds)
   } catch (e) {
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
     await appendFetchLog(sourceId, logEntry)

@@ -122,7 +122,7 @@ async function fetchVideoMetadata(youtubeVideoId, channelId) {
     videoType:    await detectVideoType(v.id, v.contentDetails.duration),
   }
 }
-async function fetchRecentVideos(youtubeChannelId, maxResults = 500, channelId) {
+async function fetchRecentVideos(youtubeChannelId, maxResults = 500, channelId, knownVideoIds = new Set()) {
   const chData = await ytFetch('channels', {
     part: 'contentDetails',
     id: youtubeChannelId,
@@ -130,11 +130,12 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 500, channelId) 
   const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
   if (!uploadsId) return []
 
-  // Paginate through playlistItems (50 per page max)
-  const allVideoIds = []
+  // Paginate playlistItems (newest-first). Stop early when we hit known videos.
+  const newVideoIds = []
   let pageToken = undefined
-  while (allVideoIds.length < maxResults) {
-    const pageSize = Math.min(50, maxResults - allVideoIds.length)
+  let hitKnown = false
+  while (newVideoIds.length < maxResults) {
+    const pageSize = Math.min(50, maxResults - newVideoIds.length)
     const params = {
       part: 'contentDetails',
       playlistId: uploadsId,
@@ -143,16 +144,23 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 500, channelId) 
     if (pageToken) params.pageToken = pageToken
     const plData = await ytFetch('playlistItems', params, channelId)
     const ids = (plData.items || []).map(i => i.contentDetails.videoId)
-    allVideoIds.push(...ids)
-    pageToken = plData.nextPageToken
-    if (!pageToken || ids.length === 0) break
-  }
-  if (allVideoIds.length === 0) return []
+    if (ids.length === 0) break
 
-  // Fetch video details in batches of 50 (API limit per request)
+    for (const id of ids) {
+      if (knownVideoIds.has(id)) { hitKnown = true; break }
+      newVideoIds.push(id)
+    }
+
+    if (hitKnown) break
+    pageToken = plData.nextPageToken
+    if (!pageToken) break
+  }
+  if (newVideoIds.length === 0) return []
+
+  // Fetch video details only for new IDs, in batches of 50
   const allVideos = []
-  for (let i = 0; i < allVideoIds.length; i += 50) {
-    const batch = allVideoIds.slice(i, i + 50).join(',')
+  for (let i = 0; i < newVideoIds.length; i += 50) {
+    const batch = newVideoIds.slice(i, i + 50).join(',')
     const vData = await ytFetch('videos', {
       part: 'snippet,statistics,contentDetails',
       id: batch,
