@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import SourceTab from "./Source";
@@ -83,6 +83,15 @@ interface ApiBatchItem {
   steps: StepLog[];
 }
 
+interface StepSummaryItem {
+  step: string;
+  label: string;
+  ok: number;
+  failed: number;
+  skipped: number;
+  total: number;
+}
+
 interface ApiBatchDetail {
   id: string;
   stage: string;
@@ -93,6 +102,7 @@ interface ApiBatchDetail {
   startedAt: string;
   finishedAt: string | null;
   items: ApiBatchItem[];
+  stepSummary: StepSummaryItem[];
 }
 
 /* ─── Constants ─── */
@@ -687,6 +697,33 @@ function PipelineStageDrawer({
       .finally(() => setItemsLoading(null));
   };
 
+  // Auto-load items for the most recent batch to get step summary
+  useEffect(() => {
+    if (batches.length > 0 && !batchItems[batches[0].id]) {
+      fetch(`/api/article-pipeline/batches/${batches[0].id}/items`, { credentials: "include" })
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((data: ApiBatchDetail) => setBatchItems((prev) => ({ ...prev, [batches[0].id]: data })))
+        .catch(() => {});
+    }
+  }, [batches]);
+
+  // Aggregate step summary across all loaded batch details
+  const stepAggregates = useMemo(() => {
+    const agg = new Map<string, { ok: number; failed: number; skipped: number; total: number }>();
+    for (const detail of Object.values(batchItems)) {
+      if (!detail?.stepSummary) continue;
+      for (const s of detail.stepSummary) {
+        const existing = agg.get(s.step) || { ok: 0, failed: 0, skipped: 0, total: 0 };
+        existing.ok += s.ok;
+        existing.failed += s.failed;
+        existing.skipped += s.skipped;
+        existing.total += s.total;
+        agg.set(s.step, existing);
+      }
+    }
+    return agg;
+  }, [batchItems]);
+
   const stepStatusMap = new Map<string, BatchEvent>();
   for (const s of liveSteps) { if (s.step) stepStatusMap.set(s.step, s); }
 
@@ -736,29 +773,48 @@ function PipelineStageDrawer({
             </div>
             {stepsSpec.map((spec) => {
               const live = stepStatusMap.get(spec.step);
+              const agg = stepAggregates.get(spec.step);
               const StepIcon = spec.icon;
               const status = live?.status;
-              const isOk = status === "ok" || status === "created" || status === "linked";
-              const isFail = status === "failed" || status === "parse_error";
-              const isSkipped = status === "skipped";
-              const isPending = !live;
+              const hasAgg = agg && agg.total > 0;
+              const aggPct = hasAgg ? Math.round((agg.ok / agg.total) * 100) : 0;
+
+              const borderClass = hasAgg
+                ? agg.failed > 0 ? "border-destructive/20" : "border-success/20"
+                : status
+                  ? (status === "ok" || status === "created" || status === "linked") ? "border-success/20"
+                    : (status === "failed" || status === "parse_error") ? "border-destructive/20"
+                    : status === "skipped" ? "border-border/50" : "border-primary/20"
+                  : "border-border/50";
+              const bgClass = hasAgg ? "bg-card/50" : status ? "bg-card/50" : "bg-card/20";
+              const opacityClass = !hasAgg && !status ? "opacity-50" : "";
+
               return (
-                <div key={spec.step} className={`px-3 py-2.5 rounded-lg border space-y-1 ${
-                  isPending ? "bg-card/20 border-border/50 opacity-50"
-                  : isOk ? "bg-card/50 border-success/20"
-                  : isFail ? "bg-card/50 border-destructive/20"
-                  : isSkipped ? "bg-card/20 border-border/50 opacity-60"
-                  : "bg-card/50 border-primary/20"
-                }`}>
+                <div key={spec.step} className={`px-3 py-2.5 rounded-lg border space-y-1.5 ${bgClass} ${borderClass} ${opacityClass}`}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StepIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="text-[11px] font-semibold">{spec.label}</span>
                     {live?.processor && <ProcessorBadge type={live.processor} />}
                     {live?.service && <span className="text-[9px] font-mono text-muted-foreground">{live.service}</span>}
                     {status && <StatusBadge status={status} />}
-                    {isPending && <span className="text-[9px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-card">pending</span>}
+                    {!hasAgg && !status && <span className="text-[9px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-card">pending</span>}
                   </div>
                   <div className="text-[10px] text-muted-foreground font-mono leading-tight pl-5.5">{spec.subtitle}</div>
+                  {hasAgg && (
+                    <div className="pl-5.5 space-y-1">
+                      <div className="w-full h-1.5 bg-border rounded-full overflow-hidden flex">
+                        {agg.ok > 0 && <div className="h-full bg-success rounded-l-full" style={{ width: `${(agg.ok / agg.total) * 100}%` }} />}
+                        {agg.skipped > 0 && <div className="h-full bg-muted-foreground/30" style={{ width: `${(agg.skipped / agg.total) * 100}%` }} />}
+                        {agg.failed > 0 && <div className="h-full bg-destructive rounded-r-full" style={{ width: `${(agg.failed / agg.total) * 100}%` }} />}
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] font-mono">
+                        <span className="text-success">{agg.ok} ok</span>
+                        {agg.skipped > 0 && <span className="text-muted-foreground">{agg.skipped} skipped</span>}
+                        {agg.failed > 0 && <span className="text-destructive">{agg.failed} failed</span>}
+                        <span className="text-muted-foreground/50 ml-auto">{agg.total} total · {aggPct}%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -876,11 +932,16 @@ function PipelineStageDrawer({
                             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                           </div>
                         ) : detail ? (
-                          <div className="divide-y divide-border/30">
-                            {detail.items.map((item) => (
-                              <BatchItemRow key={item.id} item={item} />
-                            ))}
-                          </div>
+                          <>
+                            {detail.stepSummary && detail.stepSummary.length > 0 && (
+                              <BatchStepSummary steps={detail.stepSummary} />
+                            )}
+                            <div className="divide-y divide-border/30">
+                              {detail.items.map((item) => (
+                                <BatchItemRow key={item.id} item={item} />
+                              ))}
+                            </div>
+                          </>
                         ) : (
                           <div className="text-[11px] text-muted-foreground font-mono text-center py-4">
                             Failed to load items
@@ -895,6 +956,35 @@ function PipelineStageDrawer({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Batch Step Summary ─── */
+
+function BatchStepSummary({ steps }: { steps: StepSummaryItem[] }) {
+  return (
+    <div className="px-3 py-2.5 border-b border-border/30 space-y-1.5">
+      <div className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Sub-step breakdown</div>
+      {steps.map((s) => {
+        const pct = s.total > 0 ? Math.round((s.ok / s.total) * 100) : 0;
+        return (
+          <div key={s.step} className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-foreground w-28 truncate shrink-0">{s.label}</span>
+            <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden flex">
+              {s.ok > 0 && <div className="h-full bg-success" style={{ width: `${(s.ok / s.total) * 100}%` }} />}
+              {s.skipped > 0 && <div className="h-full bg-muted-foreground/30" style={{ width: `${(s.skipped / s.total) * 100}%` }} />}
+              {s.failed > 0 && <div className="h-full bg-destructive" style={{ width: `${(s.failed / s.total) * 100}%` }} />}
+            </div>
+            <div className="flex items-center gap-1.5 text-[9px] font-mono shrink-0">
+              <span className="text-success">{s.ok}</span>
+              {s.skipped > 0 && <span className="text-muted-foreground">{s.skipped}</span>}
+              {s.failed > 0 && <span className="text-destructive">{s.failed}</span>}
+              <span className="text-muted-foreground/40">/{s.total}</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

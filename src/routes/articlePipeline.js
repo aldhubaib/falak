@@ -332,6 +332,20 @@ router.get('/batches/:id/items', async (req, res) => {
       }
     })
 
+    const stepMap = {}
+    for (const item of items) {
+      for (const step of item.steps) {
+        if (!stepMap[step.step]) {
+          stepMap[step.step] = { step: step.step, label: step.label || step.step, ok: 0, failed: 0, skipped: 0, total: 0 }
+        }
+        const s = stepMap[step.step]
+        s.total++
+        if (['ok', 'created', 'linked', 'passed'].includes(step.status)) s.ok++
+        else if (['failed', 'parse_error'].includes(step.status)) s.failed++
+        else if (step.status === 'skipped') s.skipped++
+      }
+    }
+
     res.json({
       id: batch.id,
       stage: batch.stage,
@@ -342,6 +356,7 @@ router.get('/batches/:id/items', async (req, res) => {
       startedAt: batch.startedAt,
       finishedAt: batch.finishedAt,
       items,
+      stepSummary: Object.values(stepMap),
     })
   } catch (e) {
     res.status(500).json({ error: e.message })
