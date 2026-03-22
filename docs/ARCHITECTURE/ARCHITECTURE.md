@@ -1021,6 +1021,12 @@ items per tick) with 1s inter-batch delays, preventing large backlogs from stall
 (`POLL_BUSY_MS`). When idle, it waits the full 10s (`POLL_IDLE_MS`). This cuts
 backlog drain time by ~5× compared to the previous fixed 10s interval.
 
+**Catch-up drain:** After the normal stage loop, the worker checks non-serial
+stages for backlogs (≥30 queued items). If found, it runs up to 10 extra rounds
+of that stage. This prevents slow downstream stages (research ~2.5 min for 2
+items) from starving fast upstream stages like classify. Result: ~120 classify
+items per tick instead of 40.
+
 **Content DNA gate:** The pipeline requires a niche embedding (Content DNA) before any
 articles can be ingested. Both manual ingestion (`POST /ingest`, `test-run`, `test-video`)
 and the worker's auto-poll silently skip channels without a generated niche embedding.
