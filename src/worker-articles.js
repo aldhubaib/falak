@@ -23,11 +23,14 @@ const {
   doStageStorySplit,
 } = require('./services/articleProcessor')
 
-const POLL_MS = 10_000
+const POLL_IDLE_MS = 10_000
+const POLL_BUSY_MS = 2_000
 const SOURCE_POLL_MS = 5 * 60 * 1000 // check sources for new Apify runs every 5 min
 const AI_INTER_ITEM_MS = 3_000
+const INTER_BATCH_MS = 1_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
+const MAX_ROUNDS_PER_STAGE = 5
 
 const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
 
@@ -37,11 +40,11 @@ const STAGE_BATCH = {
   story_split:     1,
   imported:        5,
   content:         5,
-  classify:        5,
-  title_translate: 5,
-  score:           2,
-  research:        1,
-  translated:      1,
+  classify:        8,
+  title_translate: 8,
+  score:           3,
+  research:        2,
+  translated:      2,
 }
 
 // Expensive multi-step stages that must run serially with inter-item delays
@@ -214,17 +217,42 @@ async function processItem(article, { force = false } = {}) {
 }
 
 async function runStage(stage) {
-  const items = await pickItems(stage)
-  if (SERIAL_AI_STAGES.has(stage)) {
-    for (let i = 0; i < items.length; i++) {
-      await processItem(items[i])
-      if (i < items.length - 1) {
-        await new Promise(r => setTimeout(r, AI_INTER_ITEM_MS))
+  let totalProcessed = 0
+  const batchSize = STAGE_BATCH[stage] || 1
+  const maxRounds = SERIAL_AI_STAGES.has(stage) ? 1 : MAX_ROUNDS_PER_STAGE
+
+  for (let round = 0; round < maxRounds; round++) {
+    if (paused) break
+    const items = await pickItems(stage)
+    if (!items.length) break
+
+    if (SERIAL_AI_STAGES.has(stage)) {
+      for (let i = 0; i < items.length; i++) {
+        await processItem(items[i])
+        if (i < items.length - 1) {
+          await new Promise(r => setTimeout(r, AI_INTER_ITEM_MS))
+        }
+      }
+    } else {
+      const results = await Promise.allSettled(items.map(processItem))
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].status === 'rejected') {
+          logger.warn({ articleId: items[i]?.id, error: results[i].reason?.message }, `[article-worker] ${stage} failed`)
+        }
       }
     }
-  } else {
-    await Promise.all(items.map(processItem))
+
+    totalProcessed += items.length
+    if (items.length < batchSize) break
+    if (round < maxRounds - 1) {
+      await new Promise(r => setTimeout(r, INTER_BATCH_MS))
+    }
   }
+
+  if (totalProcessed > 0) {
+    logger.info({ stage, processed: totalProcessed }, '[article-worker] stage batch complete')
+  }
+  return totalProcessed
 }
 
 async function rescueStuckItems() {
@@ -246,13 +274,16 @@ async function rescueStuckItems() {
 }
 
 async function tick() {
-  if (paused) return
+  if (paused) return false
   await rescueStuckItems()
   await unblockReady()
+  let hadWork = false
   for (const stage of STAGES) {
-    if (paused) return
-    await runStage(stage)
+    if (paused) break
+    const processed = await runStage(stage)
+    if (processed > 0) hadWork = true
   }
+  return hadWork
 }
 
 let lastSourcePoll = 0
@@ -289,15 +320,16 @@ async function pollSources() {
 async function runPollingWorker() {
   registry.autoDiscover()
   await loadPausedState()
-  logger.info({ pollMs: POLL_MS, sourcePollMs: SOURCE_POLL_MS, paused }, '[article-worker] started (polling)')
+  logger.info({ pollIdleMs: POLL_IDLE_MS, pollBusyMs: POLL_BUSY_MS, sourcePollMs: SOURCE_POLL_MS, paused }, '[article-worker] started (polling)')
   for (;;) {
+    let hadWork = false
     try {
-      await tick()
+      hadWork = await tick()
       if (!paused) await pollSources()
     } catch (e) {
       logger.error({ error: e.message }, '[article-worker] tick error')
     }
-    await new Promise(r => setTimeout(r, POLL_MS))
+    await new Promise(r => setTimeout(r, hadWork ? POLL_BUSY_MS : POLL_IDLE_MS))
   }
 }
 
