@@ -11,6 +11,7 @@ const { transcribeFromR2 } = require('../services/whisper')
 const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
 const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = require('../lib/scoringConfig')
 const { getNicheEmbedding } = require('../services/embeddings')
+const registry = require('../lib/serviceRegistry')
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
@@ -772,6 +773,160 @@ router.get('/:id', async (req, res) => {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     console.error('[stories/get]', req.params.id, e?.message || e)
     res.status(500).json({ error: 'Failed to load story' })
+  }
+})
+
+// ── POST /api/stories/:id/retranslate-research — re-translate English research brief to Arabic
+router.post('/:id/retranslate-research', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const linkedArticle = await db.article.findFirst({
+      where: { storyId: story.id },
+      select: { id: true, analysis: true, channelId: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    const storyBrief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    const researchBrief = storyBrief.research?.brief || linkedArticle?.analysis?.research?.brief
+    if (!researchBrief || typeof researchBrief !== 'object') {
+      return res.status(400).json({ error: 'No research brief found to translate' })
+    }
+
+    const apiKey = await registry.requireKey('anthropic')
+    const briefJson = JSON.stringify(researchBrief)
+    const prompt = `Translate this research brief to Arabic. Keep the exact same JSON structure and keys. Translate all string values to Arabic (whatHappened, howItHappened, whatWasTheResult, keyFacts array, timeline[].event, mainCharacters[].role, competitionInsight, suggestedHook). Keep narrativeStrength as a number. Keep sources[].url unchanged; you may translate sources[].title to Arabic. Reply with ONLY valid JSON, no markdown fences, no explanation.\n\n${briefJson}`
+
+    const rawResponse = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+      { role: 'user', content: prompt },
+    ], { maxTokens: 8192, channelId: linkedArticle?.channelId || story.channelId, action: 'retranslate-research' })
+
+    let briefAr = null
+    if (rawResponse && rawResponse.trim()) {
+      const trimmed = rawResponse.trim()
+      const start = trimmed.indexOf('{')
+      const end = trimmed.lastIndexOf('}') + 1
+      if (start !== -1 && end > start) {
+        const jsonStr = trimmed.slice(start, end)
+        try {
+          briefAr = JSON.parse(jsonStr)
+        } catch (_) {
+          briefAr = repairAndParseJson(jsonStr)
+        }
+      }
+    }
+
+    if (!briefAr) {
+      return res.status(500).json({ error: 'Failed to parse translated research brief' })
+    }
+
+    if (storyBrief.research) {
+      storyBrief.research = { ...storyBrief.research, briefAr, brief: briefAr }
+    } else {
+      storyBrief.research = { brief: briefAr, briefAr }
+    }
+    await db.story.update({ where: { id: story.id }, data: { brief: storyBrief } })
+
+    if (linkedArticle) {
+      const artAnalysis = { ...(linkedArticle.analysis || {}) }
+      if (artAnalysis.research) {
+        artAnalysis.research = { ...artAnalysis.research, briefAr }
+      }
+      await db.article.update({ where: { id: linkedArticle.id }, data: { analysis: artAnalysis } })
+    }
+
+    await addLog(story.id, req.user.id, 'retranslate', 'Research brief re-translated to Arabic')
+    res.json({ ok: true, briefAr })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/retranslate-research]', req.params.id, e?.message || e)
+    res.status(500).json({ error: e.message || 'Failed to re-translate research' })
+  }
+})
+
+function repairAndParseJson(raw) {
+  let s = raw
+  s = s.replace(/,\s*([}\]])/g, '$1')
+  let opens = 0, closes = 0
+  for (const ch of s) { if (ch === '{') opens++; if (ch === '}') closes++ }
+  while (closes < opens) { s += '}'; closes++ }
+  let openBr = 0, closeBr = 0
+  for (const ch of s) { if (ch === '[') openBr++; if (ch === ']') closeBr++ }
+  while (closeBr < openBr) { s += ']'; closeBr++ }
+  try { return JSON.parse(s) } catch (_) { /* pass */ }
+  const braceEnd = s.lastIndexOf('}')
+  if (braceEnd > 0) {
+    const truncated = s.slice(0, braceEnd + 1)
+    try { return JSON.parse(truncated) } catch (_) { /* pass */ }
+    const repaired = truncated.replace(/,\s*([}\]])/g, '$1')
+    try { return JSON.parse(repaired) } catch (_) { /* pass */ }
+  }
+  return null
+}
+
+// ── POST /api/stories/batch-retranslate — re-translate all stories missing Arabic research
+router.post('/batch-retranslate', requireRole('owner', 'admin'), async (req, res) => {
+  try {
+    const articles = await db.article.findMany({
+      where: { stage: 'done', NOT: [{ storyId: null }, { analysis: { equals: null } }] },
+      select: { id: true, analysis: true, channelId: true, storyId: true },
+    })
+
+    const missing = articles.filter(a => {
+      const r = a.analysis?.research
+      return r?.brief && typeof r.brief === 'object' && !r.briefAr
+    })
+
+    if (missing.length === 0) return res.json({ ok: true, translated: 0, message: 'All stories already have Arabic research' })
+
+    const apiKey = await registry.requireKey('anthropic')
+    let translated = 0, failed = 0
+
+    for (const article of missing) {
+      try {
+        const briefJson = JSON.stringify(article.analysis.research.brief)
+        const prompt = `Translate this research brief to Arabic. Keep the exact same JSON structure and keys. Translate all string values to Arabic (whatHappened, howItHappened, whatWasTheResult, keyFacts array, timeline[].event, mainCharacters[].role, competitionInsight, suggestedHook). Keep narrativeStrength as a number. Keep sources[].url unchanged; you may translate sources[].title to Arabic. Reply with ONLY valid JSON, no markdown fences, no explanation.\n\n${briefJson}`
+
+        const rawResponse = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+          { role: 'user', content: prompt },
+        ], { maxTokens: 8192, channelId: article.channelId, action: 'batch-retranslate-research' })
+
+        let briefAr = null
+        if (rawResponse && rawResponse.trim()) {
+          const trimmed = rawResponse.trim()
+          const start = trimmed.indexOf('{')
+          const end = trimmed.lastIndexOf('}') + 1
+          if (start !== -1 && end > start) {
+            const jsonStr = trimmed.slice(start, end)
+            try { briefAr = JSON.parse(jsonStr) } catch (_) { briefAr = repairAndParseJson(jsonStr) }
+          }
+        }
+
+        if (!briefAr) { failed++; continue }
+
+        const artAnalysis = { ...article.analysis, research: { ...article.analysis.research, briefAr } }
+        await db.article.update({ where: { id: article.id }, data: { analysis: artAnalysis } })
+
+        if (article.storyId) {
+          const story = await db.story.findUnique({ where: { id: article.storyId }, select: { brief: true } })
+          if (story) {
+            const storyBrief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+            if (storyBrief.research) {
+              storyBrief.research = { ...storyBrief.research, briefAr, brief: briefAr }
+            }
+            await db.story.update({ where: { id: article.storyId }, data: { brief: storyBrief } })
+          }
+        }
+        translated++
+      } catch (e) {
+        console.error('[batch-retranslate]', article.id, e?.message || e)
+        failed++
+      }
+    }
+
+    res.json({ ok: true, total: missing.length, translated, failed })
+  } catch (e) {
+    console.error('[batch-retranslate]', e?.message || e)
+    res.status(500).json({ error: e.message || 'Batch retranslation failed' })
   }
 })
 

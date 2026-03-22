@@ -652,18 +652,25 @@ async function doStageTranslated(article, project) {
       const translatedBriefRaw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
         { role: 'user', content: researchPrompt },
       ], {
-        maxTokens: 4096,
+        maxTokens: 8192,
         channelId: article.channelId,
         action: 'article-translate-research',
       })
       const researchUsage = callAnthropic._lastUsage || {}
       let briefAr = null
+      let repaired = false
       if (translatedBriefRaw && translatedBriefRaw.trim()) {
         const trimmed = translatedBriefRaw.trim()
         const start = trimmed.indexOf('{')
         const end = trimmed.lastIndexOf('}') + 1
         if (start !== -1 && end > start) {
-          briefAr = JSON.parse(trimmed.slice(start, end))
+          const jsonStr = trimmed.slice(start, end)
+          try {
+            briefAr = JSON.parse(jsonStr)
+          } catch (_parseErr) {
+            briefAr = repairAndParseJson(jsonStr)
+            repaired = !!briefAr
+          }
         }
       }
       if (briefAr) {
@@ -672,7 +679,7 @@ async function doStageTranslated(article, project) {
           briefAr,
         }
         log.push(lp('translate_research', {
-          status: 'ok',
+          status: repaired ? 'ok_repaired' : 'ok',
           processor: 'ai', service: 'Anthropic Claude Haiku',
           model: 'claude-haiku-4-5-20251001',
           inputChars: briefJson.length,
@@ -682,6 +689,7 @@ async function doStageTranslated(article, project) {
           totalTokens: researchUsage.totalTokens || null,
           promptSent: researchPrompt.slice(0, 1500),
           rawResponse: (translatedBriefRaw || '').trim().slice(0, 1500),
+          repaired,
         }))
       } else {
         log.push(lp('translate_research', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', reason: 'Failed to parse translated brief JSON — non-blocking' }))
@@ -1171,6 +1179,26 @@ function evaluateTranslationQuality(inputChars, outputChars, outputText) {
   if (arabicRatio < 0.3) issues.push(`Low Arabic content (${Math.round(arabicRatio * 100)}%)`)
   const score = Math.max(0, 10 - issues.length * 3)
   return { score, ratio: Math.round(ratio * 100) / 100, arabicRatio: Math.round(arabicRatio * 100) / 100, issues: issues.length ? issues : null }
+}
+
+function repairAndParseJson(raw) {
+  let s = raw
+  s = s.replace(/,\s*([}\]])/g, '$1')
+  let opens = 0, closes = 0
+  for (const ch of s) { if (ch === '{') opens++; if (ch === '}') closes++ }
+  while (closes < opens) { s += '}'; closes++ }
+  let openBr = 0, closeBr = 0
+  for (const ch of s) { if (ch === '[') openBr++; if (ch === ']') closeBr++ }
+  while (closeBr < openBr) { s += ']'; closeBr++ }
+  try { return JSON.parse(s) } catch (_) { /* pass */ }
+  const braceEnd = s.lastIndexOf('}')
+  if (braceEnd > 0) {
+    const truncated = s.slice(0, braceEnd + 1)
+    try { return JSON.parse(truncated) } catch (_) { /* pass */ }
+    const repaired = truncated.replace(/,\s*([}\]])/g, '$1')
+    try { return JSON.parse(repaired) } catch (_) { /* pass */ }
+  }
+  return null
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
