@@ -1077,14 +1077,12 @@ function StepHeader({ entry, label, icon: Icon }: { entry: LogEntry; label: stri
   );
 }
 
-/* ─── Verdict Banner — stage gate decision ─── */
+/* ─── Verdict Banner — forking flowchart showing pass/fail paths ─── */
 
-const VERDICT_CONFIG: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
-  pass:   { bg: "bg-success/8",      border: "border-success/25",      text: "text-success",           icon: "✓", label: "PASS" },
-  fail:   { bg: "bg-destructive/8",  border: "border-destructive/25",  text: "text-destructive",       icon: "✗", label: "FAIL" },
-  review: { bg: "bg-orange/8",       border: "border-orange/25",       text: "text-orange",            icon: "⚠", label: "REVIEW" },
-  skip:   { bg: "bg-card",           border: "border-border",          text: "text-muted-foreground",  icon: "→", label: "SKIP" },
-};
+interface VerdictPath {
+  nextStage: string;
+  label: string;
+}
 
 const STAGE_LABEL_MAP: Record<string, string> = {
   transcript: "Transcript", story_detect: "Story Detect", imported: "Imported",
@@ -1098,30 +1096,97 @@ function VerdictBanner({ stageId, log }: { stageId: string; log: LogEntry[] }) {
   const verdict = log.find((e) => e.step === "verdict" && e.stage === stageId);
   if (!verdict) return null;
 
-  const result = verdict.result || "pass";
-  const reason = verdict.reason;
-  const nextStage = (verdict as Record<string, unknown>).nextStage as string | undefined;
-  const c = VERDICT_CONFIG[result] || VERDICT_CONFIG.pass;
+  const v = verdict as Record<string, unknown>;
+  const result = (v.result as string) || "pass";
+  const reason = v.reason as string | undefined;
+  const passPath = v.passPath as VerdictPath | null | undefined;
+  const failPath = v.failPath as VerdictPath | null | undefined;
+  const hasFork = !!passPath && !!failPath;
+  const isPass = result === "pass" || result === "skip";
+
+  if (!hasFork) {
+    const target = passPath || failPath;
+    const color = isPass ? "text-success" : result === "fail" ? "text-destructive" : "text-orange";
+    const bg = isPass ? "bg-success/6" : result === "fail" ? "bg-destructive/6" : "bg-orange/6";
+    const border = isPass ? "border-success/20" : result === "fail" ? "border-destructive/20" : "border-orange/20";
+    return (
+      <div className={`mx-4 mb-4 rounded-lg border ${border} ${bg} overflow-hidden`}>
+        <div className="flex items-center gap-3 px-4 py-2.5">
+          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${color}`} />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className={`text-[11px] font-bold font-mono shrink-0 ${color}`}>
+              {isPass ? "✓ PASS" : result === "fail" ? "✗ FAIL" : "⚠ REVIEW"}
+            </span>
+            {reason && <span className="text-[11px] text-muted-foreground truncate">{reason}</span>}
+          </div>
+          {target && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <ArrowRight className={`w-3.5 h-3.5 ${color}`} />
+              <span className={`text-[11px] font-mono font-semibold ${color}`}>
+                {STAGE_LABEL_MAP[target.nextStage] || target.nextStage}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`mx-4 mb-4 px-4 py-2.5 rounded-lg border ${c.bg} ${c.border} flex items-center justify-between gap-3`}>
-      <div className="flex items-center gap-2 min-w-0">
-        <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${c.text}`} />
-        <span className={`text-[11px] font-bold font-mono shrink-0 ${c.text}`}>
-          {c.icon} {c.label}
-        </span>
-        {reason && (
-          <span className="text-[11px] text-muted-foreground truncate">{reason}</span>
-        )}
+    <div className="mx-4 mb-4 rounded-lg border border-border bg-card/50 overflow-hidden">
+      {/* Reason header */}
+      <div className="px-4 py-2 border-b border-border/60 flex items-center gap-2">
+        <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Decision</span>
+        {reason && <span className="text-[11px] text-muted-foreground truncate ml-1">— {reason}</span>}
       </div>
-      {nextStage && (
-        <div className="flex items-center gap-1 shrink-0">
-          <ArrowRight className="w-3 h-3 text-muted-foreground" />
-          <span className="text-[10px] font-mono text-muted-foreground">
-            {STAGE_LABEL_MAP[nextStage] || nextStage}
+      {/* Fork paths */}
+      <div className="grid grid-cols-2 divide-x divide-border/60">
+        {/* Pass path */}
+        <div className={`px-4 py-2.5 flex items-center gap-2.5 transition-colors ${
+          isPass ? "bg-success/8" : "opacity-40"
+        }`}>
+          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+            isPass ? "bg-success/20 ring-1 ring-success/30" : "bg-card border border-border"
+          }`}>
+            <span className={`text-[10px] font-bold ${isPass ? "text-success" : "text-muted-foreground"}`}>✓</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className={`text-[10px] font-mono font-bold ${isPass ? "text-success" : "text-muted-foreground"}`}>
+              PASS
+            </div>
+            <div className={`text-[10px] ${isPass ? "text-foreground/70" : "text-muted-foreground"}`}>
+              {passPath.label}
+            </div>
+          </div>
+          <ArrowRight className={`w-3.5 h-3.5 shrink-0 ${isPass ? "text-success" : "text-muted-foreground/50"}`} />
+          <span className={`text-[11px] font-mono font-semibold shrink-0 ${isPass ? "text-success" : "text-muted-foreground"}`}>
+            {STAGE_LABEL_MAP[passPath.nextStage] || passPath.nextStage}
           </span>
         </div>
-      )}
+        {/* Fail path */}
+        <div className={`px-4 py-2.5 flex items-center gap-2.5 transition-colors ${
+          !isPass ? "bg-destructive/8" : "opacity-40"
+        }`}>
+          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+            !isPass ? "bg-destructive/20 ring-1 ring-destructive/30" : "bg-card border border-border"
+          }`}>
+            <span className={`text-[10px] font-bold ${!isPass ? "text-destructive" : "text-muted-foreground"}`}>✗</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className={`text-[10px] font-mono font-bold ${!isPass ? "text-destructive" : "text-muted-foreground"}`}>
+              {result === "review" ? "REVIEW" : "FAIL"}
+            </div>
+            <div className={`text-[10px] ${!isPass ? "text-foreground/70" : "text-muted-foreground"}`}>
+              {failPath.label}
+            </div>
+          </div>
+          <ArrowRight className={`w-3.5 h-3.5 shrink-0 ${!isPass ? "text-destructive" : "text-muted-foreground/50"}`} />
+          <span className={`text-[11px] font-mono font-semibold shrink-0 ${!isPass ? "text-destructive" : "text-muted-foreground"}`}>
+            {STAGE_LABEL_MAP[failPath.nextStage] || failPath.nextStage}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

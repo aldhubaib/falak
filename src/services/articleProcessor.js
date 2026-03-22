@@ -58,9 +58,28 @@ const STEP_META = {
   verdict:            { stage: 'verdict',      label: 'Verdict',          icon: 'shield-check',  subtitle: 'Stage gate decision' },
 }
 
+const VERDICT_PATHS = {
+  transcript:      { passPath: { nextStage: 'story_detect', label: 'Transcript fetched' },   failPath: { nextStage: 'review', label: 'No transcript available' } },
+  story_detect:    { passPath: { nextStage: 'classify', label: 'Stories identified' },       failPath: { nextStage: 'review', label: 'Detection failed' } },
+  imported:        { passPath: { nextStage: 'content', label: 'Content extraction' } },
+  content:         { passPath: { nextStage: 'classify', label: 'Content extracted' },        failPath: { nextStage: 'review', label: 'No usable content' } },
+  classify:        { passPath: { nextStage: 'title_translate', label: 'Classification done' } },
+  title_translate: { passPath: { nextStage: 'score', label: 'Ready for scoring' } },
+  score:           { passPath: { nextStage: 'research', label: 'Above threshold' },          failPath: { nextStage: 'filtered', label: 'Below threshold' } },
+  research:        { passPath: { nextStage: 'translated', label: 'Ready for translation' } },
+  translated:      { passPath: { nextStage: 'images', label: 'Translation complete' },       failPath: { nextStage: 'review', label: 'No content to translate' } },
+  images:          { passPath: { nextStage: 'done', label: 'Pipeline complete' } },
+}
+
 function lp(step, data, display) {
   const meta = STEP_META[step] || { stage: 'unknown', label: step, icon: 'file-text' }
-  return { step, ...meta, ...data, ...(display ? { display } : {}), at: new Date().toISOString() }
+  const entry = { step, ...meta, ...data, ...(display ? { display } : {}), at: new Date().toISOString() }
+  if (step === 'verdict' && data.stage && VERDICT_PATHS[data.stage]) {
+    const paths = VERDICT_PATHS[data.stage]
+    if (paths.passPath) entry.passPath = paths.passPath
+    if (paths.failPath) entry.failPath = paths.failPath
+  }
+  return entry
 }
 
 function preview(text) {
