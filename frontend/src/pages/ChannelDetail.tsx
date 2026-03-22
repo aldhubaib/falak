@@ -387,28 +387,7 @@ export default function ChannelDetail() {
   const [notFound, setNotFound] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
   const [panelVisible, setPanelVisible] = useState(false);
-  const [channelType, setChannelType] = useState<"ours" | "competition">("ours");
   const closePanel = useCallback(() => setPanelVisible(false), []);
-
-  const handleTypeChange = useCallback((newType: "ours" | "competition") => {
-    if (!id) return;
-    const dbType = newType === "ours" ? "ours" : "competitor";
-    setChannelType(newType);
-    fetch(`/api/channels/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ type: dbType }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed");
-        toast.success(`Channel marked as ${newType === "ours" ? "Ours" : "Competition"}`);
-      })
-      .catch(() => {
-        setChannelType(newType === "ours" ? "competition" : "ours");
-        toast.error("Failed to update classification");
-      });
-  }, [id]);
 
   const refetchChannel = useCallback(() => {
     if (!id) return;
@@ -417,7 +396,6 @@ export default function ChannelDetail() {
       .then((data) => {
         if (data && typeof data.id === "string") {
           setChannel(data);
-          setChannelType(data.type === "ours" ? "ours" : "competition");
         }
       })
       .catch(() => {});
@@ -439,7 +417,6 @@ export default function ChannelDetail() {
         if (cancelled) return;
         if (data && typeof data.id === "string") {
           setChannel(data);
-          setChannelType(data.type === "ours" ? "ours" : "competition");
         } else {
           setNotFound(true);
         }
@@ -497,7 +474,7 @@ export default function ChannelDetail() {
         name,
         handle: channel.handle,
         avatarImg,
-        type: channelType,
+        type: "ours" as const,
         subscribers: subs,
         views,
         videos: String(channelVideos.length),
@@ -541,11 +518,11 @@ export default function ChannelDetail() {
     <div className="flex flex-col min-h-screen">
       <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <Link
-          to={channelPath(channelType === "competition" ? "/competitions" : "")}
+          to={channelPath("")}
           className="flex items-center gap-1.5 text-[13px] text-muted-foreground bg-transparent border-none font-sans hover:text-foreground transition-colors no-underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          {channelType === "competition" ? "Competitions" : "Our Channels"}
+          Channel
         </Link>
         <div className="flex items-center gap-2">
           <button
@@ -608,7 +585,7 @@ export default function ChannelDetail() {
             </div>
           </div>
 
-          {channelType === "ours" && channel && (
+          {channel && (
             <ContentDNASection channelId={channel.id} />
           )}
 
@@ -655,7 +632,6 @@ export default function ChannelDetail() {
             onClose={closePanel}
             videoCount={channelVideos.filter((v) => v.type === "video").length}
             shortCount={channelVideos.filter((v) => v.type === "short").length}
-            onTypeChange={handleTypeChange}
             onCountryChange={refetchChannel}
             onBrandedHooksSaved={refetchChannel}
           />

@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowUpRight, Images } from "lucide-react";
+import { ArrowUpRight, Images, Lock } from "lucide-react";
 import type { GalleryAlbum } from "@/lib/gallery-api";
 
 interface AlbumCardProps {
@@ -29,9 +29,15 @@ export function AlbumCard({ album }: AlbumCardProps) {
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+        {album.isLocked && (
+          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+            <Lock className="w-3 h-3 text-white/80" />
+          </div>
+        )}
       </div>
       <div className="px-3 py-2.5">
         <div className="flex items-center gap-1.5">
+          {album.isLocked && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
           <span className="text-[13px] font-medium text-foreground truncate">{album.name}</span>
           <ArrowUpRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
         </div>

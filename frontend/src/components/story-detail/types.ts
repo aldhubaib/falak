@@ -105,6 +105,10 @@ export interface StoryBrief {
   transcript?: string;
   transcriptSegments?: { text: string; start: number; end: number }[];
   research?: StoryResearch;
+  videoThumbnailR2Url?: string;
+  processingStatus?: "processing" | "done" | "error";
+  processingStep?: "transcribing" | "generating" | "done";
+  processingError?: string | null;
 }
 
 export interface ScriptField {

@@ -8,12 +8,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Play,
-  Mic,
-  Type,
-  Tag,
   ExternalLink,
   Circle,
-  Link2,
   ArrowLeft,
   RotateCw,
   Trash2,
@@ -25,10 +21,7 @@ import { storyQueue } from "@/lib/uploadQueue";
 
 type ProcessingStep =
   | "uploading"
-  | "transcribing"
-  | "title"
-  | "description"
-  | "tags"
+  | "processing"
   | "ready"
   | "done"
   | "error"
@@ -56,20 +49,17 @@ function deriveStep(brief: Record<string, unknown> | undefined, stage: string | 
   const hasYoutubeUrl = !!brief.youtubeUrl;
 
   if (hasYoutubeUrl) return "done";
-  if (hasVideo && hasTranscript && hasTitle && hasTags) return "ready";
   if (!hasVideo) return "uploading";
-  if (!hasTranscript) return "transcribing";
-  if (!hasTitle) return "title";
-  if (!hasTags) return "tags";
+  if (brief.processingStatus === "processing") return "processing";
+  if (hasTranscript && hasTitle && hasTags) return "ready";
+  if (brief.processingStatus === "error") return "error";
+  if (hasVideo && brief.processingStatus !== "done") return "stalled";
   return "ready";
 }
 
 const STEP_META: Record<ProcessingStep, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
   uploading:    { label: "Uploading",        icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,   color: "text-primary",         bg: "bg-primary/10" },
-  transcribing: { label: "Transcribing",     icon: <Mic className="w-3.5 h-3.5 animate-pulse" />,       color: "text-purple",       bg: "bg-purple/10" },
-  title:        { label: "Generating Title", icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-orange",       bg: "bg-orange/10" },
-  description:  { label: "Generating Desc",  icon: <Type className="w-3.5 h-3.5 animate-pulse" />,      color: "text-primary",         bg: "bg-primary/10" },
-  tags:         { label: "Generating Tags",  icon: <Tag className="w-3.5 h-3.5 animate-pulse" />,       color: "text-emerald-400",  bg: "bg-emerald-400/10" },
+  processing:   { label: "AI Processing",    icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,   color: "text-purple",       bg: "bg-purple/10" },
   ready:        { label: "Ready to Publish", icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
   done:         { label: "Done",             icon: <CheckCircle2 className="w-3.5 h-3.5" />,            color: "text-success",      bg: "bg-success/10" },
   error:        { label: "Error",            icon: <AlertCircle className="w-3.5 h-3.5" />,             color: "text-destructive",  bg: "bg-destructive/10" },
@@ -108,10 +98,7 @@ function elapsedTime(iso: string): string {
 
 const STEP_PROGRESS: Record<ProcessingStep, number> = {
   uploading: 10,
-  transcribing: 35,
-  title: 55,
-  description: 70,
-  tags: 85,
+  processing: 50,
   ready: 100,
   done: 100,
   error: 0,
@@ -140,9 +127,6 @@ export default function PublishQueue() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [existingStories, setExistingStories] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const processingRef = useRef<Set<string>>(new Set());
-  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const autoResumedRef = useRef(false);
 
   const uploadTasks = useSyncExternalStore(storyQueue.subscribe, storyQueue.getSnapshot);
 
@@ -185,39 +169,17 @@ export default function PublishQueue() {
     loadExistingStories();
   }, [loadExistingStories]);
 
-  // Auto-resume stalled processing pipelines on page load
-  useEffect(() => {
-    if (loading || autoResumedRef.current) return;
-    autoResumedRef.current = true;
-
-    const RESUMABLE: ProcessingStep[] = ["transcribing", "title", "description", "tags"];
-    const toResume = existingStories.filter(
-      (s) => RESUMABLE.includes(s.step) && !processingRef.current.has(s.storyId),
-    );
-    if (toResume.length === 0) return;
-
-    for (const item of toResume) {
-      processingRef.current.add(item.storyId);
-      setQueue((prev) => {
-        if (prev.some((q) => q.storyId === item.storyId)) return prev;
-        return [{ ...item }, ...prev];
-      });
-      runPipeline(item.storyId, item.step);
-    }
-    toast.info(`Resuming ${toResume.length} stalled ${toResume.length === 1 ? "video" : "videos"}…`);
-  }, [loading, existingStories]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // When upload completes, fire background AI processing and mark as clickable
   useEffect(() => {
     setQueue((prev) => {
       let changed = false;
       const next = prev.map((item) => {
         if (item.step !== "uploading") return item;
         const task = uploadTasks.find((t) => t.metadata.storyId === item.storyId);
-        if (task?.status === "completed" && !processingRef.current.has(item.storyId)) {
+        if (task?.status === "completed") {
           changed = true;
-          processingRef.current.add(item.storyId);
-          runPipeline(item.storyId);
-          return { ...item, step: "transcribing" as ProcessingStep };
+          fetch(`/api/stories/${item.storyId}/process`, { method: "POST", credentials: "include" }).catch(() => {});
+          return { ...item, step: "processing" as ProcessingStep };
         }
         if (task?.status === "failed") {
           changed = true;
@@ -229,89 +191,15 @@ export default function PublishQueue() {
     });
   }, [uploadTasks]);
 
-  const runPipeline = async (storyId: string, startFrom?: ProcessingStep) => {
-    const controller = new AbortController();
-    abortControllersRef.current.set(storyId, controller);
-    const { signal } = controller;
-
-    const updateStep = (step: ProcessingStep, error?: string) => {
-      setQueue((prev) =>
-        prev.map((item) =>
-          item.storyId === storyId ? { ...item, step, error: error ?? undefined } : item
-        )
-      );
-    };
-
-    const steps: ProcessingStep[] = ["transcribing", "title", "description", "tags"];
-    const startIdx = startFrom ? steps.indexOf(startFrom) : 0;
-
-    try {
-      for (let i = Math.max(startIdx, 0); i < steps.length; i++) {
-        if (signal.aborted) return;
-        const step = steps[i];
-        updateStep(step);
-
-        let endpoint: string;
-        if (step === "transcribing") endpoint = `/api/stories/${storyId}/transcribe`;
-        else if (step === "title") endpoint = `/api/stories/${storyId}/generate-title`;
-        else if (step === "description") endpoint = `/api/stories/${storyId}/generate-description`;
-        else endpoint = `/api/stories/${storyId}/suggest-tags`;
-
-        const res = await fetch(endpoint, { method: "POST", credentials: "include", signal });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: `${step} failed` }));
-          throw new Error(err.error || `${step} failed`);
-        }
-
-        if (step === "title") {
-          const titleData = await res.json();
-          setQueue((prev) =>
-            prev.map((item) =>
-              item.storyId === storyId ? { ...item, headline: titleData.title || item.headline } : item
-            )
-          );
-        }
-      }
-
-      updateStep("ready");
-      toast.success("Video ready to publish");
-    } catch (e: any) {
-      if (signal.aborted) return;
-      updateStep("error", e.message || "Processing failed");
-      toast.error(e.message || "Processing failed");
-    } finally {
-      abortControllersRef.current.delete(storyId);
-      processingRef.current.delete(storyId);
-    }
-  };
-
   const handleRetryProcessing = async (storyId: string) => {
-    const prev = abortControllersRef.current.get(storyId);
-    if (prev) prev.abort();
-    abortControllersRef.current.delete(storyId);
-
     try {
-      const res = await fetch(`/api/stories/${storyId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch story");
-      const story = await res.json();
-      const step = deriveStep(story.brief, story.stage);
-
-      const restartFrom = (["transcribing", "title", "description", "tags"] as ProcessingStep[]).includes(step)
-        ? step
-        : "transcribing";
-
-      processingRef.current.add(storyId);
-      setQueue((prev) => {
-        const exists = prev.some((q) => q.storyId === storyId);
-        if (exists) {
-          return prev.map((q) =>
-            q.storyId === storyId ? { ...q, step: restartFrom, error: undefined } : q
-          );
-        }
-        return prev;
-      });
-
-      runPipeline(storyId, restartFrom);
+      setQueue((prev) => prev.map((q) =>
+        q.storyId === storyId ? { ...q, step: "processing" as ProcessingStep, error: undefined } : q
+      ));
+      setExistingStories((prev) => prev.map((s) =>
+        s.storyId === storyId ? { ...s, step: "processing" as ProcessingStep, error: undefined } : s
+      ));
+      await fetch(`/api/stories/${storyId}/process`, { method: "POST", credentials: "include" });
       toast.info("Retrying processing…");
     } catch {
       toast.error("Failed to retry");
@@ -440,6 +328,33 @@ export default function PublishQueue() {
     Done: doneCount,
   };
 
+  // Poll processing items to update their status when AI finishes
+  const processingKey = allItems.filter((i) => i.step === "processing").map((i) => i.storyId).join(",");
+  useEffect(() => {
+    if (!processingKey) return;
+    const ids = processingKey.split(",");
+    const interval = setInterval(async () => {
+      for (const sid of ids) {
+        try {
+          const res = await fetch(`/api/stories/${sid}`, { credentials: "include" });
+          if (!res.ok) continue;
+          const story = await res.json();
+          const step = deriveStep(story.brief, story.stage);
+          if (step !== "processing") {
+            setQueue((prev) => prev.map((q) =>
+              q.storyId === sid ? { ...q, step, headline: story.headline || q.headline, brief: story.brief } : q
+            ));
+            setExistingStories((prev) => prev.map((s) =>
+              s.storyId === sid ? { ...s, step, headline: story.headline || s.headline, brief: story.brief } : s
+            ));
+            if (step === "ready") toast.success(`${story.headline || "Video"} — ready to publish`);
+          }
+        } catch { /* silent */ }
+      }
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [processingKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const filtered = allItems.filter((item) => {
     if (activeFilter === "In Progress") return item.step !== "ready" && item.step !== "done" && item.step !== "error" && item.step !== "stalled";
     if (activeFilter === "Stalled") return item.step === "stalled";
@@ -528,7 +443,7 @@ export default function PublishQueue() {
                   Drag & drop or click to select — MP4, WebM, MOV, AVI, MKV
                 </p>
                 <p className="text-[11px] text-muted-foreground/60 mt-1">
-                  Each video will be transcribed, then AI generates title, description & tags
+                  Upload completes instantly — AI transcription & metadata run in the background
                 </p>
               </div>
             </div>
@@ -602,9 +517,9 @@ export default function PublishQueue() {
               {filtered.map((item) => {
                 const meta = STEP_META[item.step];
                 const uploadTask = uploadTasks.find((t) => t.metadata?.storyId === item.storyId);
-                const isProcessing = ["uploading", "transcribing", "title", "description", "tags"].includes(item.step);
+                const isProcessing = item.step === "uploading" || item.step === "processing";
                 const isStalled = item.step === "stalled";
-                const isActionable = item.step === "done" || item.step === "ready" || item.step === "error";
+                const isActionable = item.step === "done" || item.step === "ready" || item.step === "error" || item.step === "processing";
                 const uploadProgress = item.step === "uploading" && uploadTask?.status === "uploading"
                   ? uploadTask.progress
                   : null;
@@ -711,21 +626,22 @@ export default function PublishQueue() {
                           <AlertCircle className="w-3 h-3" />
                           Stalled
                         </span>
+                      ) : item.step === "processing" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple/10 text-purple text-[11px] font-medium">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          AI Processing
+                        </span>
                       ) : (
                         <div className="flex flex-col items-center gap-1">
                           <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${meta.color}`}>
                             {meta.icon}
                             {meta.label}
                           </span>
-                          <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground">
-                            <span>
-                              {item.step === "uploading" && uploadProgress != null
-                                ? `${Math.round(uploadProgress * 0.2)}%`
-                                : `${STEP_PROGRESS[item.step]}%`}
+                          {item.step === "uploading" && uploadProgress != null && (
+                            <span className="text-[9px] font-mono text-muted-foreground">
+                              {Math.round(uploadProgress)}%
                             </span>
-                            <span className="opacity-40">·</span>
-                            <span>{item.createdAt ? elapsedTime(item.createdAt) : "—"}</span>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -780,16 +696,6 @@ export default function PublishQueue() {
                         >
                           <X className="w-3 h-3" />
                           Cancel
-                        </button>
-                      )}
-                      {isProcessing && item.step !== "uploading" && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleRetryProcessing(item.storyId); }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium text-orange hover:bg-orange/10 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Retry if stuck"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          Retry
                         </button>
                       )}
                       {isActionable && (

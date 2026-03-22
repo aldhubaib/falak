@@ -69,6 +69,8 @@ export interface GalleryAlbum {
   channelId: string;
   name: string;
   description: string | null;
+  isLocked: boolean;
+  showInAllMedia: boolean;
   coverMediaId: string | null;
   createdById: string;
   createdAt: string;
@@ -198,7 +200,7 @@ export async function getGalleryAlbum(channelId: string, albumId: string) {
 export async function updateGalleryAlbum(
   channelId: string,
   albumId: string,
-  payload: { name?: string; description?: string | null; coverMediaId?: string | null }
+  payload: { name?: string; description?: string | null; coverMediaId?: string | null; showInAllMedia?: boolean }
 ) {
   return request<GalleryAlbum>(`/api/gallery/${channelId}/albums/${albumId}`, {
     method: "PATCH",

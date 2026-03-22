@@ -57,10 +57,23 @@ router.get('/:channelId', async (req, res) => {
     const sortBy = String(req.query.sortBy || 'createdAt')
     const sortOrder = String(req.query.sortOrder || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc'
 
+    // When no albumId filter (= "All Media"), exclude media from albums with showInAllMedia=false
+    let hiddenAlbumFilter = {}
+    if (!albumId) {
+      const hiddenAlbums = await db.galleryAlbum.findMany({
+        where: { channelId, showInAllMedia: false },
+        select: { id: true },
+      })
+      if (hiddenAlbums.length > 0) {
+        hiddenAlbumFilter = { NOT: { albumId: { in: hiddenAlbums.map(a => a.id) } } }
+      }
+    }
+
     const where = {
       channelId,
       ...(type ? { type } : {}),
       ...(albumId === 'none' ? { albumId: null } : albumId ? { albumId } : {}),
+      ...hiddenAlbumFilter,
       ...(q
         ? {
             OR: [
@@ -312,9 +325,13 @@ router.get('/:channelId/albums/:albumId', async (req, res) => {
 router.patch('/:channelId/albums/:albumId', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const { channelId, albumId } = req.params
-    const { name, description, coverMediaId } = req.body
-    const existing = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId }, select: { id: true } })
+    const { name, description, coverMediaId, showInAllMedia } = req.body
+    const existing = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId }, select: { id: true, isLocked: true } })
     if (!existing) return res.status(404).json({ error: 'Album not found' })
+
+    if (existing.isLocked && (name !== undefined || description !== undefined || coverMediaId !== undefined)) {
+      return res.status(403).json({ error: 'This album is locked — only visibility settings can be changed' })
+    }
 
     if (coverMediaId) {
       const cover = await db.galleryMedia.findFirst({ where: { id: coverMediaId, channelId }, select: { id: true } })
@@ -327,6 +344,7 @@ router.patch('/:channelId/albums/:albumId', requireRole('owner', 'admin', 'edito
         name: name !== undefined ? String(name).trim() : undefined,
         description: description !== undefined ? (description ? String(description) : null) : undefined,
         coverMediaId: coverMediaId !== undefined ? (coverMediaId || null) : undefined,
+        showInAllMedia: showInAllMedia !== undefined ? Boolean(showInAllMedia) : undefined,
       },
       include: { _count: { select: { media: true } } },
     })
@@ -361,8 +379,9 @@ router.post('/:channelId/albums/:albumId/add', requireRole('owner', 'admin', 'ed
     const mediaIds = Array.isArray(req.body?.mediaIds) ? req.body.mediaIds.filter(Boolean) : []
     if (mediaIds.length === 0) return res.status(400).json({ error: 'mediaIds is required' })
 
-    const existing = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId }, select: { id: true } })
+    const existing = await db.galleryAlbum.findFirst({ where: { id: albumId, channelId }, select: { id: true, isLocked: true } })
     if (!existing) return res.status(404).json({ error: 'Album not found' })
+    if (existing.isLocked) return res.status(403).json({ error: 'This album is locked — media cannot be added manually' })
 
     const result = await db.galleryMedia.updateMany({
       where: { channelId, id: { in: mediaIds } },

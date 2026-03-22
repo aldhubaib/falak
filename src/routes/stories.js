@@ -13,6 +13,145 @@ const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = requ
 const { getNicheEmbedding } = require('../services/embeddings')
 const registry = require('../lib/serviceRegistry')
 
+// ── Background AI processing for manual video uploads ──────────────────────
+async function processStoryBackground(storyId) {
+  const tag = `[stories/process:${storyId.slice(-6)}]`
+  try {
+    let story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+    let brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+
+    if (!brief.videoR2Key) throw new Error('No video file to process')
+
+    brief.processingStatus = 'processing'
+    brief.processingStep = 'transcribing'
+    brief.processingError = null
+    await db.story.update({ where: { id: storyId }, data: { brief } })
+    console.log(tag, 'started — transcribing')
+
+    // Step 1: Transcribe via Whisper
+    if (!brief.transcript) {
+      const result = await transcribeFromR2(brief.videoR2Key, story.channelId)
+      story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+      brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+      Object.assign(brief, {
+        transcript: result.text,
+        transcriptSegments: result.segments,
+        subtitlesSRT: result.srt,
+        script: result.text,
+        processingStep: 'generating',
+      })
+      await db.story.update({ where: { id: storyId }, data: { brief } })
+      console.log(tag, 'transcription done')
+    } else {
+      brief.processingStep = 'generating'
+      await db.story.update({ where: { id: storyId }, data: { brief } })
+    }
+
+    // Step 2: AI metadata (title → then description + tags in parallel)
+    const anthropicKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
+    if (!anthropicKeyRow?.encryptedKey) throw new Error('Anthropic API key not set')
+    const apiKey = decrypt(anthropicKeyRow.encryptedKey)
+    const transcript = brief.transcript || brief.script || ''
+
+    if (transcript) {
+      const channel = await db.channel.findFirst({ where: { id: story.channelId }, select: { nationality: true } })
+      const dialect = await getDialectForCountry(channel?.nationality)
+
+      // 2a: Generate title (description prompt needs it)
+      if (!brief.suggestedTitle) {
+        const langNote = dialect
+          ? `The title should be in ${dialect.short} (${dialect.long}).`
+          : 'The title should be in Arabic.'
+        const title = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{
+          role: 'user',
+          content: `Generate a compelling YouTube video title based on this transcript:\n\n${transcript.slice(0, 15000)}`,
+        }], {
+          system: `You are an expert Arabic YouTube title writer. ${langNote}\n\nRules:\n- Output ONLY the title, nothing else. No quotes, no explanation.\n- Keep it under 70 characters for best YouTube SEO.\n- Make it attention-grabbing and click-worthy.\n- Use numbers, questions, or strong verbs when appropriate.`,
+          maxTokens: 200,
+          channelId: story.channelId,
+          action: 'Story Generate Title',
+        })
+        const cleanTitle = (title || '').trim().replace(/^["']|["']$/g, '')
+        story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+        brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+        brief.suggestedTitle = cleanTitle
+        await db.story.update({ where: { id: storyId }, data: { headline: cleanTitle, brief } })
+        console.log(tag, 'title generated')
+      }
+
+      // 2b: Description + Tags in parallel
+      const descPromise = (async () => {
+        if (brief.youtubeDescription) return null
+        const s = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+        const b = (s.brief && typeof s.brief === 'object') ? { ...s.brief } : {}
+        const ttl = b.suggestedTitle || s.headline || ''
+        const scr = b.script || ''
+        const tags = Array.isArray(b.youtubeTags) ? b.youtubeTags : []
+        const isShort = b.videoFormat === 'short'
+        const srcUrl = s.sourceUrl || ''
+        const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.\n\nGiven a video title, script, hooks, and tags, create an optimized YouTube description in Arabic.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n${srcUrl ? '- Include the source link with label "المصدر:"' : ''}\n- Output ONLY the description text.`
+        const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nScript: ${scr.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}\n${srcUrl ? `Source URL: ${srcUrl}` : ''}`
+        return callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
+          system, maxTokens: 2048, channelId: story.channelId, action: 'Story Generate Description',
+        })
+      })()
+
+      const tagsPromise = (async () => {
+        if (brief.youtubeTags && brief.youtubeTags.length > 0) return null
+        const headline = (story.headline || '').trim()
+        const scr = typeof brief.script === 'string' ? brief.script.trim() : ''
+        const sum = typeof brief.summary === 'string' ? brief.summary.trim() : ''
+        const context = [headline, sum, scr].filter(Boolean).join('\n\n')
+        if (!context) return null
+        return callAnthropic(apiKey, 'claude-sonnet-4-6', [{
+          role: 'user',
+          content: `Suggest YouTube tags for this video:\n\n${context.slice(0, 15000)}`,
+        }], {
+          system: 'You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.\n\nRules:\n- Output at least 5 tags and up to 15. Prefer 8–12.\n- Tags can be in Arabic, English, or mixed.\n- One tag per line. No numbers, bullets, or commas. No explanation.\n- Keep each tag short (1–4 words).',
+          maxTokens: 512, channelId: story.channelId, action: 'Story Suggest Tags',
+        })
+      })()
+
+      const [descResult, tagsResult] = await Promise.allSettled([descPromise, tagsPromise])
+
+      story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+      brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+
+      if (descResult.status === 'fulfilled' && descResult.value) {
+        brief.youtubeDescription = String(descResult.value).trim()
+        console.log(tag, 'description generated')
+      } else if (descResult.status === 'rejected') {
+        console.log(tag, 'description failed:', descResult.reason?.message)
+      }
+
+      if (tagsResult.status === 'fulfilled' && tagsResult.value) {
+        brief.youtubeTags = String(tagsResult.value).trim()
+          .split(/\n/)
+          .map(s => s.replace(/^[\d.)\-\s]+/, '').trim())
+          .filter(s => s.length > 0 && s.length <= 100)
+          .slice(0, 15)
+        console.log(tag, 'tags generated')
+      } else if (tagsResult.status === 'rejected') {
+        console.log(tag, 'tags failed:', tagsResult.reason?.message)
+      }
+    }
+
+    brief.processingStatus = 'done'
+    brief.processingStep = 'done'
+    await db.story.update({ where: { id: storyId }, data: { brief } })
+    console.log(tag, 'all done')
+  } catch (e) {
+    console.error(`[stories/process:${storyId.slice(-6)}] error:`, e)
+    try {
+      const story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+      const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+      brief.processingStatus = 'error'
+      brief.processingError = e.message || 'Processing failed'
+      await db.story.update({ where: { id: storyId }, data: { brief } })
+    } catch { /* best effort */ }
+  }
+}
+
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
   const story = await db.story.findUniqueOrThrow({
@@ -967,6 +1106,30 @@ router.post('/manual', requireRole('owner', 'admin', 'editor'), async (req, res)
     res.json(story)
   } catch (e) {
     res.status(500).json({ error: e.message })
+  }
+})
+
+// ── POST /api/stories/:id/process — kick off background AI processing after upload
+router.post('/:id/process', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+
+    if (!brief.videoR2Key) {
+      return res.status(400).json({ error: 'Upload a video first.' })
+    }
+    if (brief.processingStatus === 'processing') {
+      return res.json({ status: 'already_processing' })
+    }
+
+    res.json({ status: 'processing' })
+
+    processStoryBackground(story.id).catch(err => {
+      console.error('[stories/process] unhandled:', err)
+    })
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    res.status(500).json({ error: e.message || 'Failed to start processing' })
   }
 })
 

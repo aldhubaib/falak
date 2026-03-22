@@ -16,7 +16,6 @@ interface ChannelRightPanelProps {
   onClose: () => void;
   videoCount?: number;
   shortCount?: number;
-  onTypeChange?: (type: "ours" | "competition") => void;
   onCountryChange?: () => void;
   onBrandedHooksSaved?: () => void;
   onSyncNow?: () => void;
@@ -117,7 +116,7 @@ function BrandedHooksSection({
   );
 }
 
-export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onTypeChange, onCountryChange, onBrandedHooksSaved, onSyncNow, onAnalyzeAll, onRemove }: ChannelRightPanelProps) {
+export function ChannelRightPanel({ channel, visible, onClose, videoCount, shortCount, onCountryChange, onBrandedHooksSaved, onSyncNow, onAnalyzeAll, onRemove }: ChannelRightPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [syncing, setSyncing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -219,72 +218,41 @@ export function ChannelRightPanel({ channel, visible, onClose, videoCount, short
         ))}
       </div>
 
-      {/* Type toggle */}
+      {/* Country */}
       <div className="px-4 py-3 border-t border-border">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] text-muted-foreground">Classification</span>
+          <span className="text-[11px] text-muted-foreground">Country</span>
         </div>
-        <div className="flex rounded-full overflow-hidden border border-border">
-          <button
-            onClick={() => onTypeChange?.("ours")}
-            className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
-              channel.type === "ours"
-                ? "bg-primary/15 text-primary border-r border-border"
-                : "bg-card text-muted-foreground hover:text-muted-foreground border-r border-border"
-            }`}
-          >
-            Ours
-          </button>
-          <button
-            onClick={() => onTypeChange?.("competition")}
-            className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
-              channel.type === "competition"
-                ? "bg-orange/10 text-orange"
-                : "bg-card text-muted-foreground hover:text-muted-foreground"
-            }`}
-          >
-            Competition
-          </button>
-        </div>
-      </div>
-
-      {/* Country — only for competitor channels (ours uses ProfileHome) */}
-      {channel.type !== "ours" && (
-        <div className="px-4 py-3 border-t border-border">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] text-muted-foreground">Country</span>
-          </div>
-          <select
-            value={channel.nationality ?? ""}
-            onChange={(e) => {
-              const value = e.target.value || null;
-              setSavingCountry(true);
-              fetch(`/api/channels/${channel.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ nationality: value }),
+        <select
+          value={channel.nationality ?? ""}
+          onChange={(e) => {
+            const value = e.target.value || null;
+            setSavingCountry(true);
+            fetch(`/api/channels/${channel.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ nationality: value }),
+            })
+              .then((r) => {
+                if (!r.ok) throw new Error("Failed to update");
+                toast.success("Country updated");
+                onCountryChange?.();
               })
-                .then((r) => {
-                  if (!r.ok) throw new Error("Failed to update");
-                  toast.success("Country updated");
-                  onCountryChange?.();
-                })
-                .catch(() => toast.error("Failed to update country"))
-                .finally(() => setSavingCountry(false));
-            }}
-            disabled={savingCountry}
-            className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
-          >
-            <option value="">Select country</option>
-            {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+              .catch(() => toast.error("Failed to update country"))
+              .finally(() => setSavingCountry(false));
+          }}
+          disabled={savingCountry}
+          className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+        >
+          <option value="">Select country</option>
+          {COUNTRIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Actions */}
       <div className="px-4 py-3 border-t border-border flex items-center justify-between">

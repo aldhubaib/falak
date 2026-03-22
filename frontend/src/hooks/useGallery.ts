@@ -70,7 +70,7 @@ export function useGalleryActions(channelId: string | undefined) {
     onSuccess: invalidate,
   });
   const patchAlbum = useMutation({
-    mutationFn: ({ albumId, ...payload }: { albumId: string; name?: string; description?: string | null; coverMediaId?: string | null }) =>
+    mutationFn: ({ albumId, ...payload }: { albumId: string; name?: string; description?: string | null; coverMediaId?: string | null; showInAllMedia?: boolean }) =>
       updateGalleryAlbum(channelId!, albumId, payload),
     onSuccess: invalidate,
   });

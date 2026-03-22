@@ -94,14 +94,13 @@ const MOCK_STORY: StoryWithLog = {
 } as StoryWithLog;
 
 // ── Auto-processing pipeline steps ──────────────────────────────────
-type PipelineStep = "idle" | "transcribing" | "title" | "description" | "tags" | "done" | "error";
+type PipelineStep = "idle" | "transcribing" | "generating" | "done" | "error";
 
-const PIPELINE_STEPS: { key: PipelineStep; label: string }[] = [
-  { key: "transcribing", label: "Transcribing video" },
-  { key: "title",        label: "Generating title" },
-  { key: "description",  label: "Generating description" },
-  { key: "tags",         label: "Generating tags" },
-  { key: "done",         label: "All done" },
+const PIPELINE_STEPS: { key: PipelineStep; label: string; briefKey?: keyof StoryBrief }[] = [
+  { key: "transcribing", label: "Transcribing", briefKey: "transcript" },
+  { key: "generating",   label: "Title" ,       briefKey: "suggestedTitle" },
+  { key: "generating",   label: "Description",  briefKey: "youtubeDescription" },
+  { key: "generating",   label: "Tags",         briefKey: "youtubeTags" },
 ];
 
 // ── Manual Story Workflow ──────────────────────────────────────────
@@ -128,77 +127,23 @@ function ManualStoryWorkflow({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [youtubeInput, setYoutubeInput] = useState(brief.youtubeUrl || "");
 
-  const [pipelineStep, setPipelineStep] = useState<PipelineStep>("idle");
-  const [pipelineError, setPipelineError] = useState<string | null>(null);
-  const pipelineRunningRef = useRef(false);
+  // Derive pipeline step from brief fields (background processing updates these)
+  const pipelineStep: PipelineStep = (() => {
+    if (brief.processingStatus === "error") return "error";
+    if (brief.processingStatus === "done") return "done";
+    if (brief.processingStatus === "processing") {
+      return brief.processingStep === "generating" ? "generating" : "transcribing";
+    }
+    return "idle";
+  })();
+  const pipelineError = brief.processingError || null;
 
-  const runAutoPipeline = useCallback(async () => {
-    if (pipelineRunningRef.current) return;
-    pipelineRunningRef.current = true;
-    setPipelineError(null);
-
+  const triggerBackgroundProcess = useCallback(async () => {
     try {
-      // Step 1: Transcribe
-      setPipelineStep("transcribing");
-      const transcribeRes = await fetch(`/api/stories/${storyId}/transcribe`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!transcribeRes.ok) {
-        const err = await transcribeRes.json().catch(() => ({ error: "Transcription failed" }));
-        throw new Error(err.error || "Transcription failed");
-      }
-      const transcribeData = await transcribeRes.json();
-      onBriefChange((b) => ({
-        ...b,
-        transcript: transcribeData.transcript,
-        transcriptSegments: transcribeData.segments,
-        subtitlesSRT: transcribeData.srt,
-        script: transcribeData.transcript,
-      }));
-
-      // Step 2: Generate title
-      setPipelineStep("title");
-      const titleRes = await fetch(`/api/stories/${storyId}/generate-title`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (titleRes.ok) {
-        const titleData = await titleRes.json();
-        onBriefChange((b) => ({ ...b, suggestedTitle: titleData.title }));
-      }
-
-      // Step 3: Generate description
-      setPipelineStep("description");
-      const descRes = await fetch(`/api/stories/${storyId}/generate-description`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (descRes.ok) {
-        const descData = await descRes.json();
-        onBriefChange((b) => ({ ...b, youtubeDescription: descData.description }));
-      }
-
-      // Step 4: Generate tags
-      setPipelineStep("tags");
-      const tagsRes = await fetch(`/api/stories/${storyId}/suggest-tags`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (tagsRes.ok) {
-        const tagsData = await tagsRes.json();
-        const tags = tagsData.tags || tagsData.brief?.youtubeTags || [];
-        onBriefChange((b) => ({ ...b, youtubeTags: tags }));
-      }
-
-      setPipelineStep("done");
-      toast.success("Video processed — all metadata generated");
-    } catch (e: any) {
-      setPipelineStep("error");
-      setPipelineError(e.message || "Processing failed");
-      toast.error(e.message || "Processing failed");
-    } finally {
-      pipelineRunningRef.current = false;
+      await fetch(`/api/stories/${storyId}/process`, { method: "POST", credentials: "include" });
+      onBriefChange((b) => ({ ...b, processingStatus: "processing", processingStep: "transcribing", processingError: null }));
+    } catch {
+      toast.error("Failed to start processing");
     }
   }, [storyId, onBriefChange]);
 
@@ -305,7 +250,6 @@ function ManualStoryWorkflow({
 
   const isDone = story.stage === "done";
   const isPipelineActive = pipelineStep !== "idle" && pipelineStep !== "done" && pipelineStep !== "error";
-  const pipelineStepIndex = PIPELINE_STEPS.findIndex((s) => s.key === pipelineStep);
 
   return (
     <div className="space-y-5">
@@ -326,14 +270,17 @@ function ManualStoryWorkflow({
         <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-3">
           <div className="flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            <span className="text-[13px] font-semibold text-primary">Processing video…</span>
+            <span className="text-[13px] font-semibold text-primary">Processing video in background…</span>
           </div>
           <div className="flex items-center gap-1">
-            {PIPELINE_STEPS.slice(0, -1).map((step, i) => {
-              const isActive = step.key === pipelineStep;
-              const isComplete = pipelineStepIndex > i;
+            {PIPELINE_STEPS.map((step, i) => {
+              const isComplete = step.briefKey ? !!brief[step.briefKey] : false;
+              const isActive = !isComplete && (
+                (step.key === "transcribing" && pipelineStep === "transcribing") ||
+                (step.key === "generating" && pipelineStep === "generating")
+              );
               return (
-                <div key={step.key} className="flex items-center gap-1 flex-1">
+                <div key={`${step.label}-${i}`} className="flex items-center gap-1 flex-1">
                   <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
                     isActive
                       ? "bg-primary/15 text-primary"
@@ -345,7 +292,7 @@ function ManualStoryWorkflow({
                     {isComplete && <span className="text-success">✓</span>}
                     <span className="truncate">{step.label}</span>
                   </div>
-                  {i < PIPELINE_STEPS.length - 2 && (
+                  {i < PIPELINE_STEPS.length - 1 && (
                     <div className={`h-px flex-1 min-w-2 ${isComplete ? "bg-success/30" : "bg-border"}`} />
                   )}
                 </div>
@@ -371,7 +318,7 @@ function ManualStoryWorkflow({
           {pipelineError && <p className="text-[11px] text-destructive/80 ml-5">{pipelineError}</p>}
           <button
             type="button"
-            onClick={() => { setPipelineStep("idle"); runAutoPipeline(); }}
+            onClick={triggerBackgroundProcess}
             className="ml-5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
           >
             Retry
@@ -398,7 +345,7 @@ function ManualStoryWorkflow({
             videoFileName: data.videoFileName,
             videoFileSize: data.videoFileSize,
           }));
-          runAutoPipeline();
+          triggerBackgroundProcess();
         }}
       />
 
@@ -770,6 +717,38 @@ export default function StoryDetail() {
     },
     []
   );
+
+  // ── Poll for background AI processing updates ──────────────────────────
+  useEffect(() => {
+    if (!id || brief.processingStatus !== "processing") return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/stories/${id}`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const serverBrief = data.brief && typeof data.brief === "object" ? data.brief as StoryBrief : {};
+        setBrief((prev) => {
+          const merged = { ...prev };
+          if (serverBrief.transcript && !prev.transcript) merged.transcript = serverBrief.transcript;
+          if (serverBrief.transcriptSegments && !prev.transcriptSegments) merged.transcriptSegments = serverBrief.transcriptSegments;
+          if (serverBrief.subtitlesSRT && !prev.subtitlesSRT) merged.subtitlesSRT = serverBrief.subtitlesSRT;
+          if (serverBrief.script && !prev.script) merged.script = serverBrief.script;
+          if (serverBrief.suggestedTitle && !prev.suggestedTitle) merged.suggestedTitle = serverBrief.suggestedTitle;
+          if (serverBrief.youtubeDescription && !prev.youtubeDescription) merged.youtubeDescription = serverBrief.youtubeDescription;
+          if (serverBrief.youtubeTags?.length && !prev.youtubeTags?.length) merged.youtubeTags = serverBrief.youtubeTags;
+          merged.processingStatus = serverBrief.processingStatus;
+          merged.processingStep = serverBrief.processingStep;
+          merged.processingError = serverBrief.processingError;
+          return merged;
+        });
+        if (data.headline) setStory((s) => s && s.id === id ? { ...s, headline: data.headline } : s);
+        if (serverBrief.processingStatus === "done") {
+          toast.success("Video processed — all metadata generated");
+        }
+      } catch { /* silent */ }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [id, brief.processingStatus]);
 
   // ── Article loading state ────────────────────────────────────────────────
   const activeStage: Stage = story?.stage ?? "scripting";
