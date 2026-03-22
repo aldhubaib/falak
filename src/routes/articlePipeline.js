@@ -383,7 +383,10 @@ router.post('/:id/restart', requireRole('owner', 'admin', 'editor'), async (req,
     const article = await db.article.findUnique({ where: { id: req.params.id } })
     if (!article) return res.status(404).json({ error: 'Article not found' })
     if (article.status === 'running') {
-      return res.status(400).json({ error: 'Article is currently running — wait or let rescue handle it' })
+      const elapsedMs = article.startedAt ? Date.now() - new Date(article.startedAt).getTime() : Infinity
+      if (elapsedMs < 2 * 60_000) {
+        return res.status(400).json({ error: 'Article started processing less than 2 min ago — try again shortly' })
+      }
     }
 
     const VALID_STAGES = ['transcript', 'story_detect', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']

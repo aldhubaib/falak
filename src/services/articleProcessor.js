@@ -1636,9 +1636,17 @@ async function doStageTranscript(article, project) {
 // Single story: article continues to classify.
 // Multiple stories: creates child articles, parent goes to adapter_done.
 
+const MULTI_STORY_SIGNALS = /\b(أخبار|نشرة|ملخص|أبرز|عناوين|headlines|roundup|recap|top stories|news wrap|weekly update|daily brief|bulletin|digest)\b/i
+
+function titleSuggestsMultipleStories(title) {
+  if (!title) return false
+  return MULTI_STORY_SIGNALS.test(title)
+}
+
 async function doStageStoryDetect(article, project) {
   const log = getLog(article)
   const transcript = article.contentClean || article.content || ''
+  const title = article.title || ''
 
   if (transcript.length < 100) {
     log.push(lp('story_detect', { status: 'review', reason: 'Transcript too short for story detection' }))
@@ -1647,6 +1655,15 @@ async function doStageStoryDetect(article, project) {
     return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Transcript too short' }
   }
 
+  // Fast path: title clearly indicates a single-topic video — skip AI entirely
+  if (!titleSuggestsMultipleStories(title)) {
+    log.push(lp('story_detect', { status: 'ok', reason: `Title-based: "${title}" — single topic, skipping AI analysis` }))
+    log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: `Single topic video — "${title.slice(0, 60)}"`, nextStage: 'classify' }))
+    await saveLog(article.id, log)
+    return { nextStage: 'classify' }
+  }
+
+  // Multi-story signal detected in title — use AI to split transcript
   const apiKey = await registry.requireKey('anthropic')
 
   const prompt = `You are analyzing a YouTube video transcript to identify distinct news stories or topics covered.
