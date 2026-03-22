@@ -9,7 +9,7 @@ import {
   ChevronRight, ChevronDown, Youtube, FileText, Download,
   RotateCw, FlaskConical, X, ArrowRight, Filter,
   Brain, Languages, Sparkles, Search, Hash, Layers,
-  Monitor, Zap,
+  Monitor, Zap, Globe, Target, Users, Image as ImageIcon, Info,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -127,7 +127,7 @@ function PipelineView() {
   const [events, setEvents] = useState<BatchEvent[]>([]);
   const [activeBatches, setActiveBatches] = useState<Map<number, BatchEvent>>(new Map());
   const [connected, setConnected] = useState(false);
-  const [expandedStage, setExpandedStage] = useState<string | null>(null);
+  const [drawerStage, setDrawerStage] = useState<string | null>(null);
   const [stepEvents, setStepEvents] = useState<BatchEvent[]>([]);
   const eventsEndRef = useRef<HTMLDivElement>(null);
 
@@ -341,8 +341,7 @@ function PipelineView() {
                       activeBatches={batches}
                       isBottleneck={false}
                       isDone={count === 0 && i === 0 && isDone}
-                      expanded={expandedStage === `video:${stage.id}`}
-                      onToggle={() => setExpandedStage(expandedStage === `video:${stage.id}` ? null : `video:${stage.id}`)}
+                      onClick={() => setDrawerStage(`video:${stage.id}`)}
                       recentBatches={batchDoneEvents.filter((e) => e.pipeline === "video" && e.stage === stage.id)}
                       liveSteps={stepsByStage(stage.id)}
                     />
