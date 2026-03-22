@@ -228,7 +228,7 @@ function resolveNodeIcon(key: string): typeof FileText {
   return NODE_ICON_MAP[key] || FileText;
 }
 
-const STAGE_ORDER = ["transcript", "story_count", "story_split", "imported", "content", "classify", "title_translate", "score", "research", "translated", "images", "done"];
+const STAGE_ORDER = ["transcript", "story_count", "story_split", "imported", "content", "classify", "title_translate", "score", "research", "images", "translated", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -864,18 +864,18 @@ function GateFork({
         <div className="absolute top-[11px] left-[25%] right-[25%] h-px bg-border" />
         {/* Pass circle (left) */}
         <div className="absolute left-[25%] top-0 -translate-x-1/2 flex flex-col items-center">
-          <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold ${
-            !hasVerdict ? "bg-card border border-border text-foreground" :
-            isPass ? "bg-success text-white shadow-sm shadow-success/30" :
-            "bg-card border border-border text-foreground/40"
+          <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold bg-card border ${
+            !hasVerdict ? "border-border text-foreground" :
+            isPass ? "border-success text-success" :
+            "border-border text-foreground/40"
           }`}>✓</div>
         </div>
         {/* Fail circle (right) */}
         <div className="absolute right-[25%] top-0 translate-x-1/2 flex flex-col items-center">
-          <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold ${
-            !hasVerdict ? "bg-card border border-border text-foreground" :
-            isFail ? "bg-destructive text-white shadow-sm shadow-destructive/30" :
-            "bg-card border border-border text-foreground/40"
+          <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-bold bg-card border ${
+            !hasVerdict ? "border-border text-foreground" :
+            isFail ? "border-destructive text-destructive" :
+            "border-border text-foreground/40"
           }`}>✗</div>
         </div>
       </div>

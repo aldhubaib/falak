@@ -1,6 +1,6 @@
 /**
  * Article pipeline worker: polls for queued articles and processes them through stages.
- * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → images → translated → done
  *
  * Mirrors the video pipeline worker pattern (worker.js).
  */
@@ -32,7 +32,7 @@ const AI_INTER_ITEM_MS = 3_000
 const MAX_RETRIES = 3
 const STUCK_TIMEOUT_MS = 10 * 60 * 1000
 
-const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated', 'images']
+const STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'images', 'translated']
 
 const AI_STAGES = new Set(['story_split', 'classify', 'title_translate', 'score', 'research', 'translated'])
 

@@ -7,7 +7,7 @@ const articleEvents = require('../lib/articleEvents')
 const router = express.Router()
 router.use(requireAuth)
 
-const PIPELINE_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'translated']
+const PIPELINE_STAGES = ['transcript', 'story_count', 'story_split', 'imported', 'content', 'classify', 'title_translate', 'score', 'research', 'images', 'translated']
 
 const RESTARTABLE_STAGES = [
   { id: 'transcript', label: 'Transcript' },
@@ -19,8 +19,8 @@ const RESTARTABLE_STAGES = [
   { id: 'title_translate', label: 'Title Translate' },
   { id: 'score', label: 'Score' },
   { id: 'research', label: 'Research' },
-  { id: 'translated', label: 'Translation' },
   { id: 'images', label: 'Images' },
+  { id: 'translated', label: 'Translation' },
 ]
 const VALID_RESTART_IDS = RESTARTABLE_STAGES.map(s => s.id)
 
@@ -202,8 +202,8 @@ const SHARED_STAGES = [
   { id: 'title_translate', label: 'Title Translate',  icon: 'languages',  type: 'linear' },
   { id: 'score',           label: 'Score',            icon: 'sparkles',   type: 'gate', passLabel: 'Above threshold', failLabel: 'Below threshold', failTarget: 'filtered' },
   { id: 'research',        label: 'Research',         icon: 'search',     type: 'linear' },
-  { id: 'translated',      label: 'Translation',      icon: 'languages',  type: 'gate', passLabel: 'Translation complete', failLabel: 'No content', failTarget: 'review' },
   { id: 'images',          label: 'Images',           icon: 'image',      type: 'linear' },
+  { id: 'translated',      label: 'Translation',      icon: 'languages',  type: 'gate', passLabel: 'Translation complete', failLabel: 'No content', failTarget: 'review' },
   { id: 'done',            label: 'Done',             icon: 'check-circle', type: 'terminal' },
 ]
 

@@ -67,9 +67,9 @@ const VERDICT_PATHS = {
   classify:        { passPath: { nextStage: 'title_translate', label: 'Classification done' } },
   title_translate: { passPath: { nextStage: 'score', label: 'Ready for scoring' } },
   score:           { passPath: { nextStage: 'research', label: 'Above threshold' },          failPath: { nextStage: 'filtered', label: 'Below threshold' } },
-  research:        { passPath: { nextStage: 'translated', label: 'Ready for translation' } },
-  translated:      { passPath: { nextStage: 'images', label: 'Translation complete' },       failPath: { nextStage: 'review', label: 'No content to translate' } },
-  images:          { passPath: { nextStage: 'done', label: 'Pipeline complete' } },
+  research:        { passPath: { nextStage: 'images', label: 'Ready for image search' } },
+  images:          { passPath: { nextStage: 'translated', label: 'Ready for translation' } },
+  translated:      { passPath: { nextStage: 'done', label: 'Translation complete' },         failPath: { nextStage: 'review', label: 'No content to translate' } },
 }
 
 function lp(step, data, display) {
@@ -450,9 +450,9 @@ async function doStageResearch(article, project) {
 
   if (!decision.needed) {
     log.push(lp('research', { status: 'skipped', reason: decision.reason }))
-    log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'translated' }))
+    log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'images' }))
     await saveLog(article.id, log)
-    return { nextStage: 'translated' }
+    return { nextStage: 'images' }
   }
 
   try {
@@ -473,7 +473,7 @@ async function doStageResearch(article, project) {
     }))
 
     // Store research results on article.analysis so score stage can include them in the story
-    log.push(lp('verdict', { stage: 'research', result: result.researchBrief ? 'pass' : 'pass', reason: result.researchBrief ? 'Research brief generated' : 'Research completed (no brief)', nextStage: 'translated' }))
+    log.push(lp('verdict', { stage: 'research', result: result.researchBrief ? 'pass' : 'pass', reason: result.researchBrief ? 'Research brief generated' : 'Research completed (no brief)', nextStage: 'images' }))
     if (result.researchBrief || result.researchData) {
       const existing = freshArticle?.analysis || article.analysis || {}
       await db.article.update({
@@ -490,13 +490,13 @@ async function doStageResearch(article, project) {
       await saveLog(article.id, log)
     }
 
-    return { nextStage: 'translated' }
+    return { nextStage: 'images' }
   } catch (e) {
     log.push(lp('research', { status: 'partial', error: `${e.message} (non-blocking)` }))
-    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, continuing)', nextStage: 'translated' }))
+    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, continuing)', nextStage: 'images' }))
     await saveLog(article.id, log)
-    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to translated)')
-    return { nextStage: 'translated' }
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to images)')
+    return { nextStage: 'images' }
   }
 }
 
@@ -535,13 +535,13 @@ async function doStageTranslated(article, project) {
     log.push(lp('translate_content', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
     log.push(lp('translate_analysis', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
     log.push(lp('translate_research', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
-    log.push(lp('verdict', { stage: 'translated', result: 'skip', reason: 'Source is already Arabic — no translation needed', nextStage: 'images' }))
+    log.push(lp('verdict', { stage: 'translated', result: 'skip', reason: 'Source is already Arabic — no translation needed', nextStage: 'done' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
     })
     await promoteAfterTranslation(article, arAnalysis, log)
-    return { nextStage: 'images' }
+    return { nextStage: 'done' }
   }
 
   const apiKey = await registry.requireKey('anthropic')
@@ -685,7 +685,7 @@ async function doStageTranslated(article, project) {
     log.push(lp('translate_research', { processor: 'server', service: 'Skip (no research brief)', status: 'skipped', reason: researchBrief ? 'Invalid brief' : 'No research brief' }))
   }
 
-  log.push(lp('verdict', { stage: 'translated', result: 'pass', reason: `Translated to Arabic (${translatedContent.trim().length} chars)`, nextStage: 'images' }))
+  log.push(lp('verdict', { stage: 'translated', result: 'pass', reason: `Translated to Arabic (${translatedContent.trim().length} chars)`, nextStage: 'done' }))
 
   await db.article.update({
     where: { id: article.id },
@@ -698,7 +698,7 @@ async function doStageTranslated(article, project) {
   })
 
   await promoteAfterTranslation(article, arAnalysis, log)
-  return { nextStage: 'images' }
+  return { nextStage: 'done' }
 }
 
 async function promoteAfterTranslation(article, analysis, log) {
@@ -1438,9 +1438,9 @@ async function doStageImages(article, project) {
   const title = article.title
   if (!title || !title.trim()) {
     log.push(lp('images', { status: 'skipped', reason: 'No title for image search' }))
-    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No title available for image search', nextStage: 'done' }))
+    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No title available for image search', nextStage: 'translated' }))
     await saveLog(article.id, log)
-    return { nextStage: 'done' }
+    return { nextStage: 'translated' }
   }
 
   const keys = await db.googleSearchKey.findMany({
@@ -1450,9 +1450,9 @@ async function doStageImages(article, project) {
 
   if (!keys.length) {
     log.push(lp('images', { status: 'skipped', reason: 'No active Google Search API key configured' }))
-    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No Google Search API key', nextStage: 'done' }))
+    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No Google Search API key', nextStage: 'translated' }))
     await saveLog(article.id, log)
-    return { nextStage: 'done' }
+    return { nextStage: 'translated' }
   }
 
   const keyEntry = keys[0]
@@ -1495,7 +1495,7 @@ async function doStageImages(article, project) {
       resultCount: images.length,
       keyLabel: keyEntry.label,
     }))
-    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: `${images.length} images found`, nextStage: 'done' }))
+    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: `${images.length} images found`, nextStage: 'translated' }))
 
     await db.article.update({
       where: { id: article.id },
@@ -1511,7 +1511,7 @@ async function doStageImages(article, project) {
       }
     }
 
-    return { nextStage: 'done' }
+    return { nextStage: 'translated' }
   } catch (e) {
     log.push(lp('images', {
       status: 'error',
@@ -1519,10 +1519,10 @@ async function doStageImages(article, project) {
       processor: 'api',
       service: 'SerpAPI Google Images Light',
     }))
-    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: 'Image search failed (non-blocking)', nextStage: 'done' }))
+    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: 'Image search failed (non-blocking)', nextStage: 'translated' }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] images stage failed (non-fatal)')
-    return { nextStage: 'done' }
+    return { nextStage: 'translated' }
   }
 }
 
