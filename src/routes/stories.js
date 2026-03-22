@@ -743,9 +743,15 @@ router.get('/:id', async (req, res) => {
     })
     const linkedArticle = await db.article.findFirst({
       where: { storyId: story.id },
-      select: { id: true },
+      select: { id: true, analysis: true },
     })
-    res.json({ ...story, linkedArticleId: linkedArticle?.id ?? null })
+
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    if (brief.research && linkedArticle?.analysis?.images && !brief.research.images) {
+      brief.research = { ...brief.research, images: linkedArticle.analysis.images }
+    }
+
+    res.json({ ...story, brief, linkedArticleId: linkedArticle?.id ?? null })
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     console.error('[stories/get]', req.params.id, e?.message || e)

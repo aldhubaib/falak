@@ -5,6 +5,9 @@ export type {
   ScriptField,
   StoryBrief,
   StoryWithLog,
+  ResearchBrief,
+  ResearchImage,
+  StoryResearch,
 } from "./types";
 
 export { CopyBtn } from "./CopyBtn";
@@ -13,6 +16,8 @@ export { StoryDetailTopBar } from "./StoryDetailTopBar";
 export type { StoryDetailTopBarProps } from "./StoryDetailTopBar";
 export { StoryDetailArticle } from "./StoryDetailArticle";
 export type { StoryDetailArticleProps } from "./StoryDetailArticle";
+export { StoryDetailResearch } from "./StoryDetailResearch";
+export type { StoryDetailResearchProps } from "./StoryDetailResearch";
 export {
   StoryDetailChannelSelector,
   channelName,

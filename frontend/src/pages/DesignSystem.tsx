@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StoryDetailScriptSection } from "@/components/story-detail/StoryDetailScriptSection";
 import { StoryDetailStagePublish } from "@/components/story-detail/StoryDetailStagePublish";
 import { StoryDetailArticle } from "@/components/story-detail/StoryDetailArticle";
+import { StoryDetailResearch } from "@/components/story-detail/StoryDetailResearch";
 import { TranscriptSection } from "@/components/story-detail/TranscriptSection";
 import { VideoUpload } from "@/components/story-detail/VideoUpload";
 import { UploadZone } from "@/components/gallery/UploadZone";
@@ -489,7 +490,11 @@ export default function DesignSystem() {
                 <StoryDetailStagePublish brief={brief} storyId="dls-mock-story" onBriefChange={setBrief} videoFormat="long" onVideoFormatChange={NOOP} />
               </CidBlock>
 
-              <CidBlock cid="story-article" name="StoryDetailArticle" source="StoryDetail.tsx">
+              <CidBlock cid="story-research" name="StoryDetailResearch" source="StoryDetailResearch.tsx">
+                <StoryDetailResearch research={{ brief: { whatHappened: "A major earthquake struck central Turkey.", howItHappened: "The quake originated at a shallow depth of 10km.", whatWasTheResult: "Over 500 people were displaced.", keyFacts: ["Magnitude 6.2", "10km depth", "500+ displaced"], suggestedHook: "What if you woke up to the ground shaking under your feet?", narrativeStrength: 8, timeline: [{ date: "Mar 15", event: "Earthquake hits" }], mainCharacters: [{ name: "Gov. Mehmet", role: "Emergency coordinator" }], competitionInsight: "Only 2 Arabic channels covered this so far." }, relatedArticles: [{ title: "Turkey quake update", url: "#", source: "Reuters" }], images: [{ thumbnail: "https://placehold.co/400x225/1a1a2e/ffffff?text=Finding+1", title: "Damage aftermath", source: "Reuters" }, { thumbnail: "https://placehold.co/400x225/1a1a2e/ffffff?text=Finding+2", title: "Rescue teams deployed", source: "AP" }], researchedAt: new Date().toISOString() }} />
+              </CidBlock>
+
+              <CidBlock cid="story-article" name="StoryDetailArticle" source="StoryDetailArticle.tsx">
                 <StoryDetailArticle storyId="dls-mock-story" sourceUrl="https://example.com/article" sourceName="NewsAPI/TechCrunch" articleContent={MOCK_BRIEF.articleContent} articleDisplayValue={MOCK_BRIEF.articleContent || ""} articleTitle={MOCK_BRIEF.articleTitle} articleLoading={false} articleError={null} actionsDisabled={false} compositeScore={6.5} relativeDate="2 hours ago" articleOpen={true} onArticleOpenChange={NOOP} onRetryFetch={NOOP_ASYNC} onArticleChange={NOOP} onArticleTitleChange={NOOP} onArticleTitleBlur={NOOP} />
               </CidBlock>
 

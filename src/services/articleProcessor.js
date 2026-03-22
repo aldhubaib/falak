@@ -1244,6 +1244,9 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
     if (analysis.research.briefAr) {
       research.brief = analysis.research.briefAr
     }
+    if (analysis.images && Array.isArray(analysis.images) && analysis.images.length > 0) {
+      research.images = analysis.images
+    }
     brief.research = research
   }
 

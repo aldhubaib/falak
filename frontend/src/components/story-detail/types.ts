@@ -43,6 +43,37 @@ export interface StoryWithLog extends ApiStory {
   lastRescoredAt?: string | null;
 }
 
+export interface ResearchBrief {
+  whatHappened?: string;
+  howItHappened?: string;
+  whatWasTheResult?: string;
+  keyFacts?: string[];
+  timeline?: { date?: string; event?: string }[];
+  mainCharacters?: { name?: string; role?: string }[];
+  sources?: { title?: string; url?: string }[];
+  competitionInsight?: string;
+  suggestedHook?: string;
+  narrativeStrength?: number;
+}
+
+export interface ResearchImage {
+  thumbnail?: string | null;
+  original?: string | null;
+  title?: string | null;
+  source?: string | null;
+  link?: string | null;
+}
+
+export interface StoryResearch {
+  brief?: ResearchBrief;
+  briefAr?: ResearchBrief;
+  relatedArticles?: { title?: string; url?: string; snippet?: string; source?: string }[];
+  backgroundContext?: string;
+  citations?: string[];
+  researchedAt?: string;
+  images?: ResearchImage[];
+}
+
 /** Brief JSON shape stored in DB */
 export interface StoryBrief {
   suggestedTitle?: string;
@@ -64,24 +95,16 @@ export interface StoryBrief {
   comments?: number;
   gapWin?: boolean;
   producedFormats?: ("short" | "long")[];
-  /** Video format: "short" for YouTube Shorts, "long" for regular videos. Set at Scripting stage. */
   videoFormat?: "short" | "long";
-  /** AI-generated YouTube description for the Publish stage. */
   youtubeDescription?: string;
-  /** Publish visibility: public, unlisted, private, or scheduled. */
   visibility?: "public" | "unlisted" | "private";
-  /** Cloudflare R2 object key for the uploaded video file. */
   videoR2Key?: string;
-  /** Public URL for the uploaded video file on R2. */
   videoR2Url?: string;
-  /** Original filename of the uploaded video. */
   videoFileName?: string;
-  /** File size in bytes of the uploaded video. */
   videoFileSize?: number;
-  /** Full transcript text from Whisper (manual videos). */
   transcript?: string;
-  /** Timestamped transcript segments from Whisper. */
   transcriptSegments?: { text: string; start: number; end: number }[];
+  research?: StoryResearch;
 }
 
 export interface ScriptField {

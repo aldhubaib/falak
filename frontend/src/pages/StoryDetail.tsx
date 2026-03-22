@@ -13,6 +13,7 @@ import type { StoryBrief, StoryWithLog } from "@/components/story-detail";
 import {
   StoryDetailTopBar,
   StoryDetailArticle,
+  StoryDetailResearch,
   StoryDetailScriptSection,
   StoryDetailStagePassed,
   StoryDetailStageOmit,
@@ -860,7 +861,8 @@ export default function StoryDetail() {
   const editingYoutubeUrl = false;
   const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [articleOpen, setArticleOpen] = useState(true);
+  const [articleOpen, setArticleOpen] = useState(false);
+  const [researchOpen, setResearchOpen] = useState(true);
   const [stageStories, setStageStories] = useState<{ id: string; stage: string; createdAt: string }[]>([]);
 
   // Load all stories for prev/next navigation, grouped by stage then newest-first within each stage
@@ -887,9 +889,12 @@ export default function StoryDetail() {
     return () => { cancelled = true; };
   }, [channelId]);
 
-  // Original Story: always expanded by default on page load
   useEffect(() => {
-    if (story) setArticleOpen(true);
+    if (story) {
+      const hasResearch = !!(story.brief as StoryBrief)?.research?.brief;
+      setResearchOpen(true);
+      setArticleOpen(!hasResearch);
+    }
   }, [story?.id]);
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
   const prevStory = stageIndex > 0 ? stageStories[stageIndex - 1] : null;
@@ -1177,6 +1182,12 @@ export default function StoryDetail() {
               />
             )}
 
+
+            <StoryDetailResearch
+              research={brief.research}
+              researchOpen={researchOpen}
+              onResearchOpenChange={setResearchOpen}
+            />
 
             <StoryDetailArticle
               storyId={id}
