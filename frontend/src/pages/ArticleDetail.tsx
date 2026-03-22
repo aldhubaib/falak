@@ -650,9 +650,7 @@ function TreeNode({
             {state === "completed" && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
             {state === "failed" && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
             {state === "review" && <AlertTriangle className="w-3.5 h-3.5 text-orange shrink-0" />}
-            {state === "active" && (
-              <span className="text-[9px] font-mono text-primary px-1.5 py-0.5 rounded bg-primary/10">Processing…</span>
-            )}
+            {/* spinner is enough for active state */}
           </div>
           {reason && state !== "waiting" && (
             <p className="text-[10px] text-muted-foreground truncate mt-0.5">{reason}</p>
