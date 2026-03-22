@@ -113,7 +113,9 @@ export function AppLayout() {
 
       {/* Main content */}
       <main className={`flex-1 min-w-0 bg-background relative z-10 ${isDesktop ? "pt-0 rounded-l-2xl" : "pt-12"}`}>
-        <Outlet />
+        <div className="max-w-[1000px] mx-auto">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

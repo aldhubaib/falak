@@ -279,7 +279,7 @@ function ImageCollageGrid({
   if (visible.length === 3) {
     return (
       <div className="grid grid-cols-[1.2fr_1fr] gap-1 rounded-xl overflow-hidden border border-border/60 h-[280px] max-sm:h-[200px]">
-        {renderCell(visible[0], 0, "row-span-2")}
+        {renderCell(visible[0], 0, "")}
         <div className="grid grid-rows-2 gap-1">
           {renderCell(visible[1], 1, "")}
           {renderCell(visible[2], 2, "", true)}
@@ -291,7 +291,7 @@ function ImageCollageGrid({
   if (visible.length === 4) {
     return (
       <div className="grid grid-cols-[1.2fr_1fr] gap-1 rounded-xl overflow-hidden border border-border/60 h-[300px] max-sm:h-[220px]">
-        {renderCell(visible[0], 0, "row-span-2")}
+        {renderCell(visible[0], 0, "")}
         <div className="grid grid-rows-2 gap-1">
           {renderCell(visible[1], 1, "")}
           <div className="grid grid-cols-2 gap-1">
@@ -306,7 +306,7 @@ function ImageCollageGrid({
   // 5+ images
   return (
     <div className="grid grid-cols-[1.2fr_1fr] gap-1 rounded-xl overflow-hidden border border-border/60 h-[320px] max-sm:h-[240px]">
-      {renderCell(visible[0], 0, "row-span-2")}
+      {renderCell(visible[0], 0, "")}
       <div className="grid grid-rows-2 gap-1">
         <div className="grid grid-cols-2 gap-1">
           {renderCell(visible[1], 1, "")}
