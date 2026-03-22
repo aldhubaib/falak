@@ -412,7 +412,7 @@ via `nextCheckAt`.
 
 An article fetched from a source, processed through the pipeline.
 For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done.
-For YouTube: transcript → story_detect → classify → ... (same downstream pipeline). Videos with multiple stories get split into child articles via `parentArticleId`.
+For YouTube: transcript → story_count → [story_split] → classify → ... (same downstream pipeline). `story_count` uses server-side pattern matching (no AI). Only videos flagged as multi-story reach `story_split` (AI). Videos with multiple stories get split into child articles via `parentArticleId`.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
@@ -444,7 +444,7 @@ For YouTube: transcript → story_detect → classify → ... (same downstream p
 | `updatedAt` | DateTime | Yes | auto | — |
 
 **Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `images` → `done`.
-**Stages (YouTube):** `transcript` → `story_detect` → `classify` → ... (same from classify onwards). Parent articles that are split go to `adapter_done`.
+**Stages (YouTube):** `transcript` → `story_count` → [`story_split`] → `classify` → ... (same from classify onwards). `story_count` is pure server logic (regex patterns). `story_split` only runs when multi-story is detected. Parent articles that are split go to `adapter_done`.
 Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`, `adapter_done`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
 
@@ -578,6 +578,7 @@ and published video outcome.
 | `totalDecisions` | Int | Yes | 0 | Total liked/skip/trash decisions |
 | `currentThreshold` | Float | Yes | 0.30 | Dynamic filtering threshold (updated by threshold gate) |
 | `lastLearnedAt` | DateTime | No | — | Last learning cycle |
+| `storyPatterns` | Json | No | — | Configurable story detection patterns (title regexes, transition markers, thresholds). Managed via Story Rules UI tab. |
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
@@ -832,7 +833,10 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | PATCH | `/api/article-pipeline/:id/content` | editor+ | Paste content manually. |
 | POST | `/api/article-pipeline/retry-all-failed` | editor+ | Retry all failed articles. |
 | POST | `/api/article-pipeline/test-run` | admin+ | Force-pick N imported articles (any status), reset & process end-to-end (returns runId for polling). **Requires Content DNA embedding.** |
-| POST | `/api/article-pipeline/test-video` | admin+ | Force-pick 1 transcript-stage YouTube article, process through transcript → story_detect → full pipeline. **Requires Content DNA embedding.** |
+| POST | `/api/article-pipeline/test-video` | admin+ | Force-pick 1 transcript-stage YouTube article, process through transcript → story_count → [story_split] → full pipeline. **Requires Content DNA embedding.** |
+| GET | `/api/article-pipeline/story-patterns?channelId=X` | Yes | Get story detection patterns for a channel (title patterns, transition markers, thresholds). |
+| PUT | `/api/article-pipeline/story-patterns` | editor+ | Save story detection patterns for a channel. |
+| POST | `/api/article-pipeline/story-patterns/reset` | editor+ | Reset story patterns to defaults. |
 | GET | `/api/article-pipeline/test-run/:runId` | Yes | Poll test run progress (shared by test-run and test-video). |
 
 ### Upload — `/api/upload`
@@ -951,10 +955,11 @@ reset to `queued`.
 ```mermaid
 flowchart LR
     subgraph "YouTube path"
-        TS["transcript"] --> SD["story_detect"]
-        SD -->|single story| CL
-        SD -->|multi story| AD["adapter_done"]
-        SD -.->|creates children| CL
+        TS["transcript"] --> SC["story_count"]
+        SC -->|single story| CL
+        SC -->|multi story| SS["story_split"]
+        SS -->|split| AD["adapter_done"]
+        SS -.->|creates children| CL
     end
     subgraph "RSS / Apify path"
         IM["imported"] --> CO["content"]
@@ -978,7 +983,8 @@ flowchart LR
 | Stage | What Happens | External API | DB Writes |
 |---|---|---|---|
 | **transcript** | Fetches YouTube video transcript via youtube-transcript.io API. Also fetches video metadata (title, description, thumbnail). | YouTube Transcript API | `Article.content`, `Article.contentClean`, `Article.analysis.youtubeId` |
-| **story_detect** | AI (Haiku) detects distinct stories/topics in the transcript. Single story: article continues. Multiple stories: creates child articles with `parentArticleId`, parent goes to `adapter_done`. | Anthropic Haiku | Creates child `Article` records, `Article.stage` |
+| **story_count** | Server-side pattern matching — checks title patterns and transcript transition markers. No AI cost. Single story → classify. Multi-story → story_split. Patterns configurable via Story Rules UI tab. | — | `Article.stage` |
+| **story_split** | AI (Haiku) splits multi-story transcript into child articles. Only reached when story_count detects multi-story (~5% of videos). | Anthropic Haiku | Creates child `Article` records, `Article.stage` |
 | **imported** | Logs initial state. | — | — |
 | **content** | Extracts content: raw HTML → Firecrawl scrape → HTTP fetch → title+desc fallback. Min 300 chars or goes to review. | Firecrawl | `Article.contentClean` |
 | **classify** | AI classification (Haiku): topic, tags, contentType, region, summary, uniqueAngle. Works in original language. Retries once if language mismatch. | Anthropic Haiku | `Article.analysis`, `Article.language` |
