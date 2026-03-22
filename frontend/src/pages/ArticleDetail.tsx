@@ -211,6 +211,9 @@ interface ArticleDetail {
   updatedAt: string;
   pipelineFlow?: PipelineFlowNode[];
   sourceType?: string;
+  parentArticleId?: string | null;
+  parent?: { id: string; title: string | null; url: string } | null;
+  children?: { id: string; title: string | null; stage: string; status: string; finalScore: number | null; url: string; createdAt: string }[] | null;
 }
 
 /* ─── Tree node icon map ─── */
@@ -405,7 +408,7 @@ export default function ArticleDetailPage() {
   }
 
   const log: LogEntry[] = Array.isArray(article.processingLog) ? article.processingLog : [];
-  const isDone = article.stage === "done";
+  const isDone = article.stage === "done" || article.stage === "adapter_done";
   const isFailed = article.stage === "failed";
   const flow: PipelineFlowNode[] = article.pipelineFlow || [];
   const isVideo = article.sourceType === "youtube_channel";
@@ -438,6 +441,21 @@ export default function ArticleDetailPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-xl mx-auto px-6 py-6 max-lg:px-4">
+
+          {/* Parent link banner (for child articles split from a video) */}
+          {article.parent && (
+            <Link
+              to={pp(`/article/${article.parent.id}`)}
+              className="flex items-center gap-2 px-4 py-2.5 mb-4 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors"
+            >
+              <Layers className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-[11px] font-mono text-primary">Split from:</span>
+              <span className="text-[12px] font-semibold text-foreground truncate" dir="auto">
+                {article.parent.title || "Parent video"}
+              </span>
+              <ArrowRight className="w-3.5 h-3.5 text-primary shrink-0 ml-auto" />
+            </Link>
+          )}
 
           {/* Article header card */}
           <div className="rounded-xl border border-border bg-card p-5 mb-8">
@@ -508,6 +526,52 @@ export default function ArticleDetailPage() {
               );
             })}
           </div>
+
+          {/* Children section (for split parent videos) */}
+          {article.children && article.children.length > 0 && (
+            <div className="mt-8 w-full max-w-[400px] mx-auto">
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span className="text-[12px] font-semibold text-foreground">{article.children.length} Child Stories</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {article.children.map((child) => {
+                    const cDone = child.stage === "done";
+                    const cFail = child.stage === "filtered" || child.status === "failed";
+                    const cReview = child.status === "review";
+                    return (
+                      <Link
+                        key={child.id}
+                        to={pp(`/article/${child.id}`)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-card/80 transition-colors"
+                      >
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${
+                          cDone ? "bg-success" : cFail ? "bg-destructive" : cReview ? "bg-orange" : "bg-primary animate-pulse"
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium text-foreground truncate" dir="auto">
+                            {child.title || "Untitled story"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[9px] font-mono ${
+                              cDone ? "text-success" : cFail ? "text-destructive" : cReview ? "text-orange" : "text-primary"
+                            }`}>{child.stage}</span>
+                            {child.finalScore != null && (
+                              <span className="text-[9px] font-mono text-orange">
+                                {(Math.round(child.finalScore * 100) / 10).toFixed(1)}/10
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Restart control */}
           <div className="mt-8 flex justify-center">

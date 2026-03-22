@@ -201,9 +201,20 @@ const ARTICLE_PREFIX = [
   { id: 'content',  label: 'Content',  icon: 'file-text', type: 'gate', passLabel: 'Content extracted', failLabel: 'No usable content', failTarget: 'review', sourceTag: 'article' },
 ]
 
-function buildPipelineFlow(sourceType) {
+function buildPipelineFlow(sourceType, articleStage) {
   const prefix = sourceType === 'youtube_channel' ? VIDEO_PREFIX : ARTICLE_PREFIX
-  return [...prefix, ...SHARED_STAGES]
+  const stages = [...prefix, ...SHARED_STAGES]
+
+  // If the article reached adapter_done (multi-story split), replace the shared
+  // stages after story_detect with a terminal adapter_done node
+  if (articleStage === 'adapter_done' && sourceType === 'youtube_channel') {
+    return [
+      ...VIDEO_PREFIX,
+      { id: 'adapter_done', label: 'Stories Split', icon: 'layers', type: 'terminal', sourceTag: 'video' },
+    ]
+  }
+
+  return stages
 }
 
 // ── GET /api/article-pipeline/:id/detail — full article with all content fields ──
@@ -216,6 +227,19 @@ router.get('/:id/detail', async (req, res) => {
       },
     })
     if (!article) return res.status(404).json({ error: 'Article not found' })
+
+    // Fetch children (if this is a split parent) and parent (if this is a child)
+    const children = await db.article.findMany({
+      where: { parentArticleId: article.id },
+      select: { id: true, title: true, stage: true, status: true, finalScore: true, url: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    const parent = article.parentArticleId
+      ? await db.article.findUnique({
+          where: { id: article.parentArticleId },
+          select: { id: true, title: true, url: true },
+        })
+      : null
 
     const contentPreviewLen = 5000
     const truncate = (s) => s && s.length > contentPreviewLen ? s.slice(0, contentPreviewLen) + '…' : s
@@ -250,8 +274,11 @@ router.get('/:id/detail', async (req, res) => {
       source: article.source,
       createdAt: article.createdAt,
       updatedAt: article.updatedAt,
-      pipelineFlow: buildPipelineFlow(sourceType),
+      pipelineFlow: buildPipelineFlow(sourceType, article.stage),
       sourceType,
+      parentArticleId: article.parentArticleId || null,
+      parent: parent || null,
+      children: children.length > 0 ? children : null,
     })
   } catch (e) {
     res.status(500).json({ error: e.message })

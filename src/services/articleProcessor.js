@@ -1646,7 +1646,8 @@ function titleSuggestsMultipleStories(title) {
 async function doStageStoryDetect(article, project) {
   const log = getLog(article)
   const transcript = article.contentClean || article.content || ''
-  const title = article.title || ''
+  const analysis = article.analysis || {}
+  const title = analysis.originalTitle || article.title || ''
 
   if (transcript.length < 100) {
     log.push(lp('story_detect', { status: 'review', reason: 'Transcript too short for story detection' }))
