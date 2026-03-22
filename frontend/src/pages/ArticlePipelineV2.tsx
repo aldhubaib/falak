@@ -53,6 +53,18 @@ interface ApiBatch {
   finishedAt: string | null;
 }
 
+interface StepLog {
+  step: string;
+  stage: string;
+  label: string;
+  status: string;
+  processor?: string;
+  service?: string;
+  error?: string;
+  chars?: number;
+  at: string;
+}
+
 interface ApiBatchItem {
   id: string;
   articleId: string;
@@ -68,6 +80,7 @@ interface ApiBatchItem {
     status: string;
     error: string | null;
   } | null;
+  steps: StepLog[];
 }
 
 interface ApiBatchDetail {
@@ -879,10 +892,12 @@ function PipelineStageDrawer({
 /* ─── Batch Item Row ─── */
 
 function BatchItemRow({ item }: { item: ApiBatchItem }) {
+  const [expanded, setExpanded] = useState(false);
   const isOk = item.status === "succeeded";
   const isFail = item.status === "failed";
   const isBlocked = item.status === "blocked";
   const isReview = item.status === "review";
+  const hasSteps = item.steps && item.steps.length > 0;
 
   const statusIcon = isOk ? <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
     : isFail ? <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />
@@ -894,34 +909,80 @@ function BatchItemRow({ item }: { item: ApiBatchItem }) {
   const displayTitle = typeof title === "string" && title.length > 60 ? title.slice(0, 60) + "…" : title;
 
   return (
-    <div className="px-3 py-2 flex items-start gap-2">
-      <div className="mt-0.5">{statusIcon}</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-medium text-foreground truncate">{displayTitle}</div>
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          {item.article && (
-            <span className="text-[9px] font-mono text-muted-foreground">
-              → {item.article.stage} · {item.article.status}
-            </span>
-          )}
-          {item.durationMs != null && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/60">
-              <Clock className="w-2.5 h-2.5" />
-              {item.durationMs < 1000 ? `${item.durationMs}ms` : `${(item.durationMs / 1000).toFixed(1)}s`}
-            </span>
-          )}
-          {item.attempt > 1 && (
-            <span className="text-[9px] font-mono text-orange px-1 py-0.5 rounded bg-orange/10">
-              attempt {item.attempt}
-            </span>
+    <div>
+      <button
+        onClick={() => hasSteps && setExpanded(!expanded)}
+        className={`w-full px-3 py-2 flex items-start gap-2 text-left ${hasSteps ? "hover:bg-card/40 cursor-pointer" : ""} transition-colors`}
+      >
+        {hasSteps ? (
+          expanded ? <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" /> : <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
+        ) : (
+          <div className="mt-0.5">{statusIcon}</div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            {hasSteps && <div className="shrink-0">{statusIcon}</div>}
+            <span className="text-[11px] font-medium text-foreground truncate">{displayTitle}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            {item.article && (
+              <span className="text-[9px] font-mono text-muted-foreground">
+                → {item.article.stage} · {item.article.status}
+              </span>
+            )}
+            {item.durationMs != null && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/60">
+                <Clock className="w-2.5 h-2.5" />
+                {item.durationMs < 1000 ? `${item.durationMs}ms` : `${(item.durationMs / 1000).toFixed(1)}s`}
+              </span>
+            )}
+            {item.attempt > 1 && (
+              <span className="text-[9px] font-mono text-orange px-1 py-0.5 rounded bg-orange/10">
+                attempt {item.attempt}
+              </span>
+            )}
+            {hasSteps && !expanded && (
+              <span className="text-[9px] font-mono text-muted-foreground/40">
+                {item.steps.length} steps
+              </span>
+            )}
+          </div>
+          {item.error && !expanded && (
+            <div className="text-[10px] font-mono text-destructive/80 mt-1 leading-tight">
+              {item.error.length > 120 ? item.error.slice(0, 120) + "…" : item.error}
+            </div>
           )}
         </div>
-        {item.error && (
-          <div className="text-[10px] font-mono text-destructive/80 mt-1 leading-tight">
-            {item.error.length > 120 ? item.error.slice(0, 120) + "…" : item.error}
-          </div>
-        )}
-      </div>
+      </button>
+
+      {expanded && hasSteps && (
+        <div className="ml-6 mr-3 mb-2 space-y-0.5">
+          {item.steps.map((step, i) => {
+            const stepOk = step.status === "ok" || step.status === "created" || step.status === "linked";
+            const stepFail = step.status === "failed" || step.status === "parse_error";
+            const stepSkip = step.status === "skipped";
+            return (
+              <div key={`${step.step}-${i}`} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[10px] font-mono ${
+                stepOk ? "bg-success/5 text-success/90"
+                : stepFail ? "bg-destructive/5 text-destructive/90"
+                : stepSkip ? "bg-card/30 text-muted-foreground/50"
+                : "bg-primary/5 text-primary/90"
+              }`}>
+                {stepOk ? <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+                  : stepFail ? <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                  : stepSkip ? <Circle className="w-2.5 h-2.5 shrink-0" />
+                  : <Loader2 className="w-2.5 h-2.5 shrink-0" />}
+                <span className="font-semibold">{step.label || step.step}</span>
+                {step.processor && <ProcessorBadge type={step.processor} />}
+                {step.service && <span className="text-muted-foreground/60">{step.service}</span>}
+                {step.error && (
+                  <span className="text-destructive/70 truncate max-w-[200px]">{step.error}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

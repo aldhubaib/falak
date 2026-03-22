@@ -313,16 +313,24 @@ router.get('/batches/:id/items', async (req, res) => {
           select: {
             id: true, title: true, url: true,
             stage: true, status: true, error: true,
+            processingLog: true,
           },
         })
       : []
 
     const articleMap = new Map(articles.map(a => [a.id, a]))
 
-    const items = batch.items.map(item => ({
-      ...item,
-      article: articleMap.get(item.articleId) || null,
-    }))
+    const items = batch.items.map(item => {
+      const art = articleMap.get(item.articleId)
+      const stageSteps = art && Array.isArray(art.processingLog)
+        ? art.processingLog.filter(e => e.stage === batch.stage && e.step !== 'verdict')
+        : []
+      return {
+        ...item,
+        article: art ? { id: art.id, title: art.title, url: art.url, stage: art.stage, status: art.status, error: art.error } : null,
+        steps: stageSteps,
+      }
+    })
 
     res.json({
       id: batch.id,
