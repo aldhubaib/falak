@@ -7,9 +7,10 @@ import StoryRulesTab from "./StoryRules";
 import {
   Loader2, Pause, Play, Circle, CheckCircle2, AlertTriangle,
   ChevronRight, ChevronDown, Youtube, FileText, Download,
-  RotateCw, FlaskConical, X, ArrowRight, Filter,
+  RotateCw, X, Filter,
   Brain, Languages, Sparkles, Search, Hash, Layers,
-  Monitor, Zap, Globe, Target, Users, Image as ImageIcon, Info,
+  Zap, Globe, Target, Users, Image as ImageIcon, Clock,
+  ExternalLink, ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,7 +18,7 @@ import { toast } from "sonner";
 
 interface BatchEvent {
   pipeline: "article" | "video";
-  type: "tick_start" | "tick_end" | "batch_start" | "batch_done" | "stage_done" | "step";
+  type: "batch_start" | "batch_done" | "stage_done" | "step";
   stage?: string;
   batchId?: number;
   count?: number;
@@ -37,6 +38,48 @@ interface BatchEvent {
 interface StageStats {
   queued: number;
   running: number;
+}
+
+interface ApiBatch {
+  id: string;
+  pipeline: string;
+  stage: string;
+  batchSeq: number;
+  itemCount: number;
+  succeededCount: number;
+  failedCount: number;
+  catchup: boolean;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+interface ApiBatchItem {
+  id: string;
+  articleId: string;
+  status: string;
+  error: string | null;
+  durationMs: number | null;
+  attempt: number;
+  article: {
+    id: string;
+    title: string | null;
+    url: string;
+    stage: string;
+    status: string;
+    error: string | null;
+  } | null;
+}
+
+interface ApiBatchDetail {
+  id: string;
+  stage: string;
+  batchSeq: number;
+  itemCount: number;
+  succeededCount: number;
+  failedCount: number;
+  startedAt: string;
+  finishedAt: string | null;
+  items: ApiBatchItem[];
 }
 
 /* ─── Constants ─── */
@@ -115,7 +158,7 @@ function Shell({ activeTab, setTab, children }: { activeTab: Tab; setTab: (t: Ta
   );
 }
 
-/* ─── Pipeline View (vertical trees + SSE) ─── */
+/* ─── Pipeline View ─── */
 
 function PipelineView() {
   const { channelId } = useParams();
@@ -146,10 +189,15 @@ function PipelineView() {
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
+  // Poll stats every 8s (no tick_end events in concurrent model)
+  useEffect(() => {
+    const timer = setInterval(fetchStats, 8_000);
+    return () => clearInterval(timer);
+  }, [fetchStats]);
+
   // SSE connection
   useEffect(() => {
     const es = new EventSource("/api/article-pipeline/live", { withCredentials: true });
-    let statsTimer: ReturnType<typeof setInterval>;
 
     es.onopen = () => setConnected(true);
 
@@ -162,18 +210,11 @@ function PipelineView() {
         });
 
         if (evt.type === "batch_start" && evt.batchId != null) {
-          setActiveBatches((prev) => {
-            const next = new Map(prev);
-            next.set(evt.batchId!, evt);
-            return next;
-          });
+          setActiveBatches((prev) => { const n = new Map(prev); n.set(evt.batchId!, evt); return n; });
         }
         if (evt.type === "batch_done" && evt.batchId != null) {
-          setActiveBatches((prev) => {
-            const next = new Map(prev);
-            next.delete(evt.batchId!);
-            return next;
-          });
+          setActiveBatches((prev) => { const n = new Map(prev); n.delete(evt.batchId!); return n; });
+          fetchStats();
         }
 
         if (evt.type === "step") {
@@ -182,29 +223,17 @@ function PipelineView() {
             return next.length > 500 ? next.slice(-500) : next;
           });
         }
-
-        // Refresh stats on tick_end or stage_done
-        if (evt.type === "tick_end" || evt.type === "stage_done") {
-          fetchStats();
-          setStepEvents([]); // clear step events on tick boundary
-        }
       } catch (_) {}
     };
 
     es.onerror = () => {
       setConnected(false);
       es.close();
-      // Fallback to polling
-      statsTimer = setInterval(fetchStats, 5000);
     };
 
-    return () => {
-      es.close();
-      if (statsTimer) clearInterval(statsTimer);
-    };
+    return () => { es.close(); };
   }, [fetchStats]);
 
-  // Auto-scroll events
   useEffect(() => {
     eventsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [events]);
@@ -222,27 +251,18 @@ function PipelineView() {
   const articleDone = articleStats.done ?? 0;
   const donePct = articleTotal > 0 ? ((articleDone / articleTotal) * 100).toFixed(1) : "0";
 
-  // Find bottleneck (highest count in active stages)
   const articleProcessing = ARTICLE_STAGES.reduce((sum, s) => sum + (articleStats[s.id] ?? 0), 0);
   const bottleneck = ARTICLE_STAGES.reduce<{ id: string; count: number } | null>((best, s) => {
     const c = articleStats[s.id] ?? 0;
     return c > (best?.count ?? 0) ? { id: s.id, count: c } : best;
   }, null);
 
-  // Recent events for the activity feed (last 50 batch_done events)
   const batchDoneEvents = events.filter((e) => e.type === "batch_done").slice(-50);
 
-  // Active batches per stage
-  const activeBatchesByStage = (pipeline: string, stageId: string) => {
-    return Array.from(activeBatches.values()).filter(
-      (b) => b.pipeline === pipeline && b.stage === stageId
-    );
-  };
+  const activeBatchesByStage = (pipeline: string, stageId: string) =>
+    Array.from(activeBatches.values()).filter((b) => b.pipeline === pipeline && b.stage === stageId);
 
-  // Recent step events per stage (for sub-step indicators)
-  const stepsByStage = (stageId: string) => {
-    return stepEvents.filter((e) => e.stage === stageId);
-  };
+  const stepsByStage = (stageId: string) => stepEvents.filter((e) => e.stage === stageId);
 
   if (loading) {
     return (
@@ -256,7 +276,7 @@ function PipelineView() {
     <div className="flex-1 overflow-auto">
       <div className="max-w-xl mx-auto px-6 py-6 max-lg:px-4">
 
-        {/* ── Controls ── */}
+        {/* Controls */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <button
@@ -284,7 +304,7 @@ function PipelineView() {
           </Link>
         </div>
 
-        {/* ── Summary card ── */}
+        {/* Summary card */}
         <div className="rounded-xl border border-border bg-card p-5 mb-8">
           <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
             <div className="flex items-center gap-5">
@@ -316,7 +336,7 @@ function PipelineView() {
           </div>
         </div>
 
-        {/* ── Video Pipeline Tree ── */}
+        {/* Video Pipeline */}
         {hasVideo && (
           <>
             <div className="flex items-center gap-2 mb-4">
@@ -330,33 +350,24 @@ function PipelineView() {
                 const isActive = activeBatchesByStage("video", stage.id).length > 0;
                 const batches = activeBatchesByStage("video", stage.id);
                 const isLast = i === VIDEO_STAGES.length - 1;
-                const isDone = (videoStats.done ?? 0) > 0;
-
                 return (
                   <div key={stage.id} className="flex flex-col items-center w-full">
                     <StageNode
-                      stage={stage}
-                      count={count}
-                      isActive={isActive}
-                      activeBatches={batches}
-                      isBottleneck={false}
-                      isDone={count === 0 && i === 0 && isDone}
-                      onClick={() => setDrawerStage(`video:${stage.id}`)}
-                      recentBatches={batchDoneEvents.filter((e) => e.pipeline === "video" && e.stage === stage.id)}
-                      liveSteps={stepsByStage(stage.id)}
+                      stage={stage} count={count} isActive={isActive} activeBatches={batches}
+                      isBottleneck={false} isDone={count === 0 && i === 0 && (videoStats.done ?? 0) > 0}
+                      onClick={() => setDrawerStage(`video:${stage.id}`)} liveSteps={stepsByStage(stage.id)}
                     />
                     {!isLast && <Connector active={count === 0} />}
                   </div>
                 );
               })}
-              {/* Done node */}
               <Connector active={(videoStats.done ?? 0) > 0} />
               <OutcomeNode label="Done" count={videoStats.done ?? 0} color="text-success" bg="bg-success" icon={CheckCircle2} />
             </div>
           </>
         )}
 
-        {/* ── Article Pipeline Tree ── */}
+        {/* Article Pipeline */}
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-4 h-4 text-primary" />
           <span className="text-[13px] font-semibold text-foreground">Article Pipeline</span>
@@ -369,19 +380,12 @@ function PipelineView() {
             const batches = activeBatchesByStage("article", stage.id);
             const isBottleneck = bottleneck?.id === stage.id && bottleneck.count > 0;
             const isLast = i === ARTICLE_STAGES.length - 1;
-
             return (
               <div key={stage.id} className="flex flex-col items-center w-full">
                 <StageNode
-                  stage={stage}
-                  count={count}
-                  isActive={isActive}
-                  activeBatches={batches}
-                  isBottleneck={isBottleneck}
-                  isDone={false}
-                  onClick={() => setDrawerStage(`article:${stage.id}`)}
-                  recentBatches={batchDoneEvents.filter((e) => e.pipeline === "article" && e.stage === stage.id)}
-                  liveSteps={stepsByStage(stage.id)}
+                  stage={stage} count={count} isActive={isActive} activeBatches={batches}
+                  isBottleneck={isBottleneck} isDone={false}
+                  onClick={() => setDrawerStage(`article:${stage.id}`)} liveSteps={stepsByStage(stage.id)}
                 />
                 {!isLast && <Connector active={count === 0} />}
               </div>
@@ -389,7 +393,7 @@ function PipelineView() {
           })}
         </div>
 
-        {/* ── Outcomes ── */}
+        {/* Outcomes */}
         <div className="grid grid-cols-4 gap-3 mb-8 max-sm:grid-cols-2">
           {OUTCOMES.map((o) => {
             const count = articleStats[o.id] ?? 0;
@@ -406,7 +410,7 @@ function PipelineView() {
           })}
         </div>
 
-        {/* ── Live Activity Feed ── */}
+        {/* Live Activity Feed */}
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
             <Zap className="w-3.5 h-3.5 text-primary" />
@@ -428,26 +432,19 @@ function PipelineView() {
         </div>
       </div>
 
-      {/* ═══ Stage Detail Drawer ═══ */}
+      {/* Stage Detail Drawer */}
       {drawerStage && (() => {
         const [pipeline, stageId] = drawerStage.split(":") as [string, string];
         const stageDef = [...ARTICLE_STAGES, ...VIDEO_STAGES].find((s) => s.id === stageId);
         const stageSteps = stepsByStage(stageId);
-        const stageBatches = batchDoneEvents.filter((e) => e.pipeline === pipeline && e.stage === stageId);
         const stageActiveBatches = activeBatchesByStage(pipeline, stageId);
         const count = pipeline === "article" ? (articleStats[stageId] ?? 0) : (videoStats[stageId] ?? 0);
-
         return (
           <PipelineStageDrawer
-            stageId={stageId}
-            pipeline={pipeline}
-            stageDef={stageDef}
-            count={count}
-            isActive={stageActiveBatches.length > 0}
-            activeBatches={stageActiveBatches}
-            recentBatches={stageBatches}
-            liveSteps={stageSteps}
-            onClose={() => setDrawerStage(null)}
+            stageId={stageId} pipeline={pipeline} stageDef={stageDef} count={count}
+            isActive={stageActiveBatches.length > 0} activeBatches={stageActiveBatches}
+            liveSteps={stageSteps} onClose={() => setDrawerStage(null)}
+            channelId={channelId}
           />
         );
       })()}
@@ -455,66 +452,33 @@ function PipelineView() {
   );
 }
 
-/* ─── Stage Node (ArticleDetail TreeNode style) ─── */
+/* ─── Stage Node ─── */
 
 function StageNode({
-  stage,
-  count,
-  isActive,
-  activeBatches,
-  isBottleneck,
-  isDone,
-  onClick,
-  recentBatches,
-  liveSteps = [],
+  stage, count, isActive, activeBatches, isBottleneck, isDone, onClick, liveSteps = [],
 }: {
   stage: { id: string; label: string; icon: typeof FileText; color: string; bg: string };
-  count: number;
-  isActive: boolean;
-  activeBatches: BatchEvent[];
-  isBottleneck: boolean;
-  isDone: boolean;
-  onClick: () => void;
-  recentBatches: BatchEvent[];
-  liveSteps?: BatchEvent[];
+  count: number; isActive: boolean; activeBatches: BatchEvent[]; isBottleneck: boolean;
+  isDone: boolean; onClick: () => void; liveSteps?: BatchEvent[];
 }) {
   const Icon = stage.icon;
   const isEmpty = count === 0 && !isActive;
 
-  const borderColor = isBottleneck
-    ? `border-current ${stage.color}`
-    : isActive
-      ? "border-primary/40"
-      : isEmpty
-        ? "border-border/50"
-        : "border-border";
-
-  const bgColor = isBottleneck
-    ? `${stage.bg}/10`
-    : isActive
-      ? "bg-card"
-      : "bg-card";
-
-  const ringColor = isBottleneck
-    ? `ring-current/20`
-    : isActive
-      ? "ring-primary/20"
-      : "";
-
   return (
     <button
       onClick={onClick}
-      className={`w-full max-w-[340px] rounded-xl border-2 ${borderColor} ${bgColor} px-4 py-3 text-left transition-all hover:ring-4 ${ringColor} hover:scale-[1.02]`}
+      className={`w-full max-w-[340px] rounded-xl border-2 px-4 py-3 text-left transition-all hover:ring-4 hover:scale-[1.02] ${
+        isBottleneck ? `border-current ${stage.color} ${stage.bg}/10 ring-current/20`
+        : isActive ? "border-primary/40 bg-card ring-primary/20"
+        : isEmpty ? "border-border/50 bg-card" : "border-border bg-card"
+      }`}
     >
       <div className="flex items-center gap-3">
         {isActive ? (
-          <Loader2 className={`w-5 h-5 text-primary shrink-0 animate-spin`} />
+          <Loader2 className="w-5 h-5 text-primary shrink-0 animate-spin" />
         ) : (
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-            isDone ? "bg-success/15" :
-            isBottleneck ? `${stage.bg}/15` :
-            isEmpty ? "bg-card" :
-            "bg-card"
+            isDone ? "bg-success/15" : isBottleneck ? `${stage.bg}/15` : "bg-card"
           }`}>
             <Icon className={`w-4 h-4 ${isEmpty ? "text-muted-foreground/40" : stage.color}`} />
           </div>
@@ -544,22 +508,11 @@ function StageNode({
             {!isActive && count === 0 && !isDone && (
               <span className="text-[10px] text-muted-foreground/50">Empty</span>
             )}
-            {recentBatches.length > 0 && !isActive && (
-              <span className="text-[10px] font-mono text-muted-foreground">
-                Last batch: {recentBatches[recentBatches.length - 1].count} items
-                {(recentBatches[recentBatches.length - 1].failed ?? 0) > 0 && (
-                  <span className="text-destructive ml-1">
-                    ({recentBatches[recentBatches.length - 1].failed} failed)
-                  </span>
-                )}
-              </span>
-            )}
           </div>
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
       </div>
 
-      {/* Live sub-step indicators (compact) */}
       {liveSteps.length > 0 && (
         <div className="mt-2 pt-2 border-t border-border/30 flex flex-wrap gap-1">
           {(() => {
@@ -569,14 +522,11 @@ function StageNode({
               const isOk = s.status === "ok" || s.status === "created" || s.status === "linked";
               const isFail = s.status === "failed" || s.status === "parse_error";
               return (
-                <span
-                  key={s.step}
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
-                    isOk ? "bg-success/5 border-success/20 text-success"
-                      : isFail ? "bg-destructive/5 border-destructive/20 text-destructive"
-                        : "bg-primary/5 border-primary/20 text-primary"
-                  }`}
-                >
+                <span key={s.step} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
+                  isOk ? "bg-success/5 border-success/20 text-success"
+                  : isFail ? "bg-destructive/5 border-destructive/20 text-destructive"
+                  : "bg-primary/5 border-primary/20 text-primary"
+                }`}>
                   {isOk ? <CheckCircle2 className="w-2.5 h-2.5" /> : isFail ? <AlertTriangle className="w-2.5 h-2.5" /> : <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                   {s.label || s.step}
                 </span>
@@ -589,24 +539,16 @@ function StageNode({
   );
 }
 
-/* ─── Connector (line between nodes) ─── */
-
 function Connector({ active }: { active: boolean }) {
-  return (
-    <div className="flex flex-col items-center">
-      <div className={`w-px h-8 ${active ? "bg-border" : "bg-border/30"}`} />
-    </div>
-  );
+  return <div className="flex flex-col items-center"><div className={`w-px h-8 ${active ? "bg-border" : "bg-border/30"}`} /></div>;
 }
-
-/* ─── Outcome Node ─── */
 
 function OutcomeNode({ label, count, color, bg, icon: Icon }: {
   label: string; count: number; color: string; bg: string; icon: typeof CheckCircle2;
 }) {
   return (
     <div className={`w-full max-w-[340px] rounded-xl border-2 px-4 py-3 ${
-      count > 0 ? `border-success/40 bg-card` : "border-border/50 bg-card opacity-40"
+      count > 0 ? "border-success/40 bg-card" : "border-border/50 bg-card opacity-40"
     }`}>
       <div className="flex items-center gap-3">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${count > 0 ? "bg-success/15" : "bg-card"}`}>
@@ -622,8 +564,6 @@ function OutcomeNode({ label, count, color, bg, icon: Icon }: {
     </div>
   );
 }
-
-/* ─── Activity Row ─── */
 
 function ActivityRow({ event }: { event: BatchEvent }) {
   const stageDef = [...ARTICLE_STAGES, ...VIDEO_STAGES].find((s) => s.id === event.stage);
@@ -643,7 +583,7 @@ function ActivityRow({ event }: { event: BatchEvent }) {
   );
 }
 
-/* ─── Stage Drawer (ArticleDetail style) ─── */
+/* ─── Stage Drawer (with persistent batch history) ─── */
 
 const STAGE_STEPS: Record<string, { step: string; label: string; subtitle: string; icon: typeof FileText }[]> = {
   transcript: [
@@ -690,44 +630,30 @@ const STAGE_STEPS: Record<string, { step: string; label: string; subtitle: strin
     { step: "translate_analysis", label: "Translate Fields", subtitle: "Classification fields → Arabic", icon: Brain },
     { step: "translate_research", label: "Translate Brief", subtitle: "Research brief → Arabic", icon: Search },
   ],
-  import: [
-    { step: "import", label: "Import Video", subtitle: "Queue video for processing", icon: Download },
-  ],
-  transcribe: [
-    { step: "transcribe", label: "Transcribe", subtitle: "YouTube transcript extraction", icon: Youtube },
-  ],
-  comments: [
-    { step: "comments", label: "Comments", subtitle: "Fetch YouTube comments", icon: FileText },
-  ],
-  analyzing: [
-    { step: "analyzing", label: "Analyzing", subtitle: "AI analysis of video content", icon: Brain },
-  ],
+  import: [{ step: "import", label: "Import Video", subtitle: "Queue video for processing", icon: Download }],
+  transcribe: [{ step: "transcribe", label: "Transcribe", subtitle: "YouTube transcript extraction", icon: Youtube }],
+  comments: [{ step: "comments", label: "Comments", subtitle: "Fetch YouTube comments", icon: FileText }],
+  analyzing: [{ step: "analyzing", label: "Analyzing", subtitle: "AI analysis of video content", icon: Brain }],
 };
 
 function PipelineStageDrawer({
-  stageId,
-  pipeline,
-  stageDef,
-  count,
-  isActive,
-  activeBatches,
-  recentBatches,
-  liveSteps,
-  onClose,
+  stageId, pipeline, stageDef, count, isActive, activeBatches, liveSteps, onClose, channelId,
 }: {
-  stageId: string;
-  pipeline: string;
+  stageId: string; pipeline: string;
   stageDef?: { id: string; label: string; icon: typeof FileText; color: string; bg: string };
-  count: number;
-  isActive: boolean;
-  activeBatches: BatchEvent[];
-  recentBatches: BatchEvent[];
-  liveSteps: BatchEvent[];
-  onClose: () => void;
+  count: number; isActive: boolean; activeBatches: BatchEvent[];
+  liveSteps: BatchEvent[]; onClose: () => void; channelId?: string;
 }) {
   const Icon = stageDef?.icon ?? FileText;
   const color = stageDef?.color ?? "text-muted-foreground";
   const stepsSpec = STAGE_STEPS[stageId] || [];
+
+  // Persistent batch history from API
+  const [batches, setBatches] = useState<ApiBatch[]>([]);
+  const [batchesLoading, setBatchesLoading] = useState(true);
+  const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
+  const [batchItems, setBatchItems] = useState<Record<string, ApiBatchDetail | null>>({});
+  const [itemsLoading, setItemsLoading] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -735,13 +661,43 @@ function PipelineStageDrawer({
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  // Build live step status map: step → latest event
-  const stepStatusMap = new Map<string, BatchEvent>();
-  for (const s of liveSteps) {
-    if (s.step) stepStatusMap.set(s.step, s);
-  }
+  // Fetch batch history on mount + poll every 15s
+  const fetchBatches = useCallback(() => {
+    const params = new URLSearchParams({ stage: stageId, pipeline });
+    if (channelId) params.set("channelId", channelId);
+    fetch(`/api/article-pipeline/batches?${params}`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((data) => setBatches(data))
+      .catch(() => {})
+      .finally(() => setBatchesLoading(false));
+  }, [stageId, pipeline, channelId]);
 
-  // Group live steps by article
+  useEffect(() => {
+    fetchBatches();
+    const timer = setInterval(fetchBatches, 15_000);
+    return () => clearInterval(timer);
+  }, [fetchBatches]);
+
+  // Fetch items when expanding a batch
+  const toggleBatch = (batchId: string) => {
+    if (expandedBatch === batchId) {
+      setExpandedBatch(null);
+      return;
+    }
+    setExpandedBatch(batchId);
+    if (batchItems[batchId]) return;
+
+    setItemsLoading(batchId);
+    fetch(`/api/article-pipeline/batches/${batchId}/items`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((data: ApiBatchDetail) => setBatchItems((prev) => ({ ...prev, [batchId]: data })))
+      .catch(() => setBatchItems((prev) => ({ ...prev, [batchId]: null })))
+      .finally(() => setItemsLoading(null));
+  };
+
+  const stepStatusMap = new Map<string, BatchEvent>();
+  for (const s of liveSteps) { if (s.step) stepStatusMap.set(s.step, s); }
+
   const byArticle = new Map<string, BatchEvent[]>();
   for (const s of liveSteps) {
     const key = s.articleId || "unknown";
@@ -774,15 +730,12 @@ function PipelineStageDrawer({
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-card border border-border transition-colors"
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-card border border-border transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
 
-        {/* Sub-steps (API calls within this stage) */}
+        {/* Sub-steps */}
         {stepsSpec.length > 0 && (
           <div className="px-5 py-4 space-y-2">
             <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
@@ -797,18 +750,14 @@ function PipelineStageDrawer({
               const isFail = status === "failed" || status === "parse_error";
               const isSkipped = status === "skipped";
               const isPending = !live;
-
               return (
-                <div
-                  key={spec.step}
-                  className={`px-3 py-2.5 rounded-lg border space-y-1 ${
-                    isPending ? "bg-card/20 border-border/50 opacity-50"
-                      : isOk ? "bg-card/50 border-success/20"
-                        : isFail ? "bg-card/50 border-destructive/20"
-                          : isSkipped ? "bg-card/20 border-border/50 opacity-60"
-                            : "bg-card/50 border-primary/20"
-                  }`}
-                >
+                <div key={spec.step} className={`px-3 py-2.5 rounded-lg border space-y-1 ${
+                  isPending ? "bg-card/20 border-border/50 opacity-50"
+                  : isOk ? "bg-card/50 border-success/20"
+                  : isFail ? "bg-card/50 border-destructive/20"
+                  : isSkipped ? "bg-card/20 border-border/50 opacity-60"
+                  : "bg-card/50 border-primary/20"
+                }`}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <StepIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="text-[11px] font-semibold">{spec.label}</span>
@@ -824,14 +773,21 @@ function PipelineStageDrawer({
           </div>
         )}
 
-        {/* Per-article progress (when multiple articles are in-flight) */}
-        {articleEntries.length > 0 && (
+        {/* Currently processing (live) */}
+        {(activeBatches.length > 0 || articleEntries.length > 0) && (
           <div className="px-5 py-4 border-t border-border/50 space-y-2">
             <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
-              <FileText className="w-3 h-3" />
-              <span>Articles in flight ({articleEntries.length})</span>
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Currently Processing</span>
             </div>
-            {articleEntries.slice(0, 15).map(([artId, artSteps]) => (
+            {activeBatches.map((b) => (
+              <div key={b.batchId} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+                <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />
+                <span className="text-[11px] font-mono text-primary font-semibold">Batch #{b.batchId}</span>
+                <span className="text-[11px] font-mono text-muted-foreground">{b.count} items</span>
+              </div>
+            ))}
+            {articleEntries.slice(0, 10).map(([artId, artSteps]) => (
               <div key={artId} className="px-3 py-2 rounded-lg bg-card/30 border border-border/50">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-[10px] font-mono text-muted-foreground">…{artId.slice(-8)}</span>
@@ -842,14 +798,11 @@ function PipelineStageDrawer({
                     const isOk = s.status === "ok" || s.status === "created" || s.status === "linked";
                     const isFail = s.status === "failed" || s.status === "parse_error";
                     return (
-                      <span
-                        key={`${s.step}-${i}`}
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
-                          isOk ? "bg-success/5 border-success/20 text-success"
-                            : isFail ? "bg-destructive/5 border-destructive/20 text-destructive"
-                              : "bg-primary/5 border-primary/20 text-primary"
-                        }`}
-                      >
+                      <span key={`${s.step}-${i}`} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
+                        isOk ? "bg-success/5 border-success/20 text-success"
+                        : isFail ? "bg-destructive/5 border-destructive/20 text-destructive"
+                        : "bg-primary/5 border-primary/20 text-primary"
+                      }`}>
                         {isOk ? <CheckCircle2 className="w-2.5 h-2.5" /> : isFail ? <AlertTriangle className="w-2.5 h-2.5" /> : <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                         {s.label || s.step}
                       </span>
@@ -861,45 +814,92 @@ function PipelineStageDrawer({
           </div>
         )}
 
-        {/* Active batches */}
-        {activeBatches.length > 0 && (
-          <div className="px-5 py-4 border-t border-border/50 space-y-2">
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Active Batches</span>
-            </div>
-            {activeBatches.map((b) => (
-              <div key={b.batchId} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
-                <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />
-                <span className="text-[11px] font-mono text-primary font-semibold">Batch #{b.batchId}</span>
-                <span className="text-[11px] font-mono text-muted-foreground">{b.count} items</span>
-                {b.catchup && <span className="text-[9px] font-mono text-orange px-1.5 py-0.5 rounded bg-orange/10">catch-up</span>}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Batch history */}
-        <div className="px-5 py-4 border-t border-border/50 space-y-2">
+        {/* ═══ Persistent Batch History ═══ */}
+        <div className="px-5 py-4 border-t border-border/50">
           <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
-            <RotateCw className="w-3 h-3" />
-            <span>Batch History ({recentBatches.length})</span>
+            <RotateCw className={`w-3 h-3 ${batchesLoading ? "animate-spin" : ""}`} />
+            <span>Batch History ({batches.length})</span>
           </div>
-          {recentBatches.length === 0 ? (
-            <div className="text-[11px] text-muted-foreground font-mono text-center py-6">No batches recorded yet</div>
+
+          {batchesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : batches.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground font-mono text-center py-8">
+              No batches recorded yet for this stage
+            </div>
           ) : (
-            recentBatches.slice(-20).reverse().map((b, i) => (
-              <div key={`${b.batchId}-${i}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card/50 border border-border/50">
-                <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
-                <span className="text-[11px] font-mono text-muted-foreground">#{b.batchId}</span>
-                <span className="text-[11px] font-mono text-foreground">{b.count} items</span>
-                {(b.failed ?? 0) > 0 && (
-                  <span className="text-[11px] font-mono text-destructive">{b.failed} failed</span>
-                )}
-                {b.catchup && <span className="text-[9px] font-mono text-orange px-1.5 py-0.5 rounded bg-orange/10">catch-up</span>}
-                <span className="text-[9px] font-mono text-muted-foreground/50 ml-auto">{fmtAgo(b.ts)}</span>
-              </div>
-            ))
+            <div className="space-y-1.5">
+              {batches.map((batch) => {
+                const isExpanded = expandedBatch === batch.id;
+                const detail = batchItems[batch.id];
+                const isLoadingItems = itemsLoading === batch.id;
+                const pct = batch.itemCount > 0 ? Math.round((batch.succeededCount / batch.itemCount) * 100) : 0;
+                const statusColor = batch.failedCount === 0 ? "text-success" : batch.succeededCount === 0 ? "text-destructive" : "text-orange";
+                const statusBg = batch.failedCount === 0 ? "bg-success" : batch.succeededCount === 0 ? "bg-destructive" : "bg-orange";
+
+                return (
+                  <div key={batch.id} className="rounded-lg border border-border/50 overflow-hidden">
+                    {/* Batch header — clickable */}
+                    <button
+                      onClick={() => toggleBatch(batch.id)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-card/50 transition-colors text-left"
+                    >
+                      {isExpanded ? <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" /> : <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />}
+
+                      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-mono text-muted-foreground">#{batch.batchSeq}</span>
+
+                        {/* Progress bar */}
+                        <div className="w-16 h-1.5 bg-border rounded-full overflow-hidden shrink-0">
+                          <div className={`h-full ${statusBg} rounded-full`} style={{ width: `${pct}%` }} />
+                        </div>
+
+                        <span className={`text-[11px] font-mono font-semibold ${statusColor}`}>
+                          {batch.succeededCount}/{batch.itemCount}
+                        </span>
+
+                        {batch.failedCount > 0 && (
+                          <span className="text-[10px] font-mono text-destructive">
+                            {batch.failedCount} failed
+                          </span>
+                        )}
+
+                        {batch.catchup && (
+                          <span className="text-[9px] font-mono text-orange px-1.5 py-0.5 rounded bg-orange/10">catch-up</span>
+                        )}
+                      </div>
+
+                      <span className="text-[9px] font-mono text-muted-foreground/50 shrink-0">
+                        {batch.finishedAt ? fmtAgo(new Date(batch.finishedAt).getTime()) : "running…"}
+                      </span>
+                    </button>
+
+                    {/* Expanded items */}
+                    {isExpanded && (
+                      <div className="border-t border-border/30 bg-card/20">
+                        {isLoadingItems ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : detail ? (
+                          <div className="divide-y divide-border/30">
+                            {detail.items.map((item) => (
+                              <BatchItemRow key={item.id} item={item} />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-muted-foreground font-mono text-center py-4">
+                            Failed to load items
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -907,15 +907,63 @@ function PipelineStageDrawer({
   );
 }
 
+/* ─── Batch Item Row ─── */
+
+function BatchItemRow({ item }: { item: ApiBatchItem }) {
+  const isOk = item.status === "succeeded";
+  const isFail = item.status === "failed";
+  const isBlocked = item.status === "blocked";
+  const isReview = item.status === "review";
+
+  const statusIcon = isOk ? <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+    : isFail ? <AlertTriangle className="w-3 h-3 text-destructive shrink-0" />
+    : isBlocked ? <ShieldAlert className="w-3 h-3 text-orange shrink-0" />
+    : isReview ? <AlertTriangle className="w-3 h-3 text-orange shrink-0" />
+    : <Circle className="w-3 h-3 text-muted-foreground shrink-0" />;
+
+  const title = item.article?.title || item.article?.url || item.articleId;
+  const displayTitle = typeof title === "string" && title.length > 60 ? title.slice(0, 60) + "…" : title;
+
+  return (
+    <div className="px-3 py-2 flex items-start gap-2">
+      <div className="mt-0.5">{statusIcon}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] font-medium text-foreground truncate">{displayTitle}</div>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {item.article && (
+            <span className="text-[9px] font-mono text-muted-foreground">
+              → {item.article.stage} · {item.article.status}
+            </span>
+          )}
+          {item.durationMs != null && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/60">
+              <Clock className="w-2.5 h-2.5" />
+              {item.durationMs < 1000 ? `${item.durationMs}ms` : `${(item.durationMs / 1000).toFixed(1)}s`}
+            </span>
+          )}
+          {item.attempt > 1 && (
+            <span className="text-[9px] font-mono text-orange px-1 py-0.5 rounded bg-orange/10">
+              attempt {item.attempt}
+            </span>
+          )}
+        </div>
+        {item.error && (
+          <div className="text-[10px] font-mono text-destructive/80 mt-1 leading-tight">
+            {item.error.length > 120 ? item.error.slice(0, 120) + "…" : item.error}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Shared Badges ─── */
+
 function ProcessorBadge({ type }: { type: string }) {
   const style = type === "ai" ? "bg-purple/10 text-purple border-purple/20"
     : type === "api" ? "bg-primary/10 text-primary border-primary/20"
-      : "bg-card text-muted-foreground border-border";
-  return (
-    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${style}`}>
-      {type}
-    </span>
-  );
+    : "bg-card text-muted-foreground border-border";
+  return <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${style}`}>{type}</span>;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -924,13 +972,9 @@ function StatusBadge({ status }: { status: string }) {
   const isSkipped = status === "skipped";
   const style = isOk ? "bg-success/10 text-success border-success/20"
     : isFail ? "bg-destructive/10 text-destructive border-destructive/20"
-      : isSkipped ? "bg-card text-muted-foreground border-border"
-        : "bg-orange/10 text-orange border-orange/20";
-  return (
-    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${style}`}>
-      {status}
-    </span>
-  );
+    : isSkipped ? "bg-card text-muted-foreground border-border"
+    : "bg-orange/10 text-orange border-orange/20";
+  return <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${style}`}>{status}</span>;
 }
 
 /* ─── Helpers ─── */

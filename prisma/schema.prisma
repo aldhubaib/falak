@@ -482,6 +482,42 @@ model AppSetting {
 }
 
 // ─────────────────────────────────────────────
+// PIPELINE BATCHES (persisted batch history for monitoring)
+// ─────────────────────────────────────────────
+model PipelineBatch {
+  id             String              @id @default(cuid())
+  pipeline       String
+  stage          String
+  batchSeq       Int
+  itemCount      Int
+  succeededCount Int                 @default(0)
+  failedCount    Int                 @default(0)
+  catchup        Boolean             @default(false)
+  channelIds     String[]
+  startedAt      DateTime            @default(now())
+  finishedAt     DateTime?
+  items          PipelineBatchItem[]
+
+  @@index([pipeline, stage, finishedAt(sort: Desc)])
+  @@index([channelIds])
+}
+
+model PipelineBatchItem {
+  id         String        @id @default(cuid())
+  batchId    String
+  batch      PipelineBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  articleId  String
+  status     String
+  error      String?
+  durationMs Int?
+  attempt    Int           @default(1)
+  createdAt  DateTime      @default(now())
+
+  @@index([batchId])
+  @@index([articleId, createdAt(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────
 // ALERTS
 // ─────────────────────────────────────────────
 model Alert {

@@ -264,6 +264,82 @@ router.get('/live', async (req, res) => {
   res.on('close', cleanup)
 })
 
+// ── GET /api/article-pipeline/batches?stage=X&channelId=Y — persisted batch history for a stage ──
+router.get('/batches', async (req, res) => {
+  try {
+    const { stage, channelId, pipeline = 'article', limit = '30' } = req.query
+    if (!stage) return res.status(400).json({ error: 'stage required' })
+
+    const where = { pipeline, stage }
+    if (channelId) where.channelIds = { has: channelId }
+
+    const batches = await db.pipelineBatch.findMany({
+      where,
+      orderBy: { finishedAt: 'desc' },
+      take: Math.min(Number(limit) || 30, 100),
+      select: {
+        id: true, pipeline: true, stage: true, batchSeq: true,
+        itemCount: true, succeededCount: true, failedCount: true,
+        catchup: true, startedAt: true, finishedAt: true,
+      },
+    })
+    res.json(batches)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// ── GET /api/article-pipeline/batches/:id/items — articles in a batch with current state ──
+router.get('/batches/:id/items', async (req, res) => {
+  try {
+    const batch = await db.pipelineBatch.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true, articleId: true, status: true,
+            error: true, durationMs: true, attempt: true,
+          },
+        },
+      },
+    })
+    if (!batch) return res.status(404).json({ error: 'Batch not found' })
+
+    const articleIds = batch.items.map(i => i.articleId)
+    const articles = articleIds.length > 0
+      ? await db.article.findMany({
+          where: { id: { in: articleIds } },
+          select: {
+            id: true, title: true, url: true,
+            stage: true, status: true, error: true,
+          },
+        })
+      : []
+
+    const articleMap = new Map(articles.map(a => [a.id, a]))
+
+    const items = batch.items.map(item => ({
+      ...item,
+      article: articleMap.get(item.articleId) || null,
+    }))
+
+    res.json({
+      id: batch.id,
+      stage: batch.stage,
+      batchSeq: batch.batchSeq,
+      itemCount: batch.itemCount,
+      succeededCount: batch.succeededCount,
+      failedCount: batch.failedCount,
+      startedAt: batch.startedAt,
+      finishedAt: batch.finishedAt,
+      items,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ── GET /api/article-pipeline/stats-combined?channelId=X — lightweight counts for both pipelines ──
 router.get('/stats-combined', async (req, res) => {
   try {
