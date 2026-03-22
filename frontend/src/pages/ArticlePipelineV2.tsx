@@ -253,10 +253,7 @@ function PipelineView() {
       } catch (_) {}
     };
 
-    es.onerror = () => {
-      setConnected(false);
-      es.close();
-    };
+    es.onerror = () => setConnected(false);
 
     return () => { es.close(); };
   }, [fetchStats]);
