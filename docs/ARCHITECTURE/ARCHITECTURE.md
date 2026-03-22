@@ -782,7 +782,7 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 |---|---|---|---|---|
 | GET | `/api/stories` | Yes | List stories by channel/stage, sorted by compositeScore. | — |
 | GET | `/api/stories/summary` | Yes | Stage counts and first-mover stats. | — |
-| GET | `/api/stories/:id` | Yes | Single story with full log history. | — |
+| GET | `/api/stories/:id` | Yes | Single story with full log history. Research images merged from linked article's analysis. | — |
 | POST | `/api/stories` | editor+ | Create a story. | — |
 | POST | `/api/stories/manual` | editor+ | Create manual story in "publish" stage. | — |
 | PATCH | `/api/stories/:id` | editor+ | Update story (stage change triggers learning). | StoryLog, refreshPreferenceProfile, learnFromDecisions |
