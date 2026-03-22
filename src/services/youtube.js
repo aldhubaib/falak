@@ -122,8 +122,7 @@ async function fetchVideoMetadata(youtubeVideoId, channelId) {
     videoType:    await detectVideoType(v.id, v.contentDetails.duration),
   }
 }
-async function fetchRecentVideos(youtubeChannelId, maxResults = 50, channelId) {
-  // 1. Get upload playlist ID
+async function fetchRecentVideos(youtubeChannelId, maxResults = 500, channelId) {
   const chData = await ytFetch('channels', {
     part: 'contentDetails',
     id: youtubeChannelId,
@@ -131,34 +130,49 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 50, channelId) {
   const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
   if (!uploadsId) return []
 
-  // 2. Get video IDs from playlist
-  const plData = await ytFetch('playlistItems', {
-    part: 'contentDetails',
-    playlistId: uploadsId,
-    maxResults,
-  }, channelId)
-  const videoIds = (plData.items || []).map(i => i.contentDetails.videoId).join(',')
-  if (!videoIds) return []
+  // Paginate through playlistItems (50 per page max)
+  const allVideoIds = []
+  let pageToken = undefined
+  while (allVideoIds.length < maxResults) {
+    const pageSize = Math.min(50, maxResults - allVideoIds.length)
+    const params = {
+      part: 'contentDetails',
+      playlistId: uploadsId,
+      maxResults: pageSize,
+    }
+    if (pageToken) params.pageToken = pageToken
+    const plData = await ytFetch('playlistItems', params, channelId)
+    const ids = (plData.items || []).map(i => i.contentDetails.videoId)
+    allVideoIds.push(...ids)
+    pageToken = plData.nextPageToken
+    if (!pageToken || ids.length === 0) break
+  }
+  if (allVideoIds.length === 0) return []
 
-  // 3. Get full video details
-  const vData = await ytFetch('videos', {
-    part: 'snippet,statistics,contentDetails',
-    id: videoIds,
-  }, channelId)
-
-  return Promise.all((vData.items || []).map(async v => ({
-    youtubeId:    v.id,
-    titleAr:      v.snippet.title,
-    titleEn:      v.snippet.title,
-    description:  v.snippet.description,
-    publishedAt:  new Date(v.snippet.publishedAt),
-    thumbnailUrl: v.snippet.thumbnails?.high?.url,
-    viewCount:    BigInt(v.statistics.viewCount || 0),
-    likeCount:    BigInt(v.statistics.likeCount || 0),
-    commentCount: BigInt(v.statistics.commentCount || 0),
-    duration:     v.contentDetails.duration,
-    videoType:    await detectVideoType(v.id, v.contentDetails.duration),
-  })))
+  // Fetch video details in batches of 50 (API limit per request)
+  const allVideos = []
+  for (let i = 0; i < allVideoIds.length; i += 50) {
+    const batch = allVideoIds.slice(i, i + 50).join(',')
+    const vData = await ytFetch('videos', {
+      part: 'snippet,statistics,contentDetails',
+      id: batch,
+    }, channelId)
+    const mapped = await Promise.all((vData.items || []).map(async v => ({
+      youtubeId:    v.id,
+      titleAr:      v.snippet.title,
+      titleEn:      v.snippet.title,
+      description:  v.snippet.description,
+      publishedAt:  new Date(v.snippet.publishedAt),
+      thumbnailUrl: v.snippet.thumbnails?.high?.url,
+      viewCount:    BigInt(v.statistics.viewCount || 0),
+      likeCount:    BigInt(v.statistics.likeCount || 0),
+      commentCount: BigInt(v.statistics.commentCount || 0),
+      duration:     v.contentDetails.duration,
+      videoType:    await detectVideoType(v.id, v.contentDetails.duration),
+    })))
+    allVideos.push(...mapped)
+  }
+  return allVideos
 }
 
 // ── Fetch top comments for a video ───────────────────────────

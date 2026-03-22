@@ -522,7 +522,7 @@ async function ingestYouTubeSource(source) {
 
   let videos
   try {
-    videos = await fetchRecentVideos(youtubeChannelId, 30, channelId)
+    videos = await fetchRecentVideos(youtubeChannelId, 500, channelId)
   } catch (e) {
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
     await appendFetchLog(sourceId, logEntry)
