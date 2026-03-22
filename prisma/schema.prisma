@@ -410,6 +410,10 @@ model Article {
   contentAr       String?       @db.Text
   publishedAt     DateTime?
   language        String?
+  category        String?
+  tags            Json?
+  featuredImage   String?
+  images          Json?
 
   stage           String        @default("imported")
   status          String        @default("queued")

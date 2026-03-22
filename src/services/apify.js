@@ -35,6 +35,15 @@ function firstString(...values) {
   return null
 }
 
+function normalizeArray(value) {
+  if (Array.isArray(value)) {
+    const filtered = value.filter(Boolean)
+    return filtered.length > 0 ? filtered : null
+  }
+  if (typeof value === 'string' && value.trim()) return [value.trim()]
+  return null
+}
+
 function normalizeApifyItem(item, defaultLanguage = 'en') {
   if (!item || typeof item !== 'object') return null
   const url = firstString(item?.url, item?.link, item?.articleUrl, item?.pageUrl, item?.href)
@@ -45,12 +54,13 @@ function normalizeApifyItem(item, defaultLanguage = 'en') {
     title: firstString(item?.title, item?.headline),
     description: firstString(item?.description, item?.summary, item?.excerpt),
     content: firstString(item?.content, item?.text, item?.body, item?.articleBody, item?.description, item?.summary),
-    tags: Array.isArray(item?.tags) ? item.tags.filter(Boolean) : (typeof item?.tags === 'string' ? [item.tags] : []),
+    tags: normalizeArray(item?.tags),
     category: firstString(item?.category),
     publishedAt: firstString(item?.publishedAt, item?.date, item?.pubDate, item?.published_at),
     language: firstString(item?.language, defaultLanguage),
     author: firstString(item?.author, item?.authorName),
-    imageUrl: firstString(item?.imageUrl, item?.image, item?.thumbnailUrl),
+    featuredImage: firstString(item?.featuredImage, item?.imageUrl, item?.image, item?.thumbnailUrl),
+    images: normalizeArray(item?.images),
     externalId: firstString(item?.externalId, item?.id),
     rawPayload: item,
   }

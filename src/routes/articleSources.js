@@ -311,6 +311,10 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
         content: raw.content || null,
         publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
         language: raw.language || source.language || 'en',
+        category: raw.category || null,
+        tags: raw.tags && raw.tags.length > 0 ? raw.tags : undefined,
+        featuredImage: raw.featuredImage || null,
+        images: raw.images && raw.images.length > 0 ? raw.images : undefined,
         stage: 'imported',
         status: 'queued',
       })
