@@ -578,11 +578,11 @@ function RestartControl({
 /* ─── Tree Node ─── */
 
 const NODE_STATE_STYLES: Record<NodeState, { border: string; bg: string; text: string; ring: string }> = {
-  completed: { border: "border-success/40", bg: "bg-success/8", text: "text-success", ring: "ring-success/20" },
-  failed:    { border: "border-destructive/40", bg: "bg-destructive/8", text: "text-destructive", ring: "ring-destructive/20" },
-  review:    { border: "border-orange/40", bg: "bg-orange/8", text: "text-orange", ring: "ring-orange/20" },
-  active:    { border: "border-primary/40", bg: "bg-primary/8", text: "text-primary", ring: "ring-primary/20" },
-  waiting:   { border: "border-border/50", bg: "bg-card/40", text: "text-muted-foreground", ring: "" },
+  completed: { border: "border-success/40", bg: "bg-card", text: "text-success", ring: "ring-success/20" },
+  failed:    { border: "border-destructive/40", bg: "bg-card", text: "text-destructive", ring: "ring-destructive/20" },
+  review:    { border: "border-orange/40", bg: "bg-card", text: "text-orange", ring: "ring-orange/20" },
+  active:    { border: "border-primary/40", bg: "bg-card", text: "text-primary", ring: "ring-primary/20" },
+  waiting:   { border: "border-border/50", bg: "bg-card", text: "text-muted-foreground", ring: "" },
 };
 
 function TreeNode({
@@ -600,9 +600,7 @@ function TreeNode({
   return (
     <button
       onClick={onClick}
-      className={`w-full max-w-[340px] rounded-xl border-2 ${s.border} ${s.bg} px-4 py-3 text-left transition-all hover:ring-4 ${s.ring} hover:scale-[1.02] ${
-        state === "waiting" ? "opacity-40" : ""
-      }`}
+      className={`w-full max-w-[340px] rounded-xl border-2 ${s.border} ${s.bg} px-4 py-3 text-left transition-all hover:ring-4 ${s.ring} hover:scale-[1.02]`}
     >
       <div className="flex items-center gap-3">
         {state === "active" ? (
@@ -620,7 +618,7 @@ function TreeNode({
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`text-[13px] font-semibold ${state === "waiting" ? "text-muted-foreground" : "text-foreground"}`}>
+            <span className="text-[13px] font-semibold text-foreground">
               {node.label}
             </span>
             {node.sourceTag && (
