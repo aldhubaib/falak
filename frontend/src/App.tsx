@@ -23,6 +23,7 @@ const Stories = lazy(() => import("./pages/Stories"));
 const StoryDetail = lazy(() => import("./pages/StoryDetail"));
 const PublishQueue = lazy(() => import("./pages/PublishQueue"));
 const ArticlePipeline = lazy(() => import("./pages/ArticlePipeline"));
+const ArticlePipelineV2 = lazy(() => import("./pages/ArticlePipelineV2"));
 const ArticleDetail = lazy(() => import("./pages/ArticleDetail"));
 const ProfileHome = lazy(() => import("./pages/ProfileHome"));
 const Gallery = lazy(() => import("./pages/Gallery"));
@@ -104,6 +105,7 @@ const App = () => (
               <Route path="story/:id" element={<StoryDetail />} />
               <Route path="publish" element={<PublishQueue />} />
               <Route path="article-pipeline" element={<ArticlePipeline />} />
+              <Route path="article-pipeline-v2" element={<ArticlePipelineV2 />} />
               <Route path="article/:id" element={<ArticleDetail />} />
               <Route path="gallery" element={<Gallery />} />
               <Route path="gallery/album/:albumId" element={<AlbumDetail />} />

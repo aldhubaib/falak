@@ -8,6 +8,7 @@ try { require('dotenv').config() } catch (_) {}
 const db = require('./lib/db')
 const logger = require('./lib/logger')
 const articleEvents = require('./lib/articleEvents')
+const { emitBatch } = require('./lib/pipelineEvents')
 const registry = require('./lib/serviceRegistry')
 const { preflight, blockDependents, unblockReady } = require('./lib/pipelinePreflight')
 const {
@@ -218,8 +219,11 @@ async function processItem(article, { force = false } = {}) {
   }
 }
 
+let batchSeq = 0
+
 async function runStage(stage) {
   let totalProcessed = 0
+  let totalFailed = 0
   const batchSize = STAGE_BATCH[stage] || 1
   const maxRounds = SERIAL_AI_STAGES.has(stage) ? 1 : MAX_ROUNDS_PER_STAGE
 
@@ -228,9 +232,14 @@ async function runStage(stage) {
     const items = await pickItems(stage)
     if (!items.length) break
 
+    const batchId = ++batchSeq
+    emitBatch('article', { type: 'batch_start', stage, batchId, count: items.length })
+
+    let roundFailed = 0
     if (SERIAL_AI_STAGES.has(stage)) {
       for (let i = 0; i < items.length; i++) {
-        await processItem(items[i])
+        try { await processItem(items[i]) }
+        catch (_) { roundFailed++ }
         if (i < items.length - 1) {
           await new Promise(r => setTimeout(r, AI_INTER_ITEM_MS))
         }
@@ -239,12 +248,16 @@ async function runStage(stage) {
       const results = await Promise.allSettled(items.map(processItem))
       for (let i = 0; i < results.length; i++) {
         if (results[i].status === 'rejected') {
+          roundFailed++
           logger.warn({ articleId: items[i]?.id, error: results[i].reason?.message }, `[article-worker] ${stage} failed`)
         }
       }
     }
 
     totalProcessed += items.length
+    totalFailed += roundFailed
+    emitBatch('article', { type: 'batch_done', stage, batchId, count: items.length, failed: roundFailed })
+
     if (items.length < batchSize) break
     if (round < maxRounds - 1) {
       await new Promise(r => setTimeout(r, INTER_BATCH_MS))
@@ -253,6 +266,7 @@ async function runStage(stage) {
 
   if (totalProcessed > 0) {
     logger.info({ stage, processed: totalProcessed }, '[article-worker] stage batch complete')
+    emitBatch('article', { type: 'stage_done', stage, processed: totalProcessed, failed: totalFailed })
   }
   return totalProcessed
 }
@@ -277,6 +291,7 @@ async function rescueStuckItems() {
 
 async function tick() {
   if (paused) return false
+  emitBatch('article', { type: 'tick_start' })
   await rescueStuckItems()
   await unblockReady()
   let hadWork = false
@@ -299,12 +314,17 @@ async function tick() {
           if (paused) break
           const items = await pickItems(stage)
           if (!items.length) break
+          const batchId = ++batchSeq
+          emitBatch('article', { type: 'batch_start', stage, batchId, count: items.length, catchup: true })
+          let roundFailed = 0
           const results = await Promise.allSettled(items.map(processItem))
           for (let i = 0; i < results.length; i++) {
             if (results[i].status === 'rejected') {
+              roundFailed++
               logger.warn({ articleId: items[i]?.id, error: results[i].reason?.message }, `[article-worker] ${stage} catch-up failed`)
             }
           }
+          emitBatch('article', { type: 'batch_done', stage, batchId, count: items.length, failed: roundFailed, catchup: true })
           if (items.length < batchSize) break
           await new Promise(resolve => setTimeout(resolve, INTER_BATCH_MS))
         }
@@ -312,6 +332,7 @@ async function tick() {
     }
   }
 
+  emitBatch('article', { type: 'tick_end', hadWork })
   return hadWork
 }
 

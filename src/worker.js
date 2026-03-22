@@ -14,6 +14,7 @@ const {
 const { getQueue, addJob, processJob } = require('./queue/pipeline')
 const registry = require('./lib/serviceRegistry')
 const { preflight, blockDependents, unblockReady } = require('./lib/pipelinePreflight')
+const { emitBatch } = require('./lib/pipelineEvents')
 
 const POLL_MS = 10_000
 const BATCH_PER_STAGE = 3          // import / transcribe / comments: 3 concurrent is fine
@@ -126,19 +127,27 @@ async function processItem(item) {
   }
 }
 
+let videoBatchSeq = 0
+
 async function runStage(stage) {
   const items = await pickItems(stage)
+  if (!items.length) return 0
+  const batchId = ++videoBatchSeq
+  emitBatch('video', { type: 'batch_start', stage, batchId, count: items.length })
+  let failed = 0
   if (stage === 'analyzing') {
-    // Run analyzing items serially with a gap to avoid Anthropic rate limits
     for (let i = 0; i < items.length; i++) {
-      await processItem(items[i])
+      try { await processItem(items[i]) } catch (_) { failed++ }
       if (i < items.length - 1) {
         await new Promise(r => setTimeout(r, ANALYZING_INTER_ITEM_MS))
       }
     }
   } else {
-    await Promise.all(items.map(processItem))
+    const results = await Promise.allSettled(items.map(processItem))
+    for (const r of results) { if (r.status === 'rejected') failed++ }
   }
+  emitBatch('video', { type: 'batch_done', stage, batchId, count: items.length, failed })
+  return items.length
 }
 
 // Reset items stuck as 'running' for longer than STUCK_TIMEOUT_MS.
@@ -157,11 +166,15 @@ async function rescueStuckItems() {
 }
 
 async function tick() {
+  emitBatch('video', { type: 'tick_start' })
   await rescueStuckItems()
   await unblockReady()
+  let hadWork = false
   for (const stage of STAGES) {
-    await runStage(stage)
+    const processed = await runStage(stage)
+    if (processed > 0) hadWork = true
   }
+  emitBatch('video', { type: 'tick_end', hadWork })
 }
 
 async function runQueueWorker() {

@@ -3,6 +3,7 @@ const db = require('../lib/db')
 const { requireAuth, requireRole } = require('../middleware/auth')
 const { VALID_SOURCE_TYPES, ingestAll, ingestSource, ingestYouTubeSource, hasApiKey, hasNicheEmbedding, checkBudget, checkCooldown } = require('../services/articlePipeline')
 const articleEvents = require('../lib/articleEvents')
+const pipelineEvents = require('../lib/pipelineEvents')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -234,6 +235,63 @@ function buildPipelineFlow(sourceType, articleStage) {
 // ── GET /api/article-pipeline/restartable-stages — stages the frontend can restart from ──
 router.get('/restartable-stages', (_req, res) => {
   res.json(RESTARTABLE_STAGES)
+})
+
+// ── GET /api/article-pipeline/live — SSE stream for pipeline-wide batch events ──
+router.get('/live', async (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  })
+
+  const recent = pipelineEvents.getRecent(Date.now() - 60_000)
+  for (const e of recent) {
+    res.write(`data: ${JSON.stringify(e)}\n\n`)
+  }
+  res.write(':\n\n')
+
+  const heartbeat = setInterval(() => res.write(':\n\n'), 15_000)
+  const onBatch = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`)
+  pipelineEvents.emitter.on('batch', onBatch)
+
+  const cleanup = () => {
+    clearInterval(heartbeat)
+    pipelineEvents.emitter.removeListener('batch', onBatch)
+  }
+  req.on('close', cleanup)
+  res.on('close', cleanup)
+})
+
+// ── GET /api/article-pipeline/stats-combined?channelId=X — lightweight counts for both pipelines ──
+router.get('/stats-combined', async (req, res) => {
+  try {
+    const { channelId } = req.query
+    if (!channelId) return res.status(400).json({ error: 'channelId required' })
+
+    const { isPaused } = require('../worker-articles')
+
+    const [articleCounts, reviewCount, videoCounts, videoTotal] = await Promise.all([
+      db.article.groupBy({ by: ['stage'], where: { channelId, status: { not: 'review' } }, _count: true }),
+      db.article.count({ where: { channelId, status: 'review' } }),
+      db.pipelineItem.groupBy({ by: ['stage'], where: { video: { channelId } }, _count: true }),
+      db.pipelineItem.count({ where: { video: { channelId } } }),
+    ])
+
+    const articleStats = {}
+    for (const row of articleCounts) articleStats[row.stage] = row._count
+    articleStats.review = reviewCount
+    articleStats.total = Object.values(articleStats).reduce((s, c) => s + c, 0)
+
+    const videoStats = {}
+    for (const row of videoCounts) videoStats[row.stage] = row._count
+    videoStats.total = videoTotal
+
+    res.json({ articleStats, videoStats, paused: isPaused() })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ── GET /api/article-pipeline/:id/detail — full article with all content fields ──

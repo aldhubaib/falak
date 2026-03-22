@@ -2121,4 +2121,39 @@ with a fixed 10s polling interval, giving ~3.4 hours to clear a 500-article back
 
 ---
 
+## Section 21 — Real-time Pipeline Dashboard V2 (2026-03-22)
+
+### Problem
+The V1 pipeline dashboard polled every 30s and showed only aggregate counts. With 495
+articles stuck at classify, the dashboard appeared frozen — no visibility into whether
+the worker was actually processing.
+
+### Solution
+Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparison.
+
+### Backend changes
+- **`src/lib/pipelineEvents.js`**: In-memory EventEmitter with a 100-event ring buffer.
+  Workers call `emitBatch(pipeline, event)` with types: `tick_start`, `tick_end`,
+  `batch_start`, `batch_done`, `stage_done`.
+- **`src/worker-articles.js`**: Emits batch events for every round (including catch-up
+  drains). Each batch gets an auto-incrementing `batchId`.
+- **`src/worker.js`**: Same pattern for the video pipeline.
+- **`GET /api/article-pipeline/live`**: SSE endpoint that streams all batch events.
+  On connect, replays events from the last 60s so the client catches up instantly.
+- **`GET /api/article-pipeline/stats-combined?channelId=X`**: Lightweight endpoint
+  returning counts for both article and video pipelines in one call.
+
+### Frontend changes
+- **`ArticlePipelineV2.tsx`**: New page at `/article-pipeline-v2` with:
+  - Vertical tree layout (same `TreeNode` style as `ArticleDetail`) for both Video
+    and Article pipelines.
+  - SSE subscription to `/api/article-pipeline/live` with fallback to 5s polling.
+  - Stages show queued count, active batch indicator, bottleneck pulsing dot.
+  - Clicking a stage expands to show batch history (batch #, item count, failures).
+  - Live Activity feed at the bottom showing recent batch completions.
+- V1 (`ArticlePipeline.tsx`) untouched — "Try V2 (Live)" link in the actions bar.
+- `App.tsx` routes both `/article-pipeline` (V1) and `/article-pipeline-v2` (V2).
+
+---
+
 *Last updated: 2026-03-22*

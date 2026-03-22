@@ -579,6 +579,10 @@ function PipelineTabContent() {
       {/* Actions bar */}
       <div className="h-10 flex items-center justify-end px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-2">
+          <Link to={pp("/article-pipeline-v2")}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/30 bg-primary/10 text-[11px] text-primary font-medium hover:bg-primary/20 transition-colors">
+            Try V2 (Live)
+          </Link>
           <button onClick={handlePauseResume}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
               paused ? "bg-orange/15 text-orange hover:bg-orange/25" : "bg-success/15 text-success hover:bg-success/25"
