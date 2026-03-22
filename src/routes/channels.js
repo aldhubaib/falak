@@ -145,7 +145,14 @@ async function importVideosForChannel(channelId) {
   const channel = await db.channel.findUniqueOrThrow({ where: { id: channelId } })
   if (channel.status === 'paused') throw new Error('Channel is paused. Set to Active to fetch videos.')
   const parentId = channel.parentChannelId || channel.id
-  const videos = await fetchRecentVideos(channel.youtubeId, 50, parentId)
+
+  const existingVideos = await db.video.findMany({
+    where: { channelId: channel.id },
+    select: { youtubeId: true },
+  })
+  const knownVideoIds = new Set(existingVideos.map(v => v.youtubeId))
+
+  const videos = await fetchRecentVideos(channel.youtubeId, 500, parentId, knownVideoIds)
   const BATCH_SIZE = 25
   for (let i = 0; i < videos.length; i += BATCH_SIZE) {
     const batch = videos.slice(i, i + BATCH_SIZE)

@@ -744,16 +744,23 @@ router.get('/:id', async (req, res) => {
     const linkedArticle = await db.article.findFirst({
       where: { storyId: story.id },
       select: { id: true, analysis: true },
+      orderBy: { updatedAt: 'desc' },
     })
 
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-    if (brief.research && linkedArticle?.analysis) {
-      const articleResearch = linkedArticle.analysis.research
+    const articleAnalysis = linkedArticle?.analysis
+    const articleResearch = articleAnalysis?.research
+
+    if (!brief.research && articleResearch) {
+      brief.research = { ...articleResearch }
+    }
+
+    if (brief.research) {
       if (articleResearch?.images && !brief.research.images) {
         brief.research = { ...brief.research, images: articleResearch.images }
       }
-      if (!brief.research.images && linkedArticle.analysis.images) {
-        brief.research = { ...brief.research, images: linkedArticle.analysis.images }
+      if (!brief.research.images && articleAnalysis?.images) {
+        brief.research = { ...brief.research, images: articleAnalysis.images }
       }
       if (articleResearch?.briefAr && !brief.research.briefAr) {
         brief.research = { ...brief.research, briefAr: articleResearch.briefAr }

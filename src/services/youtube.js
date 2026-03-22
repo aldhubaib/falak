@@ -206,10 +206,31 @@ async function fetchComments(youtubeVideoId, maxResults = 100, channelId) {
   }
 }
 
+// Refresh stats (views, likes, comments) for videos we already have in DB — no playlistItems needed
+async function refreshVideoStats(youtubeIds, channelId) {
+  const results = []
+  for (let i = 0; i < youtubeIds.length; i += 50) {
+    const batch = youtubeIds.slice(i, i + 50).join(',')
+    const vData = await ytFetch('videos', {
+      part: 'statistics',
+      id: batch,
+    }, channelId)
+    for (const v of (vData.items || [])) {
+      results.push({
+        youtubeId:    v.id,
+        viewCount:    BigInt(v.statistics.viewCount || 0),
+        likeCount:    BigInt(v.statistics.likeCount || 0),
+        commentCount: BigInt(v.statistics.commentCount || 0),
+      })
+    }
+  }
+  return results
+}
+
 const SERVICE_DESCRIPTOR = {
   name: 'youtube',
   displayName: 'YouTube Data API v3',
   keySource: 'youtubeApiKey',
 }
 
-module.exports = { fetchChannel, fetchRecentVideos, fetchComments, fetchVideoMetadata, isYouTubeShort, SERVICE_DESCRIPTOR }
+module.exports = { fetchChannel, fetchRecentVideos, refreshVideoStats, fetchComments, fetchVideoMetadata, isYouTubeShort, SERVICE_DESCRIPTOR }
