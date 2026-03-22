@@ -5,7 +5,7 @@ import {
   ArrowLeft, ExternalLink, FileText, Globe, Languages, Brain,
   Sparkles, CheckCircle2, AlertTriangle, ChevronDown, ChevronRight,
   Copy, Check, Search, Target, Server, Cpu, ListOrdered, Users, Link2, Info,
-  Loader2, RotateCcw, PenLine, ImageIcon,
+  Loader2, RotateCcw, PenLine, ImageIcon, ShieldCheck, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -100,6 +100,7 @@ interface LogEntry {
   childUrls?: string[];
   action?: string;
   nicheScore?: number;
+  result?: string;
   nicheActive?: boolean;
   topicDemand?: number;
   topicDemandSimilarCount?: number;
@@ -604,6 +605,7 @@ function StageSection({
           {stage.id === "images" && <ImagesDetail article={article} log={log} />}
           {stage.id === "promote" && <PromoteDetail article={article} log={log} pp={pp} />}
           <UnknownEntries stageId={stage.id} log={log} />
+          <VerdictBanner stageId={stage.id === "synthesis" ? "research" : stage.id} log={log} />
         </>
       )}
     </div>
@@ -912,6 +914,7 @@ const ICON_MAP: Record<string, typeof FileText> = {
   "target": Target, "languages": Languages, "sparkles": Sparkles,
   "check-circle": CheckCircle2, "users": Users, "pen-line": PenLine,
   "download": ArrowLeft, "server": Server, "cpu": Cpu, "info": Info,
+  "shield-check": ShieldCheck, "layers": FileText, "image": ImageIcon,
 };
 
 function resolveIcon(iconKey?: string): typeof FileText {
@@ -1074,12 +1077,61 @@ function StepHeader({ entry, label, icon: Icon }: { entry: LogEntry; label: stri
   );
 }
 
+/* ─── Verdict Banner — stage gate decision ─── */
+
+const VERDICT_CONFIG: Record<string, { bg: string; border: string; text: string; icon: string; label: string }> = {
+  pass:   { bg: "bg-success/8",      border: "border-success/25",      text: "text-success",           icon: "✓", label: "PASS" },
+  fail:   { bg: "bg-destructive/8",  border: "border-destructive/25",  text: "text-destructive",       icon: "✗", label: "FAIL" },
+  review: { bg: "bg-orange/8",       border: "border-orange/25",       text: "text-orange",            icon: "⚠", label: "REVIEW" },
+  skip:   { bg: "bg-card",           border: "border-border",          text: "text-muted-foreground",  icon: "→", label: "SKIP" },
+};
+
+const STAGE_LABEL_MAP: Record<string, string> = {
+  transcript: "Transcript", story_detect: "Story Detect", imported: "Imported",
+  content: "Content", classify: "Classify", title_translate: "Title Translate",
+  score: "Score", research: "Research", translated: "Translation",
+  images: "Images", promote: "Promote", review: "Review", filtered: "Filtered",
+  done: "Done", adapter_done: "Split Done",
+};
+
+function VerdictBanner({ stageId, log }: { stageId: string; log: LogEntry[] }) {
+  const verdict = log.find((e) => e.step === "verdict" && e.stage === stageId);
+  if (!verdict) return null;
+
+  const result = verdict.result || "pass";
+  const reason = verdict.reason;
+  const nextStage = (verdict as Record<string, unknown>).nextStage as string | undefined;
+  const c = VERDICT_CONFIG[result] || VERDICT_CONFIG.pass;
+
+  return (
+    <div className={`mx-4 mb-4 px-4 py-2.5 rounded-lg border ${c.bg} ${c.border} flex items-center justify-between gap-3`}>
+      <div className="flex items-center gap-2 min-w-0">
+        <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${c.text}`} />
+        <span className={`text-[11px] font-bold font-mono shrink-0 ${c.text}`}>
+          {c.icon} {c.label}
+        </span>
+        {reason && (
+          <span className="text-[11px] text-muted-foreground truncate">{reason}</span>
+        )}
+      </div>
+      {nextStage && (
+        <div className="flex items-center gap-1 shrink-0">
+          <ArrowRight className="w-3 h-3 text-muted-foreground" />
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {STAGE_LABEL_MAP[nextStage] || nextStage}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Generic fallback for entries the stage detail components don't know about ─── */
 
 function UnknownEntries({ stageId, log }: { stageId: string; log: LogEntry[] }) {
   const knownSteps = STEP_MAP[stageId] || [];
   const unknowns = log.filter(
-    (e) => e.stage === stageId && !knownSteps.includes(e.step)
+    (e) => e.stage === stageId && !knownSteps.includes(e.step) && e.step !== "verdict"
   );
   if (unknowns.length === 0) return null;
 

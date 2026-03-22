@@ -55,6 +55,7 @@ const STEP_META = {
   transcript_fetch:   { stage: 'transcript',  label: 'Transcript',       icon: 'file-text',     subtitle: 'Fetch YouTube video transcript' },
   story_detect:       { stage: 'story_detect', label: 'Story Detect',    icon: 'brain',         subtitle: 'Detect stories in transcript' },
   story_split:        { stage: 'story_detect', label: 'Story Split',     icon: 'layers',        subtitle: 'Split transcript into stories' },
+  verdict:            { stage: 'verdict',      label: 'Verdict',          icon: 'shield-check',  subtitle: 'Stage gate decision' },
 }
 
 function lp(step, data, display) {
@@ -109,6 +110,7 @@ async function doStageImported(article, project) {
     titlePreview: article.title || null,
     contentPreview: preview(article.content),
   }))
+  log.push(lp('verdict', { stage: 'imported', result: 'pass', reason: `Queued for content extraction (${(article.content || '').length} raw chars)`, nextStage: 'content' }))
   await saveLog(article.id, log)
   return { nextStage: 'content' }
 }
@@ -128,6 +130,7 @@ async function doStageContent(article, project) {
 
   if (cleanedContent.length >= MIN_CONTENT_LENGTH) {
     log.push(lp('content_source', { processor: 'server', source: 'apify', chars: cleanedContent.length, status: 'ok' }))
+    log.push(lp('verdict', { stage: 'content', result: 'pass', reason: `Apify content sufficient (${cleanedContent.length} chars ≥ ${MIN_CONTENT_LENGTH})`, nextStage: 'classify' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: cleanedContent, processingLog: log },
@@ -170,6 +173,7 @@ async function doStageContent(article, project) {
 
   if (fetchedText && fetchedText.length >= MIN_CONTENT_LENGTH) {
     log.push(lp('content_source', { processor: 'server', source: 'firecrawl_or_html', chars: fetchedText.length, status: 'ok' }))
+    log.push(lp('verdict', { stage: 'content', result: 'pass', reason: `External fetch succeeded (${fetchedText.length} chars)`, nextStage: 'classify' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: fetchedText, processingLog: log },
@@ -180,6 +184,7 @@ async function doStageContent(article, project) {
   const fallbackText = [article.title, article.description, cleanedContent].filter(Boolean).join('\n\n').trim()
   if (fallbackText.length >= 100) {
     log.push(lp('content_source', { processor: 'server', source: 'title_desc_fallback', chars: fallbackText.length, status: 'ok' }))
+    log.push(lp('verdict', { stage: 'content', result: 'pass', reason: `Title+description fallback (${fallbackText.length} chars)`, nextStage: 'classify' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentClean: fallbackText, processingLog: log },
@@ -188,6 +193,7 @@ async function doStageContent(article, project) {
   }
 
   log.push(lp('content_source', { processor: 'server', source: 'none', status: 'review', reason: 'No usable content found' }))
+  log.push(lp('verdict', { stage: 'content', result: 'review', reason: 'No usable content found from any source', nextStage: 'review' }))
   await saveLog(article.id, log)
   return { nextStage: 'content', reviewStatus: 'review', reviewReason: 'No usable content found' }
 }
@@ -300,6 +306,8 @@ async function doStageClassify(article, project) {
     quality: classifyQuality,
   }))
 
+  log.push(lp('verdict', { stage: 'classify', result: analysis?.parseError ? 'review' : 'pass', reason: analysis?.parseError ? 'AI response failed to parse' : `Classified as ${analysis?.contentType || 'unknown'} · language ${sourceLang}`, nextStage: 'title_translate' }))
+
   await db.article.update({
     where: { id: article.id },
     data: {
@@ -329,6 +337,7 @@ async function doStageTitleTranslate(article, project) {
 
   if (!textToTranslate.trim() || textToTranslate.length < 10) {
     log.push(lp('title_translate', { processor: 'server', status: 'skipped', reason: 'No title or content to translate' }))
+    log.push(lp('verdict', { stage: 'title_translate', result: 'skip', reason: 'No title or content available', nextStage: 'score' }))
     await saveLog(article.id, log)
     return { nextStage: 'score' }
   }
@@ -336,6 +345,7 @@ async function doStageTitleTranslate(article, project) {
   if (sourceLang === 'ar') {
     const arAnalysis = { ...analysis, titleTranslateAr: textToTranslate }
     log.push(lp('title_translate', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
+    log.push(lp('verdict', { stage: 'title_translate', result: 'skip', reason: 'Source is Arabic — no translation needed', nextStage: 'score' }))
     await db.article.update({
       where: { id: article.id },
       data: { analysis: arAnalysis, processingLog: log },
@@ -346,6 +356,7 @@ async function doStageTitleTranslate(article, project) {
   const ttApiKey = await registry.getKey('anthropic')
   if (!ttApiKey) {
     log.push(lp('title_translate', { processor: 'server', status: 'skipped', reason: 'No Anthropic API key' }))
+    log.push(lp('verdict', { stage: 'title_translate', result: 'skip', reason: 'No API key configured', nextStage: 'score' }))
     await saveLog(article.id, log)
     return { nextStage: 'score' }
   }
@@ -369,6 +380,7 @@ async function doStageTitleTranslate(article, project) {
     const arText = (translated || '').trim()
     if (arText.length < 10) {
       log.push(lp('title_translate', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', reason: 'Translation too short' }))
+      log.push(lp('verdict', { stage: 'title_translate', result: 'pass', reason: 'Translation too short (non-blocking)', nextStage: 'score' }))
       await saveLog(article.id, log)
       return { nextStage: 'score' }
     }
@@ -384,6 +396,7 @@ async function doStageTitleTranslate(article, project) {
       outputTokens: usage.outputTokens || null,
       totalTokens: usage.totalTokens || null,
     }))
+    log.push(lp('verdict', { stage: 'title_translate', result: 'pass', reason: `Title translated to Arabic (${arText.length} chars)`, nextStage: 'score' }))
 
     await db.article.update({
       where: { id: article.id },
@@ -392,6 +405,7 @@ async function doStageTitleTranslate(article, project) {
     return { nextStage: 'score' }
   } catch (e) {
     log.push(lp('title_translate', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', error: `${e.message} (non-blocking)` }))
+    log.push(lp('verdict', { stage: 'title_translate', result: 'pass', reason: 'Translation error (non-blocking)', nextStage: 'score' }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] title_translate failed (non-fatal)')
     return { nextStage: 'score' }
@@ -416,6 +430,7 @@ async function doStageResearch(article, project) {
 
   if (!decision.needed) {
     log.push(lp('research', { status: 'skipped', reason: decision.reason }))
+    log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'translated' }))
     await saveLog(article.id, log)
     return { nextStage: 'translated' }
   }
@@ -438,6 +453,7 @@ async function doStageResearch(article, project) {
     }))
 
     // Store research results on article.analysis so score stage can include them in the story
+    log.push(lp('verdict', { stage: 'research', result: result.researchBrief ? 'pass' : 'pass', reason: result.researchBrief ? 'Research brief generated' : 'Research completed (no brief)', nextStage: 'translated' }))
     if (result.researchBrief || result.researchData) {
       const existing = freshArticle?.analysis || article.analysis || {}
       await db.article.update({
@@ -457,6 +473,7 @@ async function doStageResearch(article, project) {
     return { nextStage: 'translated' }
   } catch (e) {
     log.push(lp('research', { status: 'partial', error: `${e.message} (non-blocking)` }))
+    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, continuing)', nextStage: 'translated' }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to translated)')
     return { nextStage: 'translated' }
@@ -472,6 +489,7 @@ async function doStageTranslated(article, project) {
   const text = article.contentClean || article.content || ''
   if (!text.trim()) {
     log.push(lp('translate', { status: 'review', reason: 'No content to translate' }))
+    log.push(lp('verdict', { stage: 'translated', result: 'review', reason: 'No content available to translate', nextStage: 'review' }))
     await saveLog(article.id, log)
     return { nextStage: 'translated', reviewStatus: 'review', reviewReason: 'No content to translate' }
   }
@@ -497,6 +515,7 @@ async function doStageTranslated(article, project) {
     log.push(lp('translate_content', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
     log.push(lp('translate_analysis', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
     log.push(lp('translate_research', { processor: 'server', service: 'Skip (already Arabic)', status: 'skipped', reason: 'Already Arabic' }))
+    log.push(lp('verdict', { stage: 'translated', result: 'skip', reason: 'Source is already Arabic — no translation needed', nextStage: 'images' }))
     await db.article.update({
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
@@ -646,6 +665,8 @@ async function doStageTranslated(article, project) {
     log.push(lp('translate_research', { processor: 'server', service: 'Skip (no research brief)', status: 'skipped', reason: researchBrief ? 'Invalid brief' : 'No research brief' }))
   }
 
+  log.push(lp('verdict', { stage: 'translated', result: 'pass', reason: `Translated to Arabic (${translatedContent.trim().length} chars)`, nextStage: 'images' }))
+
   await db.article.update({
     where: { id: article.id },
     data: {
@@ -711,6 +732,7 @@ async function doStageScore(article, project) {
     log.push(lp('score_ai_analysis', { status: 'skipped', reason: 'Classification parse error' }))
     log.push(lp('score', { status: 'skipped', reason: 'Classification parse error' }))
     log.push(lp('promote', { status: 'skipped', reason: 'Classification parse error' }))
+    log.push(lp('verdict', { stage: 'score', result: 'skip', reason: 'Skipped due to classification parse error', nextStage: 'done' }))
     await saveLog(article.id, log)
     return { nextStage: 'done' }
   }
@@ -1058,6 +1080,7 @@ ${contentForScoring.slice(0, 15000)}`
         threshold,
         totalDecisions,
       }))
+      log.push(lp('verdict', { stage: 'score', result: 'fail', reason: `Score ${finalScore.toFixed(2)} below threshold ${threshold.toFixed(2)}`, nextStage: 'filtered' }))
       await db.article.update({
         where: { id: article.id },
         data: { stage: 'filtered', processingLog: log },
@@ -1073,6 +1096,7 @@ ${contentForScoring.slice(0, 15000)}`
       threshold,
       totalDecisions,
     }))
+    log.push(lp('verdict', { stage: 'score', result: 'pass', reason: `Score ${finalScore.toFixed(2)} passed threshold ${threshold.toFixed(2)}`, nextStage: 'research' }))
     await saveLog(article.id, log)
   } catch (e) {
     log.push(lp('threshold_gate', { processor: 'server', status: 'error', error: e.message + ' (non-blocking, allowing through)' }))
@@ -1394,6 +1418,7 @@ async function doStageImages(article, project) {
   const title = article.title
   if (!title || !title.trim()) {
     log.push(lp('images', { status: 'skipped', reason: 'No title for image search' }))
+    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No title available for image search', nextStage: 'done' }))
     await saveLog(article.id, log)
     return { nextStage: 'done' }
   }
@@ -1405,6 +1430,7 @@ async function doStageImages(article, project) {
 
   if (!keys.length) {
     log.push(lp('images', { status: 'skipped', reason: 'No active Google Search API key configured' }))
+    log.push(lp('verdict', { stage: 'images', result: 'skip', reason: 'No Google Search API key', nextStage: 'done' }))
     await saveLog(article.id, log)
     return { nextStage: 'done' }
   }
@@ -1449,6 +1475,7 @@ async function doStageImages(article, project) {
       resultCount: images.length,
       keyLabel: keyEntry.label,
     }))
+    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: `${images.length} images found`, nextStage: 'done' }))
 
     await db.article.update({
       where: { id: article.id },
@@ -1472,6 +1499,7 @@ async function doStageImages(article, project) {
       processor: 'api',
       service: 'SerpAPI Google Images Light',
     }))
+    log.push(lp('verdict', { stage: 'images', result: 'pass', reason: 'Image search failed (non-blocking)', nextStage: 'done' }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] images stage failed (non-fatal)')
     return { nextStage: 'done' }
@@ -1495,6 +1523,7 @@ async function doStageTranscript(article, project) {
 
   if (!videoId) {
     log.push(lp('transcript_fetch', { status: 'review', reason: 'Could not extract YouTube video ID from URL' }))
+    log.push(lp('verdict', { stage: 'transcript', result: 'review', reason: 'Invalid YouTube URL — could not extract video ID', nextStage: 'review' }))
     await saveLog(article.id, log)
     return { nextStage: 'transcript', reviewStatus: 'review', reviewReason: 'Invalid YouTube URL — could not extract video ID' }
   }
@@ -1543,6 +1572,7 @@ async function doStageTranscript(article, project) {
       status: 'review',
       reason: ytTranscriptAvailable ? 'Transcript API returned no content' : 'No transcript API key configured',
     }))
+    log.push(lp('verdict', { stage: 'transcript', result: 'review', reason: ytTranscriptAvailable ? 'Transcript API returned no content' : 'No transcript API key configured', nextStage: 'review' }))
     await saveLog(article.id, log)
     return {
       nextStage: 'transcript',
@@ -1561,6 +1591,7 @@ async function doStageTranscript(article, project) {
     analysis.originalDescription = (meta.description || '').slice(0, 500) || null
     if (meta.thumbnailUrl) analysis.thumbnailUrl = meta.thumbnailUrl
     if (meta.duration) analysis.duration = meta.duration
+    log.push(lp('verdict', { stage: 'transcript', result: 'pass', reason: `Transcript fetched (${transcriptText.length} chars)`, nextStage: 'story_detect' }))
     const updateData = {
       content: transcriptText,
       contentClean: transcriptText,
@@ -1570,6 +1601,7 @@ async function doStageTranscript(article, project) {
     if (meta.publishedAt) updateData.publishedAt = meta.publishedAt
     await db.article.update({ where: { id: article.id }, data: updateData })
   } catch (e) {
+    log.push(lp('verdict', { stage: 'transcript', result: 'pass', reason: `Transcript fetched (${transcriptText.length} chars), metadata failed`, nextStage: 'story_detect' }))
     await db.article.update({
       where: { id: article.id },
       data: { content: transcriptText, contentClean: transcriptText, processingLog: log },
@@ -1591,6 +1623,7 @@ async function doStageStoryDetect(article, project) {
 
   if (transcript.length < 100) {
     log.push(lp('story_detect', { status: 'review', reason: 'Transcript too short for story detection' }))
+    log.push(lp('verdict', { stage: 'story_detect', result: 'review', reason: `Transcript too short (${transcript.length} chars)`, nextStage: 'review' }))
     await saveLog(article.id, log)
     return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Transcript too short' }
   }
@@ -1662,6 +1695,7 @@ ${transcript.slice(0, 30000)}`
 
   if (!stories || stories.length === 0) {
     log.push(lp('story_detect', { status: 'review', reason: 'AI could not detect stories in transcript' }))
+    log.push(lp('verdict', { stage: 'story_detect', result: 'review', reason: 'AI could not detect stories in transcript', nextStage: 'review' }))
     await saveLog(article.id, log)
     return { nextStage: 'story_detect', reviewStatus: 'review', reviewReason: 'Could not detect stories in transcript' }
   }
@@ -1670,6 +1704,7 @@ ${transcript.slice(0, 30000)}`
   if (stories.length === 1) {
     const story = stories[0]
     log.push(lp('story_split', { status: 'ok', action: 'single', storiesDetected: 1 }))
+    log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: 'Single story detected — continuing to classify', nextStage: 'classify' }))
     await db.article.update({
       where: { id: article.id },
       data: {
@@ -1707,6 +1742,7 @@ ${transcript.slice(0, 30000)}`
     childrenCreated: count,
     childUrls: children.map(c => c.url),
   }))
+  log.push(lp('verdict', { stage: 'story_detect', result: 'pass', reason: `Split into ${stories.length} stories → ${count} child articles`, nextStage: 'adapter_done' }))
   await saveLog(article.id, log)
 
   logger.info({
