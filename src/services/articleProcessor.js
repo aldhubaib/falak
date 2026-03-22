@@ -1632,31 +1632,25 @@ async function doStageTranscript(article, project) {
   return { nextStage: 'story_count' }
 }
 
-// ── Default story detection patterns ──────────────────────────────────────────
+// ── Default story detection patterns (plain words/phrases — no regex needed) ──
 const DEFAULT_STORY_PATTERNS = {
-  titlePatterns: [
-    { id: 'tp1', pattern: '(\\d+)\\s*(stories|headlines|topics|things|events|news\\s*items|updates|takeaways|points|reasons)', label: 'Number + plural noun', active: true },
-    { id: 'tp2', pattern: '(top|best|worst|biggest|latest)\\s*(\\d+)', label: 'Top/best + number', active: true },
-    { id: 'tp3', pattern: '\\b(stories|headlines|updates)\\s*(about|from|of|on)\\b', label: 'Plural stories/headlines about', active: true },
-    { id: 'tp4', pattern: '\\b(roundup|round-up|recap|digest|wrap-up|wrap|bulletin|briefing)\\b', label: 'Roundup/recap words', active: true },
-    { id: 'tp5', pattern: '\\ball\\s+the\\s+(news|stories|headlines)\\b', label: 'All the news/stories', active: true },
-    { id: 'tp6', pattern: '(\\d+|٢|٣|٤|٥|٦|٧|٨|٩|١٠)\\s*(أخبار|قصص|عناوين|أحداث|مواضيع)', label: 'Arabic: number + story words', active: true },
-    { id: 'tp7', pattern: '(أبرز|أهم)\\s*(\\d+|٢|٣|٤|٥|٦|٧|٨|٩|١٠)', label: 'Arabic: top + number', active: true },
+  titleWords: [
+    'stories', 'headlines', 'topics', 'events', 'updates', 'takeaways',
+    'points', 'reasons', 'things',
+    'roundup', 'round-up', 'recap', 'digest', 'wrap-up', 'bulletin', 'briefing',
+    'أخبار', 'قصص', 'عناوين', 'أحداث', 'مواضيع',
   ],
-  transitionPatterns: [
-    { id: 'tr1', pattern: 'وننتقل\\s+(إلى|الى)', label: 'Arabic: moving to', active: true },
-    { id: 'tr2', pattern: 'في\\s+خبر\\s+آخر', label: 'Arabic: in other news', active: true },
-    { id: 'tr3', pattern: 'أما\\s+على\\s+صعيد', label: 'Arabic: as for', active: true },
-    { id: 'tr4', pattern: 'من\\s+جهة\\s+أخرى', label: 'Arabic: on the other hand', active: true },
-    { id: 'tr5', pattern: 'على\\s+صعيد\\s+آخر', label: 'Arabic: on another level', active: true },
-    { id: 'tr6', pattern: 'في\\s+سياق\\s+(آخر|متصل)', label: 'Arabic: in another context', active: true },
-    { id: 'tr7', pattern: 'ومن\\s+الأخبار\\s+أيضا', label: 'Arabic: also from the news', active: true },
-    { id: 'tr8', pattern: 'in\\s+other\\s+news', label: 'English: in other news', active: true },
-    { id: 'tr9', pattern: 'moving\\s+on', label: 'English: moving on', active: true },
-    { id: 'tr10', pattern: 'next\\s+up', label: 'English: next up', active: true },
+  transitionPhrases: [
+    'in other news', 'moving on', 'next up',
+    'وننتقل إلى', 'وننتقل الى',
+    'في خبر آخر',
+    'أما على صعيد',
+    'من جهة أخرى',
+    'على صعيد آخر',
+    'في سياق آخر', 'في سياق متصل',
+    'ومن الأخبار أيضا',
   ],
   minTransitions: 3,
-  minStoryNumber: 2,
 }
 
 function getStoryPatterns(channel) {
@@ -1669,26 +1663,49 @@ function getStoryPatterns(channel) {
   return DEFAULT_STORY_PATTERNS
 }
 
+function textContainsWord(text, word) {
+  if (/^[a-zA-Z0-9\s\-']+$/.test(word)) {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(text)
+  }
+  const lower = text.toLowerCase()
+  const wLower = word.toLowerCase()
+  const idx = lower.indexOf(wLower)
+  if (idx === -1) return false
+  const before = idx === 0 ? ' ' : lower[idx - 1]
+  const after = idx + wLower.length >= lower.length ? ' ' : lower[idx + wLower.length]
+  const boundary = /[\s,.!?:;،؛。\-()[\]{}]/
+  return (idx === 0 || boundary.test(before)) && (idx + wLower.length >= lower.length || boundary.test(after))
+}
+
+function countPhraseOccurrences(text, phrase) {
+  const lower = text.toLowerCase()
+  const pLower = phrase.toLowerCase()
+  let count = 0, idx = 0
+  while (true) {
+    idx = lower.indexOf(pLower, idx)
+    if (idx === -1) break
+    count++
+    idx += pLower.length
+  }
+  return count
+}
+
 function needsAiSplit(title, transcript, patterns) {
-  const activeTitle = (patterns.titlePatterns || []).filter(p => p.active)
-  for (const p of activeTitle) {
-    try {
-      if (new RegExp(p.pattern, 'i').test(title)) return { multi: true, reason: `Title matches: "${p.label}"` }
-    } catch (_) {}
+  for (const word of (patterns.titleWords || [])) {
+    if (textContainsWord(title, word)) {
+      return { multi: true, reason: `Title contains "${word}"` }
+    }
   }
 
-  const activeTransition = (patterns.transitionPatterns || []).filter(p => p.active)
   let transitionCount = 0
-  for (const p of activeTransition) {
-    try {
-      const matches = transcript.match(new RegExp(p.pattern, 'gi'))
-      if (matches) transitionCount += matches.length
-    } catch (_) {}
+  for (const phrase of (patterns.transitionPhrases || [])) {
+    transitionCount += countPhraseOccurrences(transcript, phrase)
   }
 
   const minTransitions = patterns.minTransitions || 3
   if (transitionCount >= minTransitions) {
-    return { multi: true, reason: `${transitionCount} transition markers found (threshold: ${minTransitions})` }
+    return { multi: true, reason: `${transitionCount} transition phrases found (threshold: ${minTransitions})` }
   }
 
   return { multi: false, reason: 'No multi-story signals' }

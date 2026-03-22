@@ -852,27 +852,17 @@ router.put('/story-patterns', requireRole('owner', 'admin', 'editor'), async (re
     if (!channelId) return res.status(400).json({ error: 'channelId required' })
     if (!patterns || typeof patterns !== 'object') return res.status(400).json({ error: 'patterns object required' })
 
-    const { titlePatterns, transitionPatterns, minTransitions, minStoryNumber } = patterns
+    const { titleWords, transitionPhrases, minTransitions } = patterns
 
-    if (titlePatterns && !Array.isArray(titlePatterns)) return res.status(400).json({ error: 'titlePatterns must be an array' })
-    if (transitionPatterns && !Array.isArray(transitionPatterns)) return res.status(400).json({ error: 'transitionPatterns must be an array' })
-
-    for (const p of (titlePatterns || [])) {
-      try { new RegExp(p.pattern, 'i') } catch (e) {
-        return res.status(400).json({ error: `Invalid regex in title pattern "${p.label}": ${e.message}` })
-      }
-    }
-    for (const p of (transitionPatterns || [])) {
-      try { new RegExp(p.pattern, 'gi') } catch (e) {
-        return res.status(400).json({ error: `Invalid regex in transition pattern "${p.label}": ${e.message}` })
-      }
-    }
+    if (titleWords && !Array.isArray(titleWords)) return res.status(400).json({ error: 'titleWords must be an array' })
+    if (transitionPhrases && !Array.isArray(transitionPhrases)) return res.status(400).json({ error: 'transitionPhrases must be an array' })
+    if (titleWords && titleWords.some(w => typeof w !== 'string')) return res.status(400).json({ error: 'titleWords must be strings' })
+    if (transitionPhrases && transitionPhrases.some(w => typeof w !== 'string')) return res.status(400).json({ error: 'transitionPhrases must be strings' })
 
     const data = {
-      titlePatterns: titlePatterns || [],
-      transitionPatterns: transitionPatterns || [],
-      minTransitions: typeof minTransitions === 'number' ? minTransitions : 3,
-      minStoryNumber: typeof minStoryNumber === 'number' ? minStoryNumber : 2,
+      titleWords: (titleWords || []).map(w => w.trim()).filter(Boolean),
+      transitionPhrases: (transitionPhrases || []).map(w => w.trim()).filter(Boolean),
+      minTransitions: typeof minTransitions === 'number' ? Math.max(1, minTransitions) : 3,
     }
 
     await db.scoreProfile.upsert({
