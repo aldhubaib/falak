@@ -525,6 +525,12 @@ export default function ArticleDetailPage() {
               const verdict = log.find((e) => e.step === "verdict" && e.stage === node.id);
               const isLast = i === flow.length - 1;
 
+              let activeStartedAt: string | null = null;
+              if (state === "active") {
+                const firstLogEntry = log.find((e) => e.stage === node.id && e.at);
+                activeStartedAt = firstLogEntry?.at ?? article.startedAt ?? null;
+              }
+
               return (
                 <React.Fragment key={node.id}>
                   <TreeNode
@@ -532,7 +538,7 @@ export default function ArticleDetailPage() {
                     state={state}
                     verdict={verdict || null}
                     onClick={() => setDrawerStage(node.id)}
-                    startedAt={state === "active" ? article.startedAt : null}
+                    startedAt={activeStartedAt}
                     retries={article.stage === node.id ? article.retries : 0}
                     durationMs={durations[node.id] ?? null}
                   />
