@@ -797,6 +797,8 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | POST | `/api/stories/:id/suggest-tags` | editor+ | AI-suggest YouTube SEO tags. | Anthropic API |
 | POST | `/api/stories/:id/classify-video` | editor+ | Detect Short vs regular video. | YouTube API |
 | PATCH | `/api/stories/:id/link-video` | editor+ | Link story to its produced YouTube video by `youtubeId`. | — |
+| POST | `/api/stories/:id/retranslate-research` | editor+ | Copy Arabic research brief from linked article; AI fallback only if no existing translation. | Anthropic Haiku (fallback only) |
+| POST | `/api/stories/batch-retranslate` | admin+ | Batch-translate all stories missing Arabic research briefs. | Anthropic Haiku |
 | POST | `/api/stories/:id/log` | editor+ | Add a log entry. | — |
 | POST | `/api/stories/:id/rescore` | editor+ | Re-score single story via niche embedding dot product. | — |
 | POST | `/api/stories/rescore-all` | editor+ | Re-score all active stories in channel via niche embedding. | — |
