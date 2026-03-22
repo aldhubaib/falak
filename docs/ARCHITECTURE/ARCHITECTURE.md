@@ -75,7 +75,7 @@ Three worker loops start in-process inside `server.js` after boot:
   transcribe → comments → AI analysis). If Redis is available, it consumes a
   Bull queue; otherwise it polls the database every 10 seconds.
 - **Article pipeline worker** — polls every 10 seconds for articles to process
-  through 8 stages (content → classify → title_translate → score → research → translated → images → done).
+  through 8 stages (content → classify → title_translate → score → research → images → translated → done).
   A dynamic threshold gate after scoring filters out low-scoring articles before
   expensive research and translation. Also polls article sources every 5 minutes for new imports.
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
@@ -411,7 +411,7 @@ via `nextCheckAt`.
 #### Article
 
 An article fetched from a source, processed through the pipeline.
-For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → translated → images → done.
+For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → images → translated → done.
 For YouTube: transcript → story_count → [story_split] → classify → ... (same downstream pipeline). `story_count` uses server-side pattern matching (no AI). Only videos flagged as multi-story reach `story_split` (AI). Videos with multiple stories get split into child articles via `parentArticleId`.
 
 | Field | Type | Required | Default | Description |
@@ -443,7 +443,7 @@ For YouTube: transcript → story_count → [story_split] → classify → ... (
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `images` → `done`.
+**Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `images` → `translated` → `done`.
 **Stages (YouTube):** `transcript` → `story_count` → [`story_split`] → `classify` → ... (same from classify onwards). `story_count` is pure server logic (regex patterns). `story_split` only runs when multi-story is detected. Parent articles that are split go to `adapter_done`.
 Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`, `adapter_done`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
@@ -965,7 +965,7 @@ flowchart LR
         IM["imported"] --> CO["content"]
     end
     CO --> CL["classify"] --> TT["title_translate"] --> SC["score"]
-    SC -->|above threshold| RE["research"] --> TR["translated"] --> IMG["images"] --> DO["done"]
+    SC -->|above threshold| RE["research"] --> IMG["images"] --> TR["translated"] --> DO["done"]
     SC -->|below threshold| FI["filtered"]
     CO -.->|needs review| RV["review"]
     TS -.->|failure| F["failed"]
