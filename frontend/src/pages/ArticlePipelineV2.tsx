@@ -379,8 +379,7 @@ function PipelineView() {
                   activeBatches={batches}
                   isBottleneck={isBottleneck}
                   isDone={false}
-                  expanded={expandedStage === `article:${stage.id}`}
-                  onToggle={() => setExpandedStage(expandedStage === `article:${stage.id}` ? null : `article:${stage.id}`)}
+                  onClick={() => setDrawerStage(`article:${stage.id}`)}
                   recentBatches={batchDoneEvents.filter((e) => e.pipeline === "article" && e.stage === stage.id)}
                   liveSteps={stepsByStage(stage.id)}
                 />
@@ -428,6 +427,30 @@ function PipelineView() {
           </div>
         </div>
       </div>
+
+      {/* ═══ Stage Detail Drawer ═══ */}
+      {drawerStage && (() => {
+        const [pipeline, stageId] = drawerStage.split(":") as [string, string];
+        const stageDef = [...ARTICLE_STAGES, ...VIDEO_STAGES].find((s) => s.id === stageId);
+        const stageSteps = stepsByStage(stageId);
+        const stageBatches = batchDoneEvents.filter((e) => e.pipeline === pipeline && e.stage === stageId);
+        const stageActiveBatches = activeBatchesByStage(pipeline, stageId);
+        const count = pipeline === "article" ? (articleStats[stageId] ?? 0) : (videoStats[stageId] ?? 0);
+
+        return (
+          <PipelineStageDrawer
+            stageId={stageId}
+            pipeline={pipeline}
+            stageDef={stageDef}
+            count={count}
+            isActive={stageActiveBatches.length > 0}
+            activeBatches={stageActiveBatches}
+            recentBatches={stageBatches}
+            liveSteps={stageSteps}
+            onClose={() => setDrawerStage(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -441,8 +464,7 @@ function StageNode({
   activeBatches,
   isBottleneck,
   isDone,
-  expanded,
-  onToggle,
+  onClick,
   recentBatches,
   liveSteps = [],
 }: {
@@ -452,8 +474,7 @@ function StageNode({
   activeBatches: BatchEvent[];
   isBottleneck: boolean;
   isDone: boolean;
-  expanded: boolean;
-  onToggle: () => void;
+  onClick: () => void;
   recentBatches: BatchEvent[];
   liveSteps?: BatchEvent[];
 }) {
@@ -482,7 +503,7 @@ function StageNode({
 
   return (
     <button
-      onClick={onToggle}
+      onClick={onClick}
       className={`w-full max-w-[340px] rounded-xl border-2 ${borderColor} ${bgColor} px-4 py-3 text-left transition-all hover:ring-4 ${ringColor} hover:scale-[1.02]`}
     >
       <div className="flex items-center gap-3">
@@ -535,43 +556,33 @@ function StageNode({
             )}
           </div>
         </div>
-        <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`} />
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
       </div>
 
-      {/* Live sub-step progress (shown when stage is active) */}
+      {/* Live sub-step indicators (compact) */}
       {liveSteps.length > 0 && (
-        <LiveStepTrail steps={liveSteps} stageColor={stage.color} />
-      )}
-
-      {/* Expanded batch history */}
-      {expanded && (
-        <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5" onClick={(e) => e.stopPropagation()}>
-          {recentBatches.length === 0 && !isActive ? (
-            <div className="text-[10px] text-muted-foreground font-mono text-center py-2">No recent batches</div>
-          ) : (
-            <>
-              {isActive && activeBatches.map((b) => (
-                <div key={b.batchId} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/20">
-                  <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />
-                  <span className="text-[10px] font-mono text-primary">Batch #{b.batchId}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground">{b.count} items</span>
-                  {b.catchup && <span className="text-[9px] font-mono text-orange px-1 py-0.5 rounded bg-orange/10">catch-up</span>}
-                </div>
-              ))}
-              {recentBatches.slice(-10).reverse().map((b, i) => (
-                <div key={`${b.batchId}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-card/50">
-                  <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
-                  <span className="text-[10px] font-mono text-muted-foreground">Batch #{b.batchId}</span>
-                  <span className="text-[10px] font-mono text-foreground">{b.count} items</span>
-                  {(b.failed ?? 0) > 0 && (
-                    <span className="text-[10px] font-mono text-destructive">{b.failed} failed</span>
-                  )}
-                  {b.catchup && <span className="text-[9px] font-mono text-orange px-1 py-0.5 rounded bg-orange/10">catch-up</span>}
-                  <span className="text-[9px] font-mono text-muted-foreground/50 ml-auto">{fmtAgo(b.ts)}</span>
-                </div>
-              ))}
-            </>
-          )}
+        <div className="mt-2 pt-2 border-t border-border/30 flex flex-wrap gap-1">
+          {(() => {
+            const byStep = new Map<string, BatchEvent>();
+            for (const s of liveSteps) { if (s.step) byStep.set(s.step, s); }
+            return Array.from(byStep.values()).map((s) => {
+              const isOk = s.status === "ok" || s.status === "created" || s.status === "linked";
+              const isFail = s.status === "failed" || s.status === "parse_error";
+              return (
+                <span
+                  key={s.step}
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
+                    isOk ? "bg-success/5 border-success/20 text-success"
+                      : isFail ? "bg-destructive/5 border-destructive/20 text-destructive"
+                        : "bg-primary/5 border-primary/20 text-primary"
+                  }`}
+                >
+                  {isOk ? <CheckCircle2 className="w-2.5 h-2.5" /> : isFail ? <AlertTriangle className="w-2.5 h-2.5" /> : <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                  {s.label || s.step}
+                </span>
+              );
+            });
+          })()}
         </div>
       )}
     </button>
@@ -632,94 +643,293 @@ function ActivityRow({ event }: { event: BatchEvent }) {
   );
 }
 
-/* ─── Live Sub-Step Trail ─── */
+/* ─── Stage Drawer (ArticleDetail style) ─── */
 
-const STEP_STATUS_STYLES: Record<string, { icon: typeof CheckCircle2; color: string }> = {
-  ok:         { icon: CheckCircle2, color: "text-success" },
-  created:    { icon: CheckCircle2, color: "text-success" },
-  linked:     { icon: CheckCircle2, color: "text-success" },
-  skipped:    { icon: ArrowRight, color: "text-muted-foreground" },
-  failed:     { icon: AlertTriangle, color: "text-destructive" },
-  parse_error:{ icon: AlertTriangle, color: "text-destructive" },
-  partial:    { icon: AlertTriangle, color: "text-orange" },
-  empty:      { icon: AlertTriangle, color: "text-orange" },
+const STAGE_STEPS: Record<string, { step: string; label: string; subtitle: string; icon: typeof FileText }[]> = {
+  transcript: [
+    { step: "transcript_fetch", label: "Transcript", subtitle: "Fetch YouTube video transcript", icon: FileText },
+  ],
+  story_count: [
+    { step: "story_count", label: "Story Count", subtitle: "Server-side multi-story detection", icon: Hash },
+  ],
+  story_split: [
+    { step: "story_split", label: "Story Split", subtitle: "AI splits transcript into stories", icon: Layers },
+  ],
+  imported: [
+    { step: "imported", label: "Imported", subtitle: "Queued for ingestion", icon: Download },
+  ],
+  content: [
+    { step: "apify_content", label: "Apify Content", subtitle: "Article body from Apify actor", icon: FileText },
+    { step: "firecrawl", label: "Firecrawl", subtitle: "Scraped via Firecrawl API", icon: Globe },
+    { step: "html_fetch", label: "HTML Fetch", subtitle: "Fallback HTTP fetch", icon: Globe },
+  ],
+  classify: [
+    { step: "classify", label: "Classified", subtitle: "Topic, tags, region, sentiment", icon: Brain },
+  ],
+  title_translate: [
+    { step: "title_translate", label: "Title Translate", subtitle: "Arabic title + summary for scoring", icon: Languages },
+  ],
+  score: [
+    { step: "score_similarity", label: "Competition Match", subtitle: "Match vs. existing stories", icon: Target },
+    { step: "score_topic_demand", label: "Topic Demand", subtitle: "Competitor audience engagement", icon: Users },
+    { step: "score_niche", label: "Niche Fit", subtitle: "Channel niche relevance", icon: Target },
+    { step: "score_ai_analysis", label: "AI Scoring", subtitle: "Relevance & viral scores", icon: Brain },
+    { step: "score", label: "Final Score", subtitle: "Composite score", icon: Sparkles },
+    { step: "threshold_gate", label: "Threshold Gate", subtitle: "Dynamic score threshold check", icon: Target },
+  ],
+  research: [
+    { step: "research_decision", label: "Decision", subtitle: "Whether research is needed", icon: Target },
+    { step: "serpapi_search", label: "Web Search", subtitle: "Related news via Google Search", icon: Search },
+    { step: "images", label: "Image Search", subtitle: "SerpAPI Google Images", icon: ImageIcon },
+    { step: "perplexity_context", label: "Background", subtitle: "Context from Perplexity", icon: Globe },
+    { step: "synthesis", label: "Synthesis", subtitle: "AI brief (hook, narrative, facts)", icon: Brain },
+  ],
+  translated: [
+    { step: "detect_language", label: "Language", subtitle: "Detect source language", icon: Languages },
+    { step: "translate_content", label: "Translate Content", subtitle: "Article text → Arabic", icon: Languages },
+    { step: "translate_analysis", label: "Translate Fields", subtitle: "Classification fields → Arabic", icon: Brain },
+    { step: "translate_research", label: "Translate Brief", subtitle: "Research brief → Arabic", icon: Search },
+  ],
+  import: [
+    { step: "import", label: "Import Video", subtitle: "Queue video for processing", icon: Download },
+  ],
+  transcribe: [
+    { step: "transcribe", label: "Transcribe", subtitle: "YouTube transcript extraction", icon: Youtube },
+  ],
+  comments: [
+    { step: "comments", label: "Comments", subtitle: "Fetch YouTube comments", icon: FileText },
+  ],
+  analyzing: [
+    { step: "analyzing", label: "Analyzing", subtitle: "AI analysis of video content", icon: Brain },
+  ],
 };
 
-function LiveStepTrail({ steps, stageColor }: { steps: BatchEvent[]; stageColor: string }) {
-  // Deduplicate by step name, keep latest per step
-  const byStep = new Map<string, BatchEvent>();
-  for (const s of steps) {
-    if (s.step) byStep.set(s.step, s);
-  }
-  const uniqueSteps = Array.from(byStep.values());
+function PipelineStageDrawer({
+  stageId,
+  pipeline,
+  stageDef,
+  count,
+  isActive,
+  activeBatches,
+  recentBatches,
+  liveSteps,
+  onClose,
+}: {
+  stageId: string;
+  pipeline: string;
+  stageDef?: { id: string; label: string; icon: typeof FileText; color: string; bg: string };
+  count: number;
+  isActive: boolean;
+  activeBatches: BatchEvent[];
+  recentBatches: BatchEvent[];
+  liveSteps: BatchEvent[];
+  onClose: () => void;
+}) {
+  const Icon = stageDef?.icon ?? FileText;
+  const color = stageDef?.color ?? "text-muted-foreground";
+  const stepsSpec = STAGE_STEPS[stageId] || [];
 
-  // Group by articleId to show per-article progress
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  // Build live step status map: step → latest event
+  const stepStatusMap = new Map<string, BatchEvent>();
+  for (const s of liveSteps) {
+    if (s.step) stepStatusMap.set(s.step, s);
+  }
+
+  // Group live steps by article
   const byArticle = new Map<string, BatchEvent[]>();
-  for (const s of steps) {
+  for (const s of liveSteps) {
     const key = s.articleId || "unknown";
     if (!byArticle.has(key)) byArticle.set(key, []);
     byArticle.get(key)!.push(s);
   }
-
-  // Show compact view: unique steps as pills
-  if (uniqueSteps.length === 0) return null;
+  const articleEntries = Array.from(byArticle.entries());
 
   return (
-    <div className="mt-2 pt-2 border-t border-border/30 space-y-1.5">
-      <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground uppercase tracking-wider">
-        <Zap className="w-2.5 h-2.5" />
-        <span>Live Steps ({byArticle.size} {byArticle.size === 1 ? "article" : "articles"})</span>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {uniqueSteps.map((s) => {
-          const style = STEP_STATUS_STYLES[s.status || "ok"] || { icon: CheckCircle2, color: stageColor };
-          const StepIcon = style.icon;
-          return (
-            <span
-              key={s.step}
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
-                s.status === "ok" || s.status === "created"
-                  ? "bg-success/5 border-success/20 text-success"
-                  : s.status === "failed" || s.status === "parse_error"
-                    ? "bg-destructive/5 border-destructive/20 text-destructive"
-                    : s.status === "skipped"
-                      ? "bg-card border-border/50 text-muted-foreground"
-                      : `bg-primary/5 border-primary/20 ${stageColor}`
-              }`}
-            >
-              <StepIcon className="w-2.5 h-2.5" />
-              {s.label || s.step}
-              {s.service && <span className="text-muted-foreground/60 ml-0.5">{s.service}</span>}
-            </span>
-          );
-        })}
-      </div>
-      {/* Per-article breakdown when multiple articles are being processed */}
-      {byArticle.size > 1 && (
-        <div className="space-y-1 mt-1">
-          {Array.from(byArticle.entries()).slice(0, 5).map(([artId, artSteps]) => (
-            <div key={artId} className="flex items-center gap-1.5 text-[9px] font-mono">
-              <span className="text-muted-foreground/50 w-16 truncate">{artId.slice(-6)}</span>
-              <div className="flex gap-0.5">
-                {artSteps.map((s, i) => {
-                  const isOk = s.status === "ok" || s.status === "created" || s.status === "linked";
-                  const isFail = s.status === "failed" || s.status === "parse_error";
-                  return (
-                    <span
-                      key={`${s.step}-${i}`}
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        isOk ? "bg-success" : isFail ? "bg-destructive" : "bg-primary"
-                      }`}
-                      title={`${s.label || s.step}: ${s.status}`}
-                    />
-                  );
-                })}
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-[640px] bg-background border-l border-border overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-200">
+
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${stageDef?.bg ?? "bg-card"}/15`}>
+              <Icon className={`w-4 h-4 ${color}`} />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-semibold text-foreground">{stageDef?.label ?? stageId}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] font-mono text-muted-foreground uppercase">{pipeline}</span>
+                {count > 0 && <span className="text-[10px] font-mono text-foreground">{count} queued</span>}
+                {isActive && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono text-primary animate-pulse">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" /> Processing
+                  </span>
+                )}
               </div>
             </div>
-          ))}
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-card border border-border transition-colors"
+          >
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
-      )}
+
+        {/* Sub-steps (API calls within this stage) */}
+        {stepsSpec.length > 0 && (
+          <div className="px-5 py-4 space-y-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
+              <Zap className="w-3 h-3" />
+              <span>Sub-steps ({stepsSpec.length})</span>
+            </div>
+            {stepsSpec.map((spec) => {
+              const live = stepStatusMap.get(spec.step);
+              const StepIcon = spec.icon;
+              const status = live?.status;
+              const isOk = status === "ok" || status === "created" || status === "linked";
+              const isFail = status === "failed" || status === "parse_error";
+              const isSkipped = status === "skipped";
+              const isPending = !live;
+
+              return (
+                <div
+                  key={spec.step}
+                  className={`px-3 py-2.5 rounded-lg border space-y-1 ${
+                    isPending ? "bg-card/20 border-border/50 opacity-50"
+                      : isOk ? "bg-card/50 border-success/20"
+                        : isFail ? "bg-card/50 border-destructive/20"
+                          : isSkipped ? "bg-card/20 border-border/50 opacity-60"
+                            : "bg-card/50 border-primary/20"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <StepIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-[11px] font-semibold">{spec.label}</span>
+                    {live?.processor && <ProcessorBadge type={live.processor} />}
+                    {live?.service && <span className="text-[9px] font-mono text-muted-foreground">{live.service}</span>}
+                    {status && <StatusBadge status={status} />}
+                    {isPending && <span className="text-[9px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-card">pending</span>}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground font-mono leading-tight pl-5.5">{spec.subtitle}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Per-article progress (when multiple articles are in-flight) */}
+        {articleEntries.length > 0 && (
+          <div className="px-5 py-4 border-t border-border/50 space-y-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
+              <FileText className="w-3 h-3" />
+              <span>Articles in flight ({articleEntries.length})</span>
+            </div>
+            {articleEntries.slice(0, 15).map(([artId, artSteps]) => (
+              <div key={artId} className="px-3 py-2 rounded-lg bg-card/30 border border-border/50">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[10px] font-mono text-muted-foreground">…{artId.slice(-8)}</span>
+                  <span className="text-[9px] font-mono text-muted-foreground/50">{artSteps.length} steps</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {artSteps.map((s, i) => {
+                    const isOk = s.status === "ok" || s.status === "created" || s.status === "linked";
+                    const isFail = s.status === "failed" || s.status === "parse_error";
+                    return (
+                      <span
+                        key={`${s.step}-${i}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border ${
+                          isOk ? "bg-success/5 border-success/20 text-success"
+                            : isFail ? "bg-destructive/5 border-destructive/20 text-destructive"
+                              : "bg-primary/5 border-primary/20 text-primary"
+                        }`}
+                      >
+                        {isOk ? <CheckCircle2 className="w-2.5 h-2.5" /> : isFail ? <AlertTriangle className="w-2.5 h-2.5" /> : <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                        {s.label || s.step}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Active batches */}
+        {activeBatches.length > 0 && (
+          <div className="px-5 py-4 border-t border-border/50 space-y-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Active Batches</span>
+            </div>
+            {activeBatches.map((b) => (
+              <div key={b.batchId} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+                <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />
+                <span className="text-[11px] font-mono text-primary font-semibold">Batch #{b.batchId}</span>
+                <span className="text-[11px] font-mono text-muted-foreground">{b.count} items</span>
+                {b.catchup && <span className="text-[9px] font-mono text-orange px-1.5 py-0.5 rounded bg-orange/10">catch-up</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Batch history */}
+        <div className="px-5 py-4 border-t border-border/50 space-y-2">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">
+            <RotateCw className="w-3 h-3" />
+            <span>Batch History ({recentBatches.length})</span>
+          </div>
+          {recentBatches.length === 0 ? (
+            <div className="text-[11px] text-muted-foreground font-mono text-center py-6">No batches recorded yet</div>
+          ) : (
+            recentBatches.slice(-20).reverse().map((b, i) => (
+              <div key={`${b.batchId}-${i}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card/50 border border-border/50">
+                <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+                <span className="text-[11px] font-mono text-muted-foreground">#{b.batchId}</span>
+                <span className="text-[11px] font-mono text-foreground">{b.count} items</span>
+                {(b.failed ?? 0) > 0 && (
+                  <span className="text-[11px] font-mono text-destructive">{b.failed} failed</span>
+                )}
+                {b.catchup && <span className="text-[9px] font-mono text-orange px-1.5 py-0.5 rounded bg-orange/10">catch-up</span>}
+                <span className="text-[9px] font-mono text-muted-foreground/50 ml-auto">{fmtAgo(b.ts)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function ProcessorBadge({ type }: { type: string }) {
+  const style = type === "ai" ? "bg-purple/10 text-purple border-purple/20"
+    : type === "api" ? "bg-primary/10 text-primary border-primary/20"
+      : "bg-card text-muted-foreground border-border";
+  return (
+    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${style}`}>
+      {type}
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const isOk = status === "ok" || status === "created" || status === "linked";
+  const isFail = status === "failed" || status === "parse_error";
+  const isSkipped = status === "skipped";
+  const style = isOk ? "bg-success/10 text-success border-success/20"
+    : isFail ? "bg-destructive/10 text-destructive border-destructive/20"
+      : isSkipped ? "bg-card text-muted-foreground border-border"
+        : "bg-orange/10 text-orange border-orange/20";
+  return (
+    <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${style}`}>
+      {status}
+    </span>
   );
 }
 
