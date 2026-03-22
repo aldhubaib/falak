@@ -27,7 +27,7 @@ export function StoryDetailResearch({
   const isOpen = controlledOpen ?? internalOpen;
   const setOpen = onResearchOpenChange ?? setInternalOpen;
 
-  const brief: ResearchBrief | undefined = research?.brief ?? research?.briefAr;
+  const brief: ResearchBrief | undefined = research?.briefAr ?? research?.brief;
   const images = research?.images;
   const hasContent = !!(
     brief?.whatHappened ||

@@ -150,6 +150,18 @@ interface Analysis {
       suggestedHook?: string;
       narrativeStrength?: number;
     };
+    briefAr?: {
+      whatHappened?: string;
+      howItHappened?: string;
+      whatWasTheResult?: string;
+      keyFacts?: string[];
+      timeline?: { date?: string; event?: string }[];
+      mainCharacters?: { name?: string; role?: string }[];
+      sources?: { title?: string; url?: string }[];
+      competitionInsight?: string;
+      suggestedHook?: string;
+      narrativeStrength?: number;
+    };
     researchedAt?: string;
   };
   draftScript?: {
@@ -2092,7 +2104,8 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
       )}
 
       {(() => {
-        const brief = (article.analysis as Analysis | null)?.research?.brief;
+        const research = (article.analysis as Analysis | null)?.research;
+        const brief = research?.briefAr ?? research?.brief;
         if (!brief?.competitionInsight) return null;
         return (
           <ResultCard label="Competition Insight" icon={Target}>
@@ -2108,7 +2121,7 @@ function ScoringDetail({ article, log }: { article: ArticleDetail; log: LogEntry
 
 function SynthesisDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
   const research = (article.analysis as Analysis | null)?.research;
-  const brief = research?.brief;
+  const brief = research?.briefAr ?? research?.brief;
   const steps = STEP_MAP.synthesis;
 
   return (
