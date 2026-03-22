@@ -995,7 +995,7 @@ flowchart LR
     TR -.->|failure| F
 ```
 
-**Execution mode:** Polling only (10s interval). No Bull queue support.
+**Execution mode:** Adaptive polling (2s when busy, 10s when idle). No Bull queue support.
 
 | Stage | What Happens | External API | DB Writes |
 |---|---|---|---|
@@ -1010,10 +1010,16 @@ flowchart LR
 | **research** | Multi-source research: SerpAPI Google News (5 related articles) + SerpAPI Google Images (10 images) run in parallel → Perplexity context (fed with found URLs) → Claude Sonnet synthesis into structured brief. Images downloaded to R2 "Stories" gallery album. Non-fatal on failure. Only runs for articles above threshold. Includes retry logic for transient failures (502, timeouts). | SerpAPI, Perplexity, Anthropic Sonnet | `Article.analysis.research`, `Article.analysis.images`, creates `GalleryMedia` |
 | **translated** | Translates content + fields + research brief to Arabic via Haiku. Research brief translation is **mandatory** — if it fails the article stays in `translate` stage for retry and no Story is created. Skips translation if source is already Arabic. | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar`, creates `Story` |
 
-**Concurrency:** Per-stage batch sizes — lightweight stages (transcript, story_count,
-imported, content, classify, title_translate) process 5 items in parallel. Score
-processes 2 items serially with 3s gap. Expensive stages (story_split, research,
-translated) process 1 item serially with 3s gap.
+**Concurrency & draining:** Per-stage batch sizes — classify and title_translate
+process 8 items in parallel, score processes 3, research and translated process 2.
+Lightweight stages (transcript, story_count, imported, content) process 5 in parallel.
+Heavy stages (story_split, score, research, translated) run serially with 3s
+inter-item delays. Non-serial stages drain up to 5 rounds per tick (up to 40 classify
+items per tick) with 1s inter-batch delays, preventing large backlogs from stalling.
+
+**Adaptive polling:** When the worker finds work, the next tick fires after 2s
+(`POLL_BUSY_MS`). When idle, it waits the full 10s (`POLL_IDLE_MS`). This cuts
+backlog drain time by ~5× compared to the previous fixed 10s interval.
 
 **Content DNA gate:** The pipeline requires a niche embedding (Content DNA) before any
 articles can be ingested. Both manual ingestion (`POST /ingest`, `test-run`, `test-video`)
@@ -1691,6 +1697,7 @@ managed PostgreSQL includes it by default.
 | Value | Location | Purpose |
 |---|---|---|
 | 10s | worker.js | Polling interval (`POLL_MS`) |
+| 2s / 10s | worker-articles.js | Adaptive polling interval (`POLL_BUSY_MS` / `POLL_IDLE_MS`) |
 | 5 min | worker-articles.js | Source polling interval (`SOURCE_POLL_MS`) |
 | 1 hour | worker-rescore.js | Rescore check interval |
 | 3 | All workers | Max retries before failure |
@@ -2077,6 +2084,34 @@ Added 3 missing composite indexes via migration `20260320100000_add_missing_inde
 - **`src/worker-articles.js`**: Emits `articleEvents.emit(...)` after each `db.article.update` in `processItem` — covers the next-stage, review, and max-retries-failed paths.
 - **`src/routes/articlePipeline.js`**: New `GET /:id/events` SSE endpoint. Streams `{stage,status}` JSON payloads to the client on each transition. Includes a 15 s heartbeat and cleans up listeners on disconnect.
 - **Frontend `ArticleDetail.tsx`**: Replaced 4 s `setInterval` polling with `EventSource`. On each SSE message the page silently re-fetches full detail. Falls back to 5 s polling if SSE connection fails.
+
+---
+
+## Section 20 — Article Worker Throughput Optimization (2026-03-22)
+
+### Problem
+496 articles stuck at the `classify` stage. The worker processed 1 article per tick
+with a fixed 10s polling interval, giving ~3.4 hours to clear a 500-article backlog.
+
+### Changes (`src/worker-articles.js`)
+- **Higher batch sizes**: classify and title_translate raised from 5 → 8 parallel items.
+  score raised to 3, research and translated to 2.
+- **Multi-round draining**: Non-serial stages now drain up to 5 rounds per tick
+  (e.g. classify processes up to 40 items per tick instead of 5). Rounds stop early
+  when the queue empties or a batch comes back under-filled.
+- **Adaptive polling**: `POLL_BUSY_MS = 2s` when work was found, `POLL_IDLE_MS = 10s`
+  when idle. Cuts backlog drain time by ~5×.
+- **`Promise.allSettled`**: Parallel batches use `allSettled` instead of `all` so one
+  failing article doesn't abort the entire batch.
+- **Per-stage logging**: Each stage logs total items processed per tick for
+  observability.
+
+### Throughput comparison (classify, 500 articles)
+| Metric | Before | After |
+|---|---|---|
+| Items per tick | 5 | up to 40 (8 × 5 rounds) |
+| Poll interval (busy) | 10s | 2s |
+| Est. drain time | ~3.4 hours | ~6–12 minutes |
 
 ---
 
