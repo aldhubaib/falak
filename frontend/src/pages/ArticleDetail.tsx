@@ -94,6 +94,11 @@ interface LogEntry {
   summary?: string;
   uniqueAngle?: string;
   isBreaking?: boolean;
+  segments?: number | null;
+  storiesDetected?: number;
+  childrenCreated?: number;
+  childUrls?: string[];
+  action?: string;
   nicheScore?: number;
   nicheActive?: boolean;
   topicDemand?: number;
@@ -586,6 +591,8 @@ function StageSection({
       </button>
       {expanded && !isWaiting && (
         <>
+          {stage.id === "transcript" && <TranscriptDetail article={article} log={log} />}
+          {stage.id === "story_detect" && <StoryDetectDetail article={article} log={log} pp={pp} />}
           {stage.id === "imported" && <ImportedDetail article={article} log={log} />}
           {stage.id === "content" && <ContentDetail article={article} log={log} />}
           {stage.id === "classify" && <AiAnalysisDetail article={article} log={log} />}
@@ -607,6 +614,8 @@ function StageSection({
 
 /** Step order and ids per stage — must match Article Pipeline Kanban exactly. */
 const STEP_MAP: Record<string, string[]> = {
+  transcript: ["transcript_fetch"],
+  story_detect: ["story_detect", "story_split"],
   imported: ["imported"],
   content: ["apify_content", "firecrawl", "html_fetch", "title_desc"],
   classify: ["classify"],
@@ -628,6 +637,9 @@ function getStepLogs(stageId: string, log: LogEntry[]): LogEntry[] {
 
 /** Step id → label, subtitle, icon (matches Pipeline Kanban columns exactly). */
 const STEP_DISPLAY: Record<string, { label: string; subtitle?: string; icon: typeof FileText }> = {
+  transcript_fetch: { label: "Transcript", subtitle: "Fetch YouTube video transcript", icon: FileText },
+  story_detect: { label: "Story Detect", subtitle: "Detect stories in transcript", icon: Brain },
+  story_split: { label: "Story Split", subtitle: "Split transcript into stories", icon: FileText },
   imported: { label: "Imported", subtitle: "Queued for ingestion", icon: FileText },
   apify_content: { label: "Apify Content", subtitle: "Article body from Apify actor", icon: FileText },
   firecrawl: { label: "Firecrawl", subtitle: "Scraped via Firecrawl API", icon: Globe },
@@ -1103,6 +1115,101 @@ function UnknownEntries({ stageId, log }: { stageId: string; log: LogEntry[] }) 
 }
 
 /* ─── Stage detail components ─── */
+
+function TranscriptDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
+  const entry = log.find((e) => e.step === "transcript_fetch");
+  const { label, icon } = STEP_DISPLAY.transcript_fetch || { label: "Transcript", icon: FileText };
+  const analysis = article.analysis as Record<string, unknown> | null;
+  const youtubeId = analysis?.youtubeId as string | undefined;
+  const duration = analysis?.duration as string | undefined;
+  const thumbnailUrl = analysis?.thumbnailUrl as string | undefined;
+
+  return (
+    <div className="p-4 space-y-3">
+      <LogStepCard entry={entry ?? null} stepId="transcript_fetch" label={label} subtitle={STEP_DISPLAY.transcript_fetch?.subtitle} icon={icon}>
+        {entry?.source && <span>Source: <span className="text-foreground">{entry.source}</span></span>}
+        {entry?.chars != null && <span className="block">{entry.chars.toLocaleString()} chars</span>}
+        {entry?.segments != null && <span className="block">{entry.segments} segments</span>}
+        {entry?.error && <span className="block text-destructive">{entry.error}</span>}
+        {entry?.reason && <span className="block text-muted-foreground">{entry.reason}</span>}
+      </LogStepCard>
+      {(youtubeId || thumbnailUrl || duration) && (
+        <ResultCard label="Video Metadata" icon={FileText}>
+          <div className="space-y-2">
+            {thumbnailUrl && (
+              <img src={thumbnailUrl} alt="" className="w-full max-w-xs rounded-lg" />
+            )}
+            <div className="flex items-center gap-4 text-[11px] font-mono text-muted-foreground">
+              {youtubeId && (
+                <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  {youtubeId}
+                </a>
+              )}
+              {duration && <span>{duration}</span>}
+            </div>
+          </div>
+        </ResultCard>
+      )}
+      {article.content && (
+        <ResultCard label={`Transcript (${article.contentRawLength.toLocaleString()} chars)`} icon={FileText}>
+          <ContentBlock label="Full Transcript" content={article.content} />
+        </ResultCard>
+      )}
+    </div>
+  );
+}
+
+function StoryDetectDetail({ article, log, pp }: { article: ArticleDetail; log: LogEntry[]; pp: (p: string) => string }) {
+  const detectEntry = log.find((e) => e.step === "story_detect");
+  const splitEntry = log.find((e) => e.step === "story_split");
+
+  return (
+    <div className="p-4 space-y-3">
+      <LogStepCard
+        entry={detectEntry ?? null}
+        stepId="story_detect"
+        label={STEP_DISPLAY.story_detect?.label || "Story Detect"}
+        subtitle={STEP_DISPLAY.story_detect?.subtitle}
+        icon={STEP_DISPLAY.story_detect?.icon || Brain}
+      >
+        {detectEntry?.storiesDetected != null && (
+          <span>{detectEntry.storiesDetected} {detectEntry.storiesDetected === 1 ? "story" : "stories"} detected</span>
+        )}
+        {detectEntry?.error && <span className="block text-destructive">{detectEntry.error}</span>}
+        {detectEntry?.reason && <span className="block text-muted-foreground">{detectEntry.reason}</span>}
+      </LogStepCard>
+
+      {splitEntry && (
+        <LogStepCard
+          entry={splitEntry}
+          stepId="story_split"
+          label={STEP_DISPLAY.story_split?.label || "Story Split"}
+          subtitle={STEP_DISPLAY.story_split?.subtitle}
+          icon={STEP_DISPLAY.story_split?.icon || FileText}
+        >
+          {splitEntry.action === "single" && (
+            <span>Single story — article continues through pipeline</span>
+          )}
+          {splitEntry.action === "split" && (
+            <div className="space-y-1.5">
+              <span>{splitEntry.storiesDetected} stories → {splitEntry.childrenCreated} child articles created</span>
+              {splitEntry.childUrls && splitEntry.childUrls.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {splitEntry.childUrls.map((url: string, i: number) => (
+                    <div key={i} className="text-[10px] font-mono text-muted-foreground truncate">
+                      {i + 1}. {url}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {splitEntry.error && <span className="block text-destructive">{splitEntry.error}</span>}
+        </LogStepCard>
+      )}
+    </div>
+  );
+}
 
 function ImportedDetail({ article, log }: { article: ArticleDetail; log: LogEntry[] }) {
   const stepId = "imported";
