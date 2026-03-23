@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Clock, Sparkles, Loader2, Film, Smartphone } from "lucide-react";
+import { Clock, Sparkles, Loader2, Film, Smartphone, ChevronDown } from "lucide-react";
 
 export interface StoryDetailScriptSectionProps {
   scriptDuration: number;
@@ -37,6 +37,7 @@ export function StoryDetailScriptSection({
   channelName,
 }: StoryDetailScriptSectionProps) {
   const [durationInput, setDurationInput] = useState(() => String(scriptDuration));
+  const [collapsed, setCollapsed] = useState(false);
   const userClearedRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -49,18 +50,30 @@ export function StoryDetailScriptSection({
     }
   }, [scriptDuration]);
 
+  const autoResize = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(200, el.scrollHeight)}px`;
+  };
+
   useEffect(() => {
     if (scriptRef) {
       scriptRef.current = {
         setContent: (v: string) => {
           if (textareaRef.current) textareaRef.current.value = v;
           onScriptChange?.(v);
+          requestAnimationFrame(autoResize);
         },
       };
     }
   }, [scriptRef, onScriptChange]);
 
   const value = scriptValue ?? "";
+
+  useEffect(() => {
+    if (!collapsed) requestAnimationFrame(autoResize);
+  }, [value, collapsed]);
 
   return (
     <section>
@@ -115,8 +128,12 @@ export function StoryDetailScriptSection({
         </div>
       </div>
       <div className="rounded-lg bg-card border border-border overflow-visible">
-        <div className="px-4 max-sm:px-3 py-3 flex items-center justify-between border-b border-border flex-wrap gap-2">
-          <div className="flex items-center gap-3 flex-1">
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className="w-full px-4 max-sm:px-3 py-3 flex items-center justify-between border-b border-border flex-wrap gap-2 hover:bg-card/80 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3 flex-1" onClick={(e) => e.stopPropagation()}>
             <div className="inline-flex items-center bg-card rounded-full border border-border">
               <div className="flex items-center gap-1 px-2.5 text-[11px] text-muted-foreground">
                 <Clock className="w-3 h-3 shrink-0" />
@@ -161,7 +178,10 @@ export function StoryDetailScriptSection({
 
                   <button
                     type="button"
-                    onClick={() => canGenerate && !generating && onGenerate()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (canGenerate && !generating) onGenerate();
+                    }}
                     disabled={!canGenerate}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
                       canGenerate ? "text-foreground hover:bg-card" : "text-muted-foreground/30 cursor-not-allowed"
@@ -179,31 +199,38 @@ export function StoryDetailScriptSection({
             </div>
           </div>
 
-          {channelAvatarUrl ? (
-            <img
-              src={channelAvatarUrl}
-              alt={channelName || ""}
-              className="w-6 h-6 rounded-full object-cover shrink-0 border border-border"
+          <div className="flex items-center gap-2 shrink-0">
+            {channelAvatarUrl ? (
+              <img
+                src={channelAvatarUrl}
+                alt={channelName || ""}
+                className="w-6 h-6 rounded-full object-cover shrink-0 border border-border"
+              />
+            ) : channelName ? (
+              <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
+                {channelName.charAt(0).toUpperCase()}
+              </div>
+            ) : null}
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+          </div>
+        </button>
+
+        {!collapsed && (
+          <div className="px-5 max-sm:px-3 py-4 overflow-visible bg-card">
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => {
+                onScriptChange?.(e.target.value);
+                autoResize();
+              }}
+              readOnly={readOnly}
+              dir="auto"
+              placeholder="Write your script here…"
+              className="w-full min-h-[200px] bg-transparent text-foreground text-[0.95rem] leading-[1.7] resize-none focus:outline-none placeholder:text-muted-foreground/50 overflow-hidden"
             />
-          ) : channelName ? (
-            <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
-              {channelName.charAt(0).toUpperCase()}
-            </div>
-          ) : null}
-
-        </div>
-
-        <div className="px-5 max-sm:px-3 py-4 overflow-visible bg-card">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onScriptChange?.(e.target.value)}
-            readOnly={readOnly}
-            dir="auto"
-            placeholder="Write your script here…"
-            className="w-full min-h-[200px] bg-transparent text-foreground text-[0.95rem] leading-[1.7] resize-y focus:outline-none placeholder:text-muted-foreground/50"
-          />
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );
