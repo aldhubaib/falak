@@ -37,7 +37,7 @@ const MAX_ROUNDS = 5
 const AI_INTER_ITEM_MS = 3_000
 const RESCUE_INTERVAL_MS = 60_000
 const SOURCE_POLL_MS = 5 * 60 * 1000
-const AI_CONCURRENCY = 3
+const AI_CONCURRENCY = 5
 
 const STAGES = [
   'transcript', 'story_count', 'story_split', 'imported', 'content',
@@ -53,8 +53,8 @@ const STAGE_CONFIG = {
   classify:        { batch: 8,  pollMs: 5_000,  serial: false, ai: true  },
   title_translate: { batch: 8,  pollMs: 5_000,  serial: false, ai: true  },
   score:           { batch: 3,  pollMs: 8_000,  serial: true,  ai: true  },
-  research:        { batch: 2,  pollMs: 10_000, serial: true,  ai: true  },
-  translated:      { batch: 2,  pollMs: 10_000, serial: true,  ai: true  },
+  research:        { batch: 4,  pollMs: 8_000,  serial: true,  ai: true  },
+  translated:      { batch: 4,  pollMs: 8_000,  serial: true,  ai: true  },
 }
 
 /* ── Semaphore (limits concurrent AI calls across all stages) ── */
