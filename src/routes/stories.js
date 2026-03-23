@@ -509,11 +509,37 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+
+    // Build research text from the structured briefAr/brief object
+    const researchObj = brief.research?.briefAr || brief.research?.brief
+    let researchText = ''
+    if (researchObj && typeof researchObj === 'object') {
+      const parts = []
+      if (researchObj.whatHappened) parts.push(`ما حدث:\n${researchObj.whatHappened}`)
+      if (researchObj.howItHappened) parts.push(`كيف حدث:\n${researchObj.howItHappened}`)
+      if (researchObj.whatWasTheResult) parts.push(`النتيجة:\n${researchObj.whatWasTheResult}`)
+      if (Array.isArray(researchObj.keyFacts) && researchObj.keyFacts.length) {
+        parts.push(`الحقائق الرئيسية:\n${researchObj.keyFacts.map((f, i) => `${i + 1}. ${f}`).join('\n')}`)
+      }
+      if (Array.isArray(researchObj.timeline) && researchObj.timeline.length) {
+        parts.push(`التسلسل الزمني:\n${researchObj.timeline.map(t => `- ${t.date || ''}: ${t.event || ''}`).join('\n')}`)
+      }
+      if (Array.isArray(researchObj.mainCharacters) && researchObj.mainCharacters.length) {
+        parts.push(`الشخصيات الرئيسية:\n${researchObj.mainCharacters.map(c => `- ${c.name || ''}: ${c.role || ''}`).join('\n')}`)
+      }
+      if (researchObj.suggestedHook) parts.push(`خطاف مقترح:\n${researchObj.suggestedHook}`)
+      if (researchObj.competitionInsight) parts.push(`تحليل المنافسة:\n${researchObj.competitionInsight}`)
+      researchText = parts.join('\n\n')
+    } else if (typeof researchObj === 'string' && researchObj.trim()) {
+      researchText = researchObj.trim()
+    }
+
     const fromBody = typeof req.body?.articleText === 'string' ? req.body.articleText.trim() : ''
     const fromBrief = typeof brief.articleContent === 'string' ? brief.articleContent : ''
     const articleContent = fromBody || (fromBrief !== '__SCRAPE_FAILED__' && fromBrief !== '__YOUTUBE__' ? fromBrief : '')
-    if (!articleContent || articleContent === '__SCRAPE_FAILED__' || articleContent === '__YOUTUBE__') {
-      return res.status(400).json({ error: 'No article content. Fetch and optionally clean the article first.' })
+
+    if (!researchText && !articleContent) {
+      return res.status(400).json({ error: 'No research data or article content available. Run research first.' })
     }
     const channelId = req.body?.channelId || brief.channelId
     if (!channelId) {
@@ -567,19 +593,16 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)`
 
-    let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
+    let userMessage = `Turn this into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n`
 
-    if (brief.research) {
-      const researchParts = []
-      if (brief.research.briefAr || brief.research.brief) researchParts.push(brief.research.briefAr || brief.research.brief)
-      if (brief.research.competitionInsight) researchParts.push(`Competition Insight: ${brief.research.competitionInsight}`)
-      if (brief.research.keyFacts && Array.isArray(brief.research.keyFacts)) {
-        researchParts.push(`Key Facts:\n${brief.research.keyFacts.map(f => `- ${f}`).join('\n')}`)
-      }
-      if (researchParts.length) userMessage += `\n\n--- RESEARCH BRIEF ---\n${researchParts.join('\n\n')}`
+    if (researchText) {
+      userMessage += `--- RESEARCH ---\n${researchText}\n\n`
     }
-    if (brief.summary) userMessage += `\n\n--- SUMMARY ---\n${brief.summary}`
-    if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
+    if (articleContent) {
+      userMessage += `--- ARTICLE ---\n${articleContent.slice(0, 120000)}\n\n`
+    }
+    if (brief.summary) userMessage += `--- SUMMARY ---\n${brief.summary}\n\n`
+    if (brief.uniqueAngle) userMessage += `--- UNIQUE ANGLE ---\n${brief.uniqueAngle}\n\n`
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')

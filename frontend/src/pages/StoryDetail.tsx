@@ -850,7 +850,6 @@ export default function StoryDetail() {
         body: JSON.stringify({
           durationMinutes: scriptDurationMinutes,
           channelId,
-          articleText: brief.articleContent ?? "",
         }),
       });
       if (!res.ok) {
@@ -903,7 +902,7 @@ export default function StoryDetail() {
     } finally {
       setGeneratingScript(false);
     }
-  }, [id, channelId, scriptDurationMinutes, brief.articleContent, generatingScript, saveScript]);
+  }, [id, channelId, scriptDurationMinutes, generatingScript, saveScript]);
 
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: "عنوان الفيديو المقترح...", type: "input" },
