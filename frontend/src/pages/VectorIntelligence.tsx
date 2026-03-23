@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
 import {
-  RotateCw, Loader2, Zap, TrendingUp, Bell, Search, Activity,
-  Target, Brain, Database, BarChart3, Shield, ArrowRight,
-  CheckCircle2, Clock, RefreshCw, Circle, Settings,
-  ChevronRight, Layers, Cpu, BookOpen,
+  RotateCw, Loader2, Zap, TrendingUp, Bell, Activity,
+  Target, Brain, Settings, ChevronRight, ChevronDown,
+  Sparkles, Eye, ThumbsUp, BarChart3, Globe, Tag, Layers,
+  CheckCircle2, AlertTriangle, Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip as RechartsTooltip,
+} from "recharts";
 
 /* ─── Types ─── */
 
@@ -63,7 +68,8 @@ export default function VectorIntelligence() {
   const [data, setData] = useState<VectorIntelligenceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [reEvaluating, setReEvaluating] = useState(false);
-  const [countdown, setCountdown] = useState(60);
+  const [feedFilter, setFeedFilter] = useState<"all" | "competition" | "scores" | "alerts">("all");
+  const [techOpen, setTechOpen] = useState(false);
 
   const fetchData = useCallback(() => {
     if (!channelId) return;
@@ -77,10 +83,7 @@ export default function VectorIntelligence() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    setCountdown(60);
-    const tick = setInterval(() => {
-      setCountdown((p) => { if (p <= 1) { fetchData(); return 60; } return p - 1; });
-    }, 1000);
+    const tick = setInterval(fetchData, 60000);
     return () => clearInterval(tick);
   }, [fetchData]);
 
@@ -92,10 +95,10 @@ export default function VectorIntelligence() {
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
-        toast.success(`Re-evaluated ${d.evaluated} stories, ${d.changed} scores changed`);
+        toast.success(`Refreshed ${d.evaluated} stories — ${d.changed} scores updated`);
         fetchData();
       })
-      .catch(() => toast.error("Re-evaluation failed"))
+      .catch(() => toast.error("Could not refresh scores right now"))
       .finally(() => setReEvaluating(false));
   };
 
@@ -112,15 +115,16 @@ export default function VectorIntelligence() {
       <div className="flex-1 flex items-center justify-center">
         <div className="rounded-lg border border-border bg-card p-8 text-center max-w-md">
           <div className="w-12 h-12 rounded-full bg-purple/10 flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-6 h-6 text-purple" />
+            <Sparkles className="w-6 h-6 text-purple" />
           </div>
-          <h2 className="text-[15px] font-semibold text-foreground mb-2">Vector Intelligence Not Configured</h2>
-          <p className="text-[12px] text-muted-foreground mb-1">Semantic similarity, competition matching, and self-learning scores require an OpenAI embedding API key.</p>
-          <p className="text-[11px] text-muted-foreground font-mono mb-4">text-embedding-3-small · 1536 dimensions · pgvector HNSW</p>
+          <h2 className="text-base font-semibold text-foreground mb-2">Intelligence Not Set Up Yet</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            The AI needs an OpenAI API key to analyze your content, find competition overlaps, and learn your preferences.
+          </p>
           <Link to={pp("/settings")}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple text-white text-[12px] font-semibold hover:bg-purple/90 transition-colors no-underline">
-            <Settings className="w-3.5 h-3.5" />
-            Configure in Settings
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple text-white text-sm font-semibold hover:bg-purple/90 transition-colors no-underline">
+            <Settings className="w-4 h-4" />
+            Set Up in Settings
           </Link>
         </div>
       </div>
@@ -129,586 +133,596 @@ export default function VectorIntelligence() {
 
   const vEmb = data.embeddings.videos;
   const sEmb = data.embeddings.stories;
-  const vPct = vEmb.total > 0 ? Math.round((vEmb.embedded / vEmb.total) * 100) : 0;
-  const sPct = sEmb.total > 0 ? Math.round((sEmb.embedded / sEmb.total) * 100) : 0;
   const totalEmbedded = vEmb.embedded + sEmb.embedded;
   const totalItems = vEmb.total + sEmb.total;
+  const coveragePct = totalItems > 0 ? Math.round((totalEmbedded / totalItems) * 100) : 0;
   const sp = data.scoreProfile;
   const confidence = getConfidenceLevel(sp);
-  const nextRescoreAt = data.lastStatsRefreshAt
-    ? new Date(new Date(data.lastStatsRefreshAt).getTime() + data.rescoreIntervalHours * 3600000)
-    : null;
-  const nextRescoreIn = nextRescoreAt ? Math.max(0, nextRescoreAt.getTime() - Date.now()) : null;
+  const grade = getGrade(sp, coveragePct, confidence);
 
   return (
-    <>
-      {/* Actions bar */}
-      <div className="h-10 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
-        <span className="text-[10px] text-muted-foreground font-mono">text-embedding-3-small · 1536d · pgvector HNSW</span>
+    <TooltipProvider delayDuration={300}>
+      {/* Top bar */}
+      <div className="h-12 flex items-center justify-between px-6 border-b border-border shrink-0 max-lg:px-4">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-success/15 text-success">
-            <Circle className="w-2 h-2 fill-current" />
-            Active · {countdown}s
-          </span>
-          <button onClick={handleReEvaluate} disabled={reEvaluating}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-purple/30 bg-purple/10 text-purple text-[11px] font-semibold hover:bg-purple/20 transition-colors disabled:opacity-50">
-            {reEvaluating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCw className="w-3 h-3" />}
-            {reEvaluating ? "Re-evaluating…" : "Re-evaluate All Stories"}
-          </button>
+          <Sparkles className="w-4 h-4 text-purple" />
+          <span className="text-sm font-semibold text-foreground">Intelligence</span>
+          {data.lastStatsRefreshAt && (
+            <span className="text-xs text-muted-foreground">
+              Updated {fmtShortAgo(data.lastStatsRefreshAt)}
+            </span>
+          )}
         </div>
+        <button onClick={handleReEvaluate} disabled={reEvaluating}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-purple/30 bg-purple/10 text-purple text-xs font-semibold hover:bg-purple/20 transition-colors disabled:opacity-50">
+          {reEvaluating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCw className="w-3.5 h-3.5" />}
+          {reEvaluating ? "Refreshing…" : "Refresh Scores"}
+        </button>
       </div>
 
       <div className="flex-1 relative overflow-auto">
-        {/* ═══════════════════════════════════════════════════
-            SECTION 1: PIPELINE FLOW VISUALIZATION
-        ═══════════════════════════════════════════════════ */}
-        <div className="px-6 max-lg:px-4 pt-5 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Layers className="w-4 h-4 text-muted-foreground" />
-            <span className="text-[13px] font-semibold text-foreground">Rescore Pipeline</span>
-            <span className="text-[11px] text-muted-foreground font-mono">— 4-stage cycle running every {data.rescoreIntervalHours}h</span>
-          </div>
+        <div className="max-w-5xl mx-auto px-6 max-lg:px-4 py-6 space-y-6">
 
-          <div className="grid grid-cols-4 gap-0 items-stretch max-lg:grid-cols-2 max-lg:gap-3">
-            {/* Stage 1: Data Collection */}
-            <PipelineStage
-              number={1}
-              title="Data Collection"
-              subtitle="Refresh competition & own stats from YouTube"
-              icon={RefreshCw}
-              color="text-primary"
-              bgColor="bg-primary"
-              items={[
-                { label: "Competition Channels", value: "Auto-refreshed" },
-                { label: "Own Video Stats", value: "Auto-fetched" },
-                { label: "Last Refresh", value: data.lastStatsRefreshAt ? fmtShortAgo(data.lastStatsRefreshAt) : "Never" },
-              ]}
-              isFirst
-            />
-
-            {/* Stage 2: Embedding */}
-            <PipelineStage
-              number={2}
-              title="Embedding"
-              subtitle="Generate & store vector embeddings"
-              icon={Database}
-              color="text-purple"
-              bgColor="bg-purple"
-              items={[
-                { label: "Videos Embedded", value: `${vEmb.embedded}/${vEmb.total} (${vPct}%)` },
-                { label: "Stories Embedded", value: `${sEmb.embedded}/${sEmb.total} (${sPct}%)` },
-                { label: "Total Vectors", value: `${totalEmbedded}/${totalItems}` },
-              ]}
-            />
-
-            {/* Stage 3: Self-Learning */}
-            <PipelineStage
-              number={3}
-              title="Self-Learning"
-              subtitle="Learn from decisions & YouTube outcomes"
-              icon={Brain}
-              color="text-success"
-              bgColor="bg-success"
-              items={[
-                { label: "Decisions Learned", value: String(sp?.totalDecisions ?? 0) },
-                { label: "Outcomes Tracked", value: String(sp?.totalOutcomes ?? 0) },
-                { label: "Confidence", value: `${Math.round(confidence * 100)}%` },
-              ]}
-            />
-
-            {/* Stage 4: Re-scoring */}
-            <PipelineStage
-              number={4}
-              title="Re-scoring"
-              subtitle="Re-evaluate all active story scores"
-              icon={BarChart3}
-              color="text-orange"
-              bgColor="bg-orange"
-              items={[
-                { label: "Stories Re-scored", value: `${data.rescoreStats.rescored}/${data.rescoreStats.total}` },
-                { label: "Alerts Generated", value: `${data.alerts.unreadCount} unread` },
-                { label: "Next Run", value: nextRescoreIn != null ? fmtDuration(nextRescoreIn) : "—" },
-              ]}
-              isLast
-            />
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════
-            SECTION 2: EMBEDDING COVERAGE
-        ═══════════════════════════════════════════════════ */}
-        <SectionHeader icon={Database} title="Embedding Coverage" subtitle="Vector storage status for competition videos and stories" />
-        <div className="px-6 max-lg:px-4 mb-6">
-          <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1">
-            <CoverageCard
-              title="Competition Videos"
-              icon={Target}
-              color="text-primary"
-              bgColor="bg-primary"
-              embedded={vEmb.embedded}
-              total={vEmb.total}
-              pct={vPct}
-            />
-            <CoverageCard
-              title="Stories"
-              icon={BookOpen}
-              color="text-purple"
-              bgColor="bg-purple"
-              embedded={sEmb.embedded}
-              total={sEmb.total}
-              pct={sPct}
-            />
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════
-            SECTION 3: AI ACCURACY & SELF-LEARNING
-        ═══════════════════════════════════════════════════ */}
-        <SectionHeader icon={Brain} title="Self-Learning Profile" subtitle="AI accuracy calibration and learned content signals" />
-        <div className="px-6 max-lg:px-4 mb-6 space-y-3">
-          {sp ? (
-            <>
-              {/* Accuracy & Stats row */}
-              <div className="grid grid-cols-6 gap-3 max-lg:grid-cols-3 max-sm:grid-cols-2">
-                <AccuracyGauge label="AI Viral Accuracy" value={sp.aiViralAccuracy} description="How well AI predicts viral potential vs actual YouTube performance" />
-                <AccuracyGauge label="AI Relevance Accuracy" value={sp.aiRelevanceAccuracy} description="How well AI predicts content relevance to your audience" />
-                <div className="rounded-lg border border-border bg-card p-4">
-                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Confidence Level</div>
-                  <div className={`text-2xl font-mono font-semibold ${confidence >= 0.6 ? "text-success" : confidence >= 0.3 ? "text-orange" : "text-muted-foreground"}`}>
-                    {Math.round(confidence * 100)}%
-                  </div>
-                  <div className="text-[10px] text-muted-foreground font-mono mt-1">
-                    {confidence >= 0.9 ? "High — learned signals heavily weighted" :
-                     confidence >= 0.6 ? "Medium — moderate adjustment" :
-                     confidence >= 0.3 ? "Low — conservative adjustments" :
-                     "Bootstrapping — more data needed"}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-border bg-card p-4">
-                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Decisions</div>
-                  <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalDecisions}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono mt-1">liked / skip / trash</div>
-                </div>
-                <div className="rounded-lg border border-border bg-card p-4">
-                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Outcomes</div>
-                  <div className="text-2xl font-mono font-semibold text-foreground">{sp.totalOutcomes}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono mt-1">stories with YouTube stats</div>
-                </div>
-                <div className="rounded-lg border border-border bg-card p-4">
-                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">Last Learned</div>
-                  <div className="text-lg font-mono font-semibold text-foreground">
-                    {sp.lastLearnedAt ? fmtShortAgo(sp.lastLearnedAt) : "Never"}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground font-mono mt-1">learning rate: 0.1</div>
-                </div>
-              </div>
-
-              {/* Content Type Signals */}
-              {sp.contentTypeSignals && Object.keys(sp.contentTypeSignals).length > 0 && (
-                <SignalCard
-                  title="Content Type Signals"
-                  subtitle="Learned preference for each content type based on decisions and YouTube performance"
-                  signals={sp.contentTypeSignals}
-                />
-              )}
-
-              {/* Tag Signals */}
-              {sp.tagSignals && Object.keys(sp.tagSignals).length > 0 && (
-                <SignalCard
-                  title="Tag Signals"
-                  subtitle="Learned tag performance weights — positive tags boost scores, negative tags penalize"
-                  signals={sp.tagSignals}
-                  rtl
-                  limit={30}
-                />
-              )}
-
-              {/* Region Signals */}
-              {sp.regionSignals && Object.keys(sp.regionSignals).length > 0 && (
-                <SignalCard
-                  title="Region Signals"
-                  subtitle="Geographic region performance based on historical audience engagement"
-                  signals={sp.regionSignals}
-                  rtl
-                />
-              )}
-            </>
-          ) : (
-            <EmptyState icon={Brain} title="No learning profile yet" description="Needs at least 5 decisions and 3 outcomes with YouTube stats to start learning." />
-          )}
-        </div>
-
-        {/* ═══════════════════════════════════════════════════
-            SECTION 4: COMPETITION INTELLIGENCE
-        ═══════════════════════════════════════════════════ */}
-        <SectionHeader icon={Target} title="Competition Intelligence" subtitle="Stories matched against competitor videos via semantic similarity" />
-        <div className="px-6 max-lg:px-4 mb-6">
-          <div className="rounded-lg border border-border overflow-hidden">
-            <div className="px-4 py-3 bg-card border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-orange" />
-                <span className="text-[12px] font-semibold">Top Competition Matches</span>
-                <span className="text-[11px] text-muted-foreground font-mono">({data.topSimilarity.length} stories with competition overlap)</span>
-              </div>
-            </div>
-            <div className="bg-card">
-              {data.topSimilarity.length === 0 ? (
-                <EmptyState icon={Target} title="No competition matches found yet" description="Embeddings will be compared during next rescore cycle." />
-              ) : (
-                <div className="divide-y divide-border">
-                  {data.topSimilarity.map((s, i) => (
-                    <Link key={s.id} to={pp(`/story/${s.id}`)}
-                      className="flex items-center gap-4 px-4 py-3 hover:bg-card/50 transition-colors no-underline group">
-                      <span className="w-6 h-6 rounded-full bg-orange/10 flex items-center justify-center text-[10px] font-bold text-orange shrink-0">
-                        {i + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[12px] text-foreground font-medium truncate mb-0.5" dir="auto">{s.headline}</div>
-                        <div className="flex items-center gap-4 text-[10px] font-mono">
-                          <span className="text-purple">
-                            <Search className="w-2.5 h-2.5 inline mr-0.5" />{s.competitionMatches} matches
-                          </span>
-                          <span className={s.viralBoost > 5 ? "text-success" : s.viralBoost > 0 ? "text-foreground" : "text-muted-foreground"}>
-                            <TrendingUp className="w-2.5 h-2.5 inline mr-0.5" />viral {s.viralBoost > 0 ? "+" : ""}{s.viralBoost?.toFixed?.(1) ?? 0}
-                          </span>
-                          <span className="text-muted-foreground">
-                            freshness {(s.freshness * 100)?.toFixed?.(0) ?? "—"}%
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-[14px] font-mono font-semibold text-foreground">{s.compositeScore?.toFixed?.(1) ?? "—"}</div>
-                        <div className="text-[9px] text-muted-foreground font-mono uppercase">score</div>
-                      </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════
-            SECTION 5: RECENT RE-SCORES + ALERTS (side by side)
-        ═══════════════════════════════════════════════════ */}
-        <SectionHeader icon={Activity} title="Score Changes & Alerts" subtitle="Recent re-scoring activity and intelligence notifications" />
-        <div className="px-6 max-lg:px-4 mb-6">
-          <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1 items-start">
-
-            {/* Recent Re-scores */}
-            <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
-              <div className="px-4 py-3 bg-card shrink-0 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-3.5 h-3.5 text-success" />
-                  <span className="text-[12px] font-semibold">Recent Score Changes</span>
-                  <span className="text-[11px] text-muted-foreground font-mono">({data.recentRescores.length})</span>
-                </div>
-                <div className="text-[10px] text-muted-foreground font-mono mt-0.5">Stories whose composite score changed during re-evaluation</div>
-              </div>
-              <div className="flex-1 overflow-y-auto bg-card">
-                {data.recentRescores.length === 0 ? (
-                  <EmptyState icon={Activity} title="No re-scores yet" />
-                ) : (
-                  data.recentRescores.map((s) => {
-                    const before = s.latestEntry?.before?.compositeScore;
-                    const after = s.latestEntry?.after?.compositeScore;
-                    const delta = (before != null && after != null) ? after - before : null;
-                    const factors = s.latestEntry?.factors as Record<string, unknown> | undefined;
-                    return (
-                      <Link key={s.id} to={pp(`/story/${s.id}`)}
-                        className="block px-4 py-3 border-t border-border hover:bg-card/50 transition-colors no-underline">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="text-[12px] text-foreground font-medium truncate flex-1 mr-3" dir="auto">{s.headline}</div>
-                          {delta != null && (
-                            <span className={`text-[12px] font-mono font-semibold shrink-0 ${delta > 0 ? "text-success" : delta < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                              {delta > 0 ? "+" : ""}{delta.toFixed(1)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-[10px] font-mono">
-                          {delta != null && (
-                            <span className="text-muted-foreground">
-                              {before?.toFixed(1)} → {after?.toFixed(1)}
-                            </span>
-                          )}
-                          {factors && (
-                            <>
-                              {Number(factors.competitionMatches) > 0 && (
-                                <span className="text-purple">{String(factors.competitionMatches)} comp</span>
-                              )}
-                              {Number(factors.provenViralBoost) !== 0 && (
-                                <span className={Number(factors.provenViralBoost) > 0 ? "text-success" : "text-destructive"}>
-                                  viral {Number(factors.provenViralBoost) > 0 ? "+" : ""}{String(factors.provenViralBoost)}
-                                </span>
-                              )}
-                              {Number(factors.ownChannelBoost) !== 0 && (
-                                <span className="text-primary">own {Number(factors.ownChannelBoost) > 0 ? "+" : ""}{String(factors.ownChannelBoost)}</span>
-                              )}
-                            </>
-                          )}
-                          {s.lastRescoredAt && (
-                            <span className="text-muted-foreground ml-auto">{fmtShortAgo(s.lastRescoredAt)}</span>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Alerts */}
-            <div className="rounded-lg border border-border overflow-hidden flex flex-col" style={{ maxHeight: 540 }}>
-              <div className="px-4 py-3 bg-card shrink-0 border-b border-border">
-                <div className="flex items-center gap-2">
-                  <Bell className="w-3.5 h-3.5 text-orange" />
-                  <span className="text-[12px] font-semibold">Intelligence Alerts</span>
-                  {data.alerts.unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-orange/15 text-orange text-[10px] font-mono font-semibold">
-                      {data.alerts.unreadCount} new
-                    </span>
-                  )}
-                  <span className="text-[11px] text-muted-foreground font-mono">({data.alerts.items.length} total)</span>
-                </div>
-                <div className="text-[10px] text-muted-foreground font-mono mt-0.5">Significant score changes, competitor coverage, and trending topics</div>
-              </div>
-              <div className="flex-1 overflow-y-auto bg-card">
-                {data.alerts.items.length === 0 ? (
-                  <div className="flex items-center justify-center h-20 text-[11px] text-muted-foreground font-mono">No alerts — all quiet</div>
-                ) : (
-                  data.alerts.items.map((a) => (
-                    <div key={a.id} className={`px-4 py-3 border-t border-border ${a.isRead ? "" : "bg-orange/[0.03]"}`}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        {!a.isRead && <span className="w-1.5 h-1.5 rounded-full bg-orange shrink-0" />}
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold ${
-                          a.type === "score_change" ? "bg-purple/10 text-purple" :
-                          a.type === "competitor_published" ? "bg-primary/10 text-primary" :
-                          a.type === "trending_topic" ? "bg-success/10 text-success" :
-                          "bg-dim/10 text-muted-foreground"
-                        }`}>
-                          {a.type === "score_change" ? "Score Change" :
-                           a.type === "competitor_published" ? "Competitor Published" :
-                           a.type === "trending_topic" ? "Trending Topic" :
-                           a.type.replace(/_/g, " ")}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-mono ml-auto">{fmtShortAgo(a.createdAt)}</span>
-                      </div>
-                      <div className="text-[11px] text-foreground/80" dir="auto">{a.title}</div>
-                      {a.storyId && (
-                        <Link to={pp(`/story/${a.storyId}`)} className="text-[10px] text-purple font-mono mt-1 inline-flex items-center gap-0.5 hover:underline no-underline">
-                          View story <ChevronRight className="w-2.5 h-2.5" />
-                        </Link>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════
-            SECTION 6: SCORING FORMULA BREAKDOWN
-        ═══════════════════════════════════════════════════ */}
-        <SectionHeader icon={Cpu} title="Scoring Formula" subtitle="How the composite score is computed during re-evaluation" />
-        <div className="px-6 max-lg:px-4 mb-6">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
-              <div>
-                <div className="text-[11px] font-mono font-semibold text-foreground mb-2">Base Score (AI predictions)</div>
-                <div className="space-y-1.5">
-                  {(data.scoringFormula?.base ?? []).map((r) => (
-                    <FormulaRow key={r.key} label={r.label} weight={`${Math.round(r.weight * 100)}%`} description={r.description} />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] font-mono font-semibold text-foreground mb-2">Learned Boost (× confidence {Math.round(confidence * 100)}%)</div>
-                <div className="space-y-1.5">
-                  {(data.scoringFormula?.learned ?? []).map((r) => (
-                    <FormulaRow key={r.key} label={r.label} weight={`${Math.round(r.weight * 100)}%`} description={r.description} />
-                  ))}
+          {/* ── HERO: AI Health ── */}
+          <div className="rounded-lg border border-border bg-card p-6">
+            <div className="flex items-start gap-6 max-sm:flex-col max-sm:items-center max-sm:text-center">
+              <GradeRing grade={grade.letter} color={grade.color} />
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-semibold text-foreground mb-1">{grade.headline}</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-4">{grade.description}</p>
+                <div className="flex flex-wrap gap-4 max-sm:justify-center">
+                  <MiniStat
+                    label="Viral Accuracy"
+                    value={sp ? `${Math.round(sp.aiViralAccuracy * 100)}%` : "—"}
+                    tip="How well the AI predicts which stories will go viral, based on actual YouTube performance"
+                    icon={TrendingUp}
+                    color={sp && sp.aiViralAccuracy >= 0.7 ? "text-success" : "text-orange"}
+                  />
+                  <MiniStat
+                    label="Relevance Accuracy"
+                    value={sp ? `${Math.round(sp.aiRelevanceAccuracy * 100)}%` : "—"}
+                    tip="How well the AI predicts which stories are relevant to your audience"
+                    icon={Target}
+                    color={sp && sp.aiRelevanceAccuracy >= 0.7 ? "text-success" : "text-orange"}
+                  />
+                  <MiniStat
+                    label="Content Indexed"
+                    value={`${coveragePct}%`}
+                    tip={`${totalEmbedded.toLocaleString()} of ${totalItems.toLocaleString()} items analyzed`}
+                    icon={Layers}
+                    color={coveragePct >= 90 ? "text-success" : coveragePct >= 50 ? "text-orange" : "text-muted-foreground"}
+                  />
+                  <MiniStat
+                    label="Decisions Learned"
+                    value={String(sp?.totalDecisions ?? 0)}
+                    tip="Total likes, skips, and trashes the AI has learned from"
+                    icon={ThumbsUp}
+                    color="text-purple"
+                  />
                 </div>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-border">
-              <div className="text-[10px] text-muted-foreground font-mono">
-                final = base_score + (learned_boost × confidence) · clamped to 0–100 · rounded to 0.1
+            {coveragePct < 100 && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-muted-foreground">Indexing progress</span>
+                  <span className="text-xs font-medium text-foreground">{coveragePct}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-purple transition-all duration-700" style={{ width: `${coveragePct}%` }} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {totalItems - totalEmbedded} items still being analyzed — this happens automatically.
+                </p>
               </div>
-            </div>
+            )}
           </div>
-        </div>
 
-        {/* ═══════════════════════════════════════════════════
-            SECTION 7: SYSTEM STATUS
-        ═══════════════════════════════════════════════════ */}
-        <SectionHeader icon={Shield} title="System Status" subtitle="Worker health and operational details" />
-        <div className="px-6 max-lg:px-4 pb-8">
-          <div className="flex rounded-lg overflow-hidden border border-border">
-            <StatusBox label="Embedding Model" value="text-embedding-3-small" />
-            <StatusBox label="Dimensions" value="1536" />
-            <StatusBox label="Index Type" value="HNSW" />
-            <StatusBox label="Rescore Interval" value={`${data.rescoreIntervalHours}h`} />
-            <StatusBox label="Last Cycle" value={data.lastStatsRefreshAt ? fmtShortAgo(data.lastStatsRefreshAt) : "Never"} />
-            <StatusBox label="Next Cycle" value={nextRescoreIn != null ? fmtDuration(nextRescoreIn) : "—"} />
-            <StatusBox label="Active Stages" value="5" sub="suggestion · liked · scripting · filmed · publish" last />
-          </div>
+          {/* ── SECTION: What AI Learned ── */}
+          <LearnedInsights sp={sp} />
+
+          {/* ── SECTION: Activity Feed ── */}
+          <ActivityFeed
+            data={data}
+            feedFilter={feedFilter}
+            setFeedFilter={setFeedFilter}
+            pp={pp}
+          />
+
+          {/* ── SECTION: Technical Details (collapsed) ── */}
+          <Collapsible open={techOpen} onOpenChange={setTechOpen}>
+            <CollapsibleTrigger className="w-full flex items-center gap-2 py-3 text-sm text-muted-foreground hover:text-foreground transition-colors group">
+              <ChevronDown className={`w-4 h-4 transition-transform ${techOpen ? "" : "-rotate-90"}`} />
+              <span className="font-medium">Technical Details</span>
+              <span className="text-xs">— Pipeline, scoring formula, and system info</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <TechnicalDetails data={data} confidence={confidence} />
+            </CollapsibleContent>
+          </Collapsible>
+
         </div>
       </div>
-    </>
+    </TooltipProvider>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Sub-components
+   Grade Ring
 ═══════════════════════════════════════════════════════════ */
 
-function SectionHeader({ icon: Icon, title, subtitle }: { icon: typeof Zap; title: string; subtitle: string }) {
+function GradeRing({ grade, color }: { grade: string; color: string }) {
   return (
-    <div className="px-6 max-lg:px-4 mb-3 flex items-center gap-2">
-      <Icon className="w-4 h-4 text-muted-foreground" />
-      <span className="text-[13px] font-semibold text-foreground">{title}</span>
-      <span className="text-[11px] text-muted-foreground font-mono">— {subtitle}</span>
+    <div className={`w-20 h-20 shrink-0 rounded-full border-4 ${color} flex items-center justify-center`}>
+      <span className={`text-3xl font-bold ${color.replace("border-", "text-")}`}>{grade}</span>
     </div>
   );
 }
 
-function PipelineStage({
-  number, title, subtitle, icon: Icon, color, bgColor, items, isFirst, isLast,
-}: {
-  number: number; title: string; subtitle: string;
-  icon: typeof Zap; color: string; bgColor: string;
-  items: { label: string; value: string }[];
-  isFirst?: boolean; isLast?: boolean;
+/* ═══════════════════════════════════════════════════════════
+   Mini Stat with tooltip
+═══════════════════════════════════════════════════════════ */
+
+function MiniStat({ label, value, tip, icon: Icon, color }: {
+  label: string; value: string; tip: string; icon: typeof Zap; color: string;
 }) {
   return (
-    <div className="flex items-stretch">
-      <div className={`flex-1 rounded-lg border border-border bg-card p-4 relative ${!isFirst ? "max-lg:ml-0 ml-0" : ""}`}>
-        <div className="flex items-center gap-2 mb-3">
-          <span className={`w-6 h-6 rounded-full ${bgColor}/15 flex items-center justify-center text-[10px] font-bold ${color}`}>
-            {number}
-          </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-2 cursor-default">
+          <Icon className={`w-4 h-4 ${color}`} />
           <div>
-            <div className="text-[12px] font-semibold text-foreground">{title}</div>
-            <div className="text-[10px] text-muted-foreground font-mono">{subtitle}</div>
+            <div className={`text-base font-semibold ${color}`}>{value}</div>
+            <div className="text-xs text-muted-foreground">{label}</div>
           </div>
         </div>
-        <div className="space-y-2">
-          {items.map((item) => (
-            <div key={item.label} className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground font-mono">{item.label}</span>
-              <span className={`text-[11px] font-mono font-semibold ${color}`}>{item.value}</span>
-            </div>
-          ))}
-        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+        {tip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Learned Insights
+═══════════════════════════════════════════════════════════ */
+
+function LearnedInsights({ sp }: { sp: VectorIntelligenceData["scoreProfile"] }) {
+  if (!sp) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-6">
+        <SectionTitle icon={Brain} title="What the AI Has Learned" />
+        <EmptyState
+          icon={Brain}
+          title="Not enough data yet"
+          description="The AI needs at least 5 decisions (likes, skips, or trashes) and 3 stories with YouTube stats before it can start learning your preferences."
+        />
       </div>
-      {!isLast && (
-        <div className="flex items-center px-1 max-lg:hidden">
-          <ArrowRight className="w-4 h-4 text-muted-foreground/30" />
+    );
+  }
+
+  const hasContentSignals = sp.contentTypeSignals && Object.keys(sp.contentTypeSignals).length > 0;
+  const hasTagSignals = sp.tagSignals && Object.keys(sp.tagSignals).length > 0;
+  const hasRegionSignals = sp.regionSignals && Object.keys(sp.regionSignals).length > 0;
+  const hasAnySignals = hasContentSignals || hasTagSignals || hasRegionSignals;
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-6 space-y-5">
+      <SectionTitle icon={Brain} title="What the AI Has Learned" />
+
+      {!hasAnySignals ? (
+        <p className="text-sm text-muted-foreground">
+          The AI is still gathering data. Keep making decisions on stories and it will start showing your content preferences here.
+        </p>
+      ) : (
+        <div className="space-y-5">
+          {hasContentSignals && (
+            <SignalChart
+              title="Content Types You Prefer"
+              subtitle="Based on your decisions and how they performed on YouTube"
+              icon={BarChart3}
+              signals={sp.contentTypeSignals!}
+            />
+          )}
+          {hasTagSignals && (
+            <SignalChart
+              title="Tag Performance"
+              subtitle="Tags that boost or hurt your story scores"
+              icon={Tag}
+              signals={sp.tagSignals!}
+              limit={15}
+              rtl
+            />
+          )}
+          {hasRegionSignals && (
+            <SignalChart
+              title="Regional Audience Fit"
+              subtitle="Where your content resonates most"
+              icon={Globe}
+              signals={sp.regionSignals!}
+              rtl
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function CoverageCard({
-  title, icon: Icon, color, bgColor, embedded, total, pct,
-}: {
-  title: string; icon: typeof Zap; color: string; bgColor: string;
-  embedded: number; total: number; pct: number;
+/* ═══════════════════════════════════════════════════════════
+   Signal Chart (horizontal bar)
+═══════════════════════════════════════════════════════════ */
+
+function SignalChart({ title, subtitle, icon: Icon, signals, limit, rtl }: {
+  title: string; subtitle: string; icon: typeof Zap;
+  signals: Record<string, number>; limit?: number; rtl?: boolean;
 }) {
+  const sorted = useMemo(() => {
+    const entries = Object.entries(signals).sort((a, b) => b[1] - a[1]);
+    return limit ? entries.slice(0, limit) : entries;
+  }, [signals, limit]);
+
+  const chartData = sorted.map(([name, value]) => ({ name, value: +value.toFixed(2) }));
+  const totalSignals = Object.keys(signals).length;
+
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Icon className={`w-4 h-4 ${color}`} />
-          <span className="text-[12px] font-semibold text-foreground">{title}</span>
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-sm font-medium text-foreground">{title}</span>
+        {limit && totalSignals > limit && (
+          <span className="text-xs text-muted-foreground">
+            (top {limit} of {totalSignals})
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">{subtitle}</p>
+      <div className="h-[180px]" dir={rtl ? "rtl" : undefined}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 16, top: 0, bottom: 0 }}>
+            <XAxis type="number" hide />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={100}
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <RechartsTooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+              formatter={(value: number) => [
+                value > 0 ? `+${value} (boosts score)` : `${value} (lowers score)`,
+                "Impact",
+              ]}
+            />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
+              {chartData.map((entry) => (
+                <Cell
+                  key={entry.name}
+                  fill={entry.value > 0 ? "hsl(var(--success))" : entry.value < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))"}
+                  fillOpacity={0.7}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Activity Feed (merged competition + rescores + alerts)
+═══════════════════════════════════════════════════════════ */
+
+type FeedFilter = "all" | "competition" | "scores" | "alerts";
+
+interface FeedItem {
+  id: string;
+  kind: "competition" | "score_change" | "alert";
+  headline: string;
+  description: string;
+  storyId: string | null;
+  timestamp: string;
+  badge: { label: string; color: string };
+  delta?: number;
+  isUnread?: boolean;
+}
+
+function buildFeedItems(data: VectorIntelligenceData): FeedItem[] {
+  const items: FeedItem[] = [];
+
+  for (const s of data.topSimilarity) {
+    items.push({
+      id: `comp-${s.id}`,
+      kind: "competition",
+      headline: s.headline,
+      description: `${s.competitionMatches} competitor${s.competitionMatches !== 1 ? "s" : ""} covered this topic${s.viralBoost > 0 ? ` — viral boost +${s.viralBoost.toFixed(1)}` : ""}`,
+      storyId: s.id,
+      timestamp: new Date().toISOString(),
+      badge: { label: "Competition", color: "bg-orange/10 text-orange" },
+    });
+  }
+
+  for (const s of data.recentRescores) {
+    const before = s.latestEntry?.before?.compositeScore;
+    const after = s.latestEntry?.after?.compositeScore;
+    const delta = (before != null && after != null) ? after - before : null;
+    const factors = s.latestEntry?.factors as Record<string, unknown> | undefined;
+    const reasons: string[] = [];
+    if (factors) {
+      if (Number(factors.competitionMatches) > 0) reasons.push(`${factors.competitionMatches} competition matches`);
+      if (Number(factors.provenViralBoost) !== 0) reasons.push(`viral ${Number(factors.provenViralBoost) > 0 ? "boost" : "penalty"}`);
+      if (Number(factors.ownChannelBoost) !== 0) reasons.push("own channel signal");
+    }
+    items.push({
+      id: `rescore-${s.id}`,
+      kind: "score_change",
+      headline: s.headline,
+      description: delta != null
+        ? `Score ${delta > 0 ? "went up" : "went down"} from ${before!.toFixed(1)} to ${after!.toFixed(1)}${reasons.length ? ` — ${reasons.join(", ")}` : ""}`
+        : "Score was recalculated",
+      storyId: s.id,
+      timestamp: s.lastRescoredAt ?? new Date().toISOString(),
+      badge: {
+        label: delta != null && delta > 0 ? "Score Up" : delta != null && delta < 0 ? "Score Down" : "Re-scored",
+        color: delta != null && delta > 0 ? "bg-success/10 text-success" : delta != null && delta < 0 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground",
+      },
+      delta: delta ?? undefined,
+    });
+  }
+
+  for (const a of data.alerts.items) {
+    const typeLabel =
+      a.type === "score_change" ? "Score Alert" :
+      a.type === "competitor_published" ? "Competitor Alert" :
+      a.type === "trending_topic" ? "Trending" :
+      a.type.replace(/_/g, " ");
+    items.push({
+      id: `alert-${a.id}`,
+      kind: "alert",
+      headline: a.title,
+      description: typeLabel,
+      storyId: a.storyId,
+      timestamp: a.createdAt,
+      badge: {
+        label: typeLabel,
+        color: a.type === "trending_topic" ? "bg-success/10 text-success" :
+               a.type === "competitor_published" ? "bg-primary/10 text-primary" :
+               "bg-purple/10 text-purple",
+      },
+      isUnread: !a.isRead,
+    });
+  }
+
+  items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return items;
+}
+
+function ActivityFeed({ data, feedFilter, setFeedFilter, pp }: {
+  data: VectorIntelligenceData;
+  feedFilter: FeedFilter;
+  setFeedFilter: (f: FeedFilter) => void;
+  pp: (path: string) => string;
+}) {
+  const allItems = useMemo(() => buildFeedItems(data), [data]);
+
+  const filtered = feedFilter === "all"
+    ? allItems
+    : feedFilter === "competition"
+      ? allItems.filter((i) => i.kind === "competition")
+      : feedFilter === "scores"
+        ? allItems.filter((i) => i.kind === "score_change")
+        : allItems.filter((i) => i.kind === "alert");
+
+  const filterBtns: { key: FeedFilter; label: string; count: number }[] = [
+    { key: "all", label: "All", count: allItems.length },
+    { key: "competition", label: "Competition", count: allItems.filter((i) => i.kind === "competition").length },
+    { key: "scores", label: "Score Changes", count: allItems.filter((i) => i.kind === "score_change").length },
+    { key: "alerts", label: "Alerts", count: allItems.filter((i) => i.kind === "alert").length },
+  ];
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="px-5 pt-5 pb-3">
+        <SectionTitle icon={Activity} title="Recent Activity" />
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {filterBtns.map((btn) => (
+            <button
+              key={btn.key}
+              onClick={() => setFeedFilter(btn.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                feedFilter === btn.key
+                  ? "bg-foreground text-background"
+                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+              }`}
+            >
+              {btn.label}
+              <span className="ml-1.5 opacity-60">{btn.count}</span>
+            </button>
+          ))}
         </div>
-        <span className={`text-[20px] font-mono font-semibold ${color}`}>{pct}%</span>
       </div>
-      <div className="w-full h-2 bg-border rounded-full overflow-hidden mb-2">
-        <div className={`h-full rounded-full ${bgColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
-      </div>
-      <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-        <span>{embedded.toLocaleString()} embedded</span>
-        <span>{(total - embedded).toLocaleString()} remaining</span>
-        <span>{total.toLocaleString()} total</span>
+
+      <div className="max-h-[480px] overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+            No activity yet
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {filtered.map((item) => (
+              <FeedRow key={item.id} item={item} pp={pp} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function AccuracyGauge({ label, value, description }: { label: string; value: number; description: string }) {
-  const pct = Math.round(value * 100);
-  const color = pct >= 80 ? "text-success" : pct >= 50 ? "text-orange" : "text-destructive";
-  const bgColor = pct >= 80 ? "bg-success" : pct >= 50 ? "bg-orange" : "bg-destructive";
+function FeedRow({ item, pp }: { item: FeedItem; pp: (path: string) => string }) {
+  const inner = (
+    <div className={`px-5 py-3.5 flex items-start gap-3 transition-colors ${item.storyId ? "hover:bg-muted/30 cursor-pointer" : ""} ${item.isUnread ? "bg-orange/[0.03]" : ""}`}>
+      <div className="pt-0.5 shrink-0">
+        {item.kind === "competition" && <Target className="w-4 h-4 text-orange" />}
+        {item.kind === "score_change" && (
+          item.delta != null && item.delta > 0
+            ? <TrendingUp className="w-4 h-4 text-success" />
+            : item.delta != null && item.delta < 0
+              ? <TrendingUp className="w-4 h-4 text-destructive rotate-180" />
+              : <Activity className="w-4 h-4 text-muted-foreground" />
+        )}
+        {item.kind === "alert" && (
+          item.isUnread
+            ? <Bell className="w-4 h-4 text-orange" />
+            : <Bell className="w-4 h-4 text-muted-foreground" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${item.badge.color}`}>
+            {item.badge.label}
+          </span>
+          <span className="text-xs text-muted-foreground">{fmtShortAgo(item.timestamp)}</span>
+        </div>
+        <div className="text-sm text-foreground font-medium truncate" dir="auto">{item.headline}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{item.description}</div>
+      </div>
+      {item.storyId && (
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
+      )}
+    </div>
+  );
+
+  if (item.storyId) {
+    return <Link to={pp(`/story/${item.storyId}`)} className="block no-underline">{inner}</Link>;
+  }
+  return <div>{inner}</div>;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Technical Details (collapsible)
+═══════════════════════════════════════════════════════════ */
+
+function TechnicalDetails({ data, confidence }: { data: VectorIntelligenceData; confidence: number }) {
+  const vEmb = data.embeddings.videos;
+  const sEmb = data.embeddings.stories;
+  const vPct = vEmb.total > 0 ? Math.round((vEmb.embedded / vEmb.total) * 100) : 0;
+  const sPct = sEmb.total > 0 ? Math.round((sEmb.embedded / sEmb.total) * 100) : 0;
+  const nextRescoreAt = data.lastStatsRefreshAt
+    ? new Date(new Date(data.lastStatsRefreshAt).getTime() + data.rescoreIntervalHours * 3600000)
+    : null;
+  const nextRescoreIn = nextRescoreAt ? Math.max(0, nextRescoreAt.getTime() - Date.now()) : null;
+
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-1">{label}</div>
-      <div className={`text-2xl font-mono font-semibold ${color}`}>{pct}%</div>
-      <div className="w-full h-1.5 bg-border rounded-full mt-2 overflow-hidden">
-        <div className={`h-full rounded-full ${bgColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
+    <div className="space-y-4 pb-2">
+      {/* Pipeline */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="text-sm font-medium text-foreground mb-3">Scoring Pipeline</div>
+        <div className="grid grid-cols-4 gap-3 max-lg:grid-cols-2">
+          <TechStage num={1} title="Collect" desc="Fetches competition & video stats" status={data.lastStatsRefreshAt ? `Last: ${fmtShortAgo(data.lastStatsRefreshAt)}` : "Never run"} />
+          <TechStage num={2} title="Embed" desc={`Videos ${vPct}% · Stories ${sPct}%`} status={`${vEmb.embedded + sEmb.embedded} vectors`} />
+          <TechStage num={3} title="Learn" desc={`${data.scoreProfile?.totalDecisions ?? 0} decisions, ${data.scoreProfile?.totalOutcomes ?? 0} outcomes`} status={`${Math.round(confidence * 100)}% confidence`} />
+          <TechStage num={4} title="Re-score" desc={`${data.rescoreStats.rescored}/${data.rescoreStats.total} stories`} status={nextRescoreIn != null ? `Next in ${fmtDuration(nextRescoreIn)}` : "—"} />
+        </div>
       </div>
-      <div className="text-[9px] text-muted-foreground font-mono mt-2 leading-relaxed">{description}</div>
-    </div>
-  );
-}
 
-function SignalCard({
-  title, subtitle, signals, rtl, limit,
-}: {
-  title: string; subtitle: string; signals: Record<string, number>; rtl?: boolean; limit?: number;
-}) {
-  const sorted = Object.entries(signals).sort((a, b) => b[1] - a[1]);
-  const displayed = limit ? sorted.slice(0, limit) : sorted;
-  const maxAbs = Math.max(...sorted.map(([, v]) => Math.abs(v)), 0.01);
+      {/* Formula */}
+      {data.scoringFormula && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="text-sm font-medium text-foreground mb-3">Scoring Formula</div>
+          <div className="grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-2">Base Score (AI predictions)</div>
+              <div className="space-y-1">
+                {data.scoringFormula.base.map((r) => (
+                  <div key={r.key} className="flex items-center justify-between text-xs">
+                    <span className="text-foreground">{r.label}</span>
+                    <span className="font-mono text-purple">{Math.round(r.weight * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-2">
+                Learned Boost (confidence: {Math.round(confidence * 100)}%)
+              </div>
+              <div className="space-y-1">
+                {data.scoringFormula.learned.map((r) => (
+                  <div key={r.key} className="flex items-center justify-between text-xs">
+                    <span className="text-foreground">{r.label}</span>
+                    <span className="font-mono text-purple">{Math.round(r.weight * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground font-mono">
+            final = base_score + (learned_boost × confidence) · clamped 0–100
+          </div>
+        </div>
+      )}
 
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between mb-1">
-        <div className="text-[11px] font-mono font-semibold text-foreground">{title}</div>
-        <span className="text-[10px] text-muted-foreground font-mono">{sorted.length} signals{limit && sorted.length > limit ? ` (showing ${limit})` : ""}</span>
+      {/* System */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="text-sm font-medium text-foreground mb-3">System</div>
+        <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2 text-xs">
+          <TechKV label="Model" value="text-embedding-3-small" />
+          <TechKV label="Dimensions" value="1,536" />
+          <TechKV label="Index" value="HNSW" />
+          <TechKV label="Rescore Interval" value={`Every ${data.rescoreIntervalHours}h`} />
+          <TechKV label="Last Cycle" value={data.lastStatsRefreshAt ? fmtShortAgo(data.lastStatsRefreshAt) : "Never"} />
+          <TechKV label="Next Cycle" value={nextRescoreIn != null ? fmtDuration(nextRescoreIn) : "—"} />
+        </div>
       </div>
-      <div className="text-[10px] text-muted-foreground font-mono mb-3">{subtitle}</div>
-      <div className="flex flex-wrap gap-1.5" dir={rtl ? "rtl" : undefined}>
-        {displayed.map(([key, val]) => {
-          const intensity = Math.abs(val) / maxAbs;
-          return (
-            <span key={key} className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono ${
-              val > 0 ? "bg-success/10 text-success" : val < 0 ? "bg-destructive/10 text-destructive" : "bg-dim/10 text-muted-foreground"
-            }`} style={{ opacity: 0.5 + intensity * 0.5 }}>
-              {key}
-              <span className="font-semibold">{val > 0 ? "+" : ""}{val.toFixed(2)}</span>
-            </span>
-          );
-        })}
-      </div>
     </div>
   );
 }
 
-function FormulaRow({ label, weight, description }: { label: string; weight: string; description: string }) {
+function TechStage({ num, title, desc, status }: { num: number; title: string; desc: string; status: string }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-14 text-[11px] font-mono font-semibold text-purple text-right">{weight}</span>
-      <span className="w-28 text-[11px] font-mono text-foreground">{label}</span>
-      <span className="text-[10px] text-muted-foreground font-mono">{description}</span>
+    <div className="rounded border border-border p-3 text-center">
+      <div className="w-6 h-6 rounded-full bg-purple/10 text-purple text-xs font-bold flex items-center justify-center mx-auto mb-1.5">{num}</div>
+      <div className="text-xs font-semibold text-foreground">{title}</div>
+      <div className="text-[11px] text-muted-foreground mt-0.5">{desc}</div>
+      <div className="text-[11px] font-medium text-purple mt-1">{status}</div>
     </div>
   );
 }
 
-function StatusBox({ label, value, sub, last }: { label: string; value: string; sub?: string; last?: boolean }) {
+function TechKV({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`flex-1 px-3 py-3 bg-card ${!last ? "border-r border-border" : ""}`}>
-      <div className="text-[13px] font-semibold font-mono tracking-tight text-foreground">{value}</div>
-      <div className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5">{label}</div>
-      {sub && <div className="text-[9px] text-muted-foreground font-mono mt-0.5 leading-relaxed">{sub}</div>}
+    <div>
+      <div className="text-muted-foreground">{label}</div>
+      <div className="font-medium text-foreground font-mono mt-0.5">{value}</div>
     </div>
   );
 }
 
-/* ─── Helpers ─── */
+/* ═══════════════════════════════════════════════════════════
+   Section Title
+═══════════════════════════════════════════════════════════ */
+
+function SectionTitle({ icon: Icon, title }: { icon: typeof Zap; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="w-4 h-4 text-muted-foreground" />
+      <span className="text-sm font-semibold text-foreground">{title}</span>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Helpers
+═══════════════════════════════════════════════════════════ */
 
 function getConfidenceLevel(sp: VectorIntelligenceData["scoreProfile"]): number {
   if (!sp) return 0;
@@ -717,6 +731,51 @@ function getConfidenceLevel(sp: VectorIntelligenceData["scoreProfile"]): number 
   if (total < 15) return 0.3;
   if (total < 30) return 0.6;
   return 0.9;
+}
+
+function getGrade(
+  sp: VectorIntelligenceData["scoreProfile"],
+  coveragePct: number,
+  confidence: number,
+): { letter: string; color: string; headline: string; description: string } {
+  if (!sp || confidence === 0) {
+    return {
+      letter: "—",
+      color: "border-muted-foreground",
+      headline: "Getting started",
+      description: "The AI is collecting data. Start making decisions on stories (like, skip, or trash) and it will learn what content works best for your channel.",
+    };
+  }
+
+  const viralAcc = sp.aiViralAccuracy;
+  const relAcc = sp.aiRelevanceAccuracy;
+  const avgAcc = (viralAcc + relAcc) / 2;
+  const score = avgAcc * 0.5 + (coveragePct / 100) * 0.2 + confidence * 0.3;
+
+  if (score >= 0.8) return {
+    letter: "A",
+    color: "border-success",
+    headline: "The AI is performing great",
+    description: `It's ${Math.round(avgAcc * 100)}% accurate at predicting what works for your channel, with strong confidence from ${sp.totalDecisions} decisions.`,
+  };
+  if (score >= 0.6) return {
+    letter: "B",
+    color: "border-success",
+    headline: "The AI is getting smarter",
+    description: `Accuracy is at ${Math.round(avgAcc * 100)}% and improving. Keep reviewing stories to help it learn your preferences faster.`,
+  };
+  if (score >= 0.4) return {
+    letter: "C",
+    color: "border-orange",
+    headline: "The AI is still learning",
+    description: `It has ${sp.totalDecisions} decisions to learn from, but needs more data. The more stories you review, the better it gets at finding what fits your channel.`,
+  };
+  return {
+    letter: "D",
+    color: "border-orange",
+    headline: "The AI needs more input",
+    description: "Accuracy is low because there isn't enough data yet. Try reviewing more stories — each decision helps the AI understand your content strategy.",
+  };
 }
 
 function fmtShortAgo(dateStr: string): string {
