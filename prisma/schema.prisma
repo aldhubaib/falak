@@ -519,6 +519,42 @@ model PipelineBatchItem {
 }
 
 // ─────────────────────────────────────────────
+// TRENDING INTELLIGENCE (standalone — no FK to Channel/Video)
+// ─────────────────────────────────────────────
+model TrendingSnapshot {
+  id          String          @id @default(cuid())
+  country     String
+  fetchedAt   DateTime        @default(now())
+  totalVideos Int             @default(0)
+  entries     TrendingEntry[]
+
+  @@index([country, fetchedAt(sort: Desc)])
+}
+
+model TrendingEntry {
+  id             String           @id @default(cuid())
+  snapshotId     String
+  snapshot       TrendingSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  rank           Int
+  youtubeVideoId String
+  title          String
+  channelName    String
+  channelId      String
+  categoryId     String?
+  categoryName   String?
+  viewCount      BigInt           @default(0)
+  likeCount      BigInt           @default(0)
+  commentCount   BigInt           @default(0)
+  duration       String?
+  publishedAt    DateTime?
+  thumbnailUrl   String?
+
+  @@index([snapshotId])
+  @@index([youtubeVideoId])
+  @@index([categoryName])
+}
+
+// ─────────────────────────────────────────────
 // ALERTS
 // ─────────────────────────────────────────────
 model Alert {

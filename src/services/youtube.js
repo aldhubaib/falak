@@ -227,10 +227,55 @@ async function refreshVideoStats(youtubeIds, channelId) {
   return results
 }
 
+// ── Fetch trending videos (YouTube Data API chart=mostPopular) ──
+const YOUTUBE_CATEGORIES = {
+  '1': 'Film & Animation', '2': 'Autos & Vehicles', '10': 'Music',
+  '15': 'Pets & Animals', '17': 'Sports', '19': 'Travel & Events',
+  '20': 'Gaming', '22': 'People & Blogs', '23': 'Comedy',
+  '24': 'Entertainment', '25': 'News & Politics', '26': 'Howto & Style',
+  '27': 'Education', '28': 'Science & Technology', '29': 'Nonprofits & Activism',
+}
+
+async function fetchTrending(regionCode = 'SA', maxResults = 50) {
+  const allItems = []
+  let pageToken
+  while (allItems.length < maxResults) {
+    const pageSize = Math.min(50, maxResults - allItems.length)
+    const params = {
+      part: 'snippet,statistics,contentDetails',
+      chart: 'mostPopular',
+      regionCode,
+      maxResults: String(pageSize),
+    }
+    if (pageToken) params.pageToken = pageToken
+    const data = await ytFetch('videos', params, null)
+    if (!data.items?.length) break
+    for (const v of data.items) {
+      allItems.push({
+        youtubeVideoId: v.id,
+        title: v.snippet.title,
+        channelName: v.snippet.channelTitle,
+        channelId: v.snippet.channelId,
+        categoryId: v.snippet.categoryId || null,
+        categoryName: YOUTUBE_CATEGORIES[v.snippet.categoryId] || null,
+        viewCount: BigInt(v.statistics.viewCount || 0),
+        likeCount: BigInt(v.statistics.likeCount || 0),
+        commentCount: BigInt(v.statistics.commentCount || 0),
+        duration: v.contentDetails.duration,
+        publishedAt: v.snippet.publishedAt ? new Date(v.snippet.publishedAt) : null,
+        thumbnailUrl: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url || null,
+      })
+    }
+    pageToken = data.nextPageToken
+    if (!pageToken) break
+  }
+  return allItems
+}
+
 const SERVICE_DESCRIPTOR = {
   name: 'youtube',
   displayName: 'YouTube Data API v3',
   keySource: 'youtubeApiKey',
 }
 
-module.exports = { fetchChannel, fetchRecentVideos, refreshVideoStats, fetchComments, fetchVideoMetadata, isYouTubeShort, SERVICE_DESCRIPTOR }
+module.exports = { fetchChannel, fetchRecentVideos, refreshVideoStats, fetchComments, fetchVideoMetadata, isYouTubeShort, fetchTrending, YOUTUBE_CATEGORIES, SERVICE_DESCRIPTOR }

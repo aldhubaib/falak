@@ -43,6 +43,7 @@ const ArticleDetail = lazyRetry(() => import("./pages/ArticleDetail"));
 const ProfileHome = lazyRetry(() => import("./pages/ProfileHome"));
 const Gallery = lazyRetry(() => import("./pages/Gallery"));
 const AlbumDetail = lazyRetry(() => import("./pages/AlbumDetail"));
+const Trending = lazyRetry(() => import("./pages/Trending"));
 const DesignSystem = lazyRetry(() => import("./pages/DesignSystem"));
 const NotFound = lazyRetry(() => import("./pages/NotFound"));
 
@@ -137,6 +138,7 @@ const App = () => (
               <Route path="article/:id" element={<ArticleDetail />} />
               <Route path="gallery" element={<Gallery />} />
               <Route path="gallery/album/:albumId" element={<AlbumDetail />} />
+              <Route path="trending" element={<Trending />} />
               <Route path="settings" element={<Settings />} />
               <Route path="design-system" element={<DesignSystem />} />
             </Route>

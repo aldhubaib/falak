@@ -76,6 +76,7 @@ app.use('/api/admin',            require('./routes/admin'))
 app.use('/api/article-sources',  require('./routes/articleSources'))
 app.use('/api/article-pipeline', require('./routes/articlePipeline'))
 app.use('/api/vector-intelligence', bigintJson, require('./routes/vectorIntelligence'))
+app.use('/api/trending',            bigintJson, require('./routes/trending'))
 
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {
@@ -337,6 +338,14 @@ async function main() {
       runRescoreWorker()
     } catch (e) {
       logger.error(e, '[rescore-worker] failed to start — story scores will not auto-update')
+    }
+
+    // Start the trending intelligence worker in-process (fetches trending every 6h).
+    try {
+      const { runPollingWorker: runTrendingWorker } = require('./worker-trending')
+      runTrendingWorker()
+    } catch (e) {
+      logger.error(e, '[trending-worker] failed to start — trending data will not auto-update')
     }
   })
 }
