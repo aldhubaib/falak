@@ -2350,6 +2350,31 @@ SerpAPI 403 → classifyHttpError → ServiceKeyInvalidError (retryable=false)
   → unblockReady() resumes them once the service is healthy again
 ```
 
+### Services covered
+
+Every external API now throws typed `ServiceError` on non-2xx responses via
+`classifyHttpError`. Non-retryable errors (quota, invalid key) propagate
+through every catch block in the pipeline and trigger `blockDependents`.
+
+| Service file | Service name | API | Status |
+|---|---|---|---|
+| `transcript.js` | `yt-transcript` | YouTube Transcript | Typed |
+| `youtube.js` | `youtube` | YouTube Data API | Typed |
+| `whisper.js` | `embedding` | OpenAI Whisper | Typed |
+| `embeddings.js` | `embedding` | OpenAI Embeddings | Typed |
+| `perplexity.js` | `perplexity` | Perplexity Sonar | Typed |
+| `pipelineProcessor.js` | `anthropic` | Anthropic Claude | Typed |
+| `storyResearcher.js` | `google_search` | SerpAPI (Google Search + Images) | Typed |
+| `firecrawl.js` | `firecrawl` | Firecrawl Scrape + Search | Typed |
+| `apify.js` | `apify` | Apify REST API | Typed |
+
+**Caller catch blocks patched:** `articleProcessor.js` (firecrawl, title_translate,
+score_similarity, score_ai_analysis, transcript_fetch, doStageResearch),
+`storyResearcher.js` (SerpAPI allSettled, Perplexity, Synthesis),
+`articlePipeline.js` (fetchFromSource, Apify dataset, Apify list runs,
+Apify per-run fetch, YouTube channel fetch). All re-throw non-retryable
+`ServiceError` instead of swallowing them.
+
 ---
 
 *Last updated: 2026-03-23*
