@@ -32,7 +32,12 @@ app.use(pinoHttp({ logger, autoLogging: true }))
 
 // ── Security & Middleware ─────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false })) // CSP off — single HTML app
-app.use(compression())
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers.accept === 'text/event-stream') return false
+    return compression.filter(req, res)
+  },
+}))
 app.use(cookieParser())
 app.use(express.json({ limit: '2mb' }))
 // CORS: allow exact APP_URL; also allow request origin if same host (e.g. Railway URL with/without www)

@@ -251,9 +251,16 @@ router.get('/live', async (req, res) => {
     res.write(`data: ${JSON.stringify(e)}\n\n`)
   }
   res.write(':\n\n')
+  if (typeof res.flush === 'function') res.flush()
 
-  const heartbeat = setInterval(() => res.write(':\n\n'), 15_000)
-  const onBatch = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`)
+  const heartbeat = setInterval(() => {
+    res.write(':\n\n')
+    if (typeof res.flush === 'function') res.flush()
+  }, 15_000)
+  const onBatch = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+    if (typeof res.flush === 'function') res.flush()
+  }
   pipelineEvents.emitter.on('batch', onBatch)
 
   const cleanup = () => {
@@ -481,11 +488,16 @@ router.get('/:id/events', async (req, res) => {
     'X-Accel-Buffering': 'no',
   })
   res.write(':\n\n')
+  if (typeof res.flush === 'function') res.flush()
 
-  const heartbeat = setInterval(() => res.write(':\n\n'), 15_000)
+  const heartbeat = setInterval(() => {
+    res.write(':\n\n')
+    if (typeof res.flush === 'function') res.flush()
+  }, 15_000)
 
   const onUpdate = (data) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`)
+    if (typeof res.flush === 'function') res.flush()
   }
   articleEvents.on(`article:${articleId}`, onUpdate)
 
