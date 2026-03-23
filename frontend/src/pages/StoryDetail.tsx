@@ -12,7 +12,6 @@ import type { Stage } from "./Stories";
 import type { StoryBrief, StoryWithLog } from "@/components/story-detail";
 import {
   StoryDetailTopBar,
-  StoryDetailArticle,
   StoryDetailResearch,
   StoryDetailScriptSection,
   StoryDetailStagePassed,
@@ -750,85 +749,7 @@ export default function StoryDetail() {
     return () => clearInterval(interval);
   }, [id, brief.processingStatus]);
 
-  // ── Article loading state ────────────────────────────────────────────────
   const activeStage: Stage = story?.stage ?? "scripting";
-  const [articleLoading, setArticleLoading] = useState(false);
-  const [articleError, setArticleError] = useState<string | null>(null);
-  const [cleanupProgress, setCleanupProgress] = useState(0);
-  const isWriterBoxRunning = false;
-
-  const articleDisplayValue = (() => {
-    const c = brief.articleContent;
-    if (!c || c === "__SCRAPE_FAILED__" || c === "__YOUTUBE__") return "";
-    return typeof c === "string" ? c : "";
-  })();
-
-  const fetchArticle = useCallback(async (force = false) => {
-    if (!id) return;
-    setArticleLoading(true);
-    setArticleError(null);
-    try {
-      const res = await fetch(`/api/stories/${id}/fetch-article`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to fetch article");
-      const content = data.articleContent;
-      if (content && content !== "__SCRAPE_FAILED__" && content !== "__YOUTUBE__") {
-        setBrief((b) => ({ ...b, articleContent: content }));
-      } else if (content === "__YOUTUBE__") {
-        setBrief((b) => ({ ...b, articleContent: "__YOUTUBE__" }));
-      } else {
-        setArticleError("Source could not be scraped.");
-      }
-    } catch (e) {
-      setArticleError(e instanceof Error ? e.message : "Fetch failed");
-    } finally {
-      setArticleLoading(false);
-    }
-  }, [id]);
-
-  const cleanupArticle = useCallback(async () => {
-    const content = brief.articleContent;
-    const hasContent = typeof content === "string" && content.trim() && content !== "__SCRAPE_FAILED__" && content !== "__YOUTUBE__";
-    if (!id) { toast.error("No story selected"); return; }
-    if (!hasContent) { toast.error("No article content to clean up. Fetch the article first."); return; }
-    setCleanupProgress(10);
-    try {
-      const interval = setInterval(() => {
-        setCleanupProgress((p) => Math.min(p + 15, 90));
-      }, 400);
-      const res = await fetch(`/api/stories/${id}/cleanup`, {
-        method: "POST",
-        credentials: "include",
-      });
-      clearInterval(interval);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Cleanup failed");
-      }
-      const updated = await res.json();
-      const b = updated.brief && typeof updated.brief === "object" ? updated.brief as StoryBrief : brief;
-      setBrief(b);
-      setCleanupProgress(100);
-      toast.success("Article cleaned & translated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Cleanup failed");
-    } finally {
-      setTimeout(() => setCleanupProgress(0), 600);
-    }
-  }, [id, brief]);
-
-  useEffect(() => {
-    if (!id || !story) return;
-    const content = brief.articleContent;
-    if (!content || content === "__SCRAPE_FAILED__") {
-      if (story.sourceUrl) fetchArticle();
-    }
-  }, [id, story?.id]);
   const [scriptDurationMinutes, setScriptDurationMinutes] = useState(
     () => brief.scriptDuration || 3
   );
@@ -840,7 +761,6 @@ export default function StoryDetail() {
   const editingYoutubeUrl = false;
   const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [articleOpen, setArticleOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(true);
   const [stageStories, setStageStories] = useState<{ id: string; stage: string; createdAt: string }[]>([]);
 
@@ -870,9 +790,7 @@ export default function StoryDetail() {
 
   useEffect(() => {
     if (story) {
-      const hasResearch = !!(story.brief as StoryBrief)?.research?.brief;
       setResearchOpen(true);
-      setArticleOpen(!hasResearch);
     }
   }, [story?.id]);
   const stageIndex = id ? stageStories.findIndex((s) => s.id === id) : -1;
@@ -1163,6 +1081,39 @@ export default function StoryDetail() {
             )}
 
 
+            {activeStage === "scripting" && (
+              <StoryDetailScriptSection
+                key={id}
+                scriptDuration={scriptDurationMinutes}
+                onScriptDurationChange={(mins) => {
+                  setScriptDurationMinutes(mins);
+                  setBrief((b) => {
+                    const next = { ...b, scriptDuration: mins };
+                    if (id) saveScript(id, next);
+                    return next;
+                  });
+                }}
+                canGenerate={scriptDurationMinutes > 0}
+                generating={generatingScript}
+                onGenerate={generateScript}
+                readOnly={false}
+                showGenerateControls
+                scriptValue={scriptValue}
+                saving={saving}
+                scriptRef={scriptEditorRef}
+                videoFormat={brief.videoFormat || "long"}
+                channelAvatarUrl={channelInfo?.avatarUrl}
+                channelName={channelInfo?.name}
+                onScriptChange={(value) => {
+                  setBrief((b) => {
+                    const next: StoryBrief = { ...b, script: value };
+                    if (id) saveScript(id, next);
+                    return next;
+                  });
+                }}
+              />
+            )}
+
             <StoryDetailResearch
               research={brief.research}
               researchOpen={researchOpen}
@@ -1179,33 +1130,6 @@ export default function StoryDetail() {
               }}
             />
 
-            <StoryDetailArticle
-              storyId={id}
-              sourceUrl={story.sourceUrl}
-              sourceName={story.sourceName}
-              articleContent={brief.articleContent}
-              articleDisplayValue={articleDisplayValue}
-              articleTitle={brief.articleTitle ?? story.headline ?? ""}
-              cleanupProgress={cleanupProgress}
-              articleLoading={articleLoading}
-              articleError={articleError}
-              actionsDisabled={isWriterBoxRunning}
-              compositeScore={story.compositeScore}
-              relativeDate={relativeDate}
-              articleOpen={articleOpen}
-              onArticleOpenChange={setArticleOpen}
-              onRetryFetch={async () => fetchArticle(true)}
-              onArticleChange={(val) => {
-                const newBrief = { ...brief, articleContent: val };
-                setBrief(newBrief);
-                if (id) saveScript(id, newBrief);
-              }}
-              onArticleTitleChange={(val) => setBrief((b) => ({ ...b, articleTitle: val }))}
-              onArticleTitleBlur={(title) => {
-                const newBrief = { ...brief, articleTitle: title };
-                if (id) saveScript(id, newBrief);
-              }}
-            />
 
           {/* Stage-specific content */}
           <div className="space-y-5">
@@ -1219,39 +1143,37 @@ export default function StoryDetail() {
             )}
 
             {/* ── SCRIPTING / FILMED / DONE (Yoopta script editor) ───────── */}
-            {(activeStage === "scripting" || activeStage === "filmed" || activeStage === "done") && (
-              <>
-                <StoryDetailScriptSection
-                  key={id}
-                  scriptDuration={scriptDurationMinutes}
-                  onScriptDurationChange={(mins) => {
-                    setScriptDurationMinutes(mins);
-                    setBrief((b) => {
-                      const next = { ...b, scriptDuration: mins };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
-                  canGenerate={scriptDurationMinutes > 0}
-                  generating={generatingScript}
-                  onGenerate={generateScript}
-                  readOnly={activeStage !== "scripting" && activeStage !== "filmed"}
-                  showGenerateControls={activeStage === "scripting"}
-                  scriptValue={scriptValue}
-                  saving={saving}
-                  scriptRef={scriptEditorRef}
-                  videoFormat={brief.videoFormat || "long"}
-                  channelAvatarUrl={channelInfo?.avatarUrl}
-                  channelName={channelInfo?.name}
-                  onScriptChange={(value) => {
-                    setBrief((b) => {
-                      const next: StoryBrief = { ...b, script: value };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
-                />
-              </>
+            {(activeStage === "filmed" || activeStage === "done") && (
+              <StoryDetailScriptSection
+                key={id}
+                scriptDuration={scriptDurationMinutes}
+                onScriptDurationChange={(mins) => {
+                  setScriptDurationMinutes(mins);
+                  setBrief((b) => {
+                    const next = { ...b, scriptDuration: mins };
+                    if (id) saveScript(id, next);
+                    return next;
+                  });
+                }}
+                canGenerate={scriptDurationMinutes > 0}
+                generating={generatingScript}
+                onGenerate={generateScript}
+                readOnly={activeStage !== "filmed"}
+                showGenerateControls={false}
+                scriptValue={scriptValue}
+                saving={saving}
+                scriptRef={scriptEditorRef}
+                videoFormat={brief.videoFormat || "long"}
+                channelAvatarUrl={channelInfo?.avatarUrl}
+                channelName={channelInfo?.name}
+                onScriptChange={(value) => {
+                  setBrief((b) => {
+                    const next: StoryBrief = { ...b, script: value };
+                    if (id) saveScript(id, next);
+                    return next;
+                  });
+                }}
+              />
             )}
 
             {/* ── PUBLISH (title, description, tags, thumbnail, visibility) ───────── */}
