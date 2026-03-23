@@ -56,14 +56,10 @@ const ALL_COUNTRIES: Record<string, { name: string; flag: string }> = {
   SA: { name: "Saudi Arabia", flag: "🇸🇦" },
   AE: { name: "UAE", flag: "🇦🇪" },
   KW: { name: "Kuwait", flag: "🇰🇼" },
-  EG: { name: "Egypt", flag: "🇪🇬" },
-  QA: { name: "Qatar", flag: "🇶🇦" },
   BH: { name: "Bahrain", flag: "🇧🇭" },
+  QA: { name: "Qatar", flag: "🇶🇦" },
   OM: { name: "Oman", flag: "🇴🇲" },
-  JO: { name: "Jordan", flag: "🇯🇴" },
-  IQ: { name: "Iraq", flag: "🇮🇶" },
   US: { name: "United States", flag: "🇺🇸" },
-  GB: { name: "United Kingdom", flag: "🇬🇧" },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -173,11 +169,7 @@ export default function Trending() {
   const handleFetchNow = async () => {
     setFetching(true);
     try {
-      const fetchCountries = selectedCountries.size > 0
-        ? Array.from(selectedCountries)
-        : availableCountries.length > 0
-          ? availableCountries.map((c) => c.country)
-          : ["SA"];
+      const fetchCountries = ["SA", "AE", "KW", "BH", "QA", "OM", "US"];
 
       const res = await fetch("/api/trending/fetch", {
         method: "POST",

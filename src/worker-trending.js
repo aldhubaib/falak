@@ -10,7 +10,7 @@ const db = require('./lib/db')
 const logger = require('./lib/logger')
 
 const INTERVAL_MS = 6 * 60 * 60 * 1000 // 6 hours
-const DEFAULT_COUNTRIES = ['SA', 'AE', 'KW', 'EG']
+const DEFAULT_COUNTRIES = ['SA', 'AE', 'KW', 'BH', 'QA', 'OM', 'US']
 
 function getCountries() {
   const env = process.env.TRENDING_COUNTRIES
