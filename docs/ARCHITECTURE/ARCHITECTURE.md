@@ -84,6 +84,11 @@ Three worker loops start in-process inside `server.js` after boot:
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
   from YouTube, learns from editorial decisions and published-video outcomes, and
   re-scores all active stories.
+- **Trending worker** — fetches YouTube trending videos every 6 hours for
+  configured countries (default: SA). Stores lightweight snapshots
+  (`TrendingSnapshot` + `TrendingEntry`) for historical analysis. Configurable
+  via `TRENDING_COUNTRIES` env var (comma-separated country codes). Retains 90
+  days of data.
 
 ### How Auth Works End to End
 
@@ -754,6 +759,47 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 
 ---
 
+### TrendingSnapshot
+
+Stores metadata for each trending data fetch. Completely standalone — no FK to
+Channel or Video tables.
+
+| Column | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `id` | String (CUID) | Yes | auto | PK |
+| `country` | String | Yes | — | ISO 3166-1 alpha-2 country code |
+| `fetchedAt` | DateTime | Yes | `now()` | When the snapshot was taken |
+| `totalVideos` | Int | Yes | `0` | Number of entries in this snapshot |
+
+**Indexes:** `[country, fetchedAt DESC]`.
+
+### TrendingEntry
+
+Lightweight trending video data point — stores only metadata and stats, not full
+video content. Each entry belongs to a `TrendingSnapshot`.
+
+| Column | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `id` | String (CUID) | Yes | auto | PK |
+| `snapshotId` | String | Yes | — | FK → TrendingSnapshot (cascade delete) |
+| `rank` | Int | Yes | — | Position in trending list |
+| `youtubeVideoId` | String | Yes | — | YouTube video ID (not FK to Video) |
+| `title` | String | Yes | — | Video title at time of snapshot |
+| `channelName` | String | Yes | — | Channel name at time of snapshot |
+| `channelId` | String | Yes | — | YouTube channel ID (not FK to Channel) |
+| `categoryId` | String | No | — | YouTube category ID |
+| `categoryName` | String | No | — | Human-readable category name |
+| `viewCount` | BigInt | Yes | `0` | Views at time of snapshot |
+| `likeCount` | BigInt | Yes | `0` | Likes at time of snapshot |
+| `commentCount` | BigInt | Yes | `0` | Comments at time of snapshot |
+| `duration` | String | No | — | ISO 8601 duration |
+| `publishedAt` | DateTime | No | — | Video publish date |
+| `thumbnailUrl` | String | No | — | Thumbnail URL |
+
+**Indexes:** `snapshotId`, `youtubeVideoId`, `categoryName`.
+
+---
+
 ## 5 — API Endpoints
 
 **88 total route handlers** across 18 route files.
@@ -970,6 +1016,18 @@ Arabic dialect prompt instructions per country and AI engine. Seeded at startup.
 | GET | `/api/public/thumbnails` | No | Up to 60 channel thumbnails (login page background). |
 | GET | `/health` | No | Health check (DB + optional Redis ping). |
 
+### Trending Intelligence — `/api/trending`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/` | Yes | Latest trending snapshot for a country (`?country=SA&category=Music`). |
+| GET | `/history` | Yes | Snapshot list over time (`?country=SA&days=30`). |
+| GET | `/snapshot/:id` | Yes | Full entries for a specific snapshot. |
+| GET | `/countries` | Yes | Countries that have trending data. |
+| GET | `/categories` | Yes | Distinct categories in latest snapshot (`?country=SA`). |
+| GET | `/video-history/:youtubeVideoId` | Yes | Track a video's rank across snapshots. |
+| POST | `/fetch` | Admin | Manually trigger a trending data fetch (`{ country: "SA" }`). |
+
 ---
 
 ## 6 — Pipeline & Worker Flows
@@ -1163,6 +1221,22 @@ flowchart TB
 | **Own video stats** | Reads stats from linked Video (via `producedVideoId`) or fetches via YouTube API for stories with `brief.youtubeUrl`. | YouTube Data API v3 (fallback only) | `Story.brief.views/likes/comments` |
 | **Self-learning** | Builds tag/type/region signals from editorial decisions. Calibrates AI accuracy from published outcomes. | — | `ScoreProfile.*` |
 | **Re-score stories** | Computes 7-factor composite score for all stories in active stages. Creates alerts for significant changes. | — | `Story.compositeScore`, `StoryLog`, `Alert` |
+
+### Trending Worker (`src/worker-trending.js`)
+
+Runs every **6 hours** (`INTERVAL_MS`). Fetches YouTube trending videos via the
+Data API v3 (`chart=mostPopular`) for each configured country and stores
+lightweight snapshots. Completely standalone — no FK to Channel or Video tables.
+
+| Step | What Happens | External API | DB Writes |
+|---|---|---|---|
+| **Fetch trending** | Calls `videos.list?chart=mostPopular` for each country in `TRENDING_COUNTRIES` env var (default: `SA`). | YouTube Data API v3 | `TrendingSnapshot`, `TrendingEntry` |
+| **Cleanup** | Deletes snapshots older than 90 days. | — | `TrendingSnapshot` deletes (cascades to entries) |
+
+**Configuration:**
+- `TRENDING_COUNTRIES` env var: comma-separated country codes (e.g. `SA,AE,KW`). Default: `SA`.
+- Interval: 6 hours (hardcoded).
+- Retention: 90 days.
 
 ### Service Registry & Health Gate
 
@@ -1425,6 +1499,7 @@ Requires ≥3 outcomes.
 | `/c/:channelId/article/:id` | ArticleDetail | Article inspector with 9-stage timeline + SSE live updates |
 | `/c/:channelId/gallery` | Gallery | Media gallery with albums |
 | `/c/:channelId/gallery/album/:albumId` | AlbumDetail | Album detail view |
+| `/c/:channelId/trending` | Trending | YouTube trending intelligence — country selector, category filters, history |
 | `/c/:channelId/settings` | Settings | API keys + usage dashboard |
 | `/c/:channelId/admin` | Admin | User access control |
 
