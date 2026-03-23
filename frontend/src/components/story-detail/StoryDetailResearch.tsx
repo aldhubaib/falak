@@ -26,6 +26,7 @@ export interface StoryDetailResearchProps {
   onResearchOpenChange?: (open: boolean) => void;
   storyId?: string;
   onDataRefresh?: () => void;
+  sourceUrl?: string | null;
 }
 
 function downloadImageFile(src: string, index: number) {
@@ -348,6 +349,7 @@ export function StoryDetailResearch({
   onResearchOpenChange,
   storyId,
   onDataRefresh,
+  sourceUrl,
 }: StoryDetailResearchProps) {
   const [internalOpen, setInternalOpen] = useState(true);
   const isOpen = controlledOpen ?? internalOpen;
@@ -449,6 +451,20 @@ export function StoryDetailResearch({
                 <span className="block mt-2 text-[11px] font-mono text-primary/60 tracking-wider">
                   فكرة الفيديو المقترحة
                 </span>
+                {sourceUrl && /youtube\.com|youtu\.be/i.test(sourceUrl) && (
+                  <a
+                    href={sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-3 text-[11px] font-medium text-red-500 hover:text-red-400 transition-colors"
+                  >
+                    <svg viewBox="0 0 28 20" className="w-5 h-3.5 fill-current">
+                      <path d="M27.4 3.1a3.5 3.5 0 0 0-2.5-2.5C22.7 0 14 0 14 0S5.3 0 3.1.6A3.5 3.5 0 0 0 .6 3.1C0 5.3 0 10 0 10s0 4.7.6 6.9a3.5 3.5 0 0 0 2.5 2.5C5.3 20 14 20 14 20s8.7 0 10.9-.6a3.5 3.5 0 0 0 2.5-2.5C28 14.7 28 10 28 10s0-4.7-.6-6.9ZM11.2 14.3V5.7l7.3 4.3-7.3 4.3Z" />
+                    </svg>
+                    <span>شاهد الفيديو الأصلي</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
             )}
 

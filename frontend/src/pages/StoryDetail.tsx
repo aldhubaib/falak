@@ -1118,6 +1118,7 @@ export default function StoryDetail() {
               researchOpen={researchOpen}
               onResearchOpenChange={setResearchOpen}
               storyId={id}
+              sourceUrl={story?.sourceUrl}
               onDataRefresh={async () => {
                 const res = await fetch(`/api/stories/${id}`, { credentials: "include" });
                 if (res.ok) {
