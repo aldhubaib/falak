@@ -912,7 +912,7 @@ video content. Each entry belongs to a `TrendingSnapshot`.
 | GET | `/api/article-sources` | Yes | List sources for a channel with stage counts and run history. |
 | POST | `/api/article-sources` | editor+ | Create RSS or Apify actor source. |
 | PATCH | `/api/article-sources/:id` | editor+ | Update source config. |
-| DELETE | `/api/article-sources/:id` | admin+ | Delete a source. |
+| DELETE | `/api/article-sources/:id?deleteStories=true` | admin+ | Delete a source. Optional `deleteStories=true` also removes linked stories. |
 | POST | `/api/article-sources/:id/test` | editor+ | Dry-run fetch (no save). |
 | POST | `/api/article-sources/:id/reimport-run` | editor+ | Re-import articles from an Apify run. |
 | GET | `/api/article-sources/field-schema` | Yes | JSON schema for source config fields. |
