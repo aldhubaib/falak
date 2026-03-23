@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useParams, Link, useSearchParams } from "react-router-dom";
-import { useChannelPath } from "@/hooks/useChannelPath";
+import { useParams, useSearchParams } from "react-router-dom";
 import SourceTab from "./Source";
 import VectorIntelligenceTab from "./VectorIntelligence";
 import StoryRulesTab from "./StoryRules";
@@ -10,7 +9,7 @@ import {
   RotateCw, X, Filter,
   Brain, Languages, Sparkles, Search, Hash, Layers,
   Zap, Globe, Target, Users, Image as ImageIcon, Clock,
-  ExternalLink, ShieldAlert,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -185,7 +184,6 @@ function Shell({ activeTab, setTab, children }: { activeTab: Tab; setTab: (t: Ta
 
 function PipelineView() {
   const { channelId } = useParams();
-  const pp = useChannelPath();
   const [articleStats, setArticleStats] = useState<Record<string, number>>({});
   const [videoStats, setVideoStats] = useState<Record<string, number>>({});
   const [articleBatches, setArticleBatches] = useState<Record<string, number>>({});
@@ -320,12 +318,6 @@ function PipelineView() {
               {connected ? "Live" : "Reconnecting…"}
             </div>
           </div>
-          <Link
-            to={pp("/article-pipeline")}
-            className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border"
-          >
-            Switch to V1
-          </Link>
         </div>
 
         {/* Summary card */}

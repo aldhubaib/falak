@@ -39,8 +39,7 @@ const Settings = lazyRetry(() => import("./pages/Settings"));
 const Stories = lazyRetry(() => import("./pages/Stories"));
 const StoryDetail = lazyRetry(() => import("./pages/StoryDetail"));
 const PublishQueue = lazyRetry(() => import("./pages/PublishQueue"));
-const ArticlePipeline = lazyRetry(() => import("./pages/ArticlePipeline"));
-const ArticlePipelineV2 = lazyRetry(() => import("./pages/ArticlePipelineV2"));
+const ArticlePipeline = lazyRetry(() => import("./pages/ArticlePipelineV2"));
 const ArticleDetail = lazyRetry(() => import("./pages/ArticleDetail"));
 const ProfileHome = lazyRetry(() => import("./pages/ProfileHome"));
 const Gallery = lazyRetry(() => import("./pages/Gallery"));
@@ -137,7 +136,6 @@ const App = () => (
               <Route path="story/:id" element={<StoryDetail />} />
               <Route path="publish" element={<PublishQueue />} />
               <Route path="article-pipeline" element={<ArticlePipeline />} />
-              <Route path="article-pipeline-v2" element={<ArticlePipelineV2 />} />
               <Route path="article/:id" element={<ArticleDetail />} />
               <Route path="gallery" element={<Gallery />} />
               <Route path="gallery/album/:albumId" element={<AlbumDetail />} />

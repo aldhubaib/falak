@@ -304,7 +304,7 @@ export default function DesignSystem() {
                 </div>
               </CidBlock>
 
-              <CidBlock cid="pulse-dot" name="Pulse dot" source="ArticlePipeline, Pipeline">
+              <CidBlock cid="pulse-dot" name="Pulse dot" source="ArticlePipelineV2, Pipeline">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5 text-xs text-success"><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> Active</span>
                   <span className="flex items-center gap-1.5 text-xs text-primary"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" /> Running</span>
@@ -368,7 +368,7 @@ export default function DesignSystem() {
                 </div>
               </CidBlock>
 
-              <CidBlock cid="stat-number-medium" name="Stat number (text-xl)" source="ArticlePipeline, Monitor, Pipeline, ProfileHome, StoryDetail">
+              <CidBlock cid="stat-number-medium" name="Stat number (text-xl)" source="ArticlePipelineV2, Monitor, Pipeline, ProfileHome, StoryDetail">
                 <div className="flex gap-6">
                   <div><div className="text-xl font-semibold font-mono tracking-tight">342</div><div className="text-xs text-muted-foreground">Analyzed</div></div>
                   <div><div className="text-xl font-semibold font-mono tracking-tight text-primary">89</div><div className="text-xs text-muted-foreground">In progress</div></div>
