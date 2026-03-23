@@ -43,7 +43,7 @@ From a user perspective the workflow is:
    publishing patterns, and head-to-head comparisons.
 4. **Story Discovery** — the article pipeline ingests news from RSS, Apify
    sources, and YouTube channels. YouTube videos are transcribed and split into
-   individual stories. All articles are classified with AI, translated to Arabic,
+   individual stories. All articles are classified with AI, researched,
    scored for relevance, promoted to stories, and auto-generate a draft script
    (Claude Sonnet) with branded hooks and research context for team evaluation.
 5. **Editorial Workspace** — each story has a plain-text script editor with
@@ -77,10 +77,10 @@ Three worker loops start in-process inside `server.js` after boot:
   Bull queue; otherwise it polls the database every 10 seconds.
 - **Article pipeline worker** — runs concurrent per-stage loops (each stage has its
   own independent polling loop within one Node.js process). AI stages share a
-  concurrency semaphore (max 3). Every batch is persisted to `PipelineBatch` +
+  concurrency semaphore (max 5). Every batch is persisted to `PipelineBatch` +
   `PipelineBatchItem` for full history. Stages: transcript → story_count →
   story_split → imported → content → classify → title_translate → score → research
-  → translated → done. Also polls article sources every 5 minutes for new imports.
+  → done. Also polls article sources every 5 minutes for new imports.
 - **Rescore worker** — runs a cycle once per hour. Refreshes competition stats
   from YouTube, learns from editorial decisions and published-video outcomes, and
   re-scores all active stories.
@@ -419,7 +419,7 @@ via `nextCheckAt`.
 #### Article
 
 An article fetched from a source, processed through the pipeline.
-For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done.
+For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → done.
 For YouTube: transcript → story_count → [story_split] → classify → ... (same downstream pipeline). `story_count` uses server-side pattern matching (no AI). Only videos flagged as multi-story reach `story_split` (AI). Videos with multiple stories get split into child articles via `parentArticleId`.
 
 | Field | Type | Required | Default | Description |
@@ -433,7 +433,7 @@ For YouTube: transcript → story_count → [story_split] → classify → ... (
 | `description` | Text | No | — | Article description |
 | `content` | Text | No | — | Raw HTML content |
 | `contentClean` | Text | No | — | Cleaned plain text |
-| `contentAr` | Text | No | — | Arabic translation |
+| `contentAr` | Text | No | — | Arabic translation (legacy — no longer populated by pipeline) |
 | `publishedAt` | DateTime | No | — | Article publish date |
 | `language` | String | No | — | Detected language |
 | `category` | String | No | — | Article category from source |
@@ -455,7 +455,7 @@ For YouTube: transcript → story_count → [story_split] → classify → ... (
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `translated` → `done`.
+**Stages (RSS/Apify):** `imported` → `content` → `classify` → `title_translate` → `score` → `[threshold gate]` → `research` → `done`.
 **Stages (YouTube):** `transcript` → `story_count` → [`story_split`] → `classify` → ... (same from classify onwards). `story_count` is pure server logic (regex patterns). `story_split` only runs when multi-story is detected. Parent articles that are split go to `adapter_done`.
 Articles below the dynamic threshold are set to `filtered` and stop processing. Terminal stages: `done`, `filtered`, `failed`, `adapter_done`.
 **Unique:** `[channelId, url]`. **Indexes:** `[sourceId, stage]`, `[channelId, stage]`, `[stage, status]`.
@@ -1083,7 +1083,7 @@ flowchart LR
         IM["imported"] --> CO["content"]
     end
     CO --> CL["classify"] --> TT["title_translate"] --> SC["score"]
-    SC -->|above threshold| RE["research"] --> TR["translated"] --> DO["done"]
+    SC -->|above threshold| RE["research"] --> DO["done"]
     SC -->|below threshold| FI["filtered"]
     CO -.->|needs review| RV["review"]
     TS -.->|failure| F["failed"]
@@ -1092,7 +1092,6 @@ flowchart LR
     CL -.->|failure| F
     SC -.->|failure| F
     RE -.->|failure| F
-    TR -.->|failure| F
 ```
 
 **Execution mode:** Adaptive polling (2s when busy, 10s when idle). No Bull queue support.
@@ -1107,8 +1106,7 @@ flowchart LR
 | **classify** | AI classification (Haiku): topic, tags, contentType, region, summary, uniqueAngle. Works in original language. Retries once if language mismatch. | Anthropic Haiku | `Article.analysis`, `Article.language` |
 | **title_translate** | Lightweight Arabic translation of title + first 2 sentences via Haiku. Stored in `analysis.titleTranslateAr` for scoring/niche match. Non-blocking on failure. | Anthropic Haiku | `Article.analysis.titleTranslateAr` |
 | **score** | Generates embedding from Arabic title translation → similarity search → AI scoring (Haiku on original content) → final score formula → dynamic threshold gate. Articles below threshold are set to `filtered`. | OpenAI Embeddings, Anthropic Haiku | `Article.finalScore`, `Article.stage` (→ `filtered` or `research`) |
-| **research** | Multi-source research: SerpAPI Google News (5 related articles) + SerpAPI Google Images (10 images) run in parallel → Perplexity context (fed with found URLs) → Claude Sonnet synthesis into structured brief. Images downloaded to R2 "Stories" gallery album. Non-fatal on failure. Only runs for articles above threshold. Includes retry logic for transient failures (502, timeouts). | SerpAPI, Perplexity, Anthropic Sonnet | `Article.analysis.research`, `Article.analysis.images`, creates `GalleryMedia` |
-| **translated** | Translates content + fields + research brief to Arabic via Haiku. Research brief translation is **mandatory** — if it fails the article stays in `translate` stage for retry and no Story is created. Skips translation if source is already Arabic. | Anthropic Haiku (×3 calls) | `Article.contentAr`, `Article.analysis.*Ar`, creates `Story` |
+| **research** | Multi-source research: SerpAPI Google News (5 related articles) + SerpAPI Google Images (10 images) run in parallel → Perplexity context (fed with found URLs) → Claude Sonnet synthesis into structured brief (in article's original language). Images downloaded to R2 "Stories" gallery album. Non-fatal on failure. Only runs for articles above threshold. Includes retry logic for transient failures (502, timeouts). After research, promotes article to `Story`. | SerpAPI, Perplexity, Anthropic Sonnet | `Article.analysis.research`, `Article.analysis.images`, creates `GalleryMedia`, creates `Story` |
 
 **Concurrent per-stage loops:** Each pipeline stage runs its own independent
 polling loop within a single Node.js process. This means classify can process
@@ -1126,8 +1124,7 @@ AI calls) to stay within Anthropic/OpenAI rate limits.
 | classify | 8 | 5s | No | Yes |
 | title_translate | 8 | 5s | No | Yes |
 | score | 3 | 8s | Yes | Yes |
-| research | 2 | 10s | Yes | Yes |
-| translated | 2 | 10s | Yes | Yes |
+| research | 5 | 5s | No | Yes |
 
 **Batch persistence:** Every batch is persisted to the `PipelineBatch` table
 with per-item results in `PipelineBatchItem`. Each item records its status
@@ -1626,7 +1623,7 @@ guard) → Page.
 | **Rate limit handling** | Key rotation (least-recently-used first). `lastUsedAt` and `usageCount` updated on each call. |
 | **Result limits** | 5 news articles, 10 images per article |
 | **Retry** | 1 retry on transient failures (5xx, timeouts) with 2s delay |
-| **Fallback** | Failure is non-fatal — article continues to translation stage |
+| **Fallback** | Failure is non-fatal — article is promoted to Story and marked done |
 | **Used by** | Article research stage — Google News search finds related articles (URLs fed to Perplexity), Image search fetches related images (downloaded to R2 "Stories" gallery album). Both run in parallel. |
 
 ### Apify
