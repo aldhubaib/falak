@@ -1,6 +1,8 @@
 const fetch = require('node-fetch')
 const logger = require('../lib/logger')
 const { decrypt } = require('./crypto')
+const registry = require('../lib/serviceRegistry')
+const { classifyHttpError } = registry
 
 const APIFY_API_BASE = 'https://api.apify.com/v2'
 const PAGE_SIZE = 1000
@@ -96,7 +98,12 @@ async function listSuccessfulRuns(actorId, token, limit = 10) {
   if (!normalizedActorId) return []
   const url = buildActorRunsListUrl(normalizedActorId, token, limit)
   const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } })
-  if (!response.ok) return []
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    const typed = classifyHttpError('apify', response.status, body, response.headers)
+    if (!typed.retryable) throw typed
+    return []
+  }
   const payload = await response.json()
   const items = payload?.data?.items || []
   return items.map((run) => ({
@@ -115,8 +122,10 @@ async function fetchLatestSuccessfulRun(actorId, token) {
   }
   const response = await fetchWithTimeout(buildLatestRunUrl(normalizedActorId, token), { headers: { Accept: 'application/json' } })
   if (!response.ok) {
-    const body = await response.text()
-    throw new Error(`Apify latest run request failed (${response.status}): ${body.slice(0, 300)}`)
+    const body = await response.text().catch(() => '')
+    const typed = classifyHttpError('apify', response.status, body, response.headers)
+    if (!typed.retryable) throw typed
+    throw typed
   }
 
   const payload = await response.json()
@@ -161,8 +170,9 @@ async function fetchDatasetPage(datasetId, token, offset, pageSize) {
   const url = buildDatasetItemsUrl(datasetId, token, { limit: pageSize, offset })
   const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } })
   if (!response.ok) {
-    const body = await response.text()
-    throw new Error(`Apify request failed (${response.status}): ${body.slice(0, 300)}`)
+    const body = await response.text().catch(() => '')
+    const typed = classifyHttpError('apify', response.status, body, response.headers)
+    throw typed
   }
   const items = await response.json()
   if (!Array.isArray(items)) throw new Error('Apify response was not a dataset item array')

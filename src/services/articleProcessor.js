@@ -194,6 +194,7 @@ async function doStageContent(article, project) {
       }
     } catch (e) {
       log.push(lp('firecrawl', { processor: 'api', service: 'Firecrawl Scrape API', status: 'failed', error: e.message }))
+      if (e.isServiceError && !e.retryable) throw e
     }
   } else {
     log.push(lp('firecrawl', { processor: 'api', service: 'Firecrawl Scrape API', status: 'skipped', reason: 'No API key' }))
@@ -446,6 +447,7 @@ async function doStageTitleTranslate(article, project) {
     })
     return { nextStage: 'score' }
   } catch (e) {
+    if (e.isServiceError && !e.retryable) throw e
     log.push(lp('title_translate', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'partial', error: `${e.message} (non-blocking)` }))
     log.push(lp('verdict', { stage: 'title_translate', result: 'pass', reason: 'Translation error (non-blocking)', nextStage: 'score' }))
     await saveLog(article.id, log)
@@ -522,6 +524,13 @@ async function doStageResearch(article, project) {
     await promoteAfterResearch(article, updatedAnalysis, log)
     return { nextStage: 'done' }
   } catch (e) {
+    if (e.isServiceError && !e.retryable) {
+      log.push(lp('research', { status: 'failed', error: e.message }))
+      log.push(lp('verdict', { stage: 'research', result: 'blocked', reason: `Service error: ${e.message}`, nextStage: article.stage }))
+      await saveLog(article.id, log)
+      logger.warn({ articleId: article.id, service: e.service, code: e.code, error: e.message }, '[articleProcessor] Research blocked — non-retryable service error')
+      throw e
+    }
     log.push(lp('research', { status: 'partial', error: `${e.message} (non-blocking)` }))
     log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, promoting)', nextStage: 'done' }))
     await saveLog(article.id, log)
@@ -841,6 +850,7 @@ async function doStageScore(article, project) {
       }
     } catch (e) {
       log.push(lp('score_similarity', { processor: 'api', service: 'OpenAI Embeddings + pgvector', status: 'failed', error: e.message }))
+      if (e.isServiceError && !e.retryable) throw e
     }
   } else {
     log.push(lp('score_similarity', { processor: 'api', service: 'OpenAI Embeddings', status: 'skipped', reason: 'No embedding key' }))
@@ -1000,6 +1010,7 @@ ${contentForScoring.slice(0, 15000)}`
       }
     } catch (e) {
       log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'failed', error: e.message }))
+      if (e.isServiceError && !e.retryable) throw e
     }
   } else {
       log.push(lp('score_ai_analysis', { processor: 'ai', service: 'Anthropic Claude Haiku', status: 'skipped', reason: contentForScoring.trim().length <= 50 ? 'No content' : 'No Anthropic key' }))
@@ -1539,6 +1550,7 @@ async function doStageTranscript(article, project) {
         processor: 'api', service: 'YouTube Transcript API',
         status: 'failed', error: e.message,
       }))
+      if (e.isServiceError && !e.retryable) throw e
     }
   }
 

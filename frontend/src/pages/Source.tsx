@@ -75,6 +75,7 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
   const [addOpen, setAddOpen] = useState(false);
   const [editSource, setEditSource] = useState<ArticleSourceData | null>(null);
   const [deleteSource, setDeleteSource] = useState<{ id: string; label: string } | null>(null);
+  const [deleteStories, setDeleteStories] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<{ url: string; title: string }[] | null>(null);
 
@@ -99,10 +100,19 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
       .catch(() => toast.error("Failed to update"));
   };
 
-  const handleDelete = (id: string) => {
-    fetch(`/api/article-sources/${id}`, { method: "DELETE", credentials: "include" })
+  const handleDelete = (id: string, withStories: boolean) => {
+    const qs = withStories ? '?deleteStories=true' : '';
+    fetch(`/api/article-sources/${id}${qs}`, { method: "DELETE", credentials: "include" })
       .then((r) => r.ok ? r.json() : Promise.reject())
-      .then(() => { toast.success("Source deleted"); setDeleteSource(null); fetchSources(); })
+      .then((data) => {
+        const msg = withStories && data.storiesDeleted
+          ? `Source deleted (${data.storiesDeleted} stories removed)`
+          : "Source deleted";
+        toast.success(msg);
+        setDeleteSource(null);
+        setDeleteStories(false);
+        fetchSources();
+      })
       .catch(() => toast.error("Failed to delete"));
   };
 
@@ -216,18 +226,27 @@ function ArticleSourcesSection({ channelId }: { channelId: string }) {
         <EditSourceDialog source={editSource} open={!!editSource} onClose={() => setEditSource(null)} onUpdated={fetchSources} />
       )}
 
-      <AlertDialog open={!!deleteSource} onOpenChange={(v) => { if (!v) setDeleteSource(null); }}>
+      <AlertDialog open={!!deleteSource} onOpenChange={(v) => { if (!v) { setDeleteSource(null); setDeleteStories(false); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete source?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete the source and all its articles. This cannot be undone.
+              This will delete the source <strong className="text-foreground">{deleteSource?.label}</strong> and all its articles. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <label className="flex items-center gap-2 px-1 py-1 text-[13px] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={deleteStories}
+              onChange={(e) => setDeleteStories(e.target.checked)}
+              className="rounded border-border accent-destructive"
+            />
+            <span className="text-muted-foreground">Also delete all stories created from this source</span>
+          </label>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteSource && handleDelete(deleteSource.id)}
+              onClick={() => deleteSource && handleDelete(deleteSource.id, deleteStories)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

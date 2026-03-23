@@ -4,6 +4,7 @@
  */
 const fetch = require('node-fetch')
 const registry = require('../lib/serviceRegistry')
+const { classifyHttpError } = registry
 
 const FIRECRAWL_SCRAPE_URL = 'https://api.firecrawl.dev/v2/scrape'
 const SCRAPE_TIMEOUT_MS = 30000
@@ -47,9 +48,10 @@ async function scrapeUrl(apiKey, url) {
       const result = await _scrapeOnce(apiKey, url)
       return result
     } catch (e) {
+      if (e.isServiceError && !e.retryable) throw e
       lastError = e
-      const isRetryable = e.name === 'AbortError' ||
-        /429|503|timeout|ECONNRESET|ETIMEDOUT/i.test(e.message)
+      const isRetryable = e.retryable || e.name === 'AbortError' ||
+        /timeout|ECONNRESET|ETIMEDOUT/i.test(e.message)
       if (!isRetryable || attempt >= MAX_RETRIES) {
         return { error: e.message || 'Firecrawl request failed' }
       }
@@ -81,12 +83,10 @@ async function _scrapeOnce(apiKey, url) {
     clearTimeout(to)
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const status = res.status
-      if (status === 429 || status === 503) {
-        throw new Error(`HTTP ${status}`)
-      }
-      const msg = data.error || data.message || `HTTP ${status}`
-      return { error: msg }
+      const msg = data.error || data.message || `HTTP ${res.status}`
+      const typed = classifyHttpError('firecrawl', res.status, msg, res.headers)
+      if (!typed.retryable) registry.markDown('firecrawl', typed.code, typed.message)
+      throw typed
     }
     if (!data.success || !data.data) return { error: 'Invalid Firecrawl response' }
     const markdown = data.data.markdown
@@ -140,7 +140,10 @@ async function searchNews(apiKey, query, opts = {}) {
 
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      return { error: data.error || data.message || `HTTP ${res.status}` }
+      const msg = data.error || data.message || `HTTP ${res.status}`
+      const typed = classifyHttpError('firecrawl', res.status, msg, res.headers)
+      if (!typed.retryable) registry.markDown('firecrawl', typed.code, typed.message)
+      throw typed
     }
 
     if (!data.success || !Array.isArray(data.data)) {
@@ -157,6 +160,7 @@ async function searchNews(apiKey, query, opts = {}) {
     return { results }
   } catch (e) {
     clearTimeout(to)
+    if (e.isServiceError && !e.retryable) throw e
     return { error: e.message || 'Firecrawl search failed' }
   }
 }

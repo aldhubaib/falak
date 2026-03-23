@@ -271,6 +271,7 @@ async function ingestNonApifySource(source, project, { force = false } = {}) {
     const result = await fetchFromSource(source, null)
     rawArticles = result.articles || []
   } catch (e) {
+    if (e.isServiceError && !e.retryable) throw e
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
     await appendFetchLog(sourceId, logEntry)
     logger.error({ sourceId, type: source.type, error: e.message }, '[articlePipeline] fetch failed')
@@ -315,6 +316,7 @@ async function ingestApifySourceDirectDataset(source, channel, apiKey, { force =
     )
     rawArticles = result.articles || []
   } catch (e) {
+    if (e.isServiceError && !e.retryable) throw e
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
     await appendFetchLog(sourceId, logEntry)
     logger.error({ sourceId, error: e.message }, '[articlePipeline] Apify dataset fetch failed')
@@ -366,6 +368,7 @@ async function ingestApifySourceWithRunTracking(source, channel, { force = false
   try {
     apifyRuns = await listSuccessfulRuns(config.actorId, apiKey, 20)
   } catch (e) {
+    if (e.isServiceError && !e.retryable) throw e
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
     await appendFetchLog(sourceId, logEntry)
     logger.error({ sourceId, error: e.message }, '[articlePipeline] Apify list runs failed')
@@ -419,6 +422,7 @@ async function ingestApifySourceWithRunTracking(source, channel, { force = false
     try {
       result = await fetchDatasetItemsByDatasetId(run.datasetId, apiKey, limit, source.language || 'en')
     } catch (e) {
+      if (e.isServiceError && !e.retryable) throw e
       pendingRunRecords.push({
         sourceId,
         runId: run.id,
@@ -548,6 +552,7 @@ async function ingestYouTubeSource(source) {
   try {
     videos = await fetchRecentVideos(youtubeChannelId, 500, channelId, knownVideoIds)
   } catch (e) {
+    if (e.isServiceError && !e.retryable) throw e
     const logEntry = { time: new Date().toISOString(), raw: 0, gated: 0, dupes: 0, inserted: 0, error: e.message, ms: Date.now() - startTime }
     await appendFetchLog(sourceId, logEntry)
     logger.error({ sourceId, error: e.message }, '[articlePipeline] YouTube fetch failed')

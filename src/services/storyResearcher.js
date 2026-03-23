@@ -20,6 +20,7 @@ const { queryPerplexity } = require('./perplexity')
 const { callAnthropic } = require('./pipelineProcessor')
 const logger = require('../lib/logger')
 const registry = require('../lib/serviceRegistry')
+const { classifyHttpError } = registry
 
 const SERPAPI_RESULT_LIMIT = 5
 const SERPAPI_IMAGE_LIMIT = 10
@@ -130,7 +131,12 @@ async function serpApiGoogleSearch(apiKey, query, lang) {
   }
 
   const resp = await fetchWithRetry(url.toString())
-  if (!resp.ok) throw new Error(`SerpAPI Google Search responded ${resp.status}: ${resp.statusText}`)
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '')
+    const typed = classifyHttpError('google_search', resp.status, body, resp.headers)
+    if (!typed.retryable) registry.markDown('google_search', typed.code, typed.message)
+    throw typed
+  }
   const data = await resp.json()
 
   return (data.news_results || [])
@@ -152,7 +158,12 @@ async function serpApiImageSearch(apiKey, query) {
   url.searchParams.set('api_key', apiKey)
 
   const resp = await fetchWithRetry(url.toString())
-  if (!resp.ok) throw new Error(`SerpAPI Images responded ${resp.status}: ${resp.statusText}`)
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '')
+    const typed = classifyHttpError('google_search', resp.status, body, resp.headers)
+    if (!typed.retryable) registry.markDown('google_search', typed.code, typed.message)
+    throw typed
+  }
   const data = await resp.json()
 
   return (data.images_results || []).slice(0, SERPAPI_IMAGE_LIMIT).map(img => ({
@@ -263,6 +274,13 @@ async function researchStory(article, channelId, opts = {}) {
         at: new Date().toISOString(),
       })
     }
+
+    // Non-retryable errors (quota, invalid key) must halt the pipeline
+    const fatalErr = [newsOutcome, imageOutcome]
+      .filter(o => o.status === 'rejected')
+      .map(o => o.reason)
+      .find(e => e?.isServiceError && !e.retryable)
+    if (fatalErr) throw fatalErr
   } else {
     log.push({
       step: 'serpapi_search', stage: 'research', label: 'Web Search', icon: 'search',
@@ -307,6 +325,7 @@ async function researchStory(article, channelId, opts = {}) {
       })
     } catch (e) {
       log.push({ step: 'perplexity_context', stage: 'research', label: 'Background', icon: 'globe', subtitle: 'Context from Perplexity', processor: 'ai', service: 'Perplexity Sonar', status: 'failed', error: e.message, at: new Date().toISOString() })
+      if (e.isServiceError && !e.retryable) throw e
     }
   } else {
     log.push({ step: 'perplexity_context', stage: 'research', label: 'Background', icon: 'globe', subtitle: 'Context from Perplexity', processor: 'ai', service: 'Perplexity Sonar', status: 'skipped', reason: 'No Perplexity key', at: new Date().toISOString() })
@@ -357,6 +376,7 @@ async function researchStory(article, channelId, opts = {}) {
       })
     } catch (e) {
       log.push({ step: 'synthesis', stage: 'synthesis', label: 'Synthesis', icon: 'brain', subtitle: 'AI brief (hook, narrative, facts)', processor: 'ai', service: 'Anthropic Claude Sonnet', status: 'failed', error: e.message, at: new Date().toISOString() })
+      if (e.isServiceError && !e.retryable) throw e
     }
   }
 

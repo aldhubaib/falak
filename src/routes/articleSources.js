@@ -235,11 +235,27 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
   }
 })
 
-// ── DELETE /api/article-sources/:id ───────────────────────────────────────
+// ── DELETE /api/article-sources/:id?deleteStories=true ────────────────────
 router.delete('/:id', requireRole('owner', 'admin'), async (req, res) => {
   try {
+    const deleteStories = req.query.deleteStories === 'true'
+    let storiesDeleted = 0
+
+    if (deleteStories) {
+      const articles = await db.article.findMany({
+        where: { sourceId: req.params.id, storyId: { not: null } },
+        select: { storyId: true },
+      })
+      const storyIds = [...new Set(articles.map(a => a.storyId).filter(Boolean))]
+      if (storyIds.length > 0) {
+        await db.storyLog.deleteMany({ where: { storyId: { in: storyIds } } })
+        const result = await db.story.deleteMany({ where: { id: { in: storyIds } } })
+        storiesDeleted = result.count
+      }
+    }
+
     await db.articleSource.delete({ where: { id: req.params.id } })
-    res.json({ ok: true })
+    res.json({ ok: true, storiesDeleted })
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Source not found' })
     res.status(500).json({ error: e.message })
