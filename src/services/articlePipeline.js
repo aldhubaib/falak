@@ -77,9 +77,12 @@ function canonicalizeArticleUrl(rawUrl) {
 function sanitizeString(val) {
   if (typeof val !== 'string') return val
   return val
-    .replace(/\0/g, '')                       // NUL bytes
-    .replace(/\\x(?![0-9a-fA-F]{2})/g, '\\\\x') // broken hex escapes like \xZZ
-    .replace(/\\u(?![0-9a-fA-F]{4})/g, '\\\\u') // broken unicode escapes
+    .replace(/\0/g, '')
+    .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/[\u0080-\u009F]/g, '')
+    .replace(/[\uD800-\uDFFF]/g, '')
+    .replace(/\\x/g, 'x')
+    .replace(/\\u/g, 'u')
 }
 
 // ── Fetch articles from a single source ───────────────────────────────────
