@@ -941,6 +941,7 @@ router.get('/:id', async (req, res) => {
 // ── POST /api/stories/:id/retranslate-research — copy Arabic brief from article (AI fallback only if missing)
 router.post('/:id/retranslate-research', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
+    const { force } = req.body || {}
     const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
     const linkedArticle = await db.article.findFirst({
       where: { storyId: story.id },
@@ -950,7 +951,6 @@ router.post('/:id/retranslate-research', requireRole('owner', 'admin', 'editor')
 
     const storyBrief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
 
-    // Reuse existing Arabic translation from the article pipeline — no extra AI cost
     const existingBriefAr =
       storyBrief.research?.briefAr ||
       linkedArticle?.analysis?.research?.briefAr
@@ -958,7 +958,7 @@ router.post('/:id/retranslate-research', requireRole('owner', 'admin', 'editor')
     let briefAr = null
     let source = null
 
-    if (existingBriefAr && typeof existingBriefAr === 'object') {
+    if (!force && existingBriefAr && typeof existingBriefAr === 'object') {
       briefAr = existingBriefAr
       source = 'copied'
     } else {

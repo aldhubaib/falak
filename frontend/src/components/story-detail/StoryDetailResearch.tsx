@@ -321,6 +321,25 @@ function ImageCollageGrid({
   );
 }
 
+/* ── Arabic detection ── */
+
+function isArabicContent(brief: ResearchBrief | undefined): boolean {
+  if (!brief) return false;
+  const text = [
+    brief.whatHappened,
+    brief.howItHappened,
+    brief.whatWasTheResult,
+    brief.suggestedHook,
+    brief.competitionInsight,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (text.length < 10) return true;
+  const arabicChars = (text.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g) || []).length;
+  const latinChars = (text.match(/[a-zA-Z]/g) || []).length;
+  return arabicChars > latinChars;
+}
+
 /* ── Main Component ── */
 
 export function StoryDetailResearch({
@@ -338,13 +357,17 @@ export function StoryDetailResearch({
 
   const brief: ResearchBrief | undefined = research?.briefAr ?? research?.brief;
   const images = research?.images;
-  const isShowingEnglish = !research?.briefAr && !!research?.brief;
+  const isShowingEnglish = !!brief && !isArabicContent(brief);
 
   const handleRetranslate = async () => {
     if (!storyId || retranslating) return;
     setRetranslating(true);
     try {
-      const res = await fetch(`/api/stories/${storyId}/retranslate-research`, { method: "POST" });
+      const res = await fetch(`/api/stories/${storyId}/retranslate-research`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Translation failed");
