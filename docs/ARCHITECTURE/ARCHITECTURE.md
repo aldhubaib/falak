@@ -2307,4 +2307,49 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
 
 ---
 
+## Section 21 — Quota-Aware Pipeline Halting (2026-03-23)
+
+### Problem
+When an external service hit quota/subscription limits (e.g. SerpAPI returning
+HTTP 403/429), the pipeline continued processing every article in the queue.
+Each article burned an API call only to get the same quota error, wasting
+retries and masking the root cause. The SerpAPI functions threw generic `Error`
+objects instead of typed `ServiceError`, so the existing `blockDependents`
+infrastructure never triggered.
+
+### Changes
+
+**`src/services/storyResearcher.js`**
+- `serpApiGoogleSearch` and `serpApiImageSearch` now call
+  `registry.classifyHttpError('google_search', ...)` on non-2xx responses,
+  producing typed errors (`ServiceQuotaExhaustedError`, `ServiceKeyInvalidError`,
+  `ServiceTransientError`). Non-retryable errors also call `registry.markDown`
+  to poison the health cache.
+- After `Promise.allSettled` for SerpAPI calls, any non-retryable `ServiceError`
+  rejection is re-thrown (after logging both step outcomes).
+- Perplexity and Anthropic Synthesis catch blocks now re-throw non-retryable
+  `ServiceError` instances instead of swallowing them.
+
+**`src/services/articleProcessor.js`**
+- `doStageResearch` catch block: non-retryable `ServiceError` is re-thrown so
+  the worker sees it and calls `blockDependents`. Transient errors still
+  degrade gracefully (non-blocking promote).
+- Same pattern applied to all stage catch blocks that call external APIs:
+  `firecrawl` (content), `title_translate` (Anthropic), `score_similarity`
+  (OpenAI Embeddings), `score_ai_analysis` (Anthropic), `transcript_fetch`
+  (YouTube Transcript). Each logs the failure then re-throws if the error is
+  a non-retryable `ServiceError`.
+
+### Error propagation flow
+```
+SerpAPI 403 → classifyHttpError → ServiceKeyInvalidError (retryable=false)
+  → Promise.allSettled rejects → log entry written → fatalErr re-thrown
+  → doStageResearch catch → re-thrown
+  → worker processItem catch → err.isServiceError && !err.retryable
+  → blockDependents('google_search') → all queued research-stage articles blocked
+  → unblockReady() resumes them once the service is healthy again
+```
+
+---
+
 *Last updated: 2026-03-23*
