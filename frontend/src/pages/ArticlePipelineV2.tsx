@@ -123,7 +123,6 @@ const ARTICLE_STAGES = [
   { id: "title_translate", label: "Title Translate", icon: Languages, color: "text-primary", bg: "bg-primary" },
   { id: "score", label: "Score", icon: Sparkles, color: "text-orange", bg: "bg-orange" },
   { id: "research", label: "Research", icon: Search, color: "text-purple", bg: "bg-purple" },
-  { id: "translated", label: "Translation", icon: Languages, color: "text-primary", bg: "bg-primary" },
 ];
 
 const OUTCOMES = [
@@ -614,12 +613,6 @@ const STAGE_STEPS: Record<string, { step: string; label: string; subtitle: strin
     { step: "images", label: "Image Search", subtitle: "SerpAPI Google Images", icon: ImageIcon },
     { step: "perplexity_context", label: "Background", subtitle: "Context from Perplexity", icon: Globe },
     { step: "synthesis", label: "Synthesis", subtitle: "AI brief (hook, narrative, facts)", icon: Brain },
-  ],
-  translated: [
-    { step: "detect_language", label: "Language", subtitle: "Detect source language", icon: Languages },
-    { step: "translate_content", label: "Translate Content", subtitle: "Article text → Arabic", icon: Languages },
-    { step: "translate_analysis", label: "Translate Fields", subtitle: "Classification fields → Arabic", icon: Brain },
-    { step: "translate_research", label: "Translate Brief", subtitle: "Research brief → Arabic", icon: Search },
   ],
   import: [{ step: "import", label: "Import Video", subtitle: "Queue video for processing", icon: Download }],
   transcribe: [{ step: "transcribe", label: "Transcribe", subtitle: "YouTube transcript extraction", icon: Youtube }],

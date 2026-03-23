@@ -2,13 +2,13 @@
  * Article pipeline stage processors.
  * Each function receives { article, project } and returns { nextStage } or { nextStage, reviewStatus }.
  *
- * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → translated → done
+ * Stages: imported → content → classify → title_translate → score → [threshold gate] → research → done
  *
- * Key design: classify runs on ORIGINAL language content. Title translate provides
- * a lightweight Arabic translation for scoring/niche matching. Score runs early
- * with a dynamic threshold gate — articles below the threshold are filtered out
- * before expensive research and full translation. Research and translation only
- * run for articles that pass the threshold.
+ * Key design: the article's original language is preserved through ALL stages.
+ * Title translate provides a lightweight Arabic translation for scoring/niche
+ * matching only. Score runs early with a dynamic threshold gate — articles below
+ * the threshold are filtered out before expensive research. Research runs in the
+ * original language, then the article is promoted to a Story.
  */
 const db = require('../lib/db')
 const { decrypt } = require('./crypto')
@@ -40,11 +40,6 @@ const STEP_META = {
   perplexity_context: { stage: 'research',   label: 'Background',       icon: 'globe',         subtitle: 'Context from Perplexity' },
   synthesis:          { stage: 'synthesis',   label: 'Synthesis',        icon: 'brain',         subtitle: 'AI brief (hook, narrative, facts)' },
   research:           { stage: 'synthesis',   label: 'Research Complete', icon: 'search' },
-  detect_language:    { stage: 'translated',  label: 'Language',         icon: 'languages',     subtitle: 'Detect source language' },
-  translate:          { stage: 'translated',  label: 'Translation',      icon: 'languages' },
-  translate_content:  { stage: 'translated',  label: 'Translate Content', icon: 'languages',    subtitle: 'Article text → Arabic' },
-  translate_analysis: { stage: 'translated',  label: 'Translate Fields', icon: 'brain',         subtitle: 'Classification fields → Arabic' },
-  translate_research: { stage: 'translated',  label: 'Translate Brief',  icon: 'search',        subtitle: 'Research brief → Arabic' },
   title_translate:    { stage: 'title_translate', label: 'Title Translate', icon: 'languages',  subtitle: 'Arabic title + summary for scoring' },
   score_similarity:   { stage: 'score',       label: 'Competition Match', icon: 'target',       subtitle: 'Match vs. existing stories' },
   score_topic_demand: { stage: 'score',       label: 'Topic Demand',     icon: 'users',         subtitle: 'Competitor audience engagement' },
@@ -68,8 +63,7 @@ const VERDICT_PATHS = {
   classify:        { passPath: { nextStage: 'title_translate', label: 'Classification done' } },
   title_translate: { passPath: { nextStage: 'score', label: 'Ready for scoring' } },
   score:           { passPath: { nextStage: 'research', label: 'Above threshold' },          failPath: { nextStage: 'filtered', label: 'Below threshold' } },
-  research:        { passPath: { nextStage: 'translated', label: 'Ready for translation' } },
-  translated:      { passPath: { nextStage: 'done', label: 'Translation complete' },         failPath: { nextStage: 'review', label: 'No content to translate' } },
+  research:        { passPath: { nextStage: 'done', label: 'Research complete' } },
 }
 
 function lp(step, data, display) {
@@ -460,9 +454,9 @@ async function doStageTitleTranslate(article, project) {
   }
 }
 
-// ── Stage 4: research → translated ──────────────────────────────────────────
-// Runs BEFORE translation so web searches use the original language.
-// Includes: SerpAPI Google Search + Image Search, Perplexity background, Claude synthesis.
+// ── Stage 4: research → done ─────────────────────────────────────────────────
+// Runs web searches in the original language, synthesises a research brief,
+// then promotes the article to a Story and finishes.
 
 async function doStageResearch(article, project) {
   const log = getLog(article)
@@ -479,9 +473,10 @@ async function doStageResearch(article, project) {
 
   if (!decision.needed) {
     log.push(lp('research', { status: 'skipped', reason: decision.reason }))
-    log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'translated' }))
+    log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'done' }))
     await saveLog(article.id, log)
-    return { nextStage: 'translated' }
+    await promoteAfterResearch(article, currentAnalysis, log)
+    return { nextStage: 'done' }
   }
 
   try {
@@ -505,7 +500,7 @@ async function doStageResearch(article, project) {
       images: result.images?.length > 0 ? result.images : (existing.images || null),
     }
 
-    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: result.researchBrief ? 'Research brief generated' : 'Research completed (no brief)', nextStage: 'translated' }))
+    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: result.researchBrief ? 'Research brief generated' : 'Research completed (no brief)', nextStage: 'done' }))
 
     await db.article.update({
       where: { id: article.id },
@@ -524,13 +519,15 @@ async function doStageResearch(article, project) {
       }
     }
 
-    return { nextStage: 'translated' }
+    await promoteAfterResearch(article, updatedAnalysis, log)
+    return { nextStage: 'done' }
   } catch (e) {
     log.push(lp('research', { status: 'partial', error: `${e.message} (non-blocking)` }))
-    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, continuing)', nextStage: 'translated' }))
+    log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, promoting)', nextStage: 'done' }))
     await saveLog(article.id, log)
-    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, continuing to translated)')
-    return { nextStage: 'translated' }
+    logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, promoting)')
+    await promoteAfterResearch(article, currentAnalysis, log)
+    return { nextStage: 'done' }
   }
 }
 
@@ -574,7 +571,7 @@ async function doStageTranslated(article, project) {
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
     })
-    await promoteAfterTranslation(article, arAnalysis, log)
+    await promoteAfterResearch(article, arAnalysis, log)
     return { nextStage: 'done' }
   }
 
@@ -735,11 +732,11 @@ async function doStageTranslated(article, project) {
     },
   })
 
-  await promoteAfterTranslation(article, arAnalysis, log)
+  await promoteAfterResearch(article, arAnalysis, log)
   return { nextStage: 'done' }
 }
 
-async function promoteAfterTranslation(article, analysis, log) {
+async function promoteAfterResearch(article, analysis, log) {
   const freshArticle = await db.article.findUnique({ where: { id: article.id } })
   const art = freshArticle || article
   const finalScore = art.finalScore || 0
@@ -1251,7 +1248,7 @@ function calculatePreferenceBias(analysis, profile) {
 }
 
 async function promoteToStory(article, analysis, relevance, viralPotential, finalScore, scoreEmbedding = null, channel = null) {
-  const headline = analysis.topicAr || analysis.topic || article.title || ''
+  const headline = analysis.topic || article.title || ''
   if (!headline.trim()) return null
 
   const existing = await db.story.findFirst({
@@ -1272,31 +1269,21 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
   const compositeScore = finalScoreToComposite(finalScore)
 
   const brief = {
-    articleContent: article.contentAr || article.contentClean,
+    articleContent: article.contentClean || article.content,
     articleTitle: article.title,
     channelId: article.channelId,
-    summary: analysis.summaryAr || analysis.summary || null,
-    tags: analysis.tagsAr || analysis.tags || [],
-    region: analysis.regionAr || analysis.region || null,
+    summary: analysis.summary || null,
+    tags: analysis.tags || [],
+    region: analysis.region || null,
     contentType: analysis.contentType || null,
-    uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle || null,
+    uniqueAngle: analysis.uniqueAngle || null,
     sentiment: analysis.sentiment || null,
     articleId: article.id,
-    topicOriginal: analysis.topic || null,
-    summaryOriginal: analysis.summary || null,
-    tagsOriginal: analysis.tags || [],
-    regionOriginal: analysis.region || null,
+    language: article.language || null,
   }
 
   if (analysis.research) {
-    if (analysis.research.brief && !analysis.research.briefAr) {
-      logger.warn({ articleId: article.id }, '[articleProcessor] Refusing to create story — research brief exists but briefAr is missing')
-      return null
-    }
     const research = { ...analysis.research }
-    if (analysis.research.briefAr) {
-      research.brief = analysis.research.briefAr
-    }
     if (analysis.images && Array.isArray(analysis.images) && analysis.images.length > 0) {
       research.images = analysis.images
     }
@@ -1334,12 +1321,12 @@ async function promoteToStory(article, analysis, relevance, viralPotential, fina
       if (embKeyAvailable) {
         const { generateEmbedding, buildEmbeddingText, storeStoryEmbedding } = require('./embeddings')
         const text = buildEmbeddingText({
-          topic: analysis.topicAr || analysis.topic,
-          tags: analysis.tagsAr || analysis.tags,
-          summary: analysis.summaryAr || analysis.summary,
+          topic: analysis.topic,
+          tags: analysis.tags,
+          summary: analysis.summary,
           contentType: analysis.contentType,
-          region: analysis.regionAr || analysis.region,
-          uniqueAngle: analysis.uniqueAngleAr || analysis.uniqueAngle,
+          region: analysis.region,
+          uniqueAngle: analysis.uniqueAngle,
         })
         if (text.length > 10) {
           const emb = await generateEmbedding(text, article.channelId)
@@ -1857,7 +1844,6 @@ module.exports = {
   doStageTitleTranslate,
   doStageScore,
   doStageResearch,
-  doStageTranslated,
   doStageTranscript,
   doStageStoryCount,
   doStageStorySplit,

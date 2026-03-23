@@ -34,7 +34,6 @@ const ARTICLE_STAGE_DEPS = {
   title_translate: [{ service: 'anthropic', required: false }],
   score:           [{ service: 'embedding', required: false }, { service: 'anthropic', required: false }],
   research:        [{ service: 'google_search', required: false }, { service: 'perplexity', required: false }, { service: 'anthropic', required: false }],
-  translated:      [{ service: 'anthropic', required: true }],
 }
 
 const RESCORE_DEPS = [

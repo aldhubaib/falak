@@ -240,7 +240,7 @@ function resolveNodeIcon(key: string): typeof FileText {
   return NODE_ICON_MAP[key] || FileText;
 }
 
-const STAGE_ORDER = ["transcript", "story_count", "story_split", "imported", "content", "classify", "title_translate", "score", "research", "translated", "done"];
+const STAGE_ORDER = ["transcript", "story_count", "story_split", "imported", "content", "classify", "title_translate", "score", "research", "done"];
 
 function stageIndex(stage: string): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -304,7 +304,7 @@ function getNodeState(nodeId: string, article: ArticleDetail, log: LogEntry[]): 
 const STAGE_LABEL_MAP: Record<string, string> = {
   transcript: "Transcript", story_count: "Story Count", story_split: "Story Split", imported: "Imported",
   content: "Content", classify: "Classify", title_translate: "Title Translate",
-  score: "Score", research: "Research", translated: "Translation",
+  score: "Score", research: "Research",
   images: "Images", promote: "Promote", review: "Review", filtered: "Filtered",
   done: "Done", adapter_done: "Split Done",
 };
@@ -986,8 +986,7 @@ function StageDrawer({
           {stageId === "content" && <ContentDetail article={article} log={log} />}
           {stageId === "classify" && <AiAnalysisDetail article={article} log={log} />}
           {stageId === "research" && <ResearchDetail article={article} log={log} pp={pp} />}
-          {stageId === "translated" && <TranslatedDetail article={article} log={log} />}
-          {(stageId === "research" || stageId === "translated") && <SynthesisDetail article={article} log={log} />}
+          {stageId === "research" && <SynthesisDetail article={article} log={log} />}
           {stageId === "title_translate" && <TitleTranslateDetail article={article} log={log} />}
           {stageId === "score" && <ScoringDetail article={article} log={log} />}
           {stageId === "research" && <ImagesDetail article={article} log={log} />}

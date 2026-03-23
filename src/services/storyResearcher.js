@@ -286,7 +286,7 @@ async function researchStory(article, channelId, opts = {}) {
   const pxApiKey = await registry.getKey('perplexity')
   if (pxApiKey) {
     try {
-      const bgPrompt = buildBackgroundPrompt(topic, tags, region, analysis.summary, newsResults)
+      const bgPrompt = buildBackgroundPrompt(topic, tags, region, analysis.summary, newsResults, lang)
       const result = await queryPerplexityWithRetry(pxApiKey, bgPrompt, { maxTokens: PERPLEXITY_MAX_TOKENS })
       perplexityContext = result.text || null
       perplexityCitations = result.citations || []
@@ -327,6 +327,7 @@ async function researchStory(article, channelId, opts = {}) {
         newsResults,
         perplexityContext,
         perplexityCitations,
+        lang,
       })
 
       const raw = await callAnthropic(anthropicKey, 'claude-sonnet-4-6', [
@@ -386,7 +387,8 @@ function buildSearchQuery(topic, region, title) {
   return query || title || ''
 }
 
-function buildBackgroundPrompt(topic, tags, region, summary, newsResults) {
+function buildBackgroundPrompt(topic, tags, region, summary, newsResults, lang) {
+  const langLabel = lang === 'ar' ? 'Arabic' : 'English'
   const lines = [
     `Provide comprehensive background context for this news story.`,
     `Include: timeline of events, key people involved, causes, consequences, and any ongoing developments.`,
@@ -406,7 +408,7 @@ function buildBackgroundPrompt(topic, tags, region, summary, newsResults) {
   }
 
   lines.push(``)
-  lines.push(`Write in English. Be factual and detailed. Focus on answering:`)
+  lines.push(`Write in ${langLabel}. Be factual and detailed. Focus on answering:`)
   lines.push(`1. What happened?`)
   lines.push(`2. How did it happen?`)
   lines.push(`3. What was the result?`)
@@ -414,7 +416,8 @@ function buildBackgroundPrompt(topic, tags, region, summary, newsResults) {
   return lines.filter(Boolean).join('\n')
 }
 
-function buildSynthesisPrompt({ topic, summary, uniqueAngle, tags, region, originalArticle, newsResults, perplexityContext, perplexityCitations }) {
+function buildSynthesisPrompt({ topic, summary, uniqueAngle, tags, region, originalArticle, newsResults, perplexityContext, perplexityCitations, lang }) {
+  const langLabel = lang === 'ar' ? 'Arabic' : 'English'
   const relatedArticlesText = newsResults.map((r, i) =>
     `[Article ${i + 1}] ${r.title}\nURL: ${r.url}\nSource: ${r.source}\n${r.snippet}`
   ).join('\n\n')
@@ -440,18 +443,18 @@ ${perplexityContext || 'No background context available.'}
 ${perplexityCitations.length > 0 ? `\nCitations: ${perplexityCitations.join(', ')}` : ''}
 
 ═══ OUTPUT FORMAT ═══
-Reply ONLY with valid JSON (no markdown fences, no extra text). Output all text fields in English (the article's original language). Use this exact structure:
+Reply ONLY with valid JSON (no markdown fences, no extra text). Output all text fields in ${langLabel} (the article's original language). Use this exact structure:
 
 {
-  "whatHappened": "2-4 sentences in English — the core event",
-  "howItHappened": "3-5 sentences in English — the process, causes, chain of events",
-  "whatWasTheResult": "2-4 sentences in English — consequences, current status, future outlook",
-  "keyFacts": ["fact 1 in English", "fact 2", "...up to 8 key facts"],
-  "timeline": [{"date": "...", "event": "description in English"}],
-  "mainCharacters": [{"name": "...", "role": "description in English"}],
+  "whatHappened": "2-4 sentences in ${langLabel} — the core event",
+  "howItHappened": "3-5 sentences in ${langLabel} — the process, causes, chain of events",
+  "whatWasTheResult": "2-4 sentences in ${langLabel} — consequences, current status, future outlook",
+  "keyFacts": ["fact 1 in ${langLabel}", "fact 2", "...up to 8 key facts"],
+  "timeline": [{"date": "...", "event": "description in ${langLabel}"}],
+  "mainCharacters": [{"name": "...", "role": "description in ${langLabel}"}],
   "sources": [{"title": "...", "url": "..."}],
-  "competitionInsight": "1-2 sentences in English — leave blank or generic if no competition data available",
-  "suggestedHook": "1 sentence — a compelling opening hook for the video in English",
+  "competitionInsight": "1-2 sentences in ${langLabel} — leave blank or generic if no competition data available",
+  "suggestedHook": "1 sentence — a compelling opening hook for the video in ${langLabel}",
   "narrativeStrength": 1-10
 }`
 }

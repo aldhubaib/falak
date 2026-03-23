@@ -23,7 +23,6 @@ const {
   doStageTitleTranslate,
   doStageScore,
   doStageResearch,
-  doStageTranslated,
   doStageTranscript,
   doStageStoryCount,
   doStageStorySplit,
@@ -41,7 +40,7 @@ const AI_CONCURRENCY = 5
 
 const STAGES = [
   'transcript', 'story_count', 'story_split', 'imported', 'content',
-  'classify', 'title_translate', 'score', 'research', 'translated',
+  'classify', 'title_translate', 'score', 'research',
 ]
 
 const STAGE_CONFIG = {
@@ -54,7 +53,6 @@ const STAGE_CONFIG = {
   title_translate: { batch: 8,  pollMs: 5_000,  serial: false, ai: true  },
   score:           { batch: 3,  pollMs: 8_000,  serial: true,  ai: true  },
   research:        { batch: 5,  pollMs: 5_000,  serial: false, ai: true  },
-  translated:      { batch: 5,  pollMs: 5_000,  serial: false, ai: true  },
 }
 
 /* ── Semaphore (limits concurrent AI calls across all stages) ── */
@@ -153,7 +151,6 @@ async function processItem(article, { force = false } = {}) {
       case 'title_translate':  out = await doStageTitleTranslate(article, channel); break
       case 'score':           out = await doStageScore(article, channel); break
       case 'research':        out = await doStageResearch(article, channel); break
-      case 'translated':      out = await doStageTranslated(article, channel); break
       default: return
     }
 
@@ -425,9 +422,20 @@ async function runSourcePollLoop() {
 
 let shuttingDown = false
 
+async function migrateTranslatedStage() {
+  const result = await db.article.updateMany({
+    where: { stage: 'translated' },
+    data: { stage: 'done', status: 'done' },
+  })
+  if (result.count > 0) {
+    logger.info({ count: result.count }, '[article-worker] migrated articles from removed "translated" stage → done')
+  }
+}
+
 async function runPollingWorker() {
   registry.autoDiscover()
   await loadPausedState()
+  await migrateTranslatedStage()
   logger.info({
     stages: STAGES.length,
     aiConcurrency: AI_CONCURRENCY,
