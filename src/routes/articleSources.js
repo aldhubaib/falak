@@ -8,6 +8,7 @@ const {
   testSourceFetch,
   deriveYouTubeStatus,
   computeYouTubeCadence,
+  sanitizeString,
 } = require('../services/articlePipeline')
 
 const router = express.Router()
@@ -306,13 +307,13 @@ router.post('/:id/reimport-run', requireRole('owner', 'admin', 'editor'), async 
         channelId: source.channelId,
         sourceId: source.id,
         url,
-        title: raw.title || null,
-        description: raw.description || null,
-        content: raw.content || null,
+        title: sanitizeString(raw.title) || null,
+        description: sanitizeString(raw.description) || null,
+        content: sanitizeString(raw.content) || null,
         publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
         language: raw.language || source.language || 'en',
-        category: raw.category || null,
-        tags: raw.tags && raw.tags.length > 0 ? raw.tags : undefined,
+        category: sanitizeString(raw.category) || null,
+        tags: raw.tags && raw.tags.length > 0 ? raw.tags.map(sanitizeString) : undefined,
         featuredImage: raw.featuredImage || null,
         images: raw.images && raw.images.length > 0 ? raw.images : undefined,
         stage: 'imported',

@@ -72,6 +72,16 @@ function canonicalizeArticleUrl(rawUrl) {
   }
 }
 
+// ── String sanitisation (strips chars that break Prisma/Postgres) ─────────
+
+function sanitizeString(val) {
+  if (typeof val !== 'string') return val
+  return val
+    .replace(/\0/g, '')                       // NUL bytes
+    .replace(/\\x(?![0-9a-fA-F]{2})/g, '\\\\x') // broken hex escapes like \xZZ
+    .replace(/\\u(?![0-9a-fA-F]{4})/g, '\\\\u') // broken unicode escapes
+}
+
 // ── Fetch articles from a single source ───────────────────────────────────
 
 async function fetchFromSource(source, apiKey) {
@@ -481,13 +491,13 @@ async function insertArticles(channelId, sourceId, source, passed) {
       channelId,
       sourceId,
       url: canonicalUrl,
-      title: raw.title || null,
-      description: raw.description || null,
-      content: raw.content || null,
+      title: sanitizeString(raw.title) || null,
+      description: sanitizeString(raw.description) || null,
+      content: sanitizeString(raw.content) || null,
       publishedAt: raw.publishedAt ? new Date(raw.publishedAt) : null,
       language: raw.language || source.language || 'en',
-      category: raw.category || null,
-      tags: raw.tags && raw.tags.length > 0 ? raw.tags : undefined,
+      category: sanitizeString(raw.category) || null,
+      tags: raw.tags && raw.tags.length > 0 ? raw.tags.map(sanitizeString) : undefined,
       featuredImage: raw.featuredImage || null,
       images: raw.images && raw.images.length > 0 ? raw.images : undefined,
       stage: 'imported',
@@ -554,8 +564,8 @@ async function ingestYouTubeSource(source) {
       channelId,
       sourceId,
       url: `https://www.youtube.com/watch?v=${v.youtubeId}`,
-      title: v.titleAr || v.titleEn || null,
-      description: (v.description || '').slice(0, 500) || null,
+      title: sanitizeString(v.titleAr || v.titleEn) || null,
+      description: sanitizeString((v.description || '').slice(0, 500)) || null,
       publishedAt: v.publishedAt || null,
       language: null,
       stage: 'transcript',
@@ -717,6 +727,7 @@ module.exports = {
   hasApiKey,
   hasNicheEmbedding,
   canonicalizeArticleUrl,
+  sanitizeString,
   ingestSource,
   ingestYouTubeSource,
   ingestAll,
