@@ -134,6 +134,11 @@ export function StoryDetailScriptSection({
           className="w-full px-4 max-sm:px-3 py-3 flex items-center justify-between border-b border-border flex-wrap gap-2 hover:bg-card/80 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3 flex-1" onClick={(e) => e.stopPropagation()}>
+            <ChevronDown
+              className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ${collapsed ? "-rotate-90" : ""}`}
+              onClick={(e) => { e.stopPropagation(); setCollapsed((c) => !c); }}
+              style={{ cursor: "pointer" }}
+            />
             <div className="inline-flex items-center bg-card rounded-full border border-border">
               <div className="flex items-center gap-1 px-2.5 text-[11px] text-muted-foreground">
                 <Clock className="w-3 h-3 shrink-0" />
@@ -199,20 +204,17 @@ export function StoryDetailScriptSection({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {channelAvatarUrl ? (
-              <img
-                src={channelAvatarUrl}
-                alt={channelName || ""}
-                className="w-6 h-6 rounded-full object-cover shrink-0 border border-border"
-              />
-            ) : channelName ? (
-              <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
-                {channelName.charAt(0).toUpperCase()}
-              </div>
-            ) : null}
-            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${collapsed ? "-rotate-90" : ""}`} />
-          </div>
+          {channelAvatarUrl ? (
+            <img
+              src={channelAvatarUrl}
+              alt={channelName || ""}
+              className="w-6 h-6 rounded-full object-cover shrink-0 border border-border"
+            />
+          ) : channelName ? (
+            <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
+              {channelName.charAt(0).toUpperCase()}
+            </div>
+          ) : null}
         </button>
 
         {!collapsed && (
