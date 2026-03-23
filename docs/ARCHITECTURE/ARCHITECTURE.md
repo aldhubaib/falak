@@ -1138,8 +1138,8 @@ and use `lp()` for the log entry. The frontend renders it automatically via the
 `UnknownEntries` fallback in `StageSection`. If the step has a `display` array,
 it gets rich rendering; otherwise, it shows status/error/reason from the entry fields.
 
-**Adding a new pipeline stage:** Add a new entry to `FLOW_DEFS` in
-`frontend/src/constants/flowDefs.tsx` (one line). The frontend's `getStepLogs`
+**Adding a new pipeline stage:** Add a new entry to `ARTICLE_STAGES` in
+`frontend/src/pages/ArticlePipelineV2.tsx`. The frontend's `getStepLogs`
 matches entries by `entry.stage`, so all log entries with the new stage ID
 automatically appear in the new section.
 
@@ -1421,7 +1421,7 @@ Requires ≥3 outcomes.
 | `/c/:channelId/stories` | Stories | AI Intelligence story list with stage filters |
 | `/c/:channelId/story/:id` | StoryDetail | Story editor with AI tools; AI Draft block (title, script, tags) + Original Story + stage workflow (~1630 lines) |
 | `/c/:channelId/publish` | PublishQueue | Bulk video upload + processing |
-| `/c/:channelId/article-pipeline` | ArticlePipeline | 3 tabs: Pipeline, Sources, Intelligence |
+| `/c/:channelId/article-pipeline` | ArticlePipelineV2 | 4 tabs: Pipeline, Sources, Story Rules, Intelligence |
 | `/c/:channelId/article/:id` | ArticleDetail | Article inspector with 9-stage timeline + SSE live updates |
 | `/c/:channelId/gallery` | Gallery | Media gallery with albums |
 | `/c/:channelId/gallery/album/:albumId` | AlbumDetail | Album detail view |
@@ -2217,10 +2217,9 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
   computed from all articles' `processingLog` entries for the batch's stage.
 
 ### Frontend changes
-- **`ArticlePipelineV2.tsx`**: New page at `/article-pipeline-v2` with:
-  - Vertical tree layout (same `TreeNode` style as `ArticleDetail`) for both Video
-    and Article pipelines.
-  - SSE subscription to `/api/article-pipeline/live` with fallback to 5s polling.
+- **`ArticlePipelineV2.tsx`**: Main article pipeline page at `/article-pipeline` with:
+  - Vertical tree layout for both Video and Article pipelines.
+  - SSE subscription to `/api/article-pipeline/live` with fallback to 8s polling.
   - Stages show queued count, active batch indicator, bottleneck pulsing dot.
   - Clicking a stage expands to show batch history (batch #, item count, failures).
   - **Per-sub-step breakdown**: Drawer sub-steps section shows aggregate counts
@@ -2231,8 +2230,8 @@ Added a real-time event bus + SSE-powered V2 dashboard alongside V1 for comparis
     status coloring (green/ok, red/failed, gray/skipped). Per-article dot progress
     when multiple articles are processing concurrently.
   - Live Activity feed at the bottom showing recent batch completions.
-- V1 (`ArticlePipeline.tsx`) untouched — "Try V2 (Live)" link in the actions bar.
-- `App.tsx` routes both `/article-pipeline` (V1) and `/article-pipeline-v2` (V2).
+- V1 (`ArticlePipeline.tsx`) removed — V2 is now the sole article pipeline page.
+- `App.tsx` routes `/article-pipeline` to `ArticlePipelineV2`.
 
 ---
 
