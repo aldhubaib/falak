@@ -61,7 +61,7 @@ function mapApiChannel(api: ApiChannel): Channel {
   };
 }
 
-export default function Competitions() {
+export default function CompetitorsTab() {
   const { channelId } = useParams();
   const channelPath = useChannelPath();
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -145,150 +145,142 @@ export default function Competitions() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="h-12 flex items-center px-6 border-b shrink-0 max-md:px-4 border-border">
-        <h1 className="text-sm font-semibold">
-          Competitions <span className="text-muted-foreground font-normal">({channels.length})</span>
-        </h1>
+    <div className="flex-1 overflow-auto">
+      <div className="px-6 pt-5 pb-1 max-md:px-4">
+        <div className="flex gap-2 max-md:flex-col items-start flex-wrap">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[12px] text-muted-foreground">Nationality:</span>
+            <div className="relative">
+              <select
+                value={nationality}
+                onChange={(e) => setNationality(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 bg-card border border-border text-foreground text-[13px] font-sans outline-none transition-colors focus:border-border cursor-pointer min-w-[180px]"
+                style={{ borderRadius: "20px" }}
+              >
+                <option value="">Select country</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            </div>
+          </div>
+          <div className="flex-1 relative max-md:w-full min-w-0">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                setInputError("");
+              }}
+              placeholder="@handle or channel ID..."
+              className={`w-full pl-3 pr-3 py-2 bg-card border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-muted-foreground ${
+                inputError ? "border-destructive/50" : "border-border focus:border-border"
+              }`}
+              style={{ borderRadius: "20px" }}
+            />
+          </div>
+          <button
+            onClick={handleAdd}
+            className="px-4 py-2 bg-primary text-white text-[13px] font-medium cursor-pointer whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity flex items-center gap-1.5 max-md:w-full max-md:justify-center"
+            style={{ borderRadius: "20px" }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add
+          </button>
+        </div>
+        {inputError && (
+          <p className="text-[11px] mt-1.5 text-destructive">{inputError}</p>
+        )}
       </div>
 
-      <div className="flex-1 overflow-auto">
-        <div className="px-6 pt-5 pb-1 max-md:px-4">
-          <div className="flex gap-2 max-md:flex-col items-start flex-wrap">
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[12px] text-muted-foreground">Nationality:</span>
-              <div className="relative">
-                <select
-                  value={nationality}
-                  onChange={(e) => setNationality(e.target.value)}
-                  className="appearance-none pl-3 pr-8 py-2 bg-card border border-border text-foreground text-[13px] font-sans outline-none transition-colors focus:border-border cursor-pointer min-w-[180px]"
-                  style={{ borderRadius: "20px" }}
-                >
-                  <option value="">Select country</option>
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-            <div className="flex-1 relative max-md:w-full min-w-0">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  setInputError("");
-                }}
-                placeholder="@handle or channel ID..."
-                className={`w-full pl-3 pr-3 py-2 bg-card border text-foreground text-[13px] font-sans outline-none transition-colors placeholder:text-muted-foreground ${
-                  inputError ? "border-destructive/50" : "border-border focus:border-border"
-                }`}
-                style={{ borderRadius: "20px" }}
-              />
-            </div>
-            <button
-              onClick={handleAdd}
-              className="px-4 py-2 bg-primary text-white text-[13px] font-medium cursor-pointer whitespace-nowrap shrink-0 hover:opacity-90 transition-opacity flex items-center gap-1.5 max-md:w-full max-md:justify-center"
-              style={{ borderRadius: "20px" }}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add
-            </button>
-          </div>
-          {inputError && (
-            <p className="text-[11px] mt-1.5 text-destructive">{inputError}</p>
-          )}
-        </div>
-
-        <div className="px-6 py-4 max-md:px-4">
-          {loading ? (
-            <p className="text-muted-foreground text-[13px]">Loading channels...</p>
-          ) : channels.length === 0 ? (
-            <EmptyState title="No competitor channels yet" description="Add your first competitor above." />
-          ) : (
-            <div className="rounded-lg overflow-hidden border border-border">
-              {channels.map((ch) => (
-                <div
-                  key={ch.id}
-                  className="bg-card flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors group border-b border-border last:border-b-0"
-                >
-                  <div className="relative shrink-0">
-                    <img
-                      src={ch.avatarImg}
-                      alt={ch.name}
-                      className="w-8 h-8 rounded-full object-cover bg-card"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23666'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14'%3E" + ch.avatar + "%3C/text%3E%3C/svg%3E";
-                      }}
-                    />
-                    <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-success ring-[1.5px] ring-orange" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      to={channelPath(`/channel/${ch.id}`)}
-                      className="flex items-center gap-1.5 mb-0.5 link group no-underline"
-                    >
-                      <span className="text-[13px] font-medium truncate" dir="rtl">
-                        {ch.name}
-                      </span>
-                      <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
-                    </Link>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground font-mono">{ch.handle}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(ch.lastSynced), { addSuffix: true })}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="hidden sm:flex items-center gap-6">
-                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
-                      <Users className="w-3 h-3 text-muted-foreground" />
-                      {ch.subscribers}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
-                      <Eye className="w-3 h-3 text-muted-foreground" />
-                      {ch.views}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
-                      <PlayCircle className="w-3 h-3 text-muted-foreground" />
-                      {ch.videos}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => fetchChannels()}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>Sync channel</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteTarget(ch.id);
-                          }}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>Remove channel</TooltipContent>
-                    </Tooltip>
+      <div className="px-6 py-4 max-md:px-4">
+        {loading ? (
+          <p className="text-muted-foreground text-[13px]">Loading channels...</p>
+        ) : channels.length === 0 ? (
+          <EmptyState title="No competitor channels yet" description="Add your first competitor above." />
+        ) : (
+          <div className="rounded-lg overflow-hidden border border-border">
+            {channels.map((ch) => (
+              <div
+                key={ch.id}
+                className="bg-card flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors group border-b border-border last:border-b-0"
+              >
+                <div className="relative shrink-0">
+                  <img
+                    src={ch.avatarImg}
+                    alt={ch.name}
+                    className="w-8 h-8 rounded-full object-cover bg-card"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23666'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14'%3E" + ch.avatar + "%3C/text%3E%3C/svg%3E";
+                    }}
+                  />
+                  <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-success ring-[1.5px] ring-orange" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Link
+                    to={channelPath(`/channel/${ch.id}`)}
+                    className="flex items-center gap-1.5 mb-0.5 link group no-underline"
+                  >
+                    <span className="text-[13px] font-medium truncate" dir="rtl">
+                      {ch.name}
+                    </span>
+                    <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground font-mono">{ch.handle}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDistanceToNow(new Date(ch.lastSynced), { addSuffix: true })}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <div className="hidden sm:flex items-center gap-6">
+                  <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
+                    <Users className="w-3 h-3 text-muted-foreground" />
+                    {ch.subscribers}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
+                    <Eye className="w-3 h-3 text-muted-foreground" />
+                    {ch.views}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[12px] font-mono text-muted-foreground">
+                    <PlayCircle className="w-3 h-3 text-muted-foreground" />
+                    {ch.videos}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => fetchChannels()}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Sync channel</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(ch.id);
+                        }}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Remove channel</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <DeleteChannelModal

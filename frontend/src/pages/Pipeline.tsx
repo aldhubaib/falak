@@ -8,13 +8,19 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { fmtDateTime } from "@/lib/utils";
 import { toast } from "sonner";
+import CompetitorsTab from "./Competitions";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Shared types
 // ═══════════════════════════════════════════════════════════════════════════
 
-const TABS = ["pipeline", "monitor"] as const;
+const TABS = ["pipeline", "monitor", "competitors"] as const;
 type Tab = (typeof TABS)[number];
+const TAB_LABELS: Record<Tab, string> = {
+  pipeline: "Pipeline",
+  monitor: "Monitor",
+  competitors: "Competitors",
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pipeline types
@@ -192,7 +198,7 @@ const monitorFilterTabs = ["All", "Active", "Regular", "Slow", "Inactive"];
 export default function Pipeline() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab");
-  const activeTab: Tab = rawTab === "monitor" ? "monitor" : "pipeline";
+  const activeTab: Tab = TABS.includes(rawTab as Tab) ? (rawTab as Tab) : "pipeline";
 
   const setTab = (tab: Tab) => {
     setSearchParams(tab === "pipeline" ? {} : { tab }, { replace: true });
@@ -206,13 +212,13 @@ export default function Pipeline() {
           <button
             key={tab}
             onClick={() => setTab(tab)}
-            className={`relative h-full px-4 text-[13px] font-medium transition-colors capitalize ${
+            className={`relative h-full px-4 text-[13px] font-medium transition-colors ${
               activeTab === tab
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-muted-foreground"
             }`}
           >
-            {tab}
+            {TAB_LABELS[tab]}
             {activeTab === tab && (
               <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-foreground rounded-full" />
             )}
@@ -220,7 +226,7 @@ export default function Pipeline() {
         ))}
       </div>
 
-      {activeTab === "pipeline" ? <PipelineTab /> : <MonitorTab />}
+      {activeTab === "competitors" ? <CompetitorsTab /> : activeTab === "monitor" ? <MonitorTab /> : <PipelineTab />}
     </div>
   );
 }

@@ -275,7 +275,7 @@ export default function ProfileHome() {
   ];
 
   const quickLinks = [
-    { label: "Competitors", path: "/competitors", icon: Swords, count: competitorCount, color: "text-orange-400" },
+    { label: "Competitors", path: "/pipeline?tab=competitors", icon: Swords, count: competitorCount, color: "text-orange-400" },
     { label: "AI Stories", path: "/stories", icon: Sparkles, count: storySummary?.total || 0, color: "text-purple-400" },
     { label: "Ready to Publish", path: "/publish", icon: Send, count: notDoneCount ?? 0, color: "text-rose-400" },
     { label: "Pipeline", path: "/pipeline", icon: Activity, count: undefined, color: "text-primary-400" },

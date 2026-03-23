@@ -29,7 +29,6 @@ function lazyRetry<T extends ComponentType<unknown>>(
 
 const Login = lazyRetry(() => import("./pages/Login"));
 const ProfilePicker = lazyRetry(() => import("./pages/ProfilePicker"));
-const Competitions = lazyRetry(() => import("./pages/Competitions"));
 const ChannelDetail = lazyRetry(() => import("./pages/ChannelDetail"));
 const VideoDetail = lazyRetry(() => import("./pages/VideoDetail"));
 const Pipeline = lazyRetry(() => import("./pages/Pipeline"));
@@ -126,7 +125,6 @@ const App = () => (
           <Route path="/c/:channelId" element={<ChannelLayout />}>
             <Route element={<AppLayout />}>
               <Route index element={<ProfileHome />} />
-              <Route path="competitors" element={<Competitions />} />
               <Route path="channel/:id" element={<ChannelDetail />} />
               <Route path="video/:id" element={<VideoDetail />} />
               <Route path="pipeline" element={<Pipeline />} />
