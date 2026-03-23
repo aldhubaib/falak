@@ -284,7 +284,7 @@ router.get('/', async (req, res) => {
         { compositeScore: 'desc' },
         { createdAt: 'desc' }
       ],
-      take: 500,
+      take: 5000,
     })
     res.json(stories)
   } catch (e) {

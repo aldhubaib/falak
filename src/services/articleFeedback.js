@@ -52,7 +52,7 @@ async function buildPreferenceProfile(channelId) {
       brief: { not: null },
     },
     select: { stage: true, brief: true },
-    take: 500,
+    take: 5000,
     orderBy: { updatedAt: 'desc' },
   })
 
