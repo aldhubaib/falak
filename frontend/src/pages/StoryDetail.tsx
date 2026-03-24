@@ -1100,7 +1100,7 @@ export default function StoryDetail() {
               />
             ) : (
             <>
-            {(activeStage === "filmed" || activeStage === "done") && (
+            {((activeStage === "filmed" && !brief.videoR2Key) || activeStage === "done") && (
               <VideoUpload
                 storyId={id}
                 videoR2Key={brief.videoR2Key}
@@ -1271,7 +1271,6 @@ export default function StoryDetail() {
                     brief={brief}
                     storyId={id}
                     saving={saving}
-                    hideUploadSection
                     onBriefChange={(updater) => {
                       setBrief((b) => {
                         const next = updater(b);
