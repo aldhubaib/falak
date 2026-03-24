@@ -39,8 +39,10 @@ model Channel {
   articleSources  ArticleSource[]
   scoreProfile    ScoreProfile?
   alerts          Alert[]
+  styleGuide      Json?
   galleryMedia    GalleryMedia[]
   galleryAlbums   GalleryAlbum[]
+  aiLogs          AiGenerationLog[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -571,4 +573,29 @@ model Alert {
 
   @@index([channelId, isRead])
   @@index([channelId, createdAt(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────
+// AI GENERATION LOG (full prompt + response for every AI call)
+// ─────────────────────────────────────────────
+model AiGenerationLog {
+  id           String   @id @default(cuid())
+  channelId    String
+  channel      Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  storyId      String?
+  action       String
+  model        String
+  systemPrompt String?  @db.Text
+  userPrompt   String?  @db.Text
+  response     String?  @db.Text
+  inputTokens  Int?
+  outputTokens Int?
+  durationMs   Int?
+  status       String   @default("ok")
+  error        String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([channelId, createdAt(sort: Desc)])
+  @@index([storyId])
+  @@index([action])
 }

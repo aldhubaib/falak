@@ -45,6 +45,7 @@ const Gallery = lazyRetry(() => import("./pages/Gallery"));
 const AlbumDetail = lazyRetry(() => import("./pages/AlbumDetail"));
 const Trending = lazyRetry(() => import("./pages/Trending"));
 const DesignSystem = lazyRetry(() => import("./pages/DesignSystem"));
+const AiMonitor = lazyRetry(() => import("./pages/AiMonitor"));
 const NotFound = lazyRetry(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -141,6 +142,7 @@ const App = () => (
               <Route path="trending" element={<Trending />} />
               <Route path="settings" element={<Settings />} />
               <Route path="design-system" element={<DesignSystem />} />
+              <Route path="ai-monitor" element={<AiMonitor />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFound />} />

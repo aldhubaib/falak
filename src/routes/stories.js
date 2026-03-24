@@ -5,6 +5,8 @@ const { decrypt } = require('../services/crypto')
 const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
+const { callAnthropicLogged } = require('../services/aiLogger')
+const { learnFromStory } = require('../services/aiLearner')
 const { getDialectForCountry } = require('../lib/dialects')
 const { fetchTranscript } = require('../services/transcript')
 const { transcribeFromR2 } = require('../services/whisper')
@@ -62,13 +64,14 @@ async function processStoryBackground(storyId) {
         const langNote = dialect
           ? `The title should be in ${dialect.short} (${dialect.long}).`
           : 'The title should be in Arabic.'
-        const title = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{
+        const title = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{
           role: 'user',
           content: `Generate a compelling YouTube video title based on this transcript:\n\n${transcript.slice(0, 15000)}`,
         }], {
           system: `You are an expert Arabic YouTube title writer. ${langNote}\n\nRules:\n- Output ONLY the title, nothing else. No quotes, no explanation.\n- Keep it under 70 characters for best YouTube SEO.\n- Make it attention-grabbing and click-worthy.\n- Use numbers, questions, or strong verbs when appropriate.`,
           maxTokens: 200,
           channelId: story.channelId,
+          storyId: story.id,
           action: 'Story Generate Title',
         })
         const cleanTitle = (title || '').trim().replace(/^["']|["']$/g, '')
@@ -79,60 +82,65 @@ async function processStoryBackground(storyId) {
         console.log(tag, 'title generated')
       }
 
-      // 2b: Description + Tags in parallel
-      const descPromise = (async () => {
-        if (brief.youtubeDescription) return null
-        const s = await db.story.findUniqueOrThrow({ where: { id: storyId } })
-        const b = (s.brief && typeof s.brief === 'object') ? { ...s.brief } : {}
-        const ttl = b.suggestedTitle || s.headline || ''
-        const scr = b.transcript || b.script || ''
-        const tags = Array.isArray(b.youtubeTags) ? b.youtubeTags : []
-        const isShort = b.videoFormat === 'short'
-        const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.\n\nGiven a video title, transcript, and tags, create an optimized YouTube description in Arabic.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n- Output ONLY the description text.`
-        const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTranscript: ${scr.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
-        return callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
-          system, maxTokens: 2048, channelId: story.channelId, action: 'Story Generate Description',
-        })
-      })()
-
-      const tagsPromise = (async () => {
-        if (brief.youtubeTags && brief.youtubeTags.length > 0) return null
+      // 2b: Tags first, then description (description needs tags for hashtags)
+      if (!brief.youtubeTags || brief.youtubeTags.length === 0) {
         const headline = (story.headline || '').trim()
         const scr = (typeof brief.transcript === 'string' ? brief.transcript.trim() : '') || (typeof brief.script === 'string' ? brief.script.trim() : '')
         const sum = typeof brief.summary === 'string' ? brief.summary.trim() : ''
         const context = [headline, sum, scr].filter(Boolean).join('\n\n')
-        if (!context) return null
-        return callAnthropic(apiKey, 'claude-sonnet-4-6', [{
-          role: 'user',
-          content: `Suggest YouTube tags for this video:\n\n${context.slice(0, 15000)}`,
-        }], {
-          system: 'You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.\n\nRules:\n- Output at least 5 tags and up to 15. Prefer 8–12.\n- Tags can be in Arabic, English, or mixed.\n- One tag per line. No numbers, bullets, or commas. No explanation.\n- Keep each tag short (1–4 words).',
-          maxTokens: 512, channelId: story.channelId, action: 'Story Suggest Tags',
-        })
-      })()
+        if (context) {
+          try {
+            const tagsRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{
+              role: 'user',
+              content: `Suggest YouTube tags for this video:\n\n${context.slice(0, 15000)}`,
+            }], {
+              system: 'You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.\n\nRules:\n- Output at least 5 tags and up to 15. Prefer 8–12.\n- Tags can be in Arabic, English, or mixed.\n- One tag per line. No numbers, bullets, or commas. No explanation.\n- Keep each tag short (1–4 words).',
+              maxTokens: 512, channelId: story.channelId, storyId: story.id, action: 'Story Suggest Tags',
+            })
+            if (tagsRaw) {
+              brief.youtubeTags = String(tagsRaw).trim()
+                .split(/\n/)
+                .map(s => s.replace(/^[\d.)\-\s]+/, '').trim())
+                .filter(s => s.length > 0 && s.length <= 100)
+                .slice(0, 15)
+              story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+              const latestBrief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+              latestBrief.youtubeTags = brief.youtubeTags
+              await db.story.update({ where: { id: storyId }, data: { brief: latestBrief } })
+              brief = latestBrief
+              console.log(tag, 'tags generated')
+            }
+          } catch (e) {
+            console.log(tag, 'tags failed:', e.message)
+          }
+        }
+      }
 
-      const [descResult, tagsResult] = await Promise.allSettled([descPromise, tagsPromise])
+      // 2c: Description (now has tags available for hashtags)
+      if (!brief.youtubeDescription) {
+        try {
+          const s = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+          const b = (s.brief && typeof s.brief === 'object') ? { ...s.brief } : {}
+          const ttl = b.suggestedTitle || s.headline || ''
+          const scr = b.transcript || b.script || ''
+          const tags = Array.isArray(b.youtubeTags) ? b.youtubeTags : []
+          const isShort = b.videoFormat === 'short'
+          const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.\n\nGiven a video title, transcript, and tags, create an optimized YouTube description in Arabic.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n- Output ONLY the description text.`
+          const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTranscript: ${scr.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
+          const descRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
+            system, maxTokens: 2048, channelId: story.channelId, storyId: story.id, action: 'Story Generate Description',
+          })
+          if (descRaw) {
+            brief.youtubeDescription = String(descRaw).trim()
+            console.log(tag, 'description generated')
+          }
+        } catch (e) {
+          console.log(tag, 'description failed:', e.message)
+        }
+      }
 
       story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
       brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-
-      if (descResult.status === 'fulfilled' && descResult.value) {
-        brief.youtubeDescription = String(descResult.value).trim()
-        console.log(tag, 'description generated')
-      } else if (descResult.status === 'rejected') {
-        console.log(tag, 'description failed:', descResult.reason?.message)
-      }
-
-      if (tagsResult.status === 'fulfilled' && tagsResult.value) {
-        brief.youtubeTags = String(tagsResult.value).trim()
-          .split(/\n/)
-          .map(s => s.replace(/^[\d.)\-\s]+/, '').trim())
-          .filter(s => s.length > 0 && s.length <= 100)
-          .slice(0, 15)
-        console.log(tag, 'tags generated')
-      } else if (tagsResult.status === 'rejected') {
-        console.log(tag, 'tags failed:', tagsResult.reason?.message)
-      }
     }
 
     brief.processingStatus = 'done'
@@ -165,7 +173,7 @@ async function generateScriptForStory(storyId) {
   if (!channelId) return
   const channel = await db.channel.findFirst({
     where: { id: channelId },
-    select: { id: true, startHook: true, endHook: true, nationality: true },
+    select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true },
   })
   if (!channel) return
   const durationMinutes = Math.max(0.5, parseFloat(brief.scriptDuration) || 3)
@@ -186,6 +194,40 @@ async function generateScriptForStory(storyId) {
   const hookEndBlock = endHook
     ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
     : ''
+
+  // Build style guide injection from learned corrections
+  const guide = (channel.styleGuide && typeof channel.styleGuide === 'object') ? channel.styleGuide : null
+  let styleBlock = ''
+  if (guide) {
+    const parts = []
+    if (Array.isArray(guide.corrections) && guide.corrections.length > 0) {
+      const hookCorrections = guide.corrections.filter(c => c.category === 'branded_hook')
+      const otherCorrections = guide.corrections.filter(c => c.category !== 'branded_hook')
+      if (hookCorrections.length > 0) {
+        parts.push('CRITICAL — Branded hook corrections (you got these WRONG before, use the CORRECT version):\n' +
+          hookCorrections.map(c => `- WRONG: "${c.wrong}" → CORRECT: "${c.correct}"`).join('\n'))
+      }
+      if (otherCorrections.length > 0) {
+        parts.push('Style corrections from past scripts:\n' +
+          otherCorrections.slice(-10).map(c => `- Instead of "${c.wrong}", use "${c.correct}"`).join('\n'))
+      }
+    }
+    if (guide.signatures?.startHook?.length > 0) {
+      parts.push('Real opening hook examples from this channel\'s past videos:\n' +
+        guide.signatures.startHook.slice(-3).map(h => `- "${h}"`).join('\n'))
+    }
+    if (guide.signatures?.endHook?.length > 0) {
+      parts.push('Real closing hook examples from this channel\'s past videos:\n' +
+        guide.signatures.endHook.slice(-3).map(h => `- "${h}"`).join('\n'))
+    }
+    if (Array.isArray(guide.notes) && guide.notes.length > 0) {
+      parts.push('Presenter style preferences:\n' + guide.notes.slice(-5).map(n => `- ${n}`).join('\n'))
+    }
+    if (parts.length > 0) {
+      styleBlock = '\n\n--- CHANNEL STYLE GUIDE (learned from past videos — follow these closely) ---\n' + parts.join('\n\n')
+    }
+  }
+
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
@@ -205,7 +247,7 @@ ${durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleBlock}`
 
   let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
 
@@ -223,10 +265,11 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
   let fullScript = ''
   try {
-    fullScript = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+    fullScript = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 8192,
       channelId: story.channelId,
+      storyId: story.id,
       action: 'Story Generate Script',
     })
   } catch (err) {
@@ -684,10 +727,11 @@ Your job:
 - Keep proper nouns, names, places, and technical terms transliterated naturally into Arabic`
 
     const trimmedInput = preClean(articleContent)
-    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: trimmedInput }], {
+    const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: trimmedInput }], {
       system,
       maxTokens: 8000,
       channelId: story.channelId,
+      storyId: story.id,
       action: 'Story Cleanup',
     })
     const cleanedArticle = (raw && typeof raw === 'string') ? raw.trim() : articleContent
@@ -819,10 +863,11 @@ Transcript: ${script.slice(0, 15000)}
 ${hookEnd ? `Outro: ${hookEnd}` : ''}
 Tags: ${tags.join(', ')}`
 
-    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+    const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 2048,
       channelId: story.channelId,
+      storyId: story.id,
       action: 'Story Generate Description',
     })
 
@@ -868,10 +913,11 @@ Rules:
 - One tag per line. No numbers, bullets, or commas. No explanation.
 - Keep each tag short (1–4 words). No sentences.`
     const userMessage = `Suggest YouTube tags for this video:\n\n${context.slice(0, 15000)}`
-    const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+    const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 512,
       channelId: story.channelId,
+      storyId: story.id,
       action: 'Story Suggest Tags',
     })
     const text = (raw && typeof raw === 'string') ? raw.trim() : ''
@@ -1219,10 +1265,11 @@ Rules:
 
     const userMessage = `Generate a compelling YouTube video title based on this transcript:\n\n${transcript.slice(0, 15000)}`
 
-    const title = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+    const title = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 200,
       channelId: story.channelId,
+      storyId: story.id,
       action: 'Story Generate Title',
     })
 
@@ -1355,6 +1402,11 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
           const { learnFromDecisions } = require('../services/scoreLearner')
           learnFromDecisions(story.channelId).catch(() => {})
         } catch (_) {}
+      }
+
+      // AI learning: compare AI script vs actual transcript when story is done
+      if (req.body.stage === 'done' && story.channelId) {
+        learnFromStory(story.id).catch(e => console.error('[stories/patch] AI learning failed:', e.message))
       }
     }
     // Return story with log so Edit History shows who changed status
