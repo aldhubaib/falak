@@ -803,8 +803,49 @@ export default function StoryDetail() {
   useEffect(() => {
     if (brief.scriptDuration) setScriptDurationMinutes(brief.scriptDuration);
   }, [brief.scriptDuration]);
-  const youtubeInput = "";
-  const editingYoutubeUrl = false;
+  const [youtubeInput, setYoutubeInput] = useState(brief.youtubeUrl || "");
+  const [editingYoutubeUrl, setEditingYoutubeUrl] = useState(false);
+  const [savingYoutubeUrl, setSavingYoutubeUrl] = useState(false);
+
+  useEffect(() => {
+    setYoutubeInput(brief.youtubeUrl || "");
+  }, [brief.youtubeUrl]);
+
+  const saveYoutubeUrlDone = useCallback(async () => {
+    const url = youtubeInput.trim();
+    if (!url || !id) return;
+    setSavingYoutubeUrl(true);
+    try {
+      const newBrief = { ...brief, youtubeUrl: url };
+      const res = await fetch(`/api/stories/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: newBrief }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updated = await res.json();
+      setStory(updated as StoryWithLog);
+      setBrief((b) => ({ ...b, youtubeUrl: url }));
+      setEditingYoutubeUrl(false);
+      toast.success("YouTube URL updated");
+
+      try {
+        const classRes = await fetch(`/api/stories/${id}/classify-video`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (classRes.ok) {
+          const data = await classRes.json();
+          setBrief((b) => ({ ...b, videoFormat: data.videoFormat }));
+        }
+      } catch {}
+    } catch {
+      toast.error("Failed to save URL");
+    } finally {
+      setSavingYoutubeUrl(false);
+    }
+  }, [youtubeInput, id, brief]);
   const [generatingScript, setGeneratingScript] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(true);
@@ -1363,55 +1404,91 @@ export default function StoryDetail() {
                   </div>
                 </div>
 
-                {brief.youtubeUrl && (
-                  <div className="rounded-lg bg-card p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
-                        YouTube Video URL
-                      </label>
-                      <div className="flex items-center gap-2">
-                        {!editingYoutubeUrl && (
-                          <>
-                            <a
-                              href={brief.youtubeUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-[10px] text-primary hover:opacity-80 transition-opacity"
-                            >
-                              <ExternalLink className="w-3 h-3" /> Open
-                            </a>
-                            <button
-                              onClick={() => {}}
-                              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-muted-foreground transition-colors"
-                            >
-                              <Pencil className="w-3 h-3" /> Edit
-                            </button>
-                          </>
-                        )}
-                        {editingYoutubeUrl && (
-                          <button
-                            onClick={() => {}}
-                            className="text-[10px] text-primary hover:text-primary/80 font-medium transition-colors"
+                <div className="rounded-lg bg-card border border-border overflow-hidden">
+                  <div className="border-t border-border">
+                    <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+                      <span className="text-[12px] text-muted-foreground font-medium">YouTube URL</span>
+                      <div className="flex items-center gap-3">
+                        {brief.youtubeUrl && !editingYoutubeUrl && (
+                          <a
+                            href={brief.youtubeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
                           >
-                            Done
-                          </button>
+                            <ExternalLink className="w-3 h-3" /> Open
+                          </a>
                         )}
+                        <div className="inline-flex rounded-lg border border-border overflow-hidden" dir="ltr">
+                          <button
+                            type="button"
+                            disabled
+                            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                              brief.videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground"
+                            }`}
+                          >
+                            <Film className="w-3 h-3" />
+                            Long Video
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border ${
+                              brief.videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground"
+                            }`}
+                          >
+                            <Smartphone className="w-3 h-3" />
+                            Short
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    {editingYoutubeUrl ? (
-                      <input
-                        type="url"
-                        value={youtubeInput}
-                        onChange={() => {}}
-                        className="w-full px-4 py-2.5 text-[13px] bg-card border border-border rounded-lg text-foreground font-mono placeholder:text-muted-foreground focus:outline-none focus:border-primary/40"
-                      />
-                    ) : (
-                      <div className="rounded-lg bg-card px-4 py-2.5 text-[13px] font-mono text-muted-foreground truncate">
-                        {brief.youtubeUrl}
-                      </div>
-                    )}
+                    <div className="px-4 py-3 flex items-center gap-2">
+                      {editingYoutubeUrl ? (
+                        <>
+                          <input
+                            type="url"
+                            value={youtubeInput}
+                            onChange={(e) => setYoutubeInput(e.target.value)}
+                            placeholder="https://youtube.com/watch?v=..."
+                            className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={saveYoutubeUrlDone}
+                            disabled={!youtubeInput.trim() || savingYoutubeUrl}
+                            className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                          >
+                            {savingYoutubeUrl ? "Saving…" : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setYoutubeInput(brief.youtubeUrl || "");
+                              setEditingYoutubeUrl(false);
+                            }}
+                            className="px-3 py-1.5 rounded-full text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-[13px] font-mono text-muted-foreground truncate">
+                            {brief.youtubeUrl || "No URL set"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingYoutubeUrl(true)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Pencil className="w-3 h-3" /> Edit
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
 
                 {(() => {
                   const produced = brief.producedFormats ?? [];
