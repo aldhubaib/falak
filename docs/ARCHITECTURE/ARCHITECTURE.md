@@ -798,11 +798,40 @@ video content. Each entry belongs to a `TrendingSnapshot`.
 
 **Indexes:** `snapshotId`, `youtubeVideoId`, `categoryName`.
 
+### AiGenerationLog
+
+Full audit trail for every AI generation call — stores system prompt, user prompt,
+complete response, token counts, and timing. Used by the AI Monitor page.
+
+| Column | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `id` | String (CUID) | Yes | auto | PK |
+| `channelId` | String | Yes | — | FK → Channel (cascade delete) |
+| `storyId` | String | No | — | Story that triggered the call |
+| `action` | String | Yes | — | Human-readable action label |
+| `model` | String | Yes | — | AI model used (e.g. `claude-sonnet-4-6`) |
+| `systemPrompt` | Text | No | — | Full system prompt sent |
+| `userPrompt` | Text | No | — | Full user prompt sent |
+| `response` | Text | No | — | Complete AI response |
+| `inputTokens` | Int | No | — | Input token count |
+| `outputTokens` | Int | No | — | Output token count |
+| `durationMs` | Int | No | — | Request duration in milliseconds |
+| `status` | String | Yes | `"ok"` | `ok` or `fail` |
+| `error` | Text | No | — | Error message on failure |
+| `createdAt` | DateTime | Yes | `now()` | — |
+
+**Indexes:** `[channelId, createdAt DESC]`, `storyId`, `action`.
+
+> **Channel.styleGuide** (`Json?`) — stores learned AI corrections, hook examples,
+> and style notes. Populated by the AI learning pipeline when stories reach "done".
+> Injected into script generation prompts as few-shot examples. Managed via
+> the AI Monitor page.
+
 ---
 
 ## 5 — API Endpoints
 
-**88 total route handlers** across 18 route files.
+**96 total route handlers** across 19 route files.
 
 ### Auth — `/api/auth`
 
@@ -1027,6 +1056,19 @@ video content. Each entry belongs to a `TrendingSnapshot`.
 | GET | `/categories` | Yes | Distinct categories in latest snapshot (`?country=SA`). |
 | GET | `/video-history/:youtubeVideoId` | Yes | Track a video's rank across snapshots. |
 | POST | `/fetch` | Admin | Manually trigger a trending data fetch (`{ country: "SA" }`). |
+
+### AI Monitor — `/api/ai-monitor`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/logs` | Yes | Paginated AI generation log list (`?channelId=&page=&limit=`). |
+| GET | `/logs/:id` | Yes | Full log detail with prompts and response. |
+| GET | `/style-guide/:channelId` | Yes | Channel's learned style guide (corrections, hooks, notes). |
+| PATCH | `/style-guide/:channelId` | Admin | Manually edit style guide corrections, signatures, or notes. |
+| POST | `/learn/:storyId` | Admin | Trigger learning from a specific story (script vs transcript). |
+| POST | `/preview-corrections/:storyId` | Admin | Preview corrections without saving to style guide. |
+| GET | `/diff-data/:storyId` | Yes | Get AI script vs actual transcript for diff comparison. |
+| GET | `/stories-with-both` | Yes | Stories that have both AI script and transcript (`?channelId=`). |
 
 ---
 
@@ -1498,6 +1540,7 @@ Requires ≥3 outcomes.
 | `/c/:channelId/gallery/album/:albumId` | AlbumDetail | Album detail view |
 | `/c/:channelId/trending` | Trending | YouTube trending intelligence — country selector, category filters, history |
 | `/c/:channelId/settings` | Settings | API keys + usage dashboard |
+| `/c/:channelId/ai-monitor` | AiMonitor | AI generation log, style guide editor, script-vs-transcript diff view |
 | `/c/:channelId/admin` | Admin | User access control |
 
 ### State Management
