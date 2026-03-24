@@ -37,6 +37,7 @@ interface QueueItem {
   brief?: Record<string, unknown>;
   createdAt: string;
   stage?: string;
+  origin?: string;
 }
 
 function deriveStep(brief: Record<string, unknown> | undefined, stage: string | undefined): ProcessingStep {
@@ -139,11 +140,11 @@ export default function PublishQueue() {
   const loadExistingStories = useCallback(async () => {
     if (!channelId) return;
     try {
-      const res = await fetch(`/api/stories?channelId=${channelId}&origin=manual`, { credentials: "include" });
+      const res = await fetch(`/api/stories?channelId=${channelId}`, { credentials: "include" });
       if (!res.ok) return;
       const stories = await res.json();
-      const manualStories = stories
-        .filter((s: any) => s.origin === "manual")
+      const videoStories = stories
+        .filter((s: any) => s.brief?.videoR2Key)
         .map((s: any) => {
           const step = deriveStep(s.brief, s.stage);
           return {
@@ -155,9 +156,10 @@ export default function PublishQueue() {
             brief: s.brief || {},
             createdAt: s.createdAt,
             stage: s.stage,
+            origin: s.origin || "pipeline",
           };
         });
-      setExistingStories(manualStories);
+      setExistingStories(videoStories);
     } catch {
       // silent
     } finally {
@@ -556,9 +558,18 @@ export default function PublishQueue() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-medium truncate" dir="auto">
-                            {item.headline || item.fileName}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[13px] font-medium truncate" dir="auto">
+                              {item.headline || item.fileName}
+                            </p>
+                            <span className={`shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded-full ${
+                              item.origin === "manual"
+                                ? "bg-orange/15 text-orange"
+                                : "bg-primary/15 text-primary"
+                            }`}>
+                              {item.origin === "manual" ? "Manual" : "Story"}
+                            </span>
+                          </div>
                           {item.fileName && item.headline !== item.fileName && (
                             <p className="text-[10px] text-muted-foreground font-mono truncate">{item.fileName}</p>
                           )}

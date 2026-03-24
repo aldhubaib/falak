@@ -809,7 +809,9 @@ export default function StoryDetail() {
   const sameStageStories = stageStories.filter((s) => s.stage === activeStage);
   const withinStageIndex = id ? sameStageStories.findIndex((s) => s.id === id) : -1;
   const stageOrderIdx = STAGE_ORDER.indexOf(activeStage);
-  const nextStageKey: Stage | null = stageOrderIdx >= 0 && stageOrderIdx < STAGE_ORDER.length - 1 ? STAGE_ORDER[stageOrderIdx + 1]! : null;
+  const isManualOrigin = story?.origin === "manual";
+  const rawNextStageKey: Stage | null = stageOrderIdx >= 0 && stageOrderIdx < STAGE_ORDER.length - 1 ? STAGE_ORDER[stageOrderIdx + 1]! : null;
+  const nextStageKey: Stage | null = !isManualOrigin && rawNextStageKey === "publish" ? "done" : rawNextStageKey;
   const nextStageLabel = nextStageKey ? STAGES.find((s) => s.key === nextStageKey)?.label ?? null : null;
   const relativeDate = story?.sourceDate || story?.createdAt
     ? formatDistanceToNow(new Date((story?.sourceDate || story?.createdAt) ?? ""), { addSuffix: true })
@@ -820,8 +822,8 @@ export default function StoryDetail() {
   const moveToStage = useCallback(
     async (toStage: Stage) => {
       if (!id) return;
-      if (activeStage === "filmed" && toStage === "publish" && !brief.videoR2Key) {
-        toast.error("Upload a video before moving to Publish");
+      if (activeStage === "filmed" && (toStage === "publish" || toStage === "done") && !brief.videoR2Key) {
+        toast.error("Upload a video first");
         return;
       }
       setSavingState(true);
@@ -1225,41 +1227,53 @@ export default function StoryDetail() {
               <StoryDetailStageOmit onMoveBack={() => moveToStage("suggestion")} />
             )}
 
-            {/* ── SCRIPTING / FILMED / DONE (Yoopta script editor) ───────── */}
-            {(activeStage === "filmed" || activeStage === "done") && (
-              <StoryDetailScriptSection
-                key={id}
-                scriptDuration={scriptDurationMinutes}
-                onScriptDurationChange={(mins) => {
-                  setScriptDurationMinutes(mins);
-                  setBrief((b) => {
-                    const next = { ...b, scriptDuration: mins };
-                    if (id) saveScript(id, next);
-                    return next;
-                  });
-                }}
-                canGenerate={scriptDurationMinutes > 0}
-                generating={generatingScript}
-                onGenerate={generateScript}
-                readOnly={activeStage !== "filmed"}
-                showGenerateControls={false}
-                scriptValue={scriptValue}
-                saving={saving}
-                scriptRef={scriptEditorRef}
-                videoFormat={brief.videoFormat || "long"}
-                channelAvatarUrl={channelInfo?.avatarUrl}
-                channelName={channelInfo?.name}
-                onScriptChange={(value) => {
-                  setBrief((b) => {
-                    const next: StoryBrief = { ...b, script: value };
-                    if (id) saveScript(id, next);
-                    return next;
-                  });
-                }}
-              />
+            {/* ── FILMED: script (read-only) + publish workflow when video exists ───────── */}
+            {activeStage === "filmed" && id && (
+              <>
+                <StoryDetailScriptSection
+                  key={id}
+                  scriptDuration={scriptDurationMinutes}
+                  onScriptDurationChange={(mins) => {
+                    setScriptDurationMinutes(mins);
+                    setBrief((b) => {
+                      const next = { ...b, scriptDuration: mins };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
+                  canGenerate={scriptDurationMinutes > 0}
+                  generating={generatingScript}
+                  onGenerate={generateScript}
+                  readOnly
+                  showGenerateControls={false}
+                  scriptValue={scriptValue}
+                  saving={saving}
+                  scriptRef={scriptEditorRef}
+                  videoFormat={brief.videoFormat || "long"}
+                  channelAvatarUrl={channelInfo?.avatarUrl}
+                  channelName={channelInfo?.name}
+                />
+                {brief.videoR2Key && (
+                  <ManualStoryWorkflow
+                    story={story}
+                    brief={brief}
+                    storyId={id}
+                    saving={saving}
+                    hideUploadSection
+                    onBriefChange={(updater) => {
+                      setBrief((b) => {
+                        const next = updater(b);
+                        if (id) saveScript(id, next);
+                        return next;
+                      });
+                    }}
+                    onStageChange={(stage) => moveToStage(stage)}
+                  />
+                )}
+              </>
             )}
 
-            {/* ── PUBLISH (transcript, title, description, tags, srt, youtube url, mark done) ───────── */}
+            {/* ── PUBLISH (backward compat for stories already in publish stage) ───────── */}
             {activeStage === "publish" && id && (
               <ManualStoryWorkflow
                 story={story}
@@ -1275,6 +1289,26 @@ export default function StoryDetail() {
                   });
                 }}
                 onStageChange={(stage) => moveToStage(stage)}
+              />
+            )}
+
+            {/* ── DONE (read-only script) ───────── */}
+            {activeStage === "done" && (
+              <StoryDetailScriptSection
+                key={id}
+                scriptDuration={scriptDurationMinutes}
+                onScriptDurationChange={() => {}}
+                canGenerate={false}
+                generating={false}
+                onGenerate={async () => {}}
+                readOnly
+                showGenerateControls={false}
+                scriptValue={scriptValue}
+                saving={false}
+                scriptRef={scriptEditorRef}
+                videoFormat={brief.videoFormat || "long"}
+                channelAvatarUrl={channelInfo?.avatarUrl}
+                channelName={channelInfo?.name}
               />
             )}
 

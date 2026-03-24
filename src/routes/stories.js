@@ -85,12 +85,11 @@ async function processStoryBackground(storyId) {
         const s = await db.story.findUniqueOrThrow({ where: { id: storyId } })
         const b = (s.brief && typeof s.brief === 'object') ? { ...s.brief } : {}
         const ttl = b.suggestedTitle || s.headline || ''
-        const scr = b.script || ''
+        const scr = b.transcript || b.script || ''
         const tags = Array.isArray(b.youtubeTags) ? b.youtubeTags : []
         const isShort = b.videoFormat === 'short'
-        const srcUrl = s.sourceUrl || ''
-        const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.\n\nGiven a video title, script, hooks, and tags, create an optimized YouTube description in Arabic.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n${srcUrl ? '- Include the source link with label "المصدر:"' : ''}\n- Output ONLY the description text.`
-        const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nScript: ${scr.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}\n${srcUrl ? `Source URL: ${srcUrl}` : ''}`
+        const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.\n\nGiven a video title, transcript, and tags, create an optimized YouTube description in Arabic.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n- Output ONLY the description text.`
+        const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTranscript: ${scr.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
         return callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
           system, maxTokens: 2048, channelId: story.channelId, action: 'Story Generate Description',
         })
@@ -99,7 +98,7 @@ async function processStoryBackground(storyId) {
       const tagsPromise = (async () => {
         if (brief.youtubeTags && brief.youtubeTags.length > 0) return null
         const headline = (story.headline || '').trim()
-        const scr = typeof brief.script === 'string' ? brief.script.trim() : ''
+        const scr = (typeof brief.transcript === 'string' ? brief.transcript.trim() : '') || (typeof brief.script === 'string' ? brief.script.trim() : '')
         const sum = typeof brief.summary === 'string' ? brief.summary.trim() : ''
         const context = [headline, sum, scr].filter(Boolean).join('\n\n')
         if (!context) return null
@@ -791,37 +790,34 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
     }
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
     const title = brief.suggestedTitle || story.headline || ''
-    const script = brief.script || ''
+    const script = brief.transcript || brief.script || ''
     const hook = brief.openingHook || ''
     const hookEnd = brief.hookEnd || ''
     const tags = Array.isArray(brief.youtubeTags) ? brief.youtubeTags : []
-    const sourceUrl = story.sourceUrl || ''
     const isShort = brief.videoFormat === 'short'
 
     if (!script && !title) {
-      return res.status(400).json({ error: 'No script or title available. Generate a script first.' })
+      return res.status(400).json({ error: 'No transcript or title available. Transcribe the video first.' })
     }
 
     const apiKey = decrypt(descKeyRow.encryptedKey)
 
     const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.
 
-Given a video title, script, hooks, and tags, create an optimized YouTube description in Arabic.
+Given a video title, transcript, and tags, create an optimized YouTube description in Arabic.
 
 Rules:
 - Start with 1-2 compelling sentences summarizing the video (this appears in search results)
-${isShort ? '- Keep it short (3-5 lines max). Shorts descriptions should be concise.' : `- Include timestamps/chapters derived from the script timestamps (format: 0:00 Title)
+${isShort ? '- Keep it short (3-5 lines max). Shorts descriptions should be concise.' : `- Include timestamps/chapters derived from the transcript timestamps (format: 0:00 Title)
 - Add a "Follow us" / subscribe call-to-action section`}
 - End with hashtags from the provided tags (format: #tag1 #tag2)
-${sourceUrl ? '- Include the source link with a label like "المصدر:"' : ''}
 - Output ONLY the description text. No explanations or meta-text.`
 
     const userMessage = `Title: ${title}
 ${hook ? `Opening Hook: ${hook}` : ''}
-Script: ${script.slice(0, 15000)}
+Transcript: ${script.slice(0, 15000)}
 ${hookEnd ? `Outro: ${hookEnd}` : ''}
-Tags: ${tags.join(', ')}
-${sourceUrl ? `Source URL: ${sourceUrl}` : ''}`
+Tags: ${tags.join(', ')}`
 
     const raw = await callAnthropic(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
@@ -857,11 +853,11 @@ router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async 
     }
     const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
     const headline = (story.headline || '').trim()
-    const script = typeof brief.script === 'string' ? brief.script.trim() : ''
+    const script = (typeof brief.transcript === 'string' ? brief.transcript.trim() : '') || (typeof brief.script === 'string' ? brief.script.trim() : '')
     const summary = typeof brief.summary === 'string' ? brief.summary.trim() : ''
     const context = [headline, summary, script].filter(Boolean).join('\n\n')
     if (!context) {
-      return res.status(400).json({ error: 'Add a headline or generate a script first so the AI can suggest tags.' })
+      return res.status(400).json({ error: 'Add a headline or transcribe the video first so the AI can suggest tags.' })
     }
     const apiKey = decrypt(tagsKeyRow.encryptedKey)
     const system = `You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.
