@@ -40,7 +40,7 @@ async function getOrCreateProfile(channelId) {
 async function learnFromDecisions(channelId) {
   const profile = await getOrCreateProfile(channelId)
 
-  const positiveStages = ['liked', 'scripting', 'filmed', 'publish', 'done']
+  const positiveStages = ['liked', 'scripting', 'filmed', 'done']
   const negativeStages = ['skip', 'trash']
 
   const stories = await db.story.findMany({

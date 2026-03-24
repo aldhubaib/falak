@@ -486,9 +486,7 @@ export default function DesignSystem() {
                 <StoryDetailStagePassed onMoveBack={NOOP} />
               </CidBlock>
 
-              <CidBlock cid="story-stage-publish" name="StoryDetailStagePublish" source="StoryDetail.tsx">
-                <StoryDetailStagePublish brief={brief} storyId="dls-mock-story" onBriefChange={setBrief} videoFormat="long" onVideoFormatChange={NOOP} />
-              </CidBlock>
+              {/* publish stage removed */}
 
               <CidBlock cid="story-research" name="StoryDetailResearch" source="StoryDetailResearch.tsx">
                 <StoryDetailResearch research={{ brief: { whatHappened: "A major earthquake struck central Turkey.", howItHappened: "The quake originated at a shallow depth of 10km.", whatWasTheResult: "Over 500 people were displaced.", keyFacts: ["Magnitude 6.2", "10km depth", "500+ displaced"], suggestedHook: "What if you woke up to the ground shaking under your feet?", narrativeStrength: 8, timeline: [{ date: "Mar 15", event: "Earthquake hits" }], mainCharacters: [{ name: "Gov. Mehmet", role: "Emergency coordinator" }], competitionInsight: "Only 2 Arabic channels covered this so far." }, relatedArticles: [{ title: "Turkey quake update", url: "#", source: "Reuters" }], images: [{ thumbnail: "https://placehold.co/600x400/1a1a2e/ffffff?text=Main+Image", title: "Damage aftermath", source: "Reuters" }, { thumbnail: "https://placehold.co/400x225/2a1a3e/ffffff?text=Rescue+1", title: "Rescue teams deployed", source: "AP" }, { thumbnail: "https://placehold.co/400x225/1a2a3e/ffffff?text=Aftermath+2", title: "Building collapse", source: "AFP" }, { thumbnail: "https://placehold.co/400x225/3a1a2e/ffffff?text=Medical+3", title: "Medical teams arrive", source: "Al Jazeera" }, { thumbnail: "https://placehold.co/400x225/1a3a2e/ffffff?text=Relief+4", title: "Relief supplies delivered", source: "UNICEF" }, { thumbnail: "https://placehold.co/400x225/2a2a3e/ffffff?text=Aerial+5", title: "Aerial view of damage", source: "CNN" }, { thumbnail: "https://placehold.co/400x225/3a2a1e/ffffff?text=Recovery+6", title: "Recovery operations", source: "BBC" }], researchedAt: new Date().toISOString() }} />

@@ -59,7 +59,6 @@ const STAGE_COLOR_CLASS: Record<string, string> = {
   liked: "text-primary",
   scripting: "text-purple",
   filmed: "text-success",
-  publish: "text-pink-400",
   done: "text-foreground",
   skip: "text-muted-foreground",
   trash: "text-muted-foreground",
@@ -109,9 +108,7 @@ export function StoryDetailTopBar({
         ? "text-purple"
         : nextStageKey === "filmed"
           ? "text-success"
-          : nextStageKey === "publish"
-            ? "text-pink-400"
-            : "text-foreground";
+          : "text-foreground";
 
   return (
     <>

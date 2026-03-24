@@ -16,7 +16,6 @@ import {
   StoryDetailScriptSection,
   StoryDetailStagePassed,
   StoryDetailStageOmit,
-  StoryDetailStagePublish,
   VideoUpload,
   TranscriptSection,
 } from "@/components/story-detail";
@@ -64,15 +63,14 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "liked", label: "Liked" },
   { key: "scripting", label: "Scripting" },
   { key: "filmed", label: "Filmed" },
-  { key: "publish", label: "Publish" },
   { key: "done", label: "Done" },
   { key: "skip", label: "Skipped" },
   { key: "trash", label: "Trashed" },
   { key: "filtered", label: "Filtered" },
 ];
 
-const STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done"];
-const NAV_STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "publish", "done", "skip", "trash", "filtered"];
+const STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "done"];
+const NAV_STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "done", "skip", "trash", "filtered"];
 
 /** Minimal mock so main content renders (design only). */
 const MOCK_STORY: StoryWithLog = {
@@ -811,7 +809,7 @@ export default function StoryDetail() {
   const stageOrderIdx = STAGE_ORDER.indexOf(activeStage);
   const isManualOrigin = story?.origin === "manual";
   const rawNextStageKey: Stage | null = stageOrderIdx >= 0 && stageOrderIdx < STAGE_ORDER.length - 1 ? STAGE_ORDER[stageOrderIdx + 1]! : null;
-  const nextStageKey: Stage | null = !isManualOrigin && rawNextStageKey === "publish" ? "done" : rawNextStageKey;
+  const nextStageKey: Stage | null = rawNextStageKey;
   const nextStageLabel = nextStageKey ? STAGES.find((s) => s.key === nextStageKey)?.label ?? null : null;
   const relativeDate = story?.sourceDate || story?.createdAt
     ? formatDistanceToNow(new Date((story?.sourceDate || story?.createdAt) ?? ""), { addSuffix: true })
@@ -822,7 +820,7 @@ export default function StoryDetail() {
   const moveToStage = useCallback(
     async (toStage: Stage) => {
       if (!id) return;
-      if (activeStage === "filmed" && (toStage === "publish" || toStage === "done") && !brief.videoR2Key) {
+      if (activeStage === "filmed" && toStage === "done" && !brief.videoR2Key) {
         toast.error("Upload a video first");
         return;
       }
@@ -1063,7 +1061,7 @@ export default function StoryDetail() {
               />
             ) : (
             <>
-            {(activeStage === "filmed" || activeStage === "publish" || activeStage === "done") && (
+            {(activeStage === "filmed" || activeStage === "done") && (
               <VideoUpload
                 storyId={id}
                 videoR2Key={brief.videoR2Key}
@@ -1271,25 +1269,6 @@ export default function StoryDetail() {
                   />
                 )}
               </>
-            )}
-
-            {/* ── PUBLISH (backward compat for stories already in publish stage) ───────── */}
-            {activeStage === "publish" && id && (
-              <ManualStoryWorkflow
-                story={story}
-                brief={brief}
-                storyId={id}
-                saving={saving}
-                hideUploadSection
-                onBriefChange={(updater) => {
-                  setBrief((b) => {
-                    const next = updater(b);
-                    if (id) saveScript(id, next);
-                    return next;
-                  });
-                }}
-                onStageChange={(stage) => moveToStage(stage)}
-              />
             )}
 
             {/* ── DONE (read-only script) ───────── */}

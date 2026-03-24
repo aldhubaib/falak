@@ -41,14 +41,14 @@ async function refreshPreferenceProfile(channelId) {
 /**
  * Build the preference profile from story decisions.
  *
- * Positive signals: stories in 'liked', 'scripting', 'filmed', 'publish', 'done'
+ * Positive signals: stories in 'liked', 'scripting', 'filmed', 'done'
  * Negative signals: stories in 'skip', 'trash'
  */
 async function buildPreferenceProfile(channelId) {
   const stories = await db.story.findMany({
     where: {
       channelId,
-      stage: { in: ['liked', 'scripting', 'filmed', 'publish', 'done', 'skip', 'trash'] },
+      stage: { in: ['liked', 'scripting', 'filmed', 'done', 'skip', 'trash'] },
       brief: { not: null },
     },
     select: { stage: true, brief: true },
@@ -68,7 +68,7 @@ async function buildPreferenceProfile(channelId) {
     const contentType = brief.contentType || null
     const region = brief.region || null
 
-    const isPositive = ['liked', 'scripting', 'filmed', 'publish', 'done'].includes(story.stage)
+    const isPositive = ['liked', 'scripting', 'filmed', 'done'].includes(story.stage)
     const isNegative = ['trash'].includes(story.stage)
     // 'skip' is weak negative — we count it but with lower weight
     const isPassed = story.stage === 'skip'

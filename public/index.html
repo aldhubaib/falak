@@ -5566,7 +5566,7 @@ function fmtNum(n) {
     <div class="page-header">
       <div>
         <div class="page-title">Stories</div>
-        <div class="page-sub" id="st-page-sub">Story pipeline — pitch, script, film, publish</div>
+        <div class="page-sub" id="st-page-sub">Story pipeline — pitch, script, film, done</div>
       </div>
     </div>
     <!-- SUMMARY BAR (Zoho-style) -->
@@ -7170,7 +7170,6 @@ const ST_STAGES = [
   { id:'liked',      label:'Liked',         color:'var(--amber)'  },
   { id:'approved',   label:'Approved',      color:'var(--purple)'  },
   { id:'produced',   label:'Produced',      color:'var(--success)'  },
-  { id:'publish',    label:'Publish',       color:'var(--stage-publish)'  },
   { id:'done',       label:'Done',          color:'var(--success)'  },
 ];
 
@@ -7235,7 +7234,6 @@ function stRenderSummary() {
   const liked      = ST_STORIES.filter(s => s.stage === 'liked').length;
   const approved   = ST_STORIES.filter(s => s.stage === 'approved').length;
   const produced   = ST_STORIES.filter(s => s.stage === 'produced').length;
-  const publish    = ST_STORIES.filter(s => s.stage === 'publish').length;
   const done       = ST_STORIES.filter(s => s.stage === 'done').length;
   const firstMovers = ST_STORIES.filter(s => s.coverage?.status === 'first').length;
   const fmPct      = total ? Math.round(firstMovers / total * 100) : 0;
@@ -7258,8 +7256,7 @@ function stRenderSummary() {
     ${cell('suggestion', sug,      'AI Suggestion', 'var(--blue)', 'awaiting triage',          sug   + ' stories', total ? Math.round(sug/total*100)      : 0)}
     ${cell('liked',      liked,    'Liked',         'var(--amber)', 'saved for review',          liked + ' saved',   total ? Math.round(liked/total*100)    : 0)}
     ${cell('approved',   approved, 'Approved',      'var(--purple)', 'brief generation ready',    approved + ' ready',total ? Math.round(approved/total*100) : 0)}
-    ${cell('produced',   produced, 'Filmed',        'var(--success)', 'ready to publish',           produced + ' videos',total ? Math.round(produced/total*100): 0)}
-    ${cell('publish',    publish,  'Publish',       'var(--stage-publish)', 'final details needed',       publish + ' pending',total ? Math.round(publish/total*100) : 0)}
+    ${cell('produced',   produced, 'Filmed',        'var(--success)', 'ready for review',           produced + ' videos',total ? Math.round(produced/total*100): 0)}
     ${cell('done',       done,     'Done',          'var(--success)', 'published all time',         done + ' videos',   total ? Math.round(done/total*100)     : 0)}
     <div class="st-sum-cell" style="cursor:default;">
       <div class="st-sum-val" style="color:${fmClr};">${fmPct}%</div>
@@ -7476,7 +7473,6 @@ function stRenderDetail() {
   else if (s.stage === 'liked')    stDetailLiked(el, s);
   else if (s.stage === 'approved') stDetailApproved(el, s);
   else if (s.stage === 'produced') stDetailProduced(el, s);
-  else if (s.stage === 'publish')  stDetailPublish(el, s);
   else if (s.stage === 'done')     stDetailDone(el, s);
 }
 
@@ -7769,7 +7765,7 @@ async function stGenerateBrief(storyId) {
 // ══════════════════════════════════════════════
 function stDetailProduced(el, s) {
   el.innerHTML = stDetailHeader(s, 'Filmed', `
-    <button class="st-detail-action primary" onclick="stMove('${s.id}','publish',event)">→ Ready to Publish</button>
+    <button class="st-detail-action primary" onclick="stMove('${s.id}','done',event)">→ Done</button>
   `) + `
   <div class="st-detail-body">
     ${stDetailTitle(s)}
@@ -7794,7 +7790,7 @@ async function stSubmitUrl(storyId) {
   // Mock YouTube fetch
   s.youtubeStats = { views: Math.floor(Math.random()*2000000)+200000, likes: Math.floor(Math.random()*80000)+5000, comments: Math.floor(Math.random()*12000)+500, wasGap: s.coverage.status==='first', fetchedAt: new Date().toISOString().slice(0,10) };
   apiLog('youtube','Fetch Video Stats',0,0.002,'success');
-  stMove(storyId, 'publish', null);
+  stMove(storyId, 'done', null);
 }
 
 // ══════════════════════════════════════════════

@@ -11,7 +11,7 @@ const { findSimilarVideos, findSimilarOwnStories } = require('./embeddings')
 const { getChannelStats } = require('./statsRefresher')
 const { w, finalScoreToComposite, compositeToFinalScore } = require('../lib/scoringConfig')
 
-const ACTIVE_STAGES = ['suggestion', 'liked', 'scripting', 'filmed', 'publish']
+const ACTIVE_STAGES = ['suggestion', 'liked', 'scripting', 'filmed']
 
 /**
  * Re-score all active stories for a channel.

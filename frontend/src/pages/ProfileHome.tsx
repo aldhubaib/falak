@@ -65,7 +65,6 @@ interface StorySummary {
   liked: number;
   scripting: number;
   filmed: number;
-  publish: number;
   done: number;
   skip: number;
   trash: number;
@@ -157,7 +156,7 @@ export default function ProfileHome() {
   const views = channel ? Number(channel.totalViews) || 0 : 0;
 
   const activeStories = storySummary
-    ? storySummary.suggestion + storySummary.liked + storySummary.scripting + storySummary.filmed + storySummary.publish
+    ? storySummary.suggestion + storySummary.liked + storySummary.scripting + storySummary.filmed
     : 0;
 
   const growthChart = useMemo(() => {
@@ -473,7 +472,6 @@ export default function ProfileHome() {
                   { key: "liked", color: "bg-primary-500" },
                   { key: "scripting", color: "bg-purple-500" },
                   { key: "filmed", color: "bg-amber-500" },
-                  { key: "publish", color: "bg-emerald-500" },
                   { key: "done", color: "bg-success" },
                 ].map((s) => {
                   const count = (storySummary as Record<string, number>)[s.key] || 0;
