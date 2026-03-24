@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Clock,
   Calendar,
+  Download,
   Zap,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ interface VideoUploadProps {
   headline?: string;
   readOnly?: boolean;
   required?: boolean;
+  embedded?: boolean;
   onUploadComplete?: (data: { videoR2Key: string; videoR2Url: string; videoFileName: string; videoFileSize: number }) => void;
 }
 
@@ -64,12 +66,17 @@ export function VideoUpload({
   headline = "",
   readOnly,
   required,
+  embedded,
   onUploadComplete,
 }: VideoUploadProps) {
   const { task, upload, abort, dismiss } = useStoryUpload(storyId);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoPlayerRef = useRef<HTMLVideoElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [thumbError, setThumbError] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [signedThumbUrl, setSignedThumbUrl] = useState<string | null>(null);
   const notifiedRef = useRef(false);
 
   useEffect(() => {
@@ -97,6 +104,17 @@ export function VideoUpload({
     fetch(`/api/upload/signed-url/${videoR2Key}`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => { if (!cancelled && data.url) setSignedUrl(data.url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [videoR2Key]);
+
+  useEffect(() => {
+    if (!videoR2Key) { setSignedThumbUrl(null); return; }
+    const thumbKey = `thumbs/${videoR2Key.replace(/\.[^.]+$/, "")}.jpg`;
+    let cancelled = false;
+    fetch(`/api/upload/signed-url/${thumbKey}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled && data.url) setSignedThumbUrl(data.url); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [videoR2Key]);
@@ -194,7 +212,7 @@ export function VideoUpload({
       : "";
 
     return (
-      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-card">
+      <div className={embedded ? "flex max-md:flex-col" : "rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-card"}>
         {/* Thumbnail area — progress animation */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           <div className={`w-full ${thumbAspect} rounded-lg bg-card flex items-center justify-center relative overflow-hidden`}>
@@ -253,7 +271,7 @@ export function VideoUpload({
   // ── Failed ────────────────────────────────────────────────────
   if (isFailed && task) {
     return (
-      <div className="rounded-lg overflow-hidden border border-destructive/20 flex max-md:flex-col bg-card">
+      <div className={embedded ? "flex max-md:flex-col" : "rounded-lg overflow-hidden border border-destructive/20 flex max-md:flex-col bg-card"}>
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
           <div className={`w-full ${thumbAspect} rounded-lg bg-red-500/5 flex items-center justify-center`}>
             <div className="flex flex-col items-center gap-2">
@@ -312,41 +330,58 @@ export function VideoUpload({
     const ext = getExtension(name);
 
     return (
-      <div className="rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-card">
-        {/* Thumbnail left — video preview */}
+      <div className={embedded ? "flex max-md:flex-col" : "rounded-lg overflow-hidden border border-border flex max-md:flex-col bg-card"}>
+        {/* Thumbnail left — video preview / inline player */}
         <div className={`relative shrink-0 p-3 ${thumbW}`}>
-          {(videoThumbnailR2Url || url) ? (
-            <div className="block rounded-lg overflow-hidden group relative">
-              {videoThumbnailR2Url ? (
+          {playing && url ? (
+            <video
+              ref={videoPlayerRef}
+              src={url}
+              className={`w-full ${thumbAspect} rounded-lg bg-black object-contain`}
+              controls
+              autoPlay
+              onEnded={() => setPlaying(false)}
+            />
+          ) : (signedThumbUrl || videoThumbnailR2Url || url) ? (
+            <button
+              type="button"
+              onClick={() => { if (url) setPlaying(true); }}
+              className="block rounded-lg overflow-hidden group relative w-full text-left"
+            >
+              {(signedThumbUrl || videoThumbnailR2Url) && !thumbError ? (
                 <img
-                  src={videoThumbnailR2Url}
+                  src={signedThumbUrl || videoThumbnailR2Url!}
                   alt={name || "Video thumbnail"}
                   className={`w-full ${thumbAspect} object-cover rounded-lg bg-card`}
+                  onError={() => setThumbError(true)}
                 />
-              ) : (
+              ) : !thumbError && url ? (
                 <video
-                  src={url!}
+                  src={url}
                   className={`w-full ${thumbAspect} object-cover rounded-lg bg-card`}
                   muted
                   preload="metadata"
-                  onLoadedMetadata={(e) => {
-                    const video = e.currentTarget;
-                    video.currentTime = 1;
-                  }}
+                  onLoadedMetadata={(e) => { e.currentTarget.currentTime = 1; }}
+                  onError={() => setThumbError(true)}
+                  onStalled={() => setThumbError(true)}
                 />
+              ) : (
+                <div className={`w-full ${thumbAspect} rounded-lg bg-card flex items-center justify-center`}>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-full bg-card/80 flex items-center justify-center">
+                      <Play className="w-5 h-5 text-foreground ml-0.5" />
+                    </div>
+                    <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest">{ext}</span>
+                  </div>
+                </div>
               )}
-              <a
-                href={url || undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
-              >
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
                 <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center backdrop-blur-sm">
                   <Play className="w-5 h-5 text-white ml-0.5" />
                 </div>
-              </a>
+              </div>
               <span className="absolute bottom-4 right-4 text-[9px] font-mono text-white/80 bg-black/50 px-1.5 py-0.5 rounded uppercase tracking-widest">{ext}</span>
-            </div>
+            </button>
           ) : (
             <div className={`w-full ${thumbAspect} rounded-lg bg-card flex items-center justify-center`}>
               <div className="flex flex-col items-center gap-2">
@@ -365,18 +400,30 @@ export function VideoUpload({
             <h2 className="text-base font-semibold tracking-tight max-lg:text-sm" dir="rtl" style={{ textAlign: "right" }}>
               {headline || name || "Video"}
             </h2>
-            {!readOnly && (
-              <button
-                onClick={() => {
-                  if (isComplete) dismiss();
-                  fileInputRef.current?.click();
-                }}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-primary font-medium border border-primary/20 hover:bg-primary/10 transition-colors"
-              >
-                <RefreshCw className="w-3 h-3" />
-                Replace
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {url && (
+                <a
+                  href={url}
+                  download={name || "video"}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-muted-foreground font-medium border border-border hover:bg-card/80 transition-colors"
+                >
+                  <Download className="w-3 h-3" />
+                  Download
+                </a>
+              )}
+              {!readOnly && (
+                <button
+                  onClick={() => {
+                    if (isComplete) dismiss();
+                    fileInputRef.current?.click();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] text-primary font-medium border border-primary/20 hover:bg-primary/10 transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Replace
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Metadata grid — STATUS / SIZE / TYPE */}
@@ -426,10 +473,10 @@ export function VideoUpload({
       onDrop={onDrop}
       onClick={() => fileInputRef.current?.click()}
       className={`
-        rounded-lg overflow-hidden border cursor-pointer transition-all flex max-md:flex-col bg-card
+        ${embedded ? "" : "rounded-lg overflow-hidden border"} cursor-pointer transition-all flex max-md:flex-col ${embedded ? "" : "bg-card"}
         ${dragOver
-          ? "border-primary shadow-[inset_0_0_20px_hsl(var(--blue)/0.05)]"
-          : "border-dashed border-border hover:border-primary/30"
+          ? `${embedded ? "" : "border-primary"} shadow-[inset_0_0_20px_hsl(var(--blue)/0.05)]`
+          : `${embedded ? "" : "border-dashed border-border hover:border-primary/30"}`
         }
       `}
     >

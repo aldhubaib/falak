@@ -327,8 +327,13 @@ function ManualStoryWorkflow({
               </button>
             </div>
           )}
+        </>
+      )}
 
-          {/* Step 1: Upload Video */}
+      {/* ── Unified card ─────────────────────────────────────────── */}
+      <div className="rounded-lg bg-card border border-border overflow-hidden">
+        {/* Video Upload */}
+        {!hideUploadSection && (
           <VideoUpload
             storyId={storyId}
             videoR2Key={brief.videoR2Key}
@@ -339,6 +344,7 @@ function ManualStoryWorkflow({
             headline={brief.suggestedTitle ?? story.headline ?? ""}
             readOnly={isDone}
             required
+            embedded
             onUploadComplete={(data) => {
               onBriefChange((b) => ({
                 ...b,
@@ -350,287 +356,290 @@ function ManualStoryWorkflow({
               triggerBackgroundProcess();
             }}
           />
-        </>
-      )}
+        )}
 
-      {/* Step 2: Transcribe */}
-      <TranscriptSection
-        storyId={storyId}
-        brief={brief}
-        onBriefChange={onBriefChange}
-      />
-
-      {/* Step 3: Title */}
-      <div className="rounded-lg bg-card border border-border overflow-hidden">
-        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-muted-foreground font-medium">Title</span>
-          <div className="flex items-center gap-2">
-            {brief.suggestedTitle && (
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(brief.suggestedTitle!);
-                  setCopiedField("title");
-                  setTimeout(() => setCopiedField(null), 2000);
-                }}
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
-              >
-                {copiedField === "title" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
-                {copiedField === "title" ? "Copied" : "Copy"}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={generateTitle}
-              disabled={generatingTitle || isPipelineActive || !brief.transcript}
-              className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generatingTitle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-              {generatingTitle ? "Generating…" : "AI Generate"}
-            </button>
-          </div>
-        </div>
-        <div className="px-4 py-3">
-          <input
-            type="text"
-            value={brief.suggestedTitle || ""}
-            onChange={(e) => onBriefChange((b) => ({ ...b, suggestedTitle: e.target.value }))}
-            placeholder="Video title…"
-            className="w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
-            dir="auto"
+        {/* Transcript */}
+        <div className={hideUploadSection ? "" : "border-t border-border"}>
+          <TranscriptSection
+            storyId={storyId}
+            brief={brief}
+            onBriefChange={onBriefChange}
+            embedded
           />
         </div>
-      </div>
 
-      {/* Step 4: Description */}
-      <div className="rounded-lg bg-card border border-border overflow-hidden">
-        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-muted-foreground font-medium">Description</span>
-          <div className="flex items-center gap-2">
-            {brief.youtubeDescription && (
+        {/* Title */}
+        <div className="border-t border-border">
+          <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+            <span className="text-[12px] text-muted-foreground font-medium">Title</span>
+            <div className="flex items-center gap-2">
+              {brief.suggestedTitle && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(brief.suggestedTitle!);
+                    setCopiedField("title");
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
+                >
+                  {copiedField === "title" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+                  {copiedField === "title" ? "Copied" : "Copy"}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(brief.youtubeDescription!);
-                  setCopiedField("desc");
-                  setTimeout(() => setCopiedField(null), 2000);
-                }}
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
+                onClick={generateTitle}
+                disabled={generatingTitle || isPipelineActive || !brief.transcript}
+                className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {copiedField === "desc" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
-                {copiedField === "desc" ? "Copied" : "Copy"}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={generateDescription}
-              disabled={generatingDesc || isPipelineActive || !brief.transcript}
-              className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generatingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-              {generatingDesc ? "Generating…" : "AI Generate"}
-            </button>
-          </div>
-        </div>
-        <div className="px-4 py-3">
-          <textarea
-            value={brief.youtubeDescription || ""}
-            onChange={(e) => onBriefChange((b) => ({ ...b, youtubeDescription: e.target.value }))}
-            placeholder="YouTube description…"
-            rows={5}
-            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none resize-none leading-relaxed"
-            dir="auto"
-          />
-        </div>
-      </div>
-
-      {/* Step 5: Tags */}
-      <div className="rounded-lg bg-card border border-border overflow-hidden">
-        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-muted-foreground font-medium">Tags</span>
-          <div className="flex items-center gap-2">
-            {(brief.youtubeTags || []).length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText((brief.youtubeTags || []).join(", "));
-                  setCopiedField("tags");
-                  setTimeout(() => setCopiedField(null), 2000);
-                }}
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
-              >
-                {copiedField === "tags" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
-                {copiedField === "tags" ? "Copied" : "Copy"}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={generateTags}
-              disabled={generatingTags || isPipelineActive || !brief.transcript}
-              className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {generatingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-              {generatingTags ? "Generating…" : "AI Generate"}
-            </button>
-          </div>
-        </div>
-        <div className="px-4 py-3">
-          <div className="flex flex-wrap gap-1.5 min-h-[32px]">
-            {(brief.youtubeTags || []).map((tag, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-full bg-card border border-border text-muted-foreground"
-              >
-                #{tag}
-                {!isDone && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onBriefChange((b) => ({
-                        ...b,
-                        youtubeTags: (b.youtubeTags || []).filter((_, j) => j !== i),
-                      }))
-                    }
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    ×
-                  </button>
-                )}
-              </span>
-            ))}
-            {!isDone && (
-              <input
-                type="text"
-                placeholder="Add tag…"
-                className="text-[11px] bg-transparent text-foreground placeholder:text-muted-foreground/40 focus:outline-none min-w-[80px] flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    const val = (e.target as HTMLInputElement).value.replace(/^#/, "").trim();
-                    if (val) {
-                      onBriefChange((b) => ({
-                        ...b,
-                        youtubeTags: [...(b.youtubeTags || []), val],
-                      }));
-                      (e.target as HTMLInputElement).value = "";
-                    }
-                  }
-                }}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* SRT Download */}
-      {brief.subtitlesSRT && (
-        <div className="rounded-lg bg-card border border-border overflow-hidden">
-          <div className="px-4 py-3 flex items-center justify-between">
-            <span className="text-[12px] text-muted-foreground font-medium">Subtitles (SRT)</span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(brief.subtitlesSRT!).then(() => {
-                    setSrtCopied(true);
-                    setTimeout(() => setSrtCopied(false), 2000);
-                  });
-                }}
-                className="text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
-              >
-                {srtCopied ? "Copied!" : "Copy SRT"}
-              </button>
-              <button
-                type="button"
-                onClick={downloadSRT}
-                className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
-              >
-                Download .srt
+                {generatingTitle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                {generatingTitle ? "Generating…" : "AI Generate"}
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* YouTube URL + Format toggle */}
-      <div className="rounded-lg bg-card border border-border overflow-hidden">
-        <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-          <span className="text-[12px] text-muted-foreground font-medium">YouTube URL</span>
-          <div className="flex items-center gap-3">
-            {brief.youtubeUrl && (
-              <a
-                href={brief.youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
-              >
-                <ExternalLink className="w-3 h-3" /> Open
-              </a>
-            )}
-            {!isDone && (
-              <div className="inline-flex rounded-lg border border-border overflow-hidden" dir="ltr">
-                <button
-                  type="button"
-                  onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "long" }))}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    brief.videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Film className="w-3 h-3" />
-                  Long Video
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "short" }))}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border ${
-                    brief.videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <Smartphone className="w-3 h-3" />
-                  Short
-                </button>
-              </div>
-            )}
+          <div className="px-4 py-3">
+            <input
+              type="text"
+              value={brief.suggestedTitle || ""}
+              onChange={(e) => onBriefChange((b) => ({ ...b, suggestedTitle: e.target.value }))}
+              placeholder="Video title…"
+              className="w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+              dir="auto"
+            />
           </div>
         </div>
-        <div className="px-4 py-3 flex items-center gap-2">
-          <input
-            type="url"
-            value={youtubeInput}
-            onChange={(e) => setYoutubeInput(e.target.value)}
-            placeholder="https://youtube.com/watch?v=..."
-            className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={saveYoutubeUrl}
-            disabled={!youtubeInput.trim() || classifying}
-            className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {classifying ? "Classifying…" : "Save"}
-          </button>
-        </div>
-      </div>
 
-      {/* Mark Done */}
-      {story.stage !== "done" && (
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (!brief.videoFormat) { toast.error("Select video type first (Long Video or Short)"); return; }
-              onStageChange("done");
-            }}
-            disabled={saving || isPipelineActive || !brief.videoFormat}
-            className="w-full py-3 rounded-lg text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            Mark as Done
-          </button>
-          {!brief.videoFormat && (
-            <p className="text-[11px] text-orange text-center mt-2">Select video type (Long Video or Short) before marking as done</p>
-          )}
+        {/* Description */}
+        <div className="border-t border-border">
+          <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+            <span className="text-[12px] text-muted-foreground font-medium">Description</span>
+            <div className="flex items-center gap-2">
+              {brief.youtubeDescription && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(brief.youtubeDescription!);
+                    setCopiedField("desc");
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
+                >
+                  {copiedField === "desc" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+                  {copiedField === "desc" ? "Copied" : "Copy"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={generateDescription}
+                disabled={generatingDesc || isPipelineActive || !brief.transcript}
+                className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                {generatingDesc ? "Generating…" : "AI Generate"}
+              </button>
+            </div>
+          </div>
+          <div className="px-4 py-3">
+            <textarea
+              value={brief.youtubeDescription || ""}
+              onChange={(e) => onBriefChange((b) => ({ ...b, youtubeDescription: e.target.value }))}
+              placeholder="YouTube description…"
+              rows={5}
+              className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none resize-none leading-relaxed"
+              dir="auto"
+            />
+          </div>
         </div>
-      )}
+
+        {/* Tags */}
+        <div className="border-t border-border">
+          <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+            <span className="text-[12px] text-muted-foreground font-medium">Tags</span>
+            <div className="flex items-center gap-2">
+              {(brief.youtubeTags || []).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText((brief.youtubeTags || []).join(", "));
+                    setCopiedField("tags");
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
+                >
+                  {copiedField === "tags" ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+                  {copiedField === "tags" ? "Copied" : "Copy"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={generateTags}
+                disabled={generatingTags || isPipelineActive || !brief.transcript}
+                className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                {generatingTags ? "Generating…" : "AI Generate"}
+              </button>
+            </div>
+          </div>
+          <div className="px-4 py-3">
+            <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+              {(brief.youtubeTags || []).map((tag, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-full bg-card border border-border text-muted-foreground"
+                >
+                  #{tag}
+                  {!isDone && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onBriefChange((b) => ({
+                          ...b,
+                          youtubeTags: (b.youtubeTags || []).filter((_, j) => j !== i),
+                        }))
+                      }
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ×
+                    </button>
+                  )}
+                </span>
+              ))}
+              {!isDone && (
+                <input
+                  type="text"
+                  placeholder="Add tag…"
+                  className="text-[11px] bg-transparent text-foreground placeholder:text-muted-foreground/40 focus:outline-none min-w-[80px] flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      const val = (e.target as HTMLInputElement).value.replace(/^#/, "").trim();
+                      if (val) {
+                        onBriefChange((b) => ({
+                          ...b,
+                          youtubeTags: [...(b.youtubeTags || []), val],
+                        }));
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SRT Download */}
+        {brief.subtitlesSRT && (
+          <div className="border-t border-border">
+            <div className="px-4 py-3 flex items-center justify-between">
+              <span className="text-[12px] text-muted-foreground font-medium">Subtitles (SRT)</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(brief.subtitlesSRT!).then(() => {
+                      setSrtCopied(true);
+                      setTimeout(() => setSrtCopied(false), 2000);
+                    });
+                  }}
+                  className="text-[11px] text-muted-foreground hover:text-muted-foreground font-medium transition-colors"
+                >
+                  {srtCopied ? "Copied!" : "Copy SRT"}
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadSRT}
+                  className="text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  Download .srt
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* YouTube URL + Format toggle */}
+        <div className="border-t border-border">
+          <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+            <span className="text-[12px] text-muted-foreground font-medium">YouTube URL</span>
+            <div className="flex items-center gap-3">
+              {brief.youtubeUrl && (
+                <a
+                  href={brief.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" /> Open
+                </a>
+              )}
+              {!isDone && (
+                <div className="inline-flex rounded-lg border border-border overflow-hidden" dir="ltr">
+                  <button
+                    type="button"
+                    onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "long" }))}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      brief.videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Film className="w-3 h-3" />
+                    Long Video
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "short" }))}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border ${
+                      brief.videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Smartphone className="w-3 h-3" />
+                    Short
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="px-4 py-3 flex items-center gap-2">
+            <input
+              type="url"
+              value={youtubeInput}
+              onChange={(e) => setYoutubeInput(e.target.value)}
+              placeholder="https://youtube.com/watch?v=..."
+              className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={saveYoutubeUrl}
+              disabled={!youtubeInput.trim() || classifying}
+              className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {classifying ? "Classifying…" : "Save"}
+            </button>
+          </div>
+        </div>
+
+        {/* Mark Done */}
+        {story.stage !== "done" && (
+          <div className="border-t border-border px-4 py-4">
+            <button
+              type="button"
+              onClick={() => {
+                if (!brief.videoFormat) { toast.error("Select video type first (Long Video or Short)"); return; }
+                onStageChange("done");
+              }}
+              disabled={saving || isPipelineActive || !brief.videoFormat}
+              className="w-full py-3 rounded-lg text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              Mark as Done
+            </button>
+            {!brief.videoFormat && (
+              <p className="text-[11px] text-orange text-center mt-2">Select video type (Long Video or Short) before marking as done</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1219,24 +1228,6 @@ export default function StoryDetail() {
               />
             )}
 
-            <StoryDetailResearch
-              research={brief.research}
-              researchOpen={researchOpen}
-              onResearchOpenChange={setResearchOpen}
-              storyId={id}
-              sourceUrl={story?.sourceUrl}
-              onDataRefresh={async () => {
-                const res = await fetch(`/api/stories/${id}`, { credentials: "include" });
-                if (res.ok) {
-                  const data = await res.json();
-                  setStory(data as StoryWithLog);
-                  const b = data.brief && typeof data.brief === "object" ? data.brief as StoryBrief : {};
-                  setBrief(b);
-                }
-              }}
-            />
-
-
           {/* Stage-specific content */}
           <div className="space-y-5">
 
@@ -1462,6 +1453,23 @@ export default function StoryDetail() {
               </>
             )}
           </div>
+
+            <StoryDetailResearch
+              research={brief.research}
+              researchOpen={researchOpen}
+              onResearchOpenChange={setResearchOpen}
+              storyId={id}
+              sourceUrl={story?.sourceUrl}
+              onDataRefresh={async () => {
+                const res = await fetch(`/api/stories/${id}`, { credentials: "include" });
+                if (res.ok) {
+                  const data = await res.json();
+                  setStory(data as StoryWithLog);
+                  const b = data.brief && typeof data.brief === "object" ? data.brief as StoryBrief : {};
+                  setBrief(b);
+                }
+              }}
+            />
             </>
             )}
         </div>

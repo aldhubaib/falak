@@ -7,6 +7,7 @@ export interface TranscriptSectionProps {
   storyId: string;
   brief: StoryBrief;
   onBriefChange: (updater: (prev: StoryBrief) => StoryBrief) => void;
+  embedded?: boolean;
 }
 
 function fmtTime(seconds: number): string {
@@ -15,7 +16,7 @@ function fmtTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptSectionProps) {
+export function TranscriptSection({ storyId, brief, onBriefChange, embedded }: TranscriptSectionProps) {
   const [transcribing, setTranscribing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(true);
@@ -65,7 +66,7 @@ export function TranscriptSection({ storyId, brief, onBriefChange }: TranscriptS
   };
 
   return (
-    <div className="rounded-lg bg-card border border-border overflow-hidden">
+    <div className={embedded ? "" : "rounded-lg bg-card border border-border overflow-hidden"}>
       <div className="px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Mic className="w-3.5 h-3.5 text-muted-foreground" />

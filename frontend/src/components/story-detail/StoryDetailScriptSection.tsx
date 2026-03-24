@@ -108,14 +108,6 @@ export function StoryDetailScriptSection({
           </div>
         </div>
       )}
-      {!showGenerateControls && videoFormat && (
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Format</span>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-            {videoFormat === "short" ? "Short" : "Long Video"}
-          </span>
-        </div>
-      )}
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-[12px] text-muted-foreground font-medium">Script</span>
