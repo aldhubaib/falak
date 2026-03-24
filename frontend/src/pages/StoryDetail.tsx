@@ -110,6 +110,7 @@ function ManualStoryWorkflow({
   saving,
   onBriefChange,
   onStageChange,
+  hideUploadSection = false,
 }: {
   story: StoryWithLog;
   brief: StoryBrief;
@@ -117,6 +118,7 @@ function ManualStoryWorkflow({
   saving: boolean;
   onBriefChange: (updater: (prev: StoryBrief) => StoryBrief) => void;
   onStageChange: (stage: Stage) => void;
+  hideUploadSection?: boolean;
 }) {
   const [generatingTitle, setGeneratingTitle] = useState(false);
   const [generatingDesc, setGeneratingDesc] = useState(false);
@@ -252,104 +254,108 @@ function ManualStoryWorkflow({
 
   return (
     <div className="space-y-5">
-      {/* Manual badge */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">
-          Manual Video
-        </span>
-        {brief.videoFormat && (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-            {brief.videoFormat === "short" ? "Short" : "Long Video"}
-          </span>
-        )}
-      </div>
-
-      {/* Auto-processing progress banner */}
-      {isPipelineActive && (
-        <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-3">
+      {!hideUploadSection && (
+        <>
+          {/* Manual badge */}
           <div className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            <span className="text-[13px] font-semibold text-primary">Processing video in background…</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">
+              Manual Video
+            </span>
+            {brief.videoFormat && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary">
+                {brief.videoFormat === "short" ? "Short" : "Long Video"}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1">
-            {PIPELINE_STEPS.map((step, i) => {
-              const isComplete = step.briefKey ? !!brief[step.briefKey] : false;
-              const isActive = !isComplete && (
-                (step.key === "transcribing" && pipelineStep === "transcribing") ||
-                (step.key === "generating" && pipelineStep === "generating")
-              );
-              return (
-                <div key={`${step.label}-${i}`} className="flex items-center gap-1 flex-1">
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
-                    isActive
-                      ? "bg-primary/15 text-primary"
-                      : isComplete
-                        ? "bg-success/15 text-success"
-                        : "bg-card text-muted-foreground"
-                  }`}>
-                    {isActive && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                    {isComplete && <span className="text-success">✓</span>}
-                    <span className="truncate">{step.label}</span>
-                  </div>
-                  {i < PIPELINE_STEPS.length - 1 && (
-                    <div className={`h-px flex-1 min-w-2 ${isComplete ? "bg-success/30" : "bg-border"}`} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
-      {pipelineStep === "done" && (
-        <div className="rounded-lg bg-success/5 border border-success/20 px-4 py-3 flex items-center gap-2">
-          <span className="text-success text-[14px]">✓</span>
-          <span className="text-[13px] font-medium text-success">All metadata generated automatically</span>
-        </div>
-      )}
+          {/* Auto-processing progress banner */}
+          {isPipelineActive && (
+            <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-[13px] font-semibold text-primary">Processing video in background…</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {PIPELINE_STEPS.map((step, i) => {
+                  const isComplete = step.briefKey ? !!brief[step.briefKey] : false;
+                  const isActive = !isComplete && (
+                    (step.key === "transcribing" && pipelineStep === "transcribing") ||
+                    (step.key === "generating" && pipelineStep === "generating")
+                  );
+                  return (
+                    <div key={`${step.label}-${i}`} className="flex items-center gap-1 flex-1">
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
+                        isActive
+                          ? "bg-primary/15 text-primary"
+                          : isComplete
+                            ? "bg-success/15 text-success"
+                            : "bg-card text-muted-foreground"
+                      }`}>
+                        {isActive && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                        {isComplete && <span className="text-success">✓</span>}
+                        <span className="truncate">{step.label}</span>
+                      </div>
+                      {i < PIPELINE_STEPS.length - 1 && (
+                        <div className={`h-px flex-1 min-w-2 ${isComplete ? "bg-success/30" : "bg-border"}`} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-      {pipelineStep === "error" && (
-        <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-4 py-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-destructive text-[14px]">✕</span>
-            <span className="text-[13px] font-medium text-destructive">Auto-processing failed</span>
-          </div>
-          {pipelineError && <p className="text-[11px] text-destructive/80 ml-5">{pipelineError}</p>}
-          <button
-            type="button"
-            onClick={triggerBackgroundProcess}
-            className="ml-5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+          {pipelineStep === "done" && (
+            <div className="rounded-lg bg-success/5 border border-success/20 px-4 py-3 flex items-center gap-2">
+              <span className="text-success text-[14px]">✓</span>
+              <span className="text-[13px] font-medium text-success">All metadata generated automatically</span>
+            </div>
+          )}
 
-      {/* Step 1: Upload Video */}
-      <VideoUpload
-        storyId={storyId}
-        videoR2Key={brief.videoR2Key}
-        videoFileName={brief.videoFileName}
-        videoFileSize={brief.videoFileSize}
-        videoThumbnailR2Url={brief.videoThumbnailR2Url}
-        videoFormat={(brief.videoFormat as "short" | "long") || "long"}
-        headline={brief.suggestedTitle ?? story.headline ?? ""}
-        readOnly={isDone}
-        required
-        onVideoFormatChange={isDone ? undefined : (fmt) => {
-          onBriefChange((b) => ({ ...b, videoFormat: fmt }));
-        }}
-        onUploadComplete={(data) => {
-          onBriefChange((b) => ({
-            ...b,
-            videoR2Key: data.videoR2Key,
-            videoR2Url: data.videoR2Url,
-            videoFileName: data.videoFileName,
-            videoFileSize: data.videoFileSize,
-          }));
-          triggerBackgroundProcess();
-        }}
-      />
+          {pipelineStep === "error" && (
+            <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-4 py-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-destructive text-[14px]">✕</span>
+                <span className="text-[13px] font-medium text-destructive">Auto-processing failed</span>
+              </div>
+              {pipelineError && <p className="text-[11px] text-destructive/80 ml-5">{pipelineError}</p>}
+              <button
+                type="button"
+                onClick={triggerBackgroundProcess}
+                className="ml-5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Step 1: Upload Video */}
+          <VideoUpload
+            storyId={storyId}
+            videoR2Key={brief.videoR2Key}
+            videoFileName={brief.videoFileName}
+            videoFileSize={brief.videoFileSize}
+            videoThumbnailR2Url={brief.videoThumbnailR2Url}
+            videoFormat={(brief.videoFormat as "short" | "long") || "long"}
+            headline={brief.suggestedTitle ?? story.headline ?? ""}
+            readOnly={isDone}
+            required
+            onVideoFormatChange={isDone ? undefined : (fmt) => {
+              onBriefChange((b) => ({ ...b, videoFormat: fmt }));
+            }}
+            onUploadComplete={(data) => {
+              onBriefChange((b) => ({
+                ...b,
+                videoR2Key: data.videoR2Key,
+                videoR2Url: data.videoR2Url,
+                videoFileName: data.videoFileName,
+                videoFileSize: data.videoFileSize,
+              }));
+              triggerBackgroundProcess();
+            }}
+          />
+        </>
+      )}
 
       {/* Step 2: Transcribe */}
       <TranscriptSection
@@ -1253,48 +1259,23 @@ export default function StoryDetail() {
               />
             )}
 
-            {/* ── PUBLISH (title, description, tags, thumbnail, visibility) ───────── */}
+            {/* ── PUBLISH (transcript, title, description, tags, srt, youtube url, mark done) ───────── */}
             {activeStage === "publish" && id && (
-              <>
-                <StoryDetailStagePublish
-                  brief={brief}
-                  storyId={id}
-                  saving={saving}
-                  videoFormat={brief.videoFormat || "long"}
-                  onVideoFormatChange={(fmt) => {
-                    const defaultDuration = fmt === "short" ? 1 : 3;
-                    setScriptDurationMinutes(defaultDuration);
-                    setBrief((b) => {
-                      const next: StoryBrief = { ...b, videoFormat: fmt, scriptDuration: defaultDuration };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
-                  onBriefChange={(updater) => {
-                    setBrief((b) => {
-                      const next = updater(b);
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
-                />
-                <StoryDetailScriptSection
-                  key={`script-${id}`}
-                  scriptDuration={scriptDurationMinutes}
-                  onScriptDurationChange={() => {}}
-                  canGenerate={false}
-                  generating={false}
-                  onGenerate={async () => {}}
-                  readOnly
-                  showGenerateControls={false}
-                  scriptValue={scriptValue}
-                  saving={false}
-                  scriptRef={scriptEditorRef}
-                  videoFormat={brief.videoFormat || "long"}
-                  channelAvatarUrl={channelInfo?.avatarUrl}
-                  channelName={channelInfo?.name}
-                />
-              </>
+              <ManualStoryWorkflow
+                story={story}
+                brief={brief}
+                storyId={id}
+                saving={saving}
+                hideUploadSection
+                onBriefChange={(updater) => {
+                  setBrief((b) => {
+                    const next = updater(b);
+                    if (id) saveScript(id, next);
+                    return next;
+                  });
+                }}
+                onStageChange={(stage) => moveToStage(stage)}
+              />
             )}
 
             {/* ── DONE ──────────────────────────────────────────────────── */}
