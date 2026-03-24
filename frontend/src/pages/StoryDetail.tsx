@@ -1283,6 +1283,22 @@ export default function StoryDetail() {
             {/* ── FILMED: script (read-only) + publish workflow when video exists ───────── */}
             {activeStage === "filmed" && id && (
               <>
+                {brief.videoR2Key && (
+                  <ManualStoryWorkflow
+                    story={story}
+                    brief={brief}
+                    storyId={id}
+                    saving={saving}
+                    onBriefChange={(updater) => {
+                      setBrief((b) => {
+                        const next = updater(b);
+                        if (id) saveScript(id, next);
+                        return next;
+                      });
+                    }}
+                    onStageChange={(stage) => moveToStage(stage)}
+                  />
+                )}
                 <StoryDetailScriptSection
                   key={id}
                   scriptDuration={scriptDurationMinutes}
@@ -1306,22 +1322,6 @@ export default function StoryDetail() {
                   channelAvatarUrl={channelInfo?.avatarUrl}
                   channelName={channelInfo?.name}
                 />
-                {brief.videoR2Key && (
-                  <ManualStoryWorkflow
-                    story={story}
-                    brief={brief}
-                    storyId={id}
-                    saving={saving}
-                    onBriefChange={(updater) => {
-                      setBrief((b) => {
-                        const next = updater(b);
-                        if (id) saveScript(id, next);
-                        return next;
-                      });
-                    }}
-                    onStageChange={(stage) => moveToStage(stage)}
-                  />
-                )}
               </>
             )}
 
