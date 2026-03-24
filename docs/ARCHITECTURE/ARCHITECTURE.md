@@ -336,7 +336,7 @@ A YouTube comment fetched from the video, with AI-assigned sentiment.
 #### Story
 
 An AI-generated or manually created story idea. Flows through stages from
-`suggestion` → `liked` → `scripting` → `filmed` → `publish` → `done`. Can also
+`suggestion` → `liked` → `scripting` → `filmed` → `done`. Can also
 be `skip` or `trash` (negative decisions used for learning), or `filtered`
 (automatically filtered out by the article pipeline threshold gate).
 
@@ -883,7 +883,7 @@ video content. Each entry belongs to a `TrendingSnapshot`.
 | GET | `/api/stories/summary` | Yes | Stage counts and first-mover stats. | — |
 | GET | `/api/stories/:id` | Yes | Single story with full log history. Research images merged from linked article's analysis. | — |
 | POST | `/api/stories` | editor+ | Create a story. | — |
-| POST | `/api/stories/manual` | editor+ | Create manual story in "publish" stage. | — |
+| POST | `/api/stories/manual` | editor+ | Create manual story in "filmed" stage. | — |
 | POST | `/api/stories/:id/process` | editor+ | Kick off background AI processing (transcribe → title → description + tags in parallel). Returns immediately. | Updates `brief.processingStatus` |
 | PATCH | `/api/stories/:id` | editor+ | Update story (stage change triggers learning). | StoryLog, refreshPreferenceProfile, learnFromDecisions |
 | DELETE | `/api/stories/:id` | admin+ | Delete a story. | — |
