@@ -12,8 +12,6 @@ import {
   Clock,
   Calendar,
   Zap,
-  Film,
-  Smartphone,
 } from "lucide-react";
 
 interface VideoUploadProps {
@@ -27,7 +25,6 @@ interface VideoUploadProps {
   readOnly?: boolean;
   required?: boolean;
   onUploadComplete?: (data: { videoR2Key: string; videoR2Url: string; videoFileName: string; videoFileSize: number }) => void;
-  onVideoFormatChange?: (format: "short" | "long") => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -68,7 +65,6 @@ export function VideoUpload({
   readOnly,
   required,
   onUploadComplete,
-  onVideoFormatChange,
 }: VideoUploadProps) {
   const { task, upload, abort, dismiss } = useStoryUpload(storyId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -383,31 +379,6 @@ export function VideoUpload({
             )}
           </div>
 
-          {onVideoFormatChange && (
-            <div className="inline-flex rounded-lg border border-border overflow-hidden self-end" dir="ltr">
-              <button
-                type="button"
-                onClick={() => onVideoFormatChange("long")}
-                className={`flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                  videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Film className="w-3 h-3" />
-                Long Video
-              </button>
-              <button
-                type="button"
-                onClick={() => onVideoFormatChange("short")}
-                className={`flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium transition-colors border-l border-border ${
-                  videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Smartphone className="w-3 h-3" />
-                Short
-              </button>
-            </div>
-          )}
-
           {/* Metadata grid — STATUS / SIZE / TYPE */}
           <div className="flex items-center gap-0 mt-auto ml-auto">
             <div className="px-3 py-2">
@@ -493,31 +464,6 @@ export function VideoUpload({
             Drag & drop or click to select — MP4, WebM, MOV, AVI, MKV
           </p>
         </div>
-
-        {onVideoFormatChange && (
-          <div className="inline-flex rounded-lg border border-border overflow-hidden self-end" dir="ltr">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onVideoFormatChange("long"); }}
-              className={`flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Film className="w-3 h-3" />
-              Long Video
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onVideoFormatChange("short"); }}
-              className={`flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium transition-colors border-l border-border ${
-                videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Smartphone className="w-3 h-3" />
-              Short
-            </button>
-          </div>
-        )}
 
         {/* Metadata grid — STATUS / TYPE / REQUIRED */}
         <div className="flex items-center gap-0 mt-auto ml-auto">

@@ -4,6 +4,7 @@ import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil, X, Copy, Check, History,
+  Film, Smartphone,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
@@ -338,9 +339,6 @@ function ManualStoryWorkflow({
             headline={brief.suggestedTitle ?? story.headline ?? ""}
             readOnly={isDone}
             required
-            onVideoFormatChange={isDone ? undefined : (fmt) => {
-              onBriefChange((b) => ({ ...b, videoFormat: fmt }));
-            }}
             onUploadComplete={(data) => {
               onBriefChange((b) => ({
                 ...b,
@@ -554,20 +552,46 @@ function ManualStoryWorkflow({
         </div>
       )}
 
-      {/* YouTube URL */}
+      {/* YouTube URL + Format toggle */}
       <div className="rounded-lg bg-card border border-border overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
           <span className="text-[12px] text-muted-foreground font-medium">YouTube URL</span>
-          {brief.youtubeUrl && (
-            <a
-              href={brief.youtubeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" /> Open
-            </a>
-          )}
+          <div className="flex items-center gap-3">
+            {brief.youtubeUrl && (
+              <a
+                href={brief.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+              >
+                <ExternalLink className="w-3 h-3" /> Open
+              </a>
+            )}
+            {!isDone && (
+              <div className="inline-flex rounded-lg border border-border overflow-hidden" dir="ltr">
+                <button
+                  type="button"
+                  onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "long" }))}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    brief.videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Film className="w-3 h-3" />
+                  Long Video
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "short" }))}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border ${
+                    brief.videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Smartphone className="w-3 h-3" />
+                  Short
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="px-4 py-3 flex items-center gap-2">
           <input
@@ -593,12 +617,18 @@ function ManualStoryWorkflow({
         <div className="pt-2">
           <button
             type="button"
-            onClick={() => onStageChange("done")}
-            disabled={saving || isPipelineActive}
+            onClick={() => {
+              if (!brief.videoFormat) { toast.error("Select video type first (Long Video or Short)"); return; }
+              onStageChange("done");
+            }}
+            disabled={saving || isPipelineActive || !brief.videoFormat}
             className="w-full py-3 rounded-lg text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             Mark as Done
           </button>
+          {!brief.videoFormat && (
+            <p className="text-[11px] text-orange text-center mt-2">Select video type (Long Video or Short) before marking as done</p>
+          )}
         </div>
       )}
     </div>
@@ -1072,13 +1102,6 @@ export default function StoryDetail() {
                 headline={brief.articleTitle ?? story.headline ?? ""}
                 readOnly={activeStage === "done"}
                 required={activeStage === "filmed"}
-                onVideoFormatChange={activeStage !== "done" ? (fmt) => {
-                  setBrief((b) => {
-                    const next = { ...b, videoFormat: fmt };
-                    if (id) saveScript(id, next);
-                    return next;
-                  });
-                } : undefined}
                 onUploadComplete={(data) => {
                   setBrief((b) => {
                     const next = {
