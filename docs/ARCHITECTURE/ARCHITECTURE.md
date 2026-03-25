@@ -870,7 +870,7 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | GET | `/api/channels` | Yes | List channels (cursor pagination). `?parentChannelId=&limit=&cursor=` | — |
 | GET | `/api/channels/:id` | Yes | Single channel with stats and deltas from latest snapshot. | — |
 | GET | `/api/channels/:id/videos` | Yes | Videos for a channel (offset pagination) with pipeline status. | — |
-| GET | `/api/channels/:id/publish-not-done` | Yes | Count of manual stories not yet done. | — |
+| GET | `/api/channels/:id/publish-not-done` | Yes | Count of stories with uploaded video not yet done (any origin). | — |
 | POST | `/api/channels` | editor+ | Add channel by handle/URL. | YouTube API → creates Channel + Videos + PipelineItems, enqueues jobs |
 | POST | `/api/channels/:id/refresh` | editor+ | Re-fetch channel metadata and create snapshot. | YouTube API → updates Channel, creates ChannelSnapshot |
 | POST | `/api/channels/:id/fetch-videos` | editor+ | Pull latest videos from YouTube. | YouTube API → upserts Videos + PipelineItems, enqueues jobs |
@@ -2420,4 +2420,29 @@ Apify per-run fetch, YouTube channel fetch). All re-throw non-retryable
 
 ---
 
-*Last updated: 2026-03-23*
+## Section 21 — Unified Publish Status (2026-03-26)
+
+### Problem
+Manual uploads and AI-pipeline stories tracked status differently.
+- Dashboard "Ready to Publish" only counted `origin: 'manual'` stories, so pipeline stories with uploaded videos showed 0.
+- PublishQueue had 5 filter tabs (All / In Progress / Stalled / Ready / Done) that didn't match the two real states: video uploaded vs. published.
+- The "stalled" state caused confusion (showing "Upload never completed" for videos that were actually uploaded).
+
+### Changes
+
+#### Backend — `GET /api/channels/:id/publish-not-done`
+- Removed `origin: 'manual'` filter.
+- Now uses raw SQL to count **all** stories where `brief->>'videoR2Key'` exists, `stage != 'done'`, and no `brief->>'youtubeUrl'`.
+- Dashboard count now reflects both manual and pipeline stories with uploaded videos.
+
+#### Frontend — `PublishQueue.tsx`
+- Simplified `ProcessingStep` type: removed `stalled` and `ready`, added `uploaded`.
+- `deriveStep()` now returns: `uploading` → `processing` → `uploaded` → `done` (with `error` branch).
+- Filter tabs reduced from 5 to 3: **All / Uploaded / Done**.
+- Stats row simplified to: Total / Uploaded / Done.
+- Removed "Upload never completed" stalled message and stalled action buttons.
+- Cancelled uploads now show as `error` (with retry/re-upload options) instead of `stalled`.
+
+---
+
+*Last updated: 2026-03-26*
