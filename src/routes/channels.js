@@ -127,17 +127,19 @@ router.get('/:id/videos', asyncWrap(async (req, res) => {
   res.json({ videos, total, hasMore: offset + videos.length < total })
 }))
 
-// ── GET /api/channels/:id/publish-not-done — count manual stories not yet done
+// ── GET /api/channels/:id/publish-not-done — count stories with uploaded video not yet done
 router.get('/:id/publish-not-done', asyncWrap(async (req, res) => {
   const channelId = req.params.id
-  const count = await db.story.count({
-    where: {
-      channelId,
-      origin: 'manual',
-      stage: { not: 'done' },
-    },
-  })
-  res.json({ count })
+  const result = await db.$queryRaw`
+    SELECT COUNT(*)::int as count
+    FROM "Story"
+    WHERE "channelId" = ${channelId}
+      AND brief->>'videoR2Key' IS NOT NULL
+      AND brief->>'videoR2Key' != ''
+      AND stage != 'done'
+      AND (brief->>'youtubeUrl' IS NULL OR brief->>'youtubeUrl' = '')
+  `
+  res.json({ count: result[0]?.count ?? 0 })
 }))
 
 // Helper: fetch recent videos from YouTube and create pipeline items for a channel (used on add + manual sync)
