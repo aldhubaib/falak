@@ -834,11 +834,23 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
     }
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
     const title = brief.suggestedTitle || story.headline || ''
-    const script = brief.transcript || brief.script || ''
     const hook = brief.openingHook || ''
     const hookEnd = brief.hookEnd || ''
     const tags = Array.isArray(brief.youtubeTags) ? brief.youtubeTags : []
     const isShort = brief.videoFormat === 'short'
+
+    // Build a timestamped transcript if segments are available, otherwise fall back to plain text
+    const segments = Array.isArray(brief.transcriptSegments) ? brief.transcriptSegments : []
+    let script = ''
+    if (segments.length > 0) {
+      script = segments.map(s => {
+        const m = Math.floor((s.start || 0) / 60)
+        const sec = Math.floor((s.start || 0) % 60)
+        return `${m}:${String(sec).padStart(2, '0')} ${s.text}`
+      }).join('\n')
+    } else {
+      script = brief.transcript || brief.script || ''
+    }
 
     if (!script && !title) {
       return res.status(400).json({ error: 'No transcript or title available. Transcribe the video first.' })
@@ -848,18 +860,19 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
 
     const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.
 
-Given a video title, transcript, and tags, create an optimized YouTube description in Arabic.
+Given a video title, timestamped transcript, and tags, create an optimized YouTube description in Arabic.
 
 Rules:
-- Start with 1-2 compelling sentences summarizing the video (this appears in search results)
-${isShort ? '- Keep it short (3-5 lines max). Shorts descriptions should be concise.' : `- Include timestamps/chapters derived from the transcript timestamps (format: 0:00 Title)
-- Add a "Follow us" / subscribe call-to-action section`}
-- End with hashtags from the provided tags (format: #tag1 #tag2)
+- Start with 1-2 compelling sentences that hook the viewer (this appears in search results). Use an emoji or two.
+${isShort ? '- Keep it short (3-5 lines max). Shorts descriptions should be concise.' : `- Add a "---" separator, then a 📌 **محتوى الفيديو:** section with timestamps/chapters (format: 0:00 Title). Group nearby transcript segments into meaningful chapters (6-10 chapters for a typical video). Use the timestamps from the transcript.
+- Add another "---" separator, then a subscribe/like call-to-action section with 🔔 and 👍 emojis.`}
+- End with a "---" separator, then hashtags from the provided tags (format: #tag1 #tag2)
 - Output ONLY the description text. No explanations or meta-text.`
 
     const userMessage = `Title: ${title}
 ${hook ? `Opening Hook: ${hook}` : ''}
-Transcript: ${script.slice(0, 15000)}
+Timestamped Transcript:
+${script.slice(0, 15000)}
 ${hookEnd ? `Outro: ${hookEnd}` : ''}
 Tags: ${tags.join(', ')}`
 

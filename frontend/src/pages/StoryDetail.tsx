@@ -122,6 +122,7 @@ function ManualStoryWorkflow({
   const [generatingTitle, setGeneratingTitle] = useState(false);
   const [generatingDesc, setGeneratingDesc] = useState(false);
   const [generatingTags, setGeneratingTags] = useState(false);
+  const [generatingAll, setGeneratingAll] = useState(false);
   const [classifying, setClassifying] = useState(false);
   const [srtCopied, setSrtCopied] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -214,6 +215,36 @@ function ManualStoryWorkflow({
     }
   };
 
+  const generateAll = async () => {
+    setGeneratingAll(true);
+    toast.info("Generating title, description & tags…");
+    try {
+      const [titleRes, descRes, tagsRes] = await Promise.allSettled([
+        fetch(`/api/stories/${storyId}/generate-title`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
+        fetch(`/api/stories/${storyId}/generate-description`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
+        fetch(`/api/stories/${storyId}/suggest-tags`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
+      ]);
+      onBriefChange((b) => {
+        const next = { ...b };
+        if (titleRes.status === "fulfilled" && titleRes.value?.title) next.suggestedTitle = titleRes.value.title;
+        if (descRes.status === "fulfilled" && descRes.value?.description) next.youtubeDescription = descRes.value.description;
+        if (tagsRes.status === "fulfilled") {
+          const tags = tagsRes.value?.tags || tagsRes.value?.brief?.youtubeTags || [];
+          if (tags.length) next.youtubeTags = tags;
+        }
+        return next;
+      });
+      const ok = [titleRes, descRes, tagsRes].filter(r => r.status === "fulfilled" && r.value).length;
+      if (ok === 3) toast.success("All metadata generated");
+      else if (ok > 0) toast.success(`Generated ${ok}/3 fields`);
+      else toast.error("Generation failed");
+    } catch {
+      toast.error("Generation failed");
+    } finally {
+      setGeneratingAll(false);
+    }
+  };
+
   const saveYoutubeUrl = async () => {
     const url = youtubeInput.trim();
     if (!url) return;
@@ -255,11 +286,13 @@ function ManualStoryWorkflow({
     <div className="space-y-5">
       {!hideUploadSection && (
         <>
-          {/* Manual badge */}
+          {/* Origin + format badges */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">
-              Manual Video
-            </span>
+            {story.origin === "manual" && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">
+                Manual Video
+              </span>
+            )}
             {brief.videoFormat && (
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-primary/15 text-primary">
                 {brief.videoFormat === "short" ? "Short" : "Long Video"}
@@ -367,6 +400,21 @@ function ManualStoryWorkflow({
             embedded
           />
         </div>
+
+        {/* Generate All */}
+        {brief.transcript && !isDone && (
+          <div className="border-t border-border px-4 py-3">
+            <button
+              type="button"
+              onClick={generateAll}
+              disabled={generatingAll || isPipelineActive}
+              className="w-full py-2.5 rounded-lg text-[13px] font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {generatingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              {generatingAll ? "Generating All…" : "Generate Title, Description & Tags"}
+            </button>
+          </div>
+        )}
 
         {/* Title */}
         <div className="border-t border-border">
@@ -1141,7 +1189,7 @@ export default function StoryDetail() {
               />
             ) : (
             <>
-            {((activeStage === "filmed" && !brief.videoR2Key) || activeStage === "done") && (
+            {(activeStage === "filmed" && !brief.videoR2Key) && (
               <VideoUpload
                 storyId={id}
                 videoR2Key={brief.videoR2Key}
@@ -1325,29 +1373,40 @@ export default function StoryDetail() {
               </>
             )}
 
-            {/* ── DONE (read-only script) ───────── */}
-            {activeStage === "done" && (
-              <StoryDetailScriptSection
-                key={id}
-                scriptDuration={scriptDurationMinutes}
-                onScriptDurationChange={() => {}}
-                canGenerate={false}
-                generating={false}
-                onGenerate={async () => {}}
-                readOnly
-                showGenerateControls={false}
-                scriptValue={scriptValue}
-                saving={false}
-                scriptRef={scriptEditorRef}
-                videoFormat={brief.videoFormat || "long"}
-                channelAvatarUrl={channelInfo?.avatarUrl}
-                channelName={channelInfo?.name}
-              />
-            )}
-
             {/* ── DONE ──────────────────────────────────────────────────── */}
             {activeStage === "done" && (
               <>
+                <ManualStoryWorkflow
+                  story={story}
+                  brief={brief}
+                  storyId={id!}
+                  saving={saving}
+                  onBriefChange={(updater) => {
+                    setBrief((b) => {
+                      const next = updater(b);
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
+                  onStageChange={(stage) => moveToStage(stage)}
+                />
+                <StoryDetailScriptSection
+                  key={id}
+                  scriptDuration={scriptDurationMinutes}
+                  onScriptDurationChange={() => {}}
+                  canGenerate={false}
+                  generating={false}
+                  onGenerate={async () => {}}
+                  readOnly
+                  showGenerateControls={false}
+                  scriptValue={scriptValue}
+                  saving={false}
+                  scriptRef={scriptEditorRef}
+                  videoFormat={brief.videoFormat || "long"}
+                  channelAvatarUrl={channelInfo?.avatarUrl}
+                  channelName={channelInfo?.name}
+                />
+
                 {brief.gapWin && (
                   <div className="rounded-lg bg-success/10 border border-success/20 px-5 py-4 flex items-center gap-3">
                     <Trophy className="w-5 h-5 text-success shrink-0" />
@@ -1401,92 +1460,6 @@ export default function StoryDetail() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-card border border-border overflow-hidden">
-                  <div className="border-t border-border">
-                    <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
-                      <span className="text-[12px] text-muted-foreground font-medium">YouTube URL</span>
-                      <div className="flex items-center gap-3">
-                        {brief.youtubeUrl && !editingYoutubeUrl && (
-                          <a
-                            href={brief.youtubeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" /> Open
-                          </a>
-                        )}
-                        <div className="inline-flex rounded-lg border border-border overflow-hidden" dir="ltr">
-                          <button
-                            type="button"
-                            disabled
-                            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                              brief.videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground"
-                            }`}
-                          >
-                            <Film className="w-3 h-3" />
-                            Long Video
-                          </button>
-                          <button
-                            type="button"
-                            disabled
-                            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border ${
-                              brief.videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground"
-                            }`}
-                          >
-                            <Smartphone className="w-3 h-3" />
-                            Short
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="px-4 py-3 flex items-center gap-2">
-                      {editingYoutubeUrl ? (
-                        <>
-                          <input
-                            type="url"
-                            value={youtubeInput}
-                            onChange={(e) => setYoutubeInput(e.target.value)}
-                            placeholder="https://youtube.com/watch?v=..."
-                            className="flex-1 bg-transparent text-[13px] font-mono text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={saveYoutubeUrlDone}
-                            disabled={!youtubeInput.trim() || savingYoutubeUrl}
-                            className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-                          >
-                            {savingYoutubeUrl ? "Saving…" : "Save"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setYoutubeInput(brief.youtubeUrl || "");
-                              setEditingYoutubeUrl(false);
-                            }}
-                            className="px-3 py-1.5 rounded-full text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <span className="flex-1 text-[13px] font-mono text-muted-foreground truncate">
-                            {brief.youtubeUrl || "No URL set"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setEditingYoutubeUrl(true)}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Pencil className="w-3 h-3" /> Edit
-                          </button>
-                        </>
-                      )}
-                    </div>
                   </div>
                 </div>
 

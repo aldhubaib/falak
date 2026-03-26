@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2, Mic, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Loader2, Mic, Copy, Check, ChevronDown, ChevronUp, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import type { StoryBrief } from "./types";
 
@@ -20,11 +20,35 @@ export function TranscriptSection({ storyId, brief, onBriefChange, embedded }: T
   const [transcribing, setTranscribing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [editedSegments, setEditedSegments] = useState<Record<number, string>>({});
+  const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasTranscript = !!brief.transcript;
   const segments = brief.transcriptSegments || [];
   const wordCount = brief.transcript ? brief.transcript.split(/\s+/).filter(Boolean).length : 0;
   const charCount = brief.transcript?.length || 0;
+
+  const handleSegmentEdit = useCallback((index: number, newText: string) => {
+    setEditedSegments((prev) => ({ ...prev, [index]: newText }));
+
+    if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current);
+    pendingSaveRef.current = setTimeout(() => {
+      pendingSaveRef.current = null;
+      setEditedSegments((current) => {
+        onBriefChange((b) => {
+          const segs = [...(b.transcriptSegments || [])];
+          for (const [i, text] of Object.entries(current)) {
+            const idx = Number(i);
+            if (segs[idx]) segs[idx] = { ...segs[idx], text };
+          }
+          const fullText = segs.map((s) => s.text).join(" ");
+          return { ...b, transcriptSegments: segs, transcript: fullText };
+        });
+        return current;
+      });
+    }, 600);
+  }, [onBriefChange]);
 
   const handleTranscribe = async () => {
     if (transcribing) return;
@@ -93,6 +117,29 @@ export function TranscriptSection({ storyId, brief, onBriefChange, embedded }: T
                 {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
                 {copied ? "Copied" : "Copy"}
               </button>
+              {segments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editing) {
+                      setEditing(false);
+                      setEditedSegments({});
+                      toast.success("Transcript corrections saved");
+                    } else {
+                      setEditing(true);
+                      setExpanded(true);
+                    }
+                  }}
+                  className={`flex items-center gap-1 text-[11px] font-medium transition-colors ${
+                    editing
+                      ? "text-success hover:text-success/80"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {editing ? <Check className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                  {editing ? "Done" : "Edit"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setExpanded(!expanded)}
@@ -142,16 +189,31 @@ export function TranscriptSection({ storyId, brief, onBriefChange, embedded }: T
 
       {hasTranscript && expanded && (
         <div className="px-4 pb-4">
+          {editing && (
+            <p className="text-[10px] text-muted-foreground mb-2">
+              Click any line to correct it. Changes are saved automatically and will improve AI-generated metadata.
+            </p>
+          )}
           {segments.length > 0 ? (
-            <div className="rounded-lg bg-card border border-border/50 max-h-[300px] overflow-y-auto">
+            <div className={`rounded-lg bg-card border max-h-[300px] overflow-y-auto ${editing ? "border-primary/30" : "border-border/50"}`}>
               {segments.map((seg, i) => (
-                <div key={i} className="flex gap-3 px-3 py-2 border-b border-border/30 last:border-b-0">
+                <div key={i} className={`flex gap-3 px-3 py-2 border-b border-border/30 last:border-b-0 ${editing ? "hover:bg-primary/5" : ""}`}>
                   <span className="text-[10px] font-mono text-primary shrink-0 pt-0.5 w-8 text-right">
                     {fmtTime(seg.start)}
                   </span>
-                  <span className="text-[12px] text-foreground/90 leading-relaxed" dir="auto">
-                    {seg.text}
-                  </span>
+                  {editing ? (
+                    <input
+                      type="text"
+                      value={editedSegments[i] ?? seg.text}
+                      onChange={(e) => handleSegmentEdit(i, e.target.value)}
+                      className="flex-1 bg-transparent text-[12px] text-foreground/90 leading-relaxed focus:outline-none focus:bg-primary/5 rounded px-1 -mx-1"
+                      dir="auto"
+                    />
+                  ) : (
+                    <span className="text-[12px] text-foreground/90 leading-relaxed" dir="auto">
+                      {seg.text}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
