@@ -101,6 +101,24 @@ const PIPELINE_STEPS: { key: PipelineStep; label: string; briefKey?: keyof Story
   { key: "generating",   label: "Tags",         briefKey: "youtubeTags" },
 ];
 
+function segmentsToSRT(segments: { text: string; start: number; end?: number }[]): string {
+  if (!segments.length) return "";
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  const fmt = (sec: number) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    const ms = Math.round((sec % 1) * 1000);
+    return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+  };
+  return segments
+    .map((seg, i) => {
+      const end = seg.end ?? (segments[i + 1]?.start ?? seg.start + 5);
+      return `${i + 1}\n${fmt(seg.start)} --> ${fmt(Math.max(end, seg.start + 1))}\n${seg.text}`;
+    })
+    .join("\n\n");
+}
+
 // ── Manual Story Workflow ──────────────────────────────────────────
 function ManualStoryWorkflow({
   story,
@@ -219,6 +237,22 @@ function ManualStoryWorkflow({
     setGeneratingAll(true);
     toast.info("Generating title, description & tags…");
     try {
+      // Rebuild SRT from (possibly edited) segments and flush to DB so
+      // backend endpoints read the latest transcript.
+      const segments = brief.transcriptSegments || [];
+      const freshSRT = segments.length > 0 ? segmentsToSRT(segments) : brief.subtitlesSRT;
+      const freshTranscript = segments.length > 0
+        ? segments.map((s) => s.text).join(" ")
+        : brief.transcript;
+      const briefToSave = { ...brief, subtitlesSRT: freshSRT, transcript: freshTranscript };
+      await fetch(`/api/stories/${storyId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: briefToSave }),
+      });
+      onBriefChange(() => briefToSave);
+
       const [titleRes, descRes, tagsRes] = await Promise.allSettled([
         fetch(`/api/stories/${storyId}/generate-title`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
         fetch(`/api/stories/${storyId}/generate-description`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
