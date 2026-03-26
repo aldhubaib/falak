@@ -657,30 +657,28 @@ function ManualStoryWorkflow({
                   <ExternalLink className="w-3 h-3" /> Open
                 </a>
               )}
-              {!isDone && (
-                <div className="inline-flex rounded-lg border border-border overflow-hidden" dir="ltr">
-                  <button
-                    type="button"
-                    onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "long" }))}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      brief.videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Film className="w-3 h-3" />
-                    Long Video
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "short" }))}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border ${
-                      brief.videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Smartphone className="w-3 h-3" />
-                    Short
-                  </button>
-                </div>
-              )}
+              <div className="inline-flex rounded-lg border border-border overflow-hidden" dir="ltr">
+                <button
+                  type="button"
+                  onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "long" }))}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    brief.videoFormat === "long" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Film className="w-3 h-3" />
+                  Long Video
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBriefChange((b) => ({ ...b, videoFormat: "short" }))}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-border ${
+                    brief.videoFormat === "short" ? "bg-primary/15 text-primary" : "bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Smartphone className="w-3 h-3" />
+                  Short
+                </button>
+              </div>
             </div>
           </div>
           <div className="px-4 py-3 flex items-center gap-2">
