@@ -708,15 +708,19 @@ function ManualStoryWorkflow({
             <button
               type="button"
               onClick={() => {
+                if (!brief.youtubeUrl?.trim()) { toast.error("Add the YouTube URL first"); return; }
                 if (!brief.videoFormat) { toast.error("Select video type first (Long Video or Short)"); return; }
                 onStageChange("done");
               }}
-              disabled={saving || isPipelineActive || !brief.videoFormat}
+              disabled={saving || isPipelineActive || !brief.videoFormat || !brief.youtubeUrl?.trim()}
               className="w-full py-3 rounded-lg text-[14px] font-semibold bg-success text-success-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               Mark as Done
             </button>
-            {!brief.videoFormat && (
+            {!brief.youtubeUrl?.trim() && (
+              <p className="text-[11px] text-orange text-center mt-2">Add the YouTube URL before marking as done</p>
+            )}
+            {brief.youtubeUrl?.trim() && !brief.videoFormat && (
               <p className="text-[11px] text-orange text-center mt-2">Select video type (Long Video or Short) before marking as done</p>
             )}
           </div>
