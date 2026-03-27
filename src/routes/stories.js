@@ -186,8 +186,34 @@ async function processStoryBackground(storyId) {
           const descLangNote = dialect
             ? `Write the description in ${dialect.short} (${dialect.long}).`
             : 'Write the description in Arabic.'
-          const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}. ${descLangNote}\n\nGiven a video title, transcript, and tags, create an optimized YouTube description.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n- Output ONLY the description text.`
-          const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTranscript: ${scr.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
+
+          // Build timestamped transcript if segments available
+          const segments = Array.isArray(b.transcriptSegments) ? b.transcriptSegments : []
+          let bgScript = ''
+          if (segments.length > 0) {
+            bgScript = segments.map(seg => {
+              const mm = Math.floor((seg.start || 0) / 60)
+              const ss = Math.floor((seg.start || 0) % 60)
+              return `${mm}:${String(ss).padStart(2, '0')} ${seg.text}`
+            }).join('\n')
+          } else {
+            bgScript = scr
+          }
+
+          // Fetch playlist hashtags if suggestion exists
+          const plSugg = b.suggestedPlaylist || null
+          let bgDefaultHashtags = []
+          if (plSugg?.playlistId) {
+            const pl = await db.playlist.findUnique({ where: { id: plSugg.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
+            if (pl) bgDefaultHashtags = [`#${pl.hashtag1}`, `#${pl.hashtag2}`, `#${pl.hashtag3}`]
+          }
+          const bgHashtagsStr = bgDefaultHashtags.length > 0 ? bgDefaultHashtags.join(' ') : ''
+
+          const system = isShort
+            ? `You are an expert Arabic YouTube Shorts description writer. ${descLangNote}\n\nRules:\n- 2-3 lines max: emotional hook + what makes this video unique.\n- End with hashtags: ${bgHashtagsStr ? `${bgHashtagsStr} plus 2 extra relevant hashtags` : '5 relevant hashtags from the tags provided'}.\n- Output ONLY the description text.`
+            : `You are an expert Arabic YouTube description writer. ${descLangNote}\n\nCreate a YouTube description following this EXACT structure. Output ONLY the description.\n\nSECTION 1 — Emotional hook (2-3 lines in Arabic):\nEmotional, curiosity-driven hook with keywords. What makes this case/topic unique.\n\nSECTION 2 — Keyword paragraph (3 lines max in Arabic):\nWho, what, where, why it matters. Pack with searchable keywords.\n\n---\n\n📌 محتوى الفيديو:\n\n(6-10 timestamp chapters from transcript. Format: 0:00 Title)\n\n---\n\n🔔 اشترك وفعّل الجرس عشان ما تفوتك أي قضية جديدة كل يوم!\n\n👍 اللايك والمشاركة يساعد القناة توصل لناس أكثر!\n\n---\n\n${bgHashtagsStr ? `(Default hashtags: ${bgHashtagsStr}) then 2 more relevant hashtags.` : '(5 relevant hashtags from the tags, format: #tag1 #tag2)'}`
+
+          const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTimestamped Transcript:\n${bgScript.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
           const descRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
             system, maxTokens: 2048, channelId: story.channelId, storyId: story.id, action: 'Story Generate Description',
           })
@@ -936,18 +962,55 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
       ? `Write the description in ${dialect.short} (${dialect.long}).`
       : 'Write the description in Arabic.'
 
+    // Fetch playlist hashtags for the description footer
+    const playlistSuggestion = brief.suggestedPlaylist || null
+    let defaultHashtags = []
+    if (playlistSuggestion?.playlistId) {
+      const pl = await db.playlist.findUnique({ where: { id: playlistSuggestion.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
+      if (pl) defaultHashtags = [`#${pl.hashtag1}`, `#${pl.hashtag2}`, `#${pl.hashtag3}`]
+    }
+    const defaultHashtagsStr = defaultHashtags.length > 0 ? defaultHashtags.join(' ') : ''
+
     const apiKey = decrypt(descKeyRow.encryptedKey)
 
-    const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}. ${langNote}
+    const system = isShort
+      ? `You are an expert Arabic YouTube Shorts description writer. ${langNote}
 
-Given a video title, timestamped transcript, and tags, create an optimized YouTube description.
+Given a video title, transcript, and tags, create a short YouTube Shorts description.
 
 Rules:
-- Start with 1-2 compelling sentences that hook the viewer (this appears in search results). Use an emoji or two.
-${isShort ? '- Keep it short (3-5 lines max). Shorts descriptions should be concise.' : `- Add a "---" separator, then a 📌 **محتوى الفيديو:** section with timestamps/chapters (format: 0:00 Title). Group nearby transcript segments into meaningful chapters (6-10 chapters for a typical video). Use the timestamps from the transcript.
-- Add another "---" separator, then a subscribe/like call-to-action section with 🔔 and 👍 emojis.`}
-- End with a "---" separator, then hashtags from the provided tags (format: #tag1 #tag2)
-- Output ONLY the description text. No explanations or meta-text.`
+- 2-3 lines max: emotional hook + what makes this video unique.
+- End with hashtags: ${defaultHashtagsStr ? `${defaultHashtagsStr} plus 2 extra relevant hashtags` : '5 relevant hashtags from the tags provided'}.
+- Output ONLY the description text. No explanations.`
+      : `You are an expert Arabic YouTube description writer. ${langNote}
+
+Given a video title, timestamped transcript, and tags, create a YouTube description following this EXACT structure. Output ONLY the description — no explanations or meta-text.
+
+STRUCTURE (follow precisely):
+
+SECTION 1 — Emotional hook (2-3 lines in Arabic):
+Write an emotional, curiosity-driven hook with keywords. Mention what makes this case/topic unique. Use emojis sparingly. This is what appears in search results — make it compelling.
+
+SECTION 2 — Keyword paragraph (3 lines max in Arabic):
+Summarize: who is involved, what happened, where, and why it matters. Pack with searchable keywords.
+
+Then output this EXACT separator and section:
+
+---
+
+📌 محتوى الفيديو:
+
+(Generate 6-10 timestamp chapters from the transcript. Format: 0:00 Title)
+
+---
+
+🔔 اشترك وفعّل الجرس عشان ما تفوتك أي قضية جديدة كل يوم!
+
+👍 اللايك والمشاركة يساعد القناة توصل لناس أكثر!
+
+---
+
+${defaultHashtagsStr ? `(Output these default hashtags first: ${defaultHashtagsStr}) then add exactly 2 more relevant hashtags from the video content.` : '(Output 5 relevant hashtags from the provided tags, format: #tag1 #tag2 ...)'}`
 
     const userMessage = `Title: ${title}
 ${hook ? `Opening Hook: ${hook}` : ''}
