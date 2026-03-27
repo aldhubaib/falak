@@ -140,45 +140,11 @@ async function processStoryBackground(storyId) {
         console.log(tag, 'title generated')
       }
 
-      // 2b: Tags first, then description (description needs tags for hashtags)
-      if (!brief.youtubeTags || brief.youtubeTags.length === 0) {
-        const headline = (story.headline || '').trim()
-        const scr = (typeof brief.transcript === 'string' ? brief.transcript.trim() : '') || (typeof brief.script === 'string' ? brief.script.trim() : '')
-        const sum = typeof brief.summary === 'string' ? brief.summary.trim() : ''
-        const context = [headline, sum, scr].filter(Boolean).join('\n\n')
-        if (context) {
-          try {
-            const tagsRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{
-              role: 'user',
-              content: `Suggest YouTube tags for this video:\n\n${context.slice(0, 15000)}`,
-            }], {
-              system: 'You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.\n\nRules:\n- Output at least 5 tags and up to 15. Prefer 8–12.\n- Tags can be in Arabic, English, or mixed.\n- One tag per line. No numbers, bullets, or commas. No explanation.\n- Keep each tag short (1–4 words).',
-              maxTokens: 512, channelId: story.channelId, storyId: story.id, action: 'Story Suggest Tags',
-            })
-            if (tagsRaw) {
-              brief.youtubeTags = String(tagsRaw).trim()
-                .split(/\n/)
-                .map(s => s.replace(/^[\d.)\-\s]+/, '').trim())
-                .filter(s => s.length > 0 && s.length <= 100)
-                .slice(0, 15)
-              story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
-              const latestBrief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-              latestBrief.youtubeTags = brief.youtubeTags
-              await db.story.update({ where: { id: storyId }, data: { brief: latestBrief } })
-              brief = latestBrief
-              console.log(tag, 'tags generated')
-            }
-          } catch (e) {
-            console.log(tag, 'tags failed:', e.message)
-          }
-        }
-      }
-
       story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
       brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
     }
 
-    // 2c: Suggest playlist BEFORE description (description needs playlist hashtags)
+    // 2b: Suggest playlist (tags and description both need playlist hashtags)
     try {
       const suggestion = await suggestPlaylistForStory(storyId)
       if (suggestion) {
@@ -190,6 +156,51 @@ async function processStoryBackground(storyId) {
       }
     } catch (e) {
       console.log(tag, 'playlist suggestion failed (non-fatal):', e.message)
+    }
+
+    // 2c: Tags — 3 playlist hashtags + 2 AI-generated
+    if (transcript && (!brief.youtubeTags || brief.youtubeTags.length === 0)) {
+      const headline = (story.headline || '').trim()
+      const scr = (typeof brief.transcript === 'string' ? brief.transcript.trim() : '') || (typeof brief.script === 'string' ? brief.script.trim() : '')
+      const sum = typeof brief.summary === 'string' ? brief.summary.trim() : ''
+      const context = [headline, sum, scr].filter(Boolean).join('\n\n')
+      if (context) {
+        // Fetch playlist's 3 default hashtags
+        const plSugg = brief.suggestedPlaylist || null
+        let playlistTags = []
+        if (plSugg?.playlistId) {
+          const pl = await db.playlist.findUnique({ where: { id: plSugg.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
+          if (pl) playlistTags = [pl.hashtag1, pl.hashtag2, pl.hashtag3].filter(Boolean)
+        }
+        try {
+          const avoidList = playlistTags.length > 0
+            ? `\n- Do NOT repeat these playlist hashtags: ${playlistTags.join(', ')}`
+            : ''
+          const tagsRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{
+            role: 'user',
+            content: `Suggest 2 YouTube hashtags for this video:\n\n${context.slice(0, 15000)}`,
+          }], {
+            system: `You are an expert at YouTube SEO and metadata. Suggest exactly 2 YouTube hashtags that complement the video content.\n\nRules:\n- Output exactly 2 tags — no more, no less.${avoidList}\n- Tags can be in Arabic, English, or mixed.\n- One tag per line. No numbers, bullets, or commas. No explanation. No # symbol.\n- Keep each tag short (1–4 words).`,
+            maxTokens: 200, channelId: story.channelId, storyId: story.id, action: 'Story Suggest Tags',
+          })
+          if (tagsRaw) {
+            const aiTags = String(tagsRaw).trim()
+              .split(/\n/)
+              .map(s => s.replace(/^[\d.)\-#\s]+/, '').trim())
+              .filter(s => s.length > 0 && s.length <= 100)
+              .slice(0, 2)
+            brief.youtubeTags = [...playlistTags, ...aiTags]
+            story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+            const latestBrief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+            latestBrief.youtubeTags = brief.youtubeTags
+            await db.story.update({ where: { id: storyId }, data: { brief: latestBrief } })
+            brief = latestBrief
+            console.log(tag, `tags generated: ${playlistTags.length} playlist + ${aiTags.length} AI`)
+          }
+        } catch (e) {
+          console.log(tag, 'tags failed:', e.message)
+        }
+      }
     }
 
     // 2d: Description (now has both tags and playlist hashtags available)
@@ -1049,7 +1060,7 @@ Tags: ${tags.join(', ')}`
   }
 })
 
-// ── POST /api/stories/:id/suggest-tags — AI suggest min 5 YouTube tags from headline + script/summary
+// ── POST /api/stories/:id/suggest-tags — playlist hashtags (3) + AI-generated (2)
 router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
@@ -1067,28 +1078,42 @@ router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async 
     if (!context) {
       return res.status(400).json({ error: 'Add a headline or transcribe the video first so the AI can suggest tags.' })
     }
+
+    // Fetch playlist's 3 default hashtags
+    const plSugg = brief.suggestedPlaylist || null
+    let playlistTags = []
+    if (plSugg?.playlistId) {
+      const pl = await db.playlist.findUnique({ where: { id: plSugg.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
+      if (pl) playlistTags = [pl.hashtag1, pl.hashtag2, pl.hashtag3].filter(Boolean)
+    }
+
     const apiKey = decrypt(tagsKeyRow.encryptedKey)
-    const system = `You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest YouTube tags that would help discovery.
+    const avoidList = playlistTags.length > 0
+      ? `\n- Do NOT repeat these playlist hashtags: ${playlistTags.join(', ')}`
+      : ''
+    const system = `You are an expert at YouTube SEO and metadata. Given a video headline and optionally a script or summary, suggest exactly 2 YouTube hashtags that complement the video content.
 
 Rules:
-- Output at least 5 tags and up to 15. Prefer 8–12.
+- Output exactly 2 tags — no more, no less.${avoidList}
 - Tags can be in Arabic, English, or mixed depending on the content and target audience.
-- One tag per line. No numbers, bullets, or commas. No explanation.
+- One tag per line. No numbers, bullets, or commas. No explanation. No # symbol.
 - Keep each tag short (1–4 words). No sentences.`
-    const userMessage = `Suggest YouTube tags for this video:\n\n${context.slice(0, 15000)}`
+    const userMessage = `Suggest 2 YouTube hashtags for this video:\n\n${context.slice(0, 15000)}`
     const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
       system,
-      maxTokens: 512,
+      maxTokens: 200,
       channelId: story.channelId,
       storyId: story.id,
       action: 'Story Suggest Tags',
     })
     const text = (raw && typeof raw === 'string') ? raw.trim() : ''
-    const tags = text
+    const aiTags = text
       .split(/\n/)
-      .map((s) => s.replace(/^[\d.)\-\s]+/, '').trim())
+      .map((s) => s.replace(/^[\d.)\-#\s]+/, '').trim())
       .filter((s) => s.length > 0 && s.length <= 100)
-    const youtubeTags = tags.slice(0, 15)
+      .slice(0, 2)
+
+    const youtubeTags = [...playlistTags, ...aiTags]
     const newBrief = { ...brief, youtubeTags }
     const updated = await db.story.update({
       where: { id: story.id },
