@@ -109,6 +109,14 @@ export interface StoryBrief {
   processingStatus?: "processing" | "done" | "error";
   processingStep?: "transcribing" | "generating" | "done";
   processingError?: string | null;
+  suggestedPlaylist?: {
+    playlistId: string;
+    playlistName: string;
+    hashtags: string[];
+    youtubePlaylistId?: string | null;
+    confidence: number;
+    reason: string | null;
+  };
 }
 
 export interface ScriptField {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Sparkles,
   Loader2,
@@ -11,15 +11,37 @@ import {
   Youtube,
   Film,
   Smartphone,
+  ListVideo,
+  Hash,
+  RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { StoryBrief } from "./types";
 import { CopyBtn } from "./CopyBtn";
 import { scriptToSRT } from "@/data/subtitles";
 
+interface PlaylistOption {
+  id: string;
+  name: string;
+  hashtag1: string;
+  hashtag2: string;
+  hashtag3: string;
+}
+
+interface SuggestedPlaylist {
+  playlistId: string;
+  playlistName: string;
+  hashtags: string[];
+  youtubePlaylistId?: string | null;
+  confidence: number;
+  reason: string | null;
+}
+
 export interface StoryDetailStagePublishProps {
   brief: StoryBrief;
   storyId: string;
+  channelId?: string;
   onBriefChange: (updater: (prev: StoryBrief) => StoryBrief) => void;
   saving?: boolean;
   videoFormat?: "short" | "long";
@@ -55,6 +77,7 @@ function validateYoutubeUrl(url: string): { valid: boolean; videoId?: string; er
 export function StoryDetailStagePublish({
   brief,
   storyId,
+  channelId,
   onBriefChange,
   saving = false,
   videoFormat,
@@ -64,6 +87,19 @@ export function StoryDetailStagePublish({
   const [fetchingSubs, setFetchingSubs] = useState(false);
   const [urlInput, setUrlInput] = useState(brief.youtubeUrl || "");
   const [urlEditing, setUrlEditing] = useState(!brief.youtubeUrl);
+  const [suggesting, setSuggesting] = useState(false);
+  const [playlists, setPlaylists] = useState<PlaylistOption[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const suggestion = brief.suggestedPlaylist as SuggestedPlaylist | undefined;
+
+  useEffect(() => {
+    if (!channelId) return;
+    fetch(`/api/playlists?channelId=${channelId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: PlaylistOption[]) => setPlaylists(data))
+      .catch(() => {});
+  }, [channelId]);
 
   const description = brief.youtubeDescription || "";
 
@@ -188,6 +224,126 @@ export function StoryDetailStagePublish({
           className="w-full bg-card border border-border rounded-lg px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors resize-y leading-relaxed"
         />
       </div>
+
+      {/* ── Playlist Suggestion ── */}
+      {playlists.length > 0 && (
+        <div className="rounded-lg bg-card border border-border p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <ListVideo className="w-3.5 h-3.5 text-muted-foreground" />
+              <label className="text-[12px] text-muted-foreground font-medium">Playlist</label>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                if (suggesting) return;
+                setSuggesting(true);
+                try {
+                  const res = await fetch(`/api/stories/${storyId}/suggest-playlist`, {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                  });
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: "Failed" }));
+                    toast.error(err.error || "Suggestion failed");
+                    return;
+                  }
+                  const data = await res.json();
+                  onBriefChange((b) => ({ ...b, suggestedPlaylist: data } as StoryBrief));
+                  toast.success(`Suggested: ${data.playlistName}`);
+                } catch {
+                  toast.error("Playlist suggestion failed");
+                } finally {
+                  setSuggesting(false);
+                }
+              }}
+              disabled={suggesting}
+              className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
+            >
+              {suggesting ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : suggestion ? (
+                <RefreshCw className="w-3 h-3" />
+              ) : (
+                <Sparkles className="w-3 h-3" />
+              )}
+              {suggestion ? "Re-suggest" : "Suggest with AI"}
+            </button>
+          </div>
+
+          {suggestion ? (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[13px] font-medium text-foreground">{suggestion.playlistName}</span>
+                <span className="text-[11px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  {suggestion.confidence}%
+                </span>
+              </div>
+              {suggestion.reason && (
+                <p className="text-[11px] text-muted-foreground mb-2" dir="rtl">{suggestion.reason}</p>
+              )}
+              <div className="flex items-center gap-1.5 mb-3">
+                {suggestion.hashtags.map((h, i) => (
+                  <span key={i} className="inline-flex items-center gap-0.5 py-0.5 px-2 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+                    {h}
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowPicker(!showPicker)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-muted-foreground bg-card border border-border rounded-lg hover:border-primary/30 transition-colors"
+                  >
+                    Choose different
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  {showPicker && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-20 py-1 max-h-[200px] overflow-y-auto">
+                      {playlists.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            const picked: SuggestedPlaylist = {
+                              playlistId: p.id,
+                              playlistName: p.name,
+                              hashtags: [`#${p.hashtag1}`, `#${p.hashtag2}`, `#${p.hashtag3}`],
+                              confidence: 100,
+                              reason: null,
+                            };
+                            onBriefChange((b) => ({ ...b, suggestedPlaylist: picked } as StoryBrief));
+                            setShowPicker(false);
+                            toast.success(`Playlist set to ${p.name}`);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-[12px] hover:bg-muted/50 transition-colors ${
+                            p.id === suggestion.playlistId ? "text-primary font-medium" : "text-foreground"
+                          }`}
+                        >
+                          <div>{p.name}</div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {[p.hashtag1, p.hashtag2, p.hashtag3].map((h, i) => (
+                              <span key={i} className="text-[10px] text-muted-foreground">
+                                <Hash className="w-2 h-2 inline" />{h}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[12px] text-muted-foreground py-2 text-center">
+              No playlist suggested yet. Click &quot;Suggest with AI&quot; or the AI will suggest one automatically after processing.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── Subtitles (SRT) ── */}
       <div className="rounded-lg bg-card border border-border p-4">

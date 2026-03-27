@@ -15,6 +15,64 @@ const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = requ
 const { getNicheEmbedding } = require('../services/embeddings')
 const registry = require('../lib/serviceRegistry')
 
+// ── Suggest best playlist for a story based on its content ─────────────────
+async function suggestPlaylistForStory(storyId) {
+  const story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+  const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+
+  const playlists = await db.playlist.findMany({
+    where: { channelId: story.channelId },
+    orderBy: [{ sortOrder: 'asc' }],
+  })
+  if (playlists.length === 0) return null
+
+  const title = brief.suggestedTitle || story.headline || ''
+  const tags = Array.isArray(brief.youtubeTags) ? brief.youtubeTags : []
+  const transcript = brief.transcript || brief.script || ''
+
+  const playlistBlock = playlists.map(p =>
+    `- ID: ${p.id} | Name: ${p.name} | Hashtags: #${p.hashtag1} #${p.hashtag2} #${p.hashtag3}${p.rules ? ` | Rules: ${p.rules}` : ''}`
+  ).join('\n')
+
+  const apiKey = await registry.requireKey('anthropic')
+  const raw = await callAnthropic(apiKey, 'claude-haiku-4-5-20251001', [
+    {
+      role: 'user',
+      content: `Pick the single best playlist for this video. Reply with JSON only, no markdown.
+Keys: playlistId (string), confidence (0-100), reason (one sentence in Arabic)
+
+Video:
+- Title: ${title}
+- Tags: ${tags.join(', ')}
+- Transcript excerpt: ${transcript.slice(0, 5000)}
+
+Available Playlists:
+${playlistBlock}`,
+    },
+  ], { channelId: story.channelId, action: 'suggest-playlist' })
+
+  try {
+    const trimmed = (raw || '').trim()
+    const start = trimmed.indexOf('{')
+    const end = trimmed.lastIndexOf('}') + 1
+    if (start === -1 || end <= start) return null
+    const parsed = JSON.parse(trimmed.slice(start, end))
+    const matched = playlists.find(p => p.id === parsed.playlistId)
+    if (!matched) return null
+
+    return {
+      playlistId: matched.id,
+      playlistName: matched.name,
+      hashtags: [`#${matched.hashtag1}`, `#${matched.hashtag2}`, `#${matched.hashtag3}`],
+      youtubePlaylistId: matched.youtubeId || null,
+      confidence: Math.min(100, Math.max(0, parseInt(parsed.confidence) || 0)),
+      reason: parsed.reason || null,
+    }
+  } catch {
+    return null
+  }
+}
+
 // ── Background AI processing for manual video uploads ──────────────────────
 async function processStoryBackground(storyId) {
   const tag = `[stories/process:${storyId.slice(-6)}]`
@@ -125,7 +183,10 @@ async function processStoryBackground(storyId) {
           const scr = b.transcript || b.script || ''
           const tags = Array.isArray(b.youtubeTags) ? b.youtubeTags : []
           const isShort = b.videoFormat === 'short'
-          const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.\n\nGiven a video title, transcript, and tags, create an optimized YouTube description in Arabic.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n- Output ONLY the description text.`
+          const descLangNote = dialect
+            ? `Write the description in ${dialect.short} (${dialect.long}).`
+            : 'Write the description in Arabic.'
+          const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}. ${descLangNote}\n\nGiven a video title, transcript, and tags, create an optimized YouTube description.\n\nRules:\n- Start with 1-2 compelling sentences summarizing the video\n${isShort ? '- Keep it short (3-5 lines max).' : '- Include timestamps/chapters (format: 0:00 Title)\n- Add a subscribe call-to-action section'}\n- End with hashtags from the provided tags (#tag1 #tag2)\n- Output ONLY the description text.`
           const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTranscript: ${scr.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
           const descRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
             system, maxTokens: 2048, channelId: story.channelId, storyId: story.id, action: 'Story Generate Description',
@@ -141,6 +202,19 @@ async function processStoryBackground(storyId) {
 
       story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
       brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    }
+
+    // Auto-suggest playlist (non-fatal)
+    try {
+      const suggestion = await suggestPlaylistForStory(storyId)
+      if (suggestion) {
+        story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+        brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+        brief.suggestedPlaylist = suggestion
+        console.log(tag, `playlist suggested: ${suggestion.playlistName} (${suggestion.confidence}%)`)
+      }
+    } catch (e) {
+      console.log(tag, 'playlist suggestion failed (non-fatal):', e.message)
     }
 
     brief.processingStatus = 'done'
@@ -856,11 +930,17 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
       return res.status(400).json({ error: 'No transcript or title available. Transcribe the video first.' })
     }
 
+    const channel = await db.channel.findFirst({ where: { id: story.channelId }, select: { nationality: true } })
+    const dialect = await getDialectForCountry(channel?.nationality)
+    const langNote = dialect
+      ? `Write the description in ${dialect.short} (${dialect.long}).`
+      : 'Write the description in Arabic.'
+
     const apiKey = decrypt(descKeyRow.encryptedKey)
 
-    const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}.
+    const system = `You are an expert Arabic YouTube description writer for ${isShort ? 'YouTube Shorts' : 'regular YouTube videos'}. ${langNote}
 
-Given a video title, timestamped transcript, and tags, create an optimized YouTube description in Arabic.
+Given a video title, timestamped transcript, and tags, create an optimized YouTube description.
 
 Rules:
 - Start with 1-2 compelling sentences that hook the viewer (this appears in search results). Use an emoji or two.
@@ -1298,6 +1378,25 @@ Rules:
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     console.error('[stories/generate-title]', e)
     res.status(500).json({ error: e.message || 'Generate title failed' })
+  }
+})
+
+// ── POST /api/stories/:id/suggest-playlist — AI: pick best playlist for this video
+router.post('/:id/suggest-playlist', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const suggestion = await suggestPlaylistForStory(req.params.id)
+    if (!suggestion) {
+      return res.status(400).json({ error: 'No playlists configured for this channel, or suggestion failed.' })
+    }
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    brief.suggestedPlaylist = suggestion
+    await db.story.update({ where: { id: req.params.id }, data: { brief } })
+    res.json(suggestion)
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/suggest-playlist]', e)
+    res.status(500).json({ error: e.message || 'Playlist suggestion failed' })
   }
 })
 

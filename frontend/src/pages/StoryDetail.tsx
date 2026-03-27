@@ -4,7 +4,7 @@ import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil, X, Copy, Check, History,
-  Film, Smartphone,
+  Film, Smartphone, ListVideo, Hash, Sparkles, ChevronDown,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
@@ -145,6 +145,17 @@ function ManualStoryWorkflow({
   const [srtCopied, setSrtCopied] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [youtubeInput, setYoutubeInput] = useState(brief.youtubeUrl || "");
+  const [suggestingPlaylist, setSuggestingPlaylist] = useState(false);
+  const [channelPlaylists, setChannelPlaylists] = useState<{ id: string; name: string; hashtag1: string; hashtag2: string; hashtag3: string }[]>([]);
+  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
+
+  useEffect(() => {
+    if (!story.channelId) return;
+    fetch(`/api/playlists?channelId=${story.channelId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setChannelPlaylists(data))
+      .catch(() => {});
+  }, [story.channelId]);
 
   // Derive pipeline step from brief fields (background processing updates these)
   const pipelineStep: PipelineStep = (() => {
@@ -611,6 +622,121 @@ function ManualStoryWorkflow({
             </div>
           </div>
         </div>
+
+        {/* Playlist Suggestion */}
+        {channelPlaylists.length > 0 && (
+          <div className="border-t border-border">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <ListVideo className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-[12px] text-muted-foreground font-medium">Playlist</span>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (suggestingPlaylist) return;
+                  setSuggestingPlaylist(true);
+                  try {
+                    const res = await fetch(`/api/stories/${storyId}/suggest-playlist`, {
+                      method: "POST",
+                      credentials: "include",
+                    });
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({ error: "Failed" }));
+                      toast.error(err.error || "Suggestion failed");
+                      return;
+                    }
+                    const data = await res.json();
+                    onBriefChange((b) => ({ ...b, suggestedPlaylist: data }));
+                    toast.success(`Suggested: ${data.playlistName}`);
+                  } catch {
+                    toast.error("Playlist suggestion failed");
+                  } finally {
+                    setSuggestingPlaylist(false);
+                  }
+                }}
+                disabled={suggestingPlaylist || isPipelineActive || !brief.transcript}
+                className="flex items-center gap-1.5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {suggestingPlaylist ? <Loader2 className="w-3 h-3 animate-spin" /> : brief.suggestedPlaylist ? <RefreshCw className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                {suggestingPlaylist ? "Suggesting…" : brief.suggestedPlaylist ? "Re-suggest" : "Suggest with AI"}
+              </button>
+            </div>
+            <div className="px-4 py-3">
+              {brief.suggestedPlaylist ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-medium text-foreground">{brief.suggestedPlaylist.playlistName}</span>
+                      <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                        {brief.suggestedPlaylist.confidence}%
+                      </span>
+                    </div>
+                  </div>
+                  {brief.suggestedPlaylist.reason && (
+                    <p className="text-[11px] text-muted-foreground" dir="rtl">{brief.suggestedPlaylist.reason}</p>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    {brief.suggestedPlaylist.hashtags.map((h, i) => (
+                      <span key={i} className="inline-flex items-center gap-0.5 py-0.5 px-2 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowPlaylistPicker(!showPlaylistPicker)}
+                      className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground font-medium transition-colors"
+                    >
+                      Choose different <ChevronDown className="w-3 h-3" />
+                    </button>
+                    {showPlaylistPicker && (
+                      <div className="absolute top-full left-0 mt-1 w-64 bg-card border border-border rounded-lg shadow-lg z-20 py-1 max-h-[200px] overflow-y-auto">
+                        {channelPlaylists.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              onBriefChange((b) => ({
+                                ...b,
+                                suggestedPlaylist: {
+                                  playlistId: p.id,
+                                  playlistName: p.name,
+                                  hashtags: [`#${p.hashtag1}`, `#${p.hashtag2}`, `#${p.hashtag3}`],
+                                  confidence: 100,
+                                  reason: null,
+                                },
+                              }));
+                              setShowPlaylistPicker(false);
+                              toast.success(`Playlist set to ${p.name}`);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-[12px] hover:bg-muted/50 transition-colors ${
+                              p.id === brief.suggestedPlaylist?.playlistId ? "text-primary font-medium" : "text-foreground"
+                            }`}
+                          >
+                            <div>{p.name}</div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {[p.hashtag1, p.hashtag2, p.hashtag3].map((h, i) => (
+                                <span key={i} className="text-[10px] text-muted-foreground">
+                                  <Hash className="w-2 h-2 inline" />{h}
+                                </span>
+                              ))}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[12px] text-muted-foreground text-center">
+                  No playlist suggested yet. Click &quot;Suggest with AI&quot; or it will be auto-suggested after processing.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* SRT Download */}
         {brief.subtitlesSRT && (

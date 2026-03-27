@@ -40,6 +40,7 @@ model Channel {
   scoreProfile    ScoreProfile?
   alerts          Alert[]
   styleGuide      Json?
+  playlists       Playlist[]
   galleryMedia    GalleryMedia[]
   galleryAlbums   GalleryAlbum[]
   aiLogs          AiGenerationLog[]
@@ -554,6 +555,27 @@ model TrendingEntry {
   @@index([snapshotId])
   @@index([youtubeVideoId])
   @@index([categoryName])
+}
+
+// ─────────────────────────────────────────────
+// PLAYLISTS (per-channel YouTube playlist metadata for AI categorisation)
+// ─────────────────────────────────────────────
+model Playlist {
+  id          String   @id @default(cuid())
+  channelId   String
+  channel     Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  youtubeId   String?  @unique
+  name        String
+  description String?  @db.Text
+  rules       String?  @db.Text
+  hashtag1    String
+  hashtag2    String
+  hashtag3    String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([channelId])
 }
 
 // ─────────────────────────────────────────────

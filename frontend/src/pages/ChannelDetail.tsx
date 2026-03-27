@@ -5,7 +5,7 @@ import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { getCountryName } from "@/data/countries";
-import { ArrowLeft, Info, Loader2, Tag, X, Zap } from "lucide-react";
+import { ArrowLeft, Info, Loader2, Tag, X, Zap, ListVideo, Plus, Pencil, Trash2, Hash } from "lucide-react";
 import { toast } from "sonner";
 import type { Video } from "@/data/mock";
 
@@ -378,6 +378,271 @@ function ContentDNASection({ channelId }: { channelId: string }) {
   );
 }
 
+interface Playlist {
+  id: string;
+  name: string;
+  hashtag1: string;
+  hashtag2: string;
+  hashtag3: string;
+  description: string | null;
+  rules: string | null;
+  youtubeId: string | null;
+  sortOrder: number;
+}
+
+function PlaylistsSection({ channelId }: { channelId: string }) {
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const emptyForm = { name: "", hashtag1: "", hashtag2: "", hashtag3: "", description: "", rules: "", youtubeId: "" };
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/playlists?channelId=${channelId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Playlist[]) => { if (!cancelled) { setPlaylists(data); setLoaded(true); } })
+      .catch(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [channelId]);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setAdding(false);
+    setEditingId(null);
+  };
+
+  const startEdit = (p: Playlist) => {
+    setEditingId(p.id);
+    setAdding(false);
+    setForm({
+      name: p.name,
+      hashtag1: p.hashtag1,
+      hashtag2: p.hashtag2,
+      hashtag3: p.hashtag3,
+      description: p.description || "",
+      rules: p.rules || "",
+      youtubeId: p.youtubeId || "",
+    });
+  };
+
+  const isValid = form.name.trim() && form.hashtag1.trim() && form.hashtag2.trim() && form.hashtag3.trim();
+
+  const handleSave = async () => {
+    if (!isValid || saving) return;
+    setSaving(true);
+    try {
+      const body = {
+        ...form,
+        channelId,
+        description: form.description || null,
+        rules: form.rules || null,
+        youtubeId: form.youtubeId || null,
+      };
+
+      if (editingId) {
+        const { channelId: _, ...updateBody } = body;
+        const res = await fetch(`/api/playlists/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(updateBody),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+        const updated = await res.json();
+        setPlaylists((prev) => prev.map((p) => (p.id === editingId ? updated : p)));
+        toast.success("Playlist updated");
+      } else {
+        const res = await fetch("/api/playlists", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+        const created = await res.json();
+        setPlaylists((prev) => [...prev, created]);
+        toast.success("Playlist created");
+      }
+      resetForm();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to save playlist");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/playlists/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      setPlaylists((prev) => prev.filter((p) => p.id !== id));
+      if (editingId === id) resetForm();
+      toast.success("Playlist deleted");
+    } catch {
+      toast.error("Failed to delete playlist");
+    }
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className="px-6 pt-5 max-lg:px-4">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ListVideo className="w-4 h-4 text-muted-foreground" />
+            <div>
+              <span className="text-[13px] font-semibold text-foreground">Playlists</span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Define your playlists with 3 hashtags each. The AI uses these to suggest the right playlist when you upload a video.
+              </p>
+            </div>
+          </div>
+          {!adding && !editingId && (
+            <button
+              onClick={() => { setAdding(true); setForm(emptyForm); }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full border border-border bg-card text-foreground hover:bg-card/80 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              Add
+            </button>
+          )}
+        </div>
+
+        {playlists.length === 0 && !adding && (
+          <div className="px-5 py-8 text-center">
+            <p className="text-[12px] text-muted-foreground">No playlists yet. Add your first playlist to enable AI suggestions.</p>
+          </div>
+        )}
+
+        {playlists.length > 0 && (
+          <div className="divide-y divide-border">
+            {playlists.map((p) => (
+              <div key={p.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[13px] font-medium text-foreground truncate">{p.name}</span>
+                    {p.youtubeId && (
+                      <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">YT</span>
+                    )}
+                  </div>
+                  {p.description && (
+                    <p className="text-[11px] text-muted-foreground mb-1.5 line-clamp-2">{p.description}</p>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    {[p.hashtag1, p.hashtag2, p.hashtag3].map((h, i) => (
+                      <span key={i} className="inline-flex items-center gap-0.5 py-0.5 px-2 rounded-full text-[11px] font-medium bg-primary/10 text-primary">
+                        <Hash className="w-2.5 h-2.5" />{h}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => startEdit(p)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(adding || editingId) && (
+          <div className="px-5 py-4 border-t border-border bg-muted/20">
+            <div className="text-[12px] font-medium text-foreground mb-3">
+              {editingId ? "Edit Playlist" : "New Playlist"}
+            </div>
+            <div className="grid gap-3">
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Name *</label>
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  placeholder="e.g. True Crime"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(["hashtag1", "hashtag2", "hashtag3"] as const).map((key, i) => (
+                  <div key={key}>
+                    <label className="text-[11px] text-muted-foreground mb-1 block">Hashtag {i + 1} *</label>
+                    <div className="relative">
+                      <Hash className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <input
+                        value={form[key]}
+                        onChange={(e) => setForm({ ...form, [key]: e.target.value.replace(/^#/, "") })}
+                        className="w-full pl-6 pr-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        placeholder={i === 0 ? "جريمة" : i === 1 ? "تحقيق" : "غموض"}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Description <span className="opacity-50">(optional)</span></label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
+                  placeholder="Brief description of this playlist's content"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">YouTube Playlist ID <span className="opacity-50">(optional)</span></label>
+                <input
+                  value={form.youtubeId}
+                  onChange={(e) => setForm({ ...form, youtubeId: e.target.value })}
+                  className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 font-mono"
+                  placeholder="PLxxxxx..."
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">AI Rules <span className="opacity-50">(optional — helps AI match videos)</span></label>
+                <textarea
+                  value={form.rules}
+                  onChange={(e) => setForm({ ...form, rules: e.target.value })}
+                  rows={2}
+                  className="w-full px-2.5 py-2 text-[12px] bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
+                  placeholder="e.g. Crime stories, missing persons, cold cases, investigations"
+                />
+              </div>
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={resetForm}
+                  className="px-4 py-2 text-[12px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!isValid || saving}
+                  className="px-5 py-2 text-[12px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : editingId ? "Update" : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ChannelDetail() {
   const { id } = useParams();
   const channelPath = useChannelPath();
@@ -587,6 +852,10 @@ export default function ChannelDetail() {
 
           {channel && (
             <ContentDNASection channelId={channel.id} />
+          )}
+
+          {channel && (
+            <PlaylistsSection channelId={channel.id} />
           )}
 
           <div className="px-6 py-5 pb-16 max-lg:px-4 max-lg:pb-20">

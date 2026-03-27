@@ -78,6 +78,7 @@ app.use('/api/article-pipeline', require('./routes/articlePipeline'))
 app.use('/api/vector-intelligence', bigintJson, require('./routes/vectorIntelligence'))
 app.use('/api/trending',            bigintJson, require('./routes/trending'))
 app.use('/api/ai-monitor',          require('./routes/aiMonitor'))
+app.use('/api/playlists',           require('./routes/playlists'))
 
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {
