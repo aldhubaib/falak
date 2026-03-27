@@ -264,22 +264,30 @@ function ManualStoryWorkflow({
       });
       onBriefChange(() => briefToSave);
 
-      const [titleRes, descRes, tagsRes] = await Promise.allSettled([
-        fetch(`/api/stories/${storyId}/generate-title`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
-        fetch(`/api/stories/${storyId}/generate-description`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
-        fetch(`/api/stories/${storyId}/suggest-tags`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null),
-      ]);
-      onBriefChange((b) => {
-        const next = { ...b };
-        if (titleRes.status === "fulfilled" && titleRes.value?.title) next.suggestedTitle = titleRes.value.title;
-        if (descRes.status === "fulfilled" && descRes.value?.description) next.youtubeDescription = descRes.value.description;
-        if (tagsRes.status === "fulfilled") {
-          const tags = tagsRes.value?.tags || tagsRes.value?.brief?.youtubeTags || [];
-          if (tags.length) next.youtubeTags = tags;
+      // Sequential: title → tags (auto-suggests playlist) → description (uses playlist hashtags)
+      let ok = 0;
+
+      const titleData = await fetch(`/api/stories/${storyId}/generate-title`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (titleData?.title) {
+        onBriefChange((b) => ({ ...b, suggestedTitle: titleData.title }));
+        ok++;
+      }
+
+      const tagsData = await fetch(`/api/stories/${storyId}/suggest-tags`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (tagsData) {
+        const tags = tagsData.tags || tagsData.brief?.youtubeTags || [];
+        if (tags.length) {
+          onBriefChange((b) => ({ ...b, youtubeTags: tags }));
+          ok++;
         }
-        return next;
-      });
-      const ok = [titleRes, descRes, tagsRes].filter(r => r.status === "fulfilled" && r.value).length;
+      }
+
+      const descData = await fetch(`/api/stories/${storyId}/generate-description`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (descData?.description) {
+        onBriefChange((b) => ({ ...b, youtubeDescription: descData.description }));
+        ok++;
+      }
+
       if (ok === 3) toast.success("All metadata generated");
       else if (ok > 0) toast.success(`Generated ${ok}/3 fields`);
       else toast.error("Generation failed");
