@@ -239,7 +239,7 @@ point for the entire app; competitors are children attached via `parentChannelId
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Relations:** Has many `Video`, `ChannelSnapshot`, `Story`, `ArticleSource`, `Alert`, `GalleryMedia`, `GalleryAlbum`. Has one `ScoreProfile`. Self-relation for competitors via `parentChannel` / `competitors`.
+**Relations:** Has many `Video`, `ChannelSnapshot`, `Story`, `ArticleSource`, `Playlist`, `Alert`, `GalleryMedia`, `GalleryAlbum`. Has one `ScoreProfile`. Self-relation for competitors via `parentChannel` / `competitors`.
 **Indexes:** `parentChannelId`. **Unique:** `youtubeId`.
 
 #### ChannelSnapshot
@@ -598,6 +598,27 @@ and published video outcome.
 
 **Unique:** `channelId`.
 
+#### Playlist
+
+Per-channel YouTube playlist metadata. The AI uses playlists (name + 3 mandatory hashtags + optional rules) to suggest which playlist a video belongs to when it is uploaded.
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `id` | String | Yes | `cuid()` | Primary key |
+| `channelId` | String | Yes | — | FK → Channel |
+| `youtubeId` | String | No | — | YouTube playlist ID (for linking) |
+| `name` | String | Yes | — | Display name (e.g. "True Crime") |
+| `description` | Text | No | — | Optional description |
+| `rules` | Text | No | — | Free-text rules for AI matching |
+| `hashtag1` | String | Yes | — | First mandatory hashtag |
+| `hashtag2` | String | Yes | — | Second mandatory hashtag |
+| `hashtag3` | String | Yes | — | Third mandatory hashtag |
+| `sortOrder` | Int | Yes | 0 | Display order |
+| `createdAt` | DateTime | Yes | `now()` | — |
+| `updatedAt` | DateTime | Yes | auto | — |
+
+**Indexes:** `channelId`. **Unique:** `youtubeId`.
+
 #### Alert
 
 A notification record — score changes, competitor activity, new viral videos.
@@ -924,6 +945,7 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | POST | `/api/stories/:id/generate-title` | editor+ | AI-generate YouTube title. | Anthropic API |
 | POST | `/api/stories/:id/generate-description` | editor+ | AI-generate YouTube description. | Anthropic API |
 | POST | `/api/stories/:id/suggest-tags` | editor+ | AI-suggest YouTube SEO tags. | Anthropic API |
+| POST | `/api/stories/:id/suggest-playlist` | editor+ | AI-suggest best playlist for this video. | Anthropic Haiku |
 | POST | `/api/stories/:id/classify-video` | editor+ | Detect Short vs regular video. | YouTube API |
 | PATCH | `/api/stories/:id/link-video` | editor+ | Link story to its produced YouTube video by `youtubeId`. | — |
 | POST | `/api/stories/:id/retranslate-research` | editor+ | Copy Arabic research brief from linked article; AI fallback only if no existing translation. | Anthropic Haiku (fallback only) |
@@ -1056,6 +1078,16 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | GET | `/categories` | Yes | Distinct categories in latest snapshot (`?country=SA`). |
 | GET | `/video-history/:youtubeVideoId` | Yes | Track a video's rank across snapshots. |
 | POST | `/fetch` | Admin | Manually trigger a trending data fetch (`{ country: "SA" }`). |
+
+### Playlists — `/api/playlists`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/` | Yes | List playlists for a channel (`?channelId=xxx`). |
+| POST | `/` | editor+ | Create a playlist (`{ channelId, name, hashtag1, hashtag2, hashtag3, … }`). |
+| PATCH | `/:id` | editor+ | Update playlist fields. |
+| DELETE | `/:id` | admin+ | Delete a playlist. |
+| POST | `/reorder` | editor+ | Reorder playlists (`{ ids: string[] }`). |
 
 ### AI Monitor — `/api/ai-monitor`
 
@@ -2445,4 +2477,4 @@ Manual uploads and AI-pipeline stories tracked status differently.
 
 ---
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-03-27*
