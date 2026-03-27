@@ -943,7 +943,7 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | POST | `/api/stories/:id/fetch-subtitles` | editor+ | Fetch YouTube transcript as SRT. | Transcript API |
 | POST | `/api/stories/:id/transcribe` | editor+ | Whisper transcription of uploaded video. | OpenAI Whisper → R2 download |
 | POST | `/api/stories/:id/generate-title` | editor+ | AI-generate YouTube title. | Anthropic API |
-| POST | `/api/stories/:id/generate-description` | editor+ | AI-generate YouTube description. | Anthropic API |
+| POST | `/api/stories/:id/generate-description` | editor+ | AI-generate YouTube description using structured format (hook → keywords → timestamps → CTA → playlist hashtags + 2 extra). | Anthropic API |
 | POST | `/api/stories/:id/suggest-tags` | editor+ | AI-suggest YouTube SEO tags. | Anthropic API |
 | POST | `/api/stories/:id/suggest-playlist` | editor+ | AI-suggest best playlist for this video. | Anthropic Haiku |
 | POST | `/api/stories/:id/classify-video` | editor+ | Detect Short vs regular video. | YouTube API |
