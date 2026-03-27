@@ -174,73 +174,80 @@ async function processStoryBackground(storyId) {
         }
       }
 
-      // 2c: Description (now has tags available for hashtags)
-      if (!brief.youtubeDescription) {
-        try {
-          const s = await db.story.findUniqueOrThrow({ where: { id: storyId } })
-          const b = (s.brief && typeof s.brief === 'object') ? { ...s.brief } : {}
-          const ttl = b.suggestedTitle || s.headline || ''
-          const scr = b.transcript || b.script || ''
-          const tags = Array.isArray(b.youtubeTags) ? b.youtubeTags : []
-          const isShort = b.videoFormat === 'short'
-          const descLangNote = dialect
-            ? `Write the description in ${dialect.short} (${dialect.long}).`
-            : 'Write the description in Arabic.'
-
-          // Build timestamped transcript if segments available
-          const segments = Array.isArray(b.transcriptSegments) ? b.transcriptSegments : []
-          let bgScript = ''
-          if (segments.length > 0) {
-            bgScript = segments.map(seg => {
-              const mm = Math.floor((seg.start || 0) / 60)
-              const ss = Math.floor((seg.start || 0) % 60)
-              return `${mm}:${String(ss).padStart(2, '0')} ${seg.text}`
-            }).join('\n')
-          } else {
-            bgScript = scr
-          }
-
-          // Fetch playlist hashtags if suggestion exists
-          const plSugg = b.suggestedPlaylist || null
-          let bgDefaultHashtags = []
-          if (plSugg?.playlistId) {
-            const pl = await db.playlist.findUnique({ where: { id: plSugg.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
-            if (pl) bgDefaultHashtags = [`#${pl.hashtag1}`, `#${pl.hashtag2}`, `#${pl.hashtag3}`]
-          }
-          const bgHashtagsStr = bgDefaultHashtags.length > 0 ? bgDefaultHashtags.join(' ') : ''
-
-          const system = isShort
-            ? `You are an expert Arabic YouTube Shorts description writer. ${descLangNote}\n\nRules:\n- 2-3 lines max: emotional hook + what makes this video unique.\n- End with hashtags: ${bgHashtagsStr ? `${bgHashtagsStr} plus 2 extra relevant hashtags` : '5 relevant hashtags from the tags provided'}.\n- Output ONLY the description text.`
-            : `You are an expert Arabic YouTube description writer. ${descLangNote}\n\nCreate a YouTube description following this EXACT structure. Output ONLY the description.\n\nSECTION 1 — Emotional hook (2-3 lines in Arabic):\nEmotional, curiosity-driven hook with keywords. What makes this case/topic unique.\n\nSECTION 2 — Keyword paragraph (3 lines max in Arabic):\nWho, what, where, why it matters. Pack with searchable keywords.\n\n---\n\n📌 محتوى الفيديو:\n\n(6-10 timestamp chapters from transcript. Format: 0:00 Title)\n\n---\n\n🔔 اشترك وفعّل الجرس عشان ما تفوتك أي قضية جديدة كل يوم!\n\n👍 اللايك والمشاركة يساعد القناة توصل لناس أكثر!\n\n---\n\n${bgHashtagsStr ? `(Default hashtags: ${bgHashtagsStr}) then 2 more relevant hashtags.` : '(5 relevant hashtags from the tags, format: #tag1 #tag2)'}`
-
-          const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTimestamped Transcript:\n${bgScript.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
-          const descRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
-            system, maxTokens: 2048, channelId: story.channelId, storyId: story.id, action: 'Story Generate Description',
-          })
-          if (descRaw) {
-            brief.youtubeDescription = String(descRaw).trim()
-            console.log(tag, 'description generated')
-          }
-        } catch (e) {
-          console.log(tag, 'description failed:', e.message)
-        }
-      }
-
       story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
       brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
     }
 
-    // Auto-suggest playlist (non-fatal)
+    // 2c: Suggest playlist BEFORE description (description needs playlist hashtags)
     try {
       const suggestion = await suggestPlaylistForStory(storyId)
       if (suggestion) {
         story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
         brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
         brief.suggestedPlaylist = suggestion
+        await db.story.update({ where: { id: storyId }, data: { brief } })
         console.log(tag, `playlist suggested: ${suggestion.playlistName} (${suggestion.confidence}%)`)
       }
     } catch (e) {
       console.log(tag, 'playlist suggestion failed (non-fatal):', e.message)
+    }
+
+    // 2d: Description (now has both tags and playlist hashtags available)
+    if (transcript && !brief.youtubeDescription) {
+      try {
+        const s = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+        const b = (s.brief && typeof s.brief === 'object') ? { ...s.brief } : {}
+        const ttl = b.suggestedTitle || s.headline || ''
+        const scr = b.transcript || b.script || ''
+        const tags = Array.isArray(b.youtubeTags) ? b.youtubeTags : []
+        const isShort = b.videoFormat === 'short'
+
+        const channel = await db.channel.findFirst({ where: { id: story.channelId }, select: { nationality: true } })
+        const descDialect = await getDialectForCountry(channel?.nationality)
+        const descLangNote = descDialect
+          ? `Write the description in ${descDialect.short} (${descDialect.long}).`
+          : 'Write the description in Arabic.'
+
+        // Build timestamped transcript if segments available
+        const segments = Array.isArray(b.transcriptSegments) ? b.transcriptSegments : []
+        let bgScript = ''
+        if (segments.length > 0) {
+          bgScript = segments.map(seg => {
+            const mm = Math.floor((seg.start || 0) / 60)
+            const ss = Math.floor((seg.start || 0) % 60)
+            return `${mm}:${String(ss).padStart(2, '0')} ${seg.text}`
+          }).join('\n')
+        } else {
+          bgScript = scr
+        }
+
+        // Fetch playlist hashtags from the suggestion we just made
+        const plSugg = b.suggestedPlaylist || null
+        let bgDefaultHashtags = []
+        if (plSugg?.playlistId) {
+          const pl = await db.playlist.findUnique({ where: { id: plSugg.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
+          if (pl) bgDefaultHashtags = [`#${pl.hashtag1}`, `#${pl.hashtag2}`, `#${pl.hashtag3}`]
+        }
+        const bgHashtagsStr = bgDefaultHashtags.length > 0 ? bgDefaultHashtags.join(' ') : ''
+
+        const system = isShort
+          ? `You are an expert Arabic YouTube Shorts description writer. ${descLangNote}\n\nRules:\n- 2-3 lines max: emotional hook + what makes this video unique.\n- End with hashtags: ${bgHashtagsStr ? `${bgHashtagsStr} plus 2 extra relevant hashtags` : '5 relevant hashtags from the tags provided'}.\n- Output ONLY the description text.`
+          : `You are an expert Arabic YouTube description writer. ${descLangNote}\n\nCreate a YouTube description following this EXACT structure. Output ONLY the description.\n\nSECTION 1 — Emotional hook (2-3 lines in Arabic):\nEmotional, curiosity-driven hook with keywords. What makes this case/topic unique.\n\nSECTION 2 — Keyword paragraph (3 lines max in Arabic):\nWho, what, where, why it matters. Pack with searchable keywords.\n\n---\n\n📌 محتوى الفيديو:\n\n(6-10 timestamp chapters from transcript. Format: 0:00 Title)\n\n---\n\n🔔 اشترك وفعّل الجرس عشان ما تفوتك أي قضية جديدة كل يوم!\n\n👍 اللايك والمشاركة يساعد القناة توصل لناس أكثر!\n\n---\n\n${bgHashtagsStr ? `(Default hashtags: ${bgHashtagsStr}) then 2 more relevant hashtags.` : '(5 relevant hashtags from the tags, format: #tag1 #tag2)'}`
+
+        const msg = `Title: ${ttl}\n${b.openingHook ? `Opening Hook: ${b.openingHook}` : ''}\nTimestamped Transcript:\n${bgScript.slice(0, 15000)}\n${b.hookEnd ? `Outro: ${b.hookEnd}` : ''}\nTags: ${tags.join(', ')}`
+        const descRaw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: msg }], {
+          system, maxTokens: 2048, channelId: story.channelId, storyId: story.id, action: 'Story Generate Description',
+        })
+        if (descRaw) {
+          story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
+          brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+          brief.youtubeDescription = String(descRaw).trim()
+          await db.story.update({ where: { id: storyId }, data: { brief } })
+          console.log(tag, 'description generated')
+        }
+      } catch (e) {
+        console.log(tag, 'description failed:', e.message)
+      }
     }
 
     brief.processingStatus = 'done'
