@@ -943,14 +943,14 @@ function fmtSRT(totalSeconds) {
 // ── POST /api/stories/:id/generate-description — AI: compose a YouTube description from script, title, hooks, tags.
 router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const story = await db.story.findUniqueOrThrow({
+    let story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
     })
     const descKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
     if (!descKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
-    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    let brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
     const title = brief.suggestedTitle || story.headline || ''
     const hook = brief.openingHook || ''
     const hookEnd = brief.hookEnd || ''
@@ -980,11 +980,25 @@ router.post('/:id/generate-description', requireRole('owner', 'admin', 'editor')
       ? `Write the description in ${dialect.short} (${dialect.long}).`
       : 'Write the description in Arabic.'
 
+    // Auto-suggest playlist first if none exists
+    if (!brief.suggestedPlaylist) {
+      try {
+        const suggestion = await suggestPlaylistForStory(story.id)
+        if (suggestion) {
+          story = await db.story.findUniqueOrThrow({ where: { id: story.id } })
+          brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+          brief.suggestedPlaylist = suggestion
+          await db.story.update({ where: { id: story.id }, data: { brief } })
+        }
+      } catch (e) {
+        console.log('[generate-description] playlist auto-suggest failed (non-fatal):', e.message)
+      }
+    }
+
     // Fetch playlist hashtags for the description footer
-    const playlistSuggestion = brief.suggestedPlaylist || null
     let defaultHashtags = []
-    if (playlistSuggestion?.playlistId) {
-      const pl = await db.playlist.findUnique({ where: { id: playlistSuggestion.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
+    if (brief.suggestedPlaylist?.playlistId) {
+      const pl = await db.playlist.findUnique({ where: { id: brief.suggestedPlaylist.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
       if (pl) defaultHashtags = [`#${pl.hashtag1}`, `#${pl.hashtag2}`, `#${pl.hashtag3}`]
     }
     const defaultHashtagsStr = defaultHashtags.length > 0 ? defaultHashtags.join(' ') : ''
@@ -1063,14 +1077,14 @@ Tags: ${tags.join(', ')}`
 // ── POST /api/stories/:id/suggest-tags — playlist hashtags (3) + AI-generated (2)
 router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const story = await db.story.findUniqueOrThrow({
+    let story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
     })
     const tagsKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
     if (!tagsKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
     }
-    const brief = (story.brief && typeof story.brief === 'object') ? story.brief : {}
+    let brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
     const headline = (story.headline || '').trim()
     const script = (typeof brief.transcript === 'string' ? brief.transcript.trim() : '') || (typeof brief.script === 'string' ? brief.script.trim() : '')
     const summary = typeof brief.summary === 'string' ? brief.summary.trim() : ''
@@ -1079,11 +1093,25 @@ router.post('/:id/suggest-tags', requireRole('owner', 'admin', 'editor'), async 
       return res.status(400).json({ error: 'Add a headline or transcribe the video first so the AI can suggest tags.' })
     }
 
+    // Auto-suggest playlist first if none exists
+    if (!brief.suggestedPlaylist) {
+      try {
+        const suggestion = await suggestPlaylistForStory(story.id)
+        if (suggestion) {
+          story = await db.story.findUniqueOrThrow({ where: { id: story.id } })
+          brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+          brief.suggestedPlaylist = suggestion
+          await db.story.update({ where: { id: story.id }, data: { brief } })
+        }
+      } catch (e) {
+        console.log('[suggest-tags] playlist auto-suggest failed (non-fatal):', e.message)
+      }
+    }
+
     // Fetch playlist's 3 default hashtags
-    const plSugg = brief.suggestedPlaylist || null
     let playlistTags = []
-    if (plSugg?.playlistId) {
-      const pl = await db.playlist.findUnique({ where: { id: plSugg.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
+    if (brief.suggestedPlaylist?.playlistId) {
+      const pl = await db.playlist.findUnique({ where: { id: brief.suggestedPlaylist.playlistId }, select: { hashtag1: true, hashtag2: true, hashtag3: true } })
       if (pl) playlistTags = [pl.hashtag1, pl.hashtag2, pl.hashtag3].filter(Boolean)
     }
 
