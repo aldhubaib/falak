@@ -761,6 +761,26 @@ function ManualStoryWorkflow({
                 <button
                   type="button"
                   onClick={() => {
+                    const segments = brief.transcriptSegments || [];
+                    if (!segments.length) { toast.error("No transcript segments to rebuild"); return; }
+                    const freshSRT = segmentsToSRT(segments);
+                    const freshTranscript = segments.map((s) => s.text).join(" ");
+                    onBriefChange((b) => ({ ...b, subtitlesSRT: freshSRT, transcript: freshTranscript }));
+                    fetch(`/api/stories/${storyId}`, {
+                      method: "PATCH", credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ brief: { ...brief, subtitlesSRT: freshSRT, transcript: freshTranscript } }),
+                    });
+                    toast.success("SRT regenerated from updated transcript");
+                  }}
+                  className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Regenerate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     navigator.clipboard.writeText(brief.subtitlesSRT!).then(() => {
                       setSrtCopied(true);
                       setTimeout(() => setSrtCopied(false), 2000);
