@@ -96,9 +96,6 @@ type PipelineStep = "idle" | "transcribing" | "generating" | "done" | "error";
 
 const PIPELINE_STEPS: { key: PipelineStep; label: string; briefKey?: keyof StoryBrief }[] = [
   { key: "transcribing", label: "Transcribing", briefKey: "transcript" },
-  { key: "generating",   label: "Title" ,       briefKey: "suggestedTitle" },
-  { key: "generating",   label: "Description",  briefKey: "youtubeDescription" },
-  { key: "generating",   label: "Tags",         briefKey: "youtubeTags" },
 ];
 
 function segmentsToSRT(segments: { text: string; start: number; end?: number }[]): string {
@@ -246,10 +243,9 @@ function ManualStoryWorkflow({
 
   const generateAll = async () => {
     setGeneratingAll(true);
-    toast.info("Generating title, description & tags…");
+    toast.info("Generating metadata…");
     try {
-      // Rebuild SRT from (possibly edited) segments and flush to DB so
-      // backend endpoints read the latest transcript.
+      // 1. Rebuild SRT from (possibly edited) segments and flush to DB
       const segments = brief.transcriptSegments || [];
       const freshSRT = segments.length > 0 ? segmentsToSRT(segments) : brief.subtitlesSRT;
       const freshTranscript = segments.length > 0
@@ -264,15 +260,31 @@ function ManualStoryWorkflow({
       });
       onBriefChange(() => briefToSave);
 
-      // Sequential: title → tags (auto-suggests playlist) → description (uses playlist hashtags)
+      // Sequential: Title → Description → Playlist → Tags
       let ok = 0;
 
+      // 2. Title
       const titleData = await fetch(`/api/stories/${storyId}/generate-title`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
       if (titleData?.title) {
         onBriefChange((b) => ({ ...b, suggestedTitle: titleData.title }));
         ok++;
       }
 
+      // 3. Description
+      const descData = await fetch(`/api/stories/${storyId}/generate-description`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (descData?.description) {
+        onBriefChange((b) => ({ ...b, youtubeDescription: descData.description }));
+        ok++;
+      }
+
+      // 4. Playlist suggestion
+      const playlistData = await fetch(`/api/stories/${storyId}/suggest-playlist`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
+      if (playlistData?.playlistId) {
+        onBriefChange((b) => ({ ...b, suggestedPlaylist: playlistData }));
+        ok++;
+      }
+
+      // 5. Tags (3 playlist hashtags + 2 AI)
       const tagsData = await fetch(`/api/stories/${storyId}/suggest-tags`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
       if (tagsData) {
         const tags = tagsData.tags || tagsData.brief?.youtubeTags || [];
@@ -282,14 +294,8 @@ function ManualStoryWorkflow({
         }
       }
 
-      const descData = await fetch(`/api/stories/${storyId}/generate-description`, { method: "POST", credentials: "include" }).then(r => r.ok ? r.json() : null).catch(() => null);
-      if (descData?.description) {
-        onBriefChange((b) => ({ ...b, youtubeDescription: descData.description }));
-        ok++;
-      }
-
-      if (ok === 3) toast.success("All metadata generated");
-      else if (ok > 0) toast.success(`Generated ${ok}/3 fields`);
+      if (ok >= 4) toast.success("All metadata generated");
+      else if (ok > 0) toast.success(`Generated ${ok}/4 fields`);
       else toast.error("Generation failed");
     } catch {
       toast.error("Generation failed");
@@ -464,7 +470,7 @@ function ManualStoryWorkflow({
               className="w-full py-2.5 rounded-lg text-[13px] font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {generatingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              {generatingAll ? "Generating All…" : "Generate Title, Description & Tags"}
+              {generatingAll ? "Generating All…" : "Generate All Metadata"}
             </button>
           </div>
         )}
