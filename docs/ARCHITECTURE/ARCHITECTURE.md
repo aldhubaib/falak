@@ -335,17 +335,20 @@ A YouTube comment fetched from the video, with AI-assigned sentiment.
 
 #### Story
 
-An AI-generated or manually created story idea. Flows through stages from
-`suggestion` → `liked` → `scripting` → `filmed` → `done`. Can also
-be `skip` or `trash` (negative decisions used for learning), or `filtered`
-(automatically filtered out by the article pipeline threshold gate).
+An AI-generated, manually created, or writer-submitted story idea. AI-originated
+stories flow through `suggestion` → `liked` → `scripting` → `filmed` → `done`.
+Writer-originated stories flow through `writer_draft` → `writer_submitted` →
+`writer_approved` → `scripting` → `filmed` → `writer_review` → `done`. Stories
+can also be `skip` or `trash` (negative decisions used for learning), `filtered`
+(automatically filtered out by the article pipeline threshold gate), or
+`writer_revision` (sent back to the writer for edits).
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `id` | String | Yes | `cuid()` | Primary key |
 | `channelId` | String | Yes | — | FK → Channel |
 | `headline` | String | Yes | — | Story headline (Arabic) |
-| `origin` | String | Yes | `"ai"` | `ai` or `manual` |
+| `origin` | String | Yes | `"ai"` | `ai`, `manual`, or `writer` |
 | `stage` | String | Yes | `"suggestion"` | Workflow stage |
 | `coverageStatus` | String | No | — | Competition coverage info |
 | `sourceUrl` | String | No | — | Original article URL |
@@ -360,6 +363,8 @@ be `skip` or `trash` (negative decisions used for learning), or `filtered`
 | `scriptShort` | Text | No | — | Short-form script |
 | `brief` | Json | No | — | Rich metadata (article, research, video, tags, etc.) |
 | `producedVideoId` | String | No | — | FK → Video (unique) — links story to its published YouTube video |
+| `writerId` | String | No | — | FK → User — assigned writer (null for AI/manual stories) |
+| `writerNotes` | Text | No | — | Writer's notes for the production team or revision feedback |
 | `embedding` | vector(1536) | No | — | pgvector embedding |
 | `lastRescoredAt` | DateTime | No | — | Last rescore timestamp |
 | `rescoreLog` | Json | No | — | Last 20 rescore entries |
@@ -367,8 +372,8 @@ be `skip` or `trash` (negative decisions used for learning), or `filtered`
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
-**Relations:** Belongs to `Channel`. Has many `StoryLog`. Optional 1:1 to `Video` via `producedVideoId`.
-**Indexes:** `[channelId, stage]`. **Unique:** `producedVideoId`.
+**Relations:** Belongs to `Channel`. Has many `StoryLog`. Optional 1:1 to `Video` via `producedVideoId`. Optional FK to `User` via `writerId`.
+**Indexes:** `[channelId, stage]`, `[writerId]`. **Unique:** `producedVideoId`.
 
 #### StoryLog
 
@@ -492,7 +497,7 @@ A Google-authenticated user with role-based access control.
 | `name` | String | No | — | Display name |
 | `avatarUrl` | String | No | — | Google avatar |
 | `googleId` | String | No | — | Google sub ID (unique) |
-| `role` | String | Yes | `"viewer"` | `owner`, `admin`, `editor`, `viewer` |
+| `role` | String | Yes | `"viewer"` | `owner`, `admin`, `editor`, `viewer`, `writer` |
 | `note` | String | No | — | Admin note |
 | `isActive` | Boolean | Yes | true | Enable/disable access |
 | `canCreateProfile` | Boolean | Yes | false | Allow non-admin users to create profiles |
@@ -852,7 +857,7 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 
 ## 5 — API Endpoints
 
-**96 total route handlers** across 19 route files.
+**99 total route handlers** across 20 route files.
 
 ### Auth — `/api/auth`
 
@@ -932,10 +937,10 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | GET | `/api/stories` | Yes | List stories by channel/stage, sorted by compositeScore. | — |
 | GET | `/api/stories/summary` | Yes | Stage counts and first-mover stats. | — |
 | GET | `/api/stories/:id` | Yes | Single story with full log history. Research images merged from linked article's analysis. | — |
-| POST | `/api/stories` | editor+ | Create a story. | — |
+| POST | `/api/stories` | editor+/writer | Create a story. Writers auto-get `origin: "writer"`, `stage: "writer_draft"`. | — |
 | POST | `/api/stories/manual` | editor+ | Create manual story in "filmed" stage. | — |
 | POST | `/api/stories/:id/process` | editor+ | Kick off background AI processing (transcribe → title → description + tags in parallel). Returns immediately. | Updates `brief.processingStatus` |
-| PATCH | `/api/stories/:id` | editor+ | Update story (stage change triggers learning). | StoryLog, refreshPreferenceProfile, learnFromDecisions |
+| PATCH | `/api/stories/:id` | editor+/writer | Update story (stage change triggers learning). Writers can only edit own stories in `writer_draft`/`writer_revision` stages. | StoryLog, refreshPreferenceProfile, learnFromDecisions |
 | DELETE | `/api/stories/:id` | admin+ | Delete a story. | — |
 | POST | `/api/stories/:id/fetch-article` | editor+ | Scrape source URL content. | Firecrawl API → updates Story.brief |
 | POST | `/api/stories/:id/cleanup` | editor+ | AI-clean scraped article. | Anthropic API |
@@ -955,6 +960,19 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | POST | `/api/stories/rescore-all` | editor+ | Re-score all active stories in channel via niche embedding. | — |
 | POST | `/api/stories/re-evaluate` | admin+ | Full rescore cycle for a channel. | YouTube API + scoring |
 | POST | `/api/stories/recalculate-scores` | admin+ | Batch recalc compositeScore. | — |
+
+### Writer — `/api/writer`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/writer/stories` | writer | List writer's own stories for a channel. |
+| GET | `/api/writer/stories/summary` | writer | Stage counts for writer's stories. |
+| GET | `/api/writer/stories/:id` | writer | Single story detail (own stories only). |
+
+**Writer stage flow:** `writer_draft` → `writer_submitted` → (admin approves) →
+`writer_approved` → `scripting` → `filmed` → `writer_review` → (writer approves) →
+`done`. Admin can override any stage at any time. Writer can request revision at
+`writer_review` stage, moving story to `writer_revision` for re-editing.
 
 ### Article Sources — `/api/article-sources`
 
@@ -1574,6 +1592,8 @@ Requires ≥3 outcomes.
 | `/c/:channelId/settings` | Settings | API keys + usage dashboard |
 | `/c/:channelId/ai-monitor` | AiMonitor | AI generation log, style guide editor, script-vs-transcript diff view |
 | `/c/:channelId/admin` | Admin | User access control |
+| `/c/:channelId/writer` | WriterDashboard | Writer's story list with stage filters (writer role only) |
+| `/c/:channelId/writer/story/:id` | WriterStoryDetail | Writer's story editor + video review + approval actions |
 
 ### State Management
 
