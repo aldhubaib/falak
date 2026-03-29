@@ -76,7 +76,8 @@ const STAGES: { key: Stage; label: string }[] = [
 ];
 
 const STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "done"];
-const NAV_STAGE_ORDER: Stage[] = ["suggestion", "liked", "scripting", "filmed", "done", "skip", "trash", "filtered"];
+const WRITER_STAGE_ORDER: Stage[] = ["writer_draft", "writer_submitted", "writer_approved", "scripting", "filmed", "writer_review", "done"];
+const NAV_STAGE_ORDER: Stage[] = ["suggestion", "writer_submitted", "writer_review", "liked", "scripting", "filmed", "done", "skip", "trash", "filtered", "writer_draft", "writer_approved", "writer_revision"];
 
 /** Minimal mock so main content renders (design only). */
 const MOCK_STORY: StoryWithLog = {
@@ -950,6 +951,7 @@ export default function StoryDetail() {
         if (cancelled) return;
         setStory(data as StoryWithLog);
         const b = data.brief && typeof data.brief === "object" ? data.brief as StoryBrief : {};
+        if (!b.script && data.scriptLong) b.script = data.scriptLong;
         setBrief(b);
       } catch (err: any) {
         if (cancelled) return;
@@ -1135,9 +1137,11 @@ export default function StoryDetail() {
   const showStageNav = stageStories.length > 1 && stageIndex >= 0;
   const sameStageStories = stageStories.filter((s) => s.stage === activeStage);
   const withinStageIndex = id ? sameStageStories.findIndex((s) => s.id === id) : -1;
-  const stageOrderIdx = STAGE_ORDER.indexOf(activeStage);
-  const isManualOrigin = story?.origin === "manual";
-  const rawNextStageKey: Stage | null = stageOrderIdx >= 0 && stageOrderIdx < STAGE_ORDER.length - 1 ? STAGE_ORDER[stageOrderIdx + 1]! : null;
+  const isManualOrigin = story?.origin === "manual" || story?.origin === "writer";
+  const isWriterOrigin = story?.origin === "writer";
+  const effectiveStageOrder = isWriterOrigin ? WRITER_STAGE_ORDER : STAGE_ORDER;
+  const stageOrderIdx = effectiveStageOrder.indexOf(activeStage);
+  const rawNextStageKey: Stage | null = stageOrderIdx >= 0 && stageOrderIdx < effectiveStageOrder.length - 1 ? effectiveStageOrder[stageOrderIdx + 1]! : null;
   const nextStageKey: Stage | null = rawNextStageKey;
   const nextStageLabel = nextStageKey ? STAGES.find((s) => s.key === nextStageKey)?.label ?? null : null;
   const relativeDate = story?.sourceDate || story?.createdAt
@@ -1373,7 +1377,29 @@ export default function StoryDetail() {
         <div className="flex-1 overflow-auto">
           <div className="max-w-[1000px] mx-auto px-16 max-lg:px-10 max-sm:px-4 py-5 pb-16 space-y-5">
             {/* ── MANUAL STORY LAYOUT ─────────────────────────────────── */}
-            {story.origin === "manual" ? (
+            {/* Writer info banner */}
+            {story.origin === "writer" && story.writer && (
+              <div className="rounded-xl bg-orange/5 border border-orange/20 px-4 py-3 flex items-center gap-3">
+                {story.writer.avatarUrl ? (
+                  <img src={story.writer.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-orange/15 flex items-center justify-center text-[11px] font-bold text-orange shrink-0">
+                    {(story.writer.name ?? "?")[0]}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-medium text-foreground">{story.writer.name ?? "Writer"}</span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange/15 text-orange">Writer</span>
+                  </div>
+                  {story.writerNotes && (
+                    <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2" dir="auto">{story.writerNotes}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(story.origin === "manual" || story.origin === "writer") ? (
               <ManualStoryWorkflow
                 story={story}
                 brief={brief}

@@ -13,6 +13,10 @@ export interface ApiChannel {
 
 export interface StoryWithLog extends ApiStory {
   linkedArticleId?: string | null;
+  writerId?: string | null;
+  writerNotes?: string | null;
+  scriptLong?: string | null;
+  writer?: { id: string; name: string | null; avatarUrl: string | null } | null;
   log: {
     id: string;
     action: string;
