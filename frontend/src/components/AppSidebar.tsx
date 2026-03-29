@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, GitBranch, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, FileText, Home, Images, Palette, Flame, Brain } from "lucide-react";
+import { LayoutDashboard, GitBranch, TrendingUp, Sparkles, Settings, Circle, Pin, PinOff, FileText, Home, Images, Palette, Flame, Brain, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const allNavItems = [
@@ -145,11 +145,18 @@ export function AppSidebar({ channelId, onClose, isMobile, collapsed = false, pi
           const pa = currentUser?.pageAccess;
           const hasFullAccess = role === "owner" || role === "admin" || !pa;
 
-          const navItems = hasFullAccess
-            ? allNavItems
-            : allNavItems.filter((item) => pa!.includes(item.slug));
+          const isWriter = role === "writer";
+          const writerNavItems = [
+            { icon: Pencil, label: "My Stories", path: "/writer", slug: "writer" },
+          ];
 
-          const showAdmin = hasFullAccess || (pa && pa.includes("admin"));
+          const navItems = isWriter
+            ? writerNavItems
+            : hasFullAccess
+              ? allNavItems
+              : allNavItems.filter((item) => pa!.includes(item.slug));
+
+          const showAdmin = !isWriter && (hasFullAccess || (pa && pa.includes("admin")));
 
           return (
             <>

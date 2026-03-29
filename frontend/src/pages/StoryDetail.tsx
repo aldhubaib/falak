@@ -61,9 +61,14 @@ function parseStructuredScript(text: string) {
 
 const STAGES: { key: Stage; label: string }[] = [
   { key: "suggestion", label: "Suggestion" },
+  { key: "writer_draft", label: "Writer Draft" },
+  { key: "writer_submitted", label: "Writer Submitted" },
+  { key: "writer_approved", label: "Writer Approved" },
   { key: "liked", label: "Liked" },
   { key: "scripting", label: "Scripting" },
   { key: "filmed", label: "Filmed" },
+  { key: "writer_review", label: "Writer Review" },
+  { key: "writer_revision", label: "Writer Revision" },
   { key: "done", label: "Done" },
   { key: "skip", label: "Skipped" },
   { key: "trash", label: "Trashed" },

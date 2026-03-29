@@ -139,7 +139,7 @@ export default function ProfilePicker() {
           <div
             key={p.id}
             className="relative group flex flex-col items-center rounded-lg bg-card border border-border/50 px-4 py-6 cursor-pointer hover:border-primary/40 hover:bg-card transition-all"
-            onClick={() => navigate(`/c/${p.id}/`)}
+            onClick={() => navigate(currentUser?.role === "writer" ? `/c/${p.id}/writer` : `/c/${p.id}/`)}
           >
             {/* Three-dot menu */}
             <button

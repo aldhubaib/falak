@@ -276,7 +276,8 @@ router.get('/', async (req, res) => {
       relevanceScore: true, viralScore: true, firstMoverScore: true,
       coverageStatus: true, sourceName: true, sourceDate: true,
       sourceUrl: true, createdAt: true, updatedAt: true,
-      channelId: true, origin: true,
+      channelId: true, origin: true, writerId: true,
+      writer: { select: { id: true, name: true, avatarUrl: true } },
     }
     if (!slim) selectFields.brief = true
 
@@ -307,7 +308,8 @@ router.get('/summary', async (req, res) => {
       db.story.count({ where }),
     ])
 
-    const stages = ['suggestion', 'liked', 'scripting', 'filmed', 'done', 'skip', 'trash']
+    const stages = ['suggestion', 'liked', 'scripting', 'filmed', 'done', 'skip', 'trash',
+                     'writer_draft', 'writer_submitted', 'writer_approved', 'writer_review', 'writer_revision']
     const counts = {}
     for (const s of stages) counts[s] = 0
     for (const row of stageCounts) counts[row.stage] = row._count
@@ -1003,7 +1005,10 @@ router.get('/:id', async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' }, take: 50 } }
+      include: {
+        log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' }, take: 50 },
+        writer: { select: { id: true, name: true, avatarUrl: true } },
+      }
     })
     const linkedArticle = await db.article.findFirst({
       where: { storyId: story.id },
@@ -1429,13 +1434,23 @@ router.patch('/:id/link-video', requireRole('owner', 'admin', 'editor'), async (
 })
 
 // ── POST /api/stories
-router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+router.post('/', requireRole('owner', 'admin', 'editor', 'writer'), async (req, res) => {
   try {
     const { channelId, headline, stage, sourceUrl, sourceName, brief } = req.body
     if (!channelId || !headline) return res.status(400).json({ error: 'channelId and headline required' })
 
+    const isWriter = req.user.role === 'writer'
+    const storyStage = isWriter ? 'writer_draft' : (stage || 'suggestion')
+    const storyOrigin = isWriter ? 'writer' : 'ai'
+
     const story = await db.story.create({
-      data: { channelId, headline, stage: stage || 'suggestion', sourceUrl, sourceName, brief }
+      data: {
+        channelId, headline,
+        stage: storyStage,
+        origin: storyOrigin,
+        sourceUrl, sourceName, brief,
+        writerId: isWriter ? req.user.id : undefined,
+      }
     })
     await addLog(story.id, req.user.id, 'created', `Stage: ${story.stage}`)
     res.json(story)
@@ -1445,11 +1460,51 @@ router.post('/', requireRole('owner', 'admin', 'editor'), async (req, res) => {
 })
 
 // ── PATCH /api/stories/:id
-router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+router.patch('/:id', requireRole('owner', 'admin', 'editor', 'writer'), async (req, res) => {
   try {
+    const isWriter = req.user.role === 'writer'
+
+    if (isWriter) {
+      const existing = await db.story.findUnique({ where: { id: req.params.id }, select: { writerId: true, stage: true } })
+      if (!existing) return res.status(404).json({ error: 'Story not found' })
+      if (existing.writerId !== req.user.id) return res.status(403).json({ error: 'You can only edit your own stories' })
+
+      const writerEditableStages = ['writer_draft', 'writer_revision']
+      const writerAllowedFields = ['headline', 'scriptLong', 'scriptShort', 'brief', 'writerNotes']
+
+      if (req.body.stage) {
+        const writerTransitions = {
+          writer_draft: ['writer_submitted'],
+          writer_revision: ['writer_submitted'],
+          writer_review: ['writer_approved', 'writer_revision'],
+        }
+        const allowed = writerTransitions[existing.stage]
+        if (!allowed || !allowed.includes(req.body.stage)) {
+          return res.status(403).json({ error: `Cannot transition from ${existing.stage} to ${req.body.stage}` })
+        }
+      } else if (!writerEditableStages.includes(existing.stage)) {
+        return res.status(403).json({ error: 'Story is not in an editable state' })
+      }
+
+      const data = {}
+      for (const k of writerAllowedFields) if (req.body[k] !== undefined) data[k] = req.body[k]
+      if (req.body.stage) data.stage = req.body.stage
+
+      const story = await db.story.update({ where: { id: req.params.id }, data })
+      if (req.body.stage) {
+        const stageLabel = req.body.stage.replace('writer_', '').charAt(0).toUpperCase() + req.body.stage.replace('writer_', '').slice(1)
+        await addLog(story.id, req.user.id, 'stage_change', `Writer: status changed to ${stageLabel}`)
+      }
+      const withLog = await db.story.findUnique({
+        where: { id: story.id },
+        include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' }, take: 50 } }
+      })
+      return res.json(withLog || story)
+    }
+
     const allowed = ['headline', 'stage', 'origin', 'sourceUrl', 'sourceName', 'sourceDate',
-                     'coverageStatus', 'scriptLong', 'scriptShort', 'brief',
-                     'relevanceScore', 'viralScore', 'firstMoverScore', 'compositeScore']
+                     'coverageStatus', 'scriptLong', 'scriptShort', 'brief', 'writerNotes',
+                     'relevanceScore', 'viralScore', 'firstMoverScore', 'compositeScore', 'writerId']
     const data = {}
     for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k]
 
@@ -1469,7 +1524,6 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
       const stageLabel = req.body.stage.charAt(0).toUpperCase() + req.body.stage.slice(1)
       await addLog(story.id, req.user.id, 'stage_change', `Status changed to ${stageLabel}`)
 
-      // Refresh article preference profile when user makes a decision
       const feedbackStages = ['liked', 'skip', 'trash', 'scripting', 'filmed', 'done']
       if (feedbackStages.includes(req.body.stage) && story.channelId) {
         try {
@@ -1482,12 +1536,10 @@ router.patch('/:id', requireRole('owner', 'admin', 'editor'), async (req, res) =
         } catch (_) {}
       }
 
-      // AI learning: compare AI script vs actual transcript when story is done
       if (req.body.stage === 'done' && story.channelId) {
         learnFromStory(story.id).catch(e => console.error('[stories/patch] AI learning failed:', e.message))
       }
     }
-    // Return story with log so Edit History shows who changed status
     const withLog = await db.story.findUnique({
       where: { id: story.id },
       include: { log: { include: { user: { select: { name: true, avatarUrl: true } } }, orderBy: { createdAt: 'desc' }, take: 50 } }

@@ -10,7 +10,8 @@ import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Stage = "suggestion" | "liked" | "scripting" | "filmed" | "done" | "skip" | "trash" | "filtered";
+export type Stage = "suggestion" | "liked" | "scripting" | "filmed" | "done" | "skip" | "trash" | "filtered"
+  | "writer_draft" | "writer_submitted" | "writer_approved" | "writer_review" | "writer_revision";
 
 export interface ApiStory {
   id: string;
@@ -50,14 +51,16 @@ function getSourceBadge(sourceName: string | null): { label: string; color: stri
 }
 
 const STAGES: { key: Stage; label: string; color: string; pillClass: string; sub: string }[] = [
-  { key: "suggestion", label: "AI Suggestion", color: "text-orange",     pillClass: "bg-orange/15 text-foreground",     sub: "awaiting triage · multi-source news" },
-  { key: "liked",      label: "Liked",          color: "text-primary",       pillClass: "bg-primary/15 text-foreground",       sub: "saved for review" },
-  { key: "scripting",  label: "Scripting",      color: "text-primary",       pillClass: "bg-primary/15 text-foreground",       sub: "editing script" },
-  { key: "filmed",     label: "Filmed",         color: "text-success",    pillClass: "bg-success/15 text-foreground", sub: "waiting for URL" },
-  { key: "done",       label: "Done",           color: "text-foreground", pillClass: "bg-foreground/15 text-foreground", sub: "published all time" },
-  { key: "skip",       label: "Skipped",        color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "passed on" },
-  { key: "trash",      label: "Trashed",        color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "insufficient data" },
-  { key: "filtered",   label: "Filtered",       color: "text-muted-foreground",        pillClass: "bg-card text-foreground border border-border", sub: "below threshold" },
+  { key: "suggestion",        label: "AI Suggestion",    color: "text-orange",            pillClass: "bg-orange/15 text-foreground",     sub: "awaiting triage · multi-source news" },
+  { key: "writer_submitted",  label: "Writer Pitches",   color: "text-orange",            pillClass: "bg-orange/15 text-foreground",     sub: "submitted by writers" },
+  { key: "liked",             label: "Liked",            color: "text-primary",           pillClass: "bg-primary/15 text-foreground",       sub: "saved for review" },
+  { key: "scripting",         label: "Scripting",        color: "text-primary",           pillClass: "bg-primary/15 text-foreground",       sub: "editing script" },
+  { key: "filmed",            label: "Filmed",           color: "text-success",           pillClass: "bg-success/15 text-foreground", sub: "waiting for URL" },
+  { key: "writer_review",     label: "Writer Review",    color: "text-warning",           pillClass: "bg-warning/15 text-foreground",     sub: "awaiting writer approval" },
+  { key: "done",              label: "Done",             color: "text-foreground",        pillClass: "bg-foreground/15 text-foreground", sub: "published all time" },
+  { key: "skip",              label: "Skipped",          color: "text-muted-foreground",  pillClass: "bg-card text-foreground border border-border", sub: "passed on" },
+  { key: "trash",             label: "Trashed",          color: "text-muted-foreground",  pillClass: "bg-card text-foreground border border-border", sub: "insufficient data" },
+  { key: "filtered",          label: "Filtered",         color: "text-muted-foreground",  pillClass: "bg-card text-foreground border border-border", sub: "below threshold" },
 ];
 
 function relativeTime(iso: string | null | undefined): string {

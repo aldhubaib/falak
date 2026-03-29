@@ -10,7 +10,7 @@ import {
 import { toast } from "sonner";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
-type Role = "admin" | "editor" | "viewer";
+type Role = "admin" | "editor" | "viewer" | "writer";
 
 interface PageDef {
   slug: string;
@@ -44,6 +44,7 @@ const roleColors: Record<Role, string> = {
   admin: "text-destructive border-destructive/30 bg-destructive/10",
   editor: "text-primary border-primary/30 bg-primary/10",
   viewer: "text-muted-foreground border-border bg-card",
+  writer: "text-orange border-orange/30 bg-orange/10",
 };
 
 const roleIcons: Record<Role, typeof Key> = {
@@ -541,7 +542,7 @@ export default function Admin() {
             <div>
               <label className="text-[12px] font-semibold text-foreground block mb-2">Role</label>
               <div className="flex gap-2">
-                {(["admin", "editor", "viewer"] as Role[]).map((r) => (
+                {(["admin", "editor", "viewer", "writer"] as Role[]).map((r) => (
                   <button
                     key={r}
                     onClick={() => setEditRole(r)}

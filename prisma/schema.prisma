@@ -177,6 +177,9 @@ model Story {
   brief           Json?
   producedVideoId String?    @unique
   producedVideo   Video?     @relation("StoryProducedVideo", fields: [producedVideoId], references: [id], onDelete: SetNull)
+  writerId        String?
+  writer          User?      @relation("StoryWriter", fields: [writerId], references: [id], onDelete: SetNull)
+  writerNotes     String?    @db.Text
   embedding       Unsupported("vector(1536)")?
   lastRescoredAt  DateTime?
   rescoreLog      Json?
@@ -189,6 +192,7 @@ model Story {
   @@index([channelId, compositeScore])
   @@index([channelId, createdAt])
   @@index([channelId, lastRescoredAt])
+  @@index([writerId])
 }
 
 model StoryLog {
@@ -220,6 +224,7 @@ model User {
   pageAccess       Json?
   channelAccess    Json?
   storyLogs     StoryLog[]
+  writerStories Story[]        @relation("StoryWriter")
   uploadedMedia GalleryMedia[] @relation("GalleryMediaUploadedBy")
   createdAlbums GalleryAlbum[] @relation("GalleryAlbumCreatedBy")
   sessions      Session[]

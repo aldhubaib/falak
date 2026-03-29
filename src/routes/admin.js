@@ -79,7 +79,7 @@ router.post('/users', async (req, res) => {
       return res.status(409).json({ error: 'User already exists' })
     }
 
-    const validRole = ['admin', 'editor', 'viewer'].includes(role) ? role : 'viewer'
+    const validRole = ['admin', 'editor', 'viewer', 'writer'].includes(role) ? role : 'viewer'
     const validPages = Array.isArray(pageAccess)
       ? pageAccess.filter(p => PAGE_SLUGS.includes(p))
       : null
@@ -126,7 +126,7 @@ router.patch('/users/:id', async (req, res) => {
 
     const data = {}
     if (req.body.role !== undefined) {
-      if (['admin', 'editor', 'viewer'].includes(req.body.role)) {
+      if (['admin', 'editor', 'viewer', 'writer'].includes(req.body.role)) {
         data.role = req.body.role
       }
     }
