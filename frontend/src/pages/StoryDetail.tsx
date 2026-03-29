@@ -4,7 +4,7 @@ import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil, X, Copy, Check, History,
-  Film, Smartphone, ListVideo, Hash, Sparkles, ChevronDown,
+  Film, Smartphone, ListVideo, Hash, Sparkles, ChevronDown, Send,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
@@ -1377,29 +1377,124 @@ export default function StoryDetail() {
         <div className="flex-1 overflow-auto">
           <div className="max-w-[1000px] mx-auto px-16 max-lg:px-10 max-sm:px-4 py-5 pb-16 space-y-5">
             {/* ── MANUAL STORY LAYOUT ─────────────────────────────────── */}
-            {/* Writer info banner */}
-            {story.origin === "writer" && story.writer && (
-              <div className="rounded-xl bg-orange/5 border border-orange/20 px-4 py-3 flex items-center gap-3">
-                {story.writer.avatarUrl ? (
-                  <img src={story.writer.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-orange/15 flex items-center justify-center text-[11px] font-bold text-orange shrink-0">
-                    {(story.writer.name ?? "?")[0]}
+            {/* ── WRITER STORY LAYOUT ─────────────────────────────────── */}
+            {story.origin === "writer" ? (
+              <>
+                {/* Writer info banner — always visible */}
+                {story.writer && (
+                  <div className="rounded-xl bg-orange/5 border border-orange/20 px-4 py-3 flex items-center gap-3">
+                    {story.writer.avatarUrl ? (
+                      <img src={story.writer.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-orange/15 flex items-center justify-center text-[11px] font-bold text-orange shrink-0">
+                        {(story.writer.name ?? "?")[0]}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-medium text-foreground">{story.writer.name ?? "Writer"}</span>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange/15 text-orange">Writer</span>
+                      </div>
+                    </div>
                   </div>
                 )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-medium text-foreground">{story.writer.name ?? "Writer"}</span>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange/15 text-orange">Writer</span>
-                  </div>
-                  {story.writerNotes && (
-                    <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2" dir="auto">{story.writerNotes}</p>
-                  )}
-                </div>
-              </div>
-            )}
 
-            {(story.origin === "manual" || story.origin === "writer") ? (
+                {/* Writer's script — always visible as reference */}
+                <div className="rounded-xl bg-card border border-border overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-border flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Writer's Script</span>
+                    {story.scriptLong && (
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(story.scriptLong ?? ""); toast.success("Script copied"); }}
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Copy className="w-3 h-3" /> Copy
+                      </button>
+                    )}
+                  </div>
+                  <div className="px-4 py-3 text-[13px] text-foreground whitespace-pre-wrap font-mono leading-relaxed max-h-[400px] overflow-y-auto" dir="auto">
+                    {story.scriptLong || <span className="text-muted-foreground italic">No script provided</span>}
+                  </div>
+                </div>
+
+                {/* Writer's notes */}
+                {story.writerNotes && (
+                  <div className="rounded-xl bg-card border border-border overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-border">
+                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Writer's Notes</span>
+                    </div>
+                    <div className="px-4 py-3 text-[13px] text-foreground whitespace-pre-wrap" dir="auto">
+                      {story.writerNotes}
+                    </div>
+                  </div>
+                )}
+
+                {/* Phase 1: Review controls — only in review stages */}
+                {["writer_submitted", "writer_draft", "writer_revision"].includes(activeStage) && (
+                  <div className="rounded-xl bg-card border border-border p-4 space-y-3">
+                    <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Review Decision</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => moveToStage("writer_approved")}
+                        disabled={saving}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-success text-white text-[12px] font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Approve for Filming
+                      </button>
+                      <button
+                        onClick={() => moveToStage("writer_revision")}
+                        disabled={saving || activeStage === "writer_revision"}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-border text-foreground text-[12px] font-medium hover:bg-card/80 transition-colors disabled:opacity-40"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Send Back for Revision
+                      </button>
+                      <button
+                        onClick={() => moveToStage("trash")}
+                        disabled={saving}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-border text-muted-foreground text-[12px] font-medium hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors disabled:opacity-40"
+                      >
+                        <X className="w-3.5 h-3.5" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Phase 2: Production tools — only after approval */}
+                {["writer_approved", "scripting", "filmed", "writer_review", "done"].includes(activeStage) && (
+                  <ManualStoryWorkflow
+                    story={story}
+                    brief={brief}
+                    storyId={id!}
+                    saving={saving}
+                    onBriefChange={(updater) => {
+                      setBrief((b) => {
+                        const next = updater(b);
+                        if (id) saveScript(id, next);
+                        return next;
+                      });
+                    }}
+                    onStageChange={(stage) => moveToStage(stage)}
+                  />
+                )}
+
+                {/* Send to writer for review — shown at filmed stage after video uploaded */}
+                {activeStage === "filmed" && brief.videoR2Key && (
+                  <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-[13px] font-medium text-foreground">Ready for writer review?</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">The writer will be able to watch the video and approve or request changes.</p>
+                    </div>
+                    <button
+                      onClick={() => moveToStage("writer_review")}
+                      disabled={saving}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-[12px] font-medium hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Send to Writer
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : story.origin === "manual" ? (
               <ManualStoryWorkflow
                 story={story}
                 brief={brief}
