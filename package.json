@@ -4,7 +4,7 @@
   "description": "Falak — YouTube competitive intelligence platform",
   "main": "src/server.js",
   "scripts": {
-    "start": "prisma migrate deploy && node src/server.js",
+    "start": "prisma migrate resolve --rolled-back 20260325000000_add_origin_and_create_profile 2>/dev/null; prisma migrate deploy && node src/server.js",
     "dev": "nodemon src/server.js",
     "worker": "node src/worker.js",
     "build": "prisma generate && (cd frontend && npm install && npm run build)",
