@@ -161,10 +161,12 @@ function ManualStoryWorkflow({
   }, [story.channelId]);
 
   // Derive pipeline step from brief fields (background processing updates these)
+  // If transcript exists but status stuck at "processing", treat as done
   const pipelineStep: PipelineStep = (() => {
     if (brief.processingStatus === "error") return "error";
     if (brief.processingStatus === "done") return "done";
     if (brief.processingStatus === "processing") {
+      if (brief.transcript) return "done";
       return brief.processingStep === "generating" ? "generating" : "transcribing";
     }
     return "idle";
@@ -365,12 +367,23 @@ function ManualStoryWorkflow({
             )}
           </div>
 
-          {/* Auto-processing progress banner */}
+          {/* Manual AI trigger — shows when video uploaded but no processing started */}
+          {brief.videoR2Key && pipelineStep === "idle" && !brief.transcript && !isDone && (
+            <button
+              type="button"
+              onClick={triggerBackgroundProcess}
+              className="w-full py-3 rounded-lg text-[13px] font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" /> Process Video with AI
+            </button>
+          )}
+
+          {/* Processing progress */}
           {isPipelineActive && (
             <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-3">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="text-[13px] font-semibold text-primary">Processing video in background…</span>
+                <span className="text-[13px] font-semibold text-primary">Processing video…</span>
               </div>
               <div className="flex items-center gap-1">
                 {PIPELINE_STEPS.map((step, i) => {
@@ -402,18 +415,11 @@ function ManualStoryWorkflow({
             </div>
           )}
 
-          {pipelineStep === "done" && (
-            <div className="rounded-lg bg-success/5 border border-success/20 px-4 py-3 flex items-center gap-2">
-              <span className="text-success text-[14px]">✓</span>
-              <span className="text-[13px] font-medium text-success">All metadata generated automatically</span>
-            </div>
-          )}
-
           {pipelineStep === "error" && (
             <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-4 py-3 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-destructive text-[14px]">✕</span>
-                <span className="text-[13px] font-medium text-destructive">Auto-processing failed</span>
+                <span className="text-[13px] font-medium text-destructive">Processing failed</span>
               </div>
               {pipelineError && <p className="text-[11px] text-destructive/80 ml-5">{pipelineError}</p>}
               <button
@@ -451,7 +457,6 @@ function ManualStoryWorkflow({
                 videoFileName: data.videoFileName,
                 videoFileSize: data.videoFileSize,
               }));
-              triggerBackgroundProcess();
             }}
           />
         )}
@@ -1530,79 +1535,12 @@ export default function StoryDetail() {
                       videoR2Url: data.videoR2Url,
                       videoFileName: data.videoFileName,
                       videoFileSize: data.videoFileSize,
-                      processingStatus: "processing",
-                      processingStep: "transcribing",
-                      processingError: null,
                     };
                     if (id) saveScript(id, next);
                     return next;
                   });
-                  if (id) {
-                    fetch(`/api/stories/${id}/process`, { method: "POST", credentials: "include" }).catch(() => {});
-                  }
                 }}
               />
-            )}
-
-            {/* Auto-processing progress for filmed stage */}
-            {activeStage === "filmed" && brief.videoR2Key && brief.processingStatus === "processing" && (
-              <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-[13px] font-semibold text-primary">Processing video…</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  {PIPELINE_STEPS.map((step, i) => {
-                    const isComplete = step.briefKey ? !!brief[step.briefKey] : false;
-                    const isActive = !isComplete && (
-                      (step.key === "transcribing" && brief.processingStep === "transcribing") ||
-                      (step.key === "generating" && brief.processingStep === "generating")
-                    );
-                    return (
-                      <div key={`${step.label}-${i}`} className="flex items-center gap-1 flex-1">
-                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
-                          isActive ? "bg-primary/15 text-primary" : isComplete ? "bg-success/15 text-success" : "bg-card text-muted-foreground"
-                        }`}>
-                          {isActive && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                          {isComplete && <span className="text-success">✓</span>}
-                          <span className="truncate">{step.label}</span>
-                        </div>
-                        {i < PIPELINE_STEPS.length - 1 && (
-                          <div className={`h-px flex-1 min-w-2 ${isComplete ? "bg-success/30" : "bg-border"}`} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {activeStage === "filmed" && brief.videoR2Key && brief.processingStatus === "done" && (
-              <div className="rounded-lg bg-success/5 border border-success/20 px-4 py-3 flex items-center gap-2">
-                <span className="text-success text-[14px]">✓</span>
-                <span className="text-[13px] font-medium text-success">Video processed — metadata ready for publish</span>
-              </div>
-            )}
-
-            {activeStage === "filmed" && brief.processingStatus === "error" && (
-              <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-4 py-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-destructive text-[14px]">✕</span>
-                  <span className="text-[13px] font-medium text-destructive">Processing failed</span>
-                </div>
-                {brief.processingError && <p className="text-[11px] text-destructive/80 ml-5">{brief.processingError}</p>}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!id) return;
-                    setBrief((b) => ({ ...b, processingStatus: "processing", processingStep: "transcribing", processingError: null }));
-                    fetch(`/api/stories/${id}/process`, { method: "POST", credentials: "include" }).catch(() => {});
-                  }}
-                  className="ml-5 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
-                >
-                  Retry
-                </button>
-              </div>
             )}
 
 
