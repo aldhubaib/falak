@@ -80,6 +80,13 @@ interface ProductionNotes {
   targetDuration: string;
 }
 
+interface StyleEvolution {
+  summary: string;
+  recentAdoptions: string[];
+  abandonedHabits: string[];
+  consistentCore: string[];
+}
+
 interface Confidence {
   overall: string;
   weakAreas: string[];
@@ -96,6 +103,7 @@ interface StyleDna {
   storyBeats: StoryBeats;
   dialectMarkers: DialectMarkers;
   productionNotes: ProductionNotes;
+  styleEvolution?: StyleEvolution;
   confidence: Confidence;
   _meta: StyleDnaMeta;
 }
@@ -583,6 +591,39 @@ export default function StyleDnaPage() {
                   <Label>Target Duration</Label>
                   <p className="text-[12px] text-foreground">{dna.productionNotes.targetDuration}</p>
                 </div>
+              </div>
+            </Section>
+          )}
+
+          {/* Style Evolution */}
+          {dna.styleEvolution && (
+            <Section title="Style Evolution" icon={RefreshCw}>
+              <p className="text-[12px] text-foreground leading-relaxed">{dna.styleEvolution.summary}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+                {dna.styleEvolution.recentAdoptions?.length > 0 && (
+                  <div>
+                    <Label>Recent Adoptions</Label>
+                    <ul className="text-[12px] text-emerald-500 list-disc list-inside mt-1 space-y-0.5">
+                      {dna.styleEvolution.recentAdoptions.map((r, i) => <li key={i}>{r}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {dna.styleEvolution.abandonedHabits?.length > 0 && (
+                  <div>
+                    <Label>Abandoned Habits</Label>
+                    <ul className="text-[12px] text-muted-foreground line-through list-disc list-inside mt-1 space-y-0.5">
+                      {dna.styleEvolution.abandonedHabits.map((a, i) => <li key={i}>{a}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {dna.styleEvolution.consistentCore?.length > 0 && (
+                  <div>
+                    <Label>Consistent Core</Label>
+                    <ul className="text-[12px] text-primary list-disc list-inside mt-1 space-y-0.5">
+                      {dna.styleEvolution.consistentCore.map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                  </div>
+                )}
               </div>
             </Section>
           )}

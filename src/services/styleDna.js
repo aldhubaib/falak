@@ -88,13 +88,16 @@ async function buildStyleDna(channelId) {
 
   const apiKey = await registry.requireKey('anthropic')
 
-  // Phase 1: Analyze each transcript individually for structural patterns
+  // Phase 1: Analyze each transcript with temporal context
+  const now = new Date()
   const transcriptAnalyses = []
   for (const video of withText) {
     const text = segmentsToText(video.transcription).slice(0, TRANSCRIPT_SLICE)
     const title = video.titleAr || video.titleEn || 'untitled'
     const words = wordCount(text)
     const analysis = video.analysisResult || {}
+    const pubDate = video.publishedAt ? new Date(video.publishedAt) : null
+    const ageMonths = pubDate ? Math.round((now - pubDate) / (1000 * 60 * 60 * 24 * 30)) : null
 
     transcriptAnalyses.push({
       title,
@@ -105,13 +108,17 @@ async function buildStyleDna(channelId) {
       textExcerptStart: text.slice(0, 500),
       textExcerptEnd: text.slice(-500),
       fullText: text,
+      publishedAt: pubDate ? pubDate.toISOString().slice(0, 10) : 'unknown',
+      ageLabel: ageMonths != null
+        ? (ageMonths <= 1 ? 'RECENT (last month)' : ageMonths <= 3 ? 'RECENT (last 3 months)' : ageMonths <= 6 ? 'MID (3-6 months ago)' : `OLDER (${ageMonths} months ago)`)
+        : 'unknown date',
     })
   }
 
   // Phase 2: Build holistic Style DNA via Claude Sonnet (batch analysis)
-  // We send all transcripts in a structured format for cross-transcript pattern recognition.
+  // Transcripts are ordered newest-first, each tagged with date and recency label.
   const transcriptSummaries = transcriptAnalyses.map((t, i) => {
-    return `--- TRANSCRIPT ${i + 1}: "${t.title}" (${t.wordCount} words, type: ${t.videoType}) ---
+    return `--- TRANSCRIPT ${i + 1}: "${t.title}" (${t.wordCount} words, type: ${t.videoType}, published: ${t.publishedAt}, recency: ${t.ageLabel}) ---
 OPENING (first 500 chars):
 ${t.textExcerptStart}
 
@@ -124,7 +131,15 @@ ${t.fullText}`
 
   const system = `You are an expert linguistic analyst specializing in Arabic media content. You analyze YouTube video transcripts to extract a comprehensive "Style DNA" — a deep profile of how a specific presenter writes and speaks.
 
-Your analysis must be precise, evidence-based, and cite specific examples from the transcripts. Every claim must be backed by a direct quote.
+CRITICAL — RECENCY WEIGHTING:
+Each transcript is tagged with its publish date and a recency label (RECENT, MID, OLDER).
+- RECENT transcripts (last 3 months) represent the channel's CURRENT refined style. Weight them 3x more than older ones.
+- MID transcripts (3-6 months) are supplementary context. Weight them normally.
+- OLDER transcripts (6+ months) show the channel's earlier style. Use them to track evolution but do NOT let old patterns override current ones.
+- When a pattern appears in recent videos but not older ones, it's a NEW adoption — highlight it.
+- When a pattern appears in older videos but disappeared recently, it's an ABANDONED habit — note it in evolution.
+
+Your analysis must be precise, evidence-based, and cite specific examples from the transcripts. Every claim must be backed by a direct quote. Prioritize quotes from RECENT transcripts.
 
 Output ONLY valid JSON (no markdown fences, no explanation text).`
 
@@ -189,6 +204,12 @@ Build a comprehensive Style DNA profile. Return this EXACT JSON structure:
     "avgScriptLength": "typical word count range",
     "pacingNotes": "observations about pacing for editors",
     "targetDuration": "typical video length"
+  },
+  "styleEvolution": {
+    "summary": "one paragraph describing how the channel's style has changed over time",
+    "recentAdoptions": ["patterns or techniques that appeared only in RECENT videos — these are the latest refinements"],
+    "abandonedHabits": ["patterns that were common in OLDER videos but have since disappeared"],
+    "consistentCore": ["patterns that have remained unchanged across all time periods — this is the channel's true identity"]
   },
   "confidence": {
     "overall": "high/medium/low based on transcript quality and quantity",
