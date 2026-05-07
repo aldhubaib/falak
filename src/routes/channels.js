@@ -7,7 +7,7 @@ const { NotFound, Forbidden, asyncWrap } = require('../middleware/errors')
 const { parseBody, parseQuery } = require('../lib/validate')
 const { fetchChannel, fetchRecentVideos } = require('../services/youtube')
 const { getQueue, addJob } = require('../queue/pipeline')
-const { buildStyleDna, getStyleDna } = require('../services/styleDna')
+const { buildStyleDna, getStyleDna, validateStyleDna } = require('../services/styleDna')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -393,6 +393,12 @@ router.post('/:id/style-dna/build', requireRole('owner', 'admin', 'editor'), asy
 
   const styleDna = await buildStyleDna(channelId)
   res.json({ ok: true, styleDna })
+}))
+
+// ── POST /api/channels/:id/style-dna/validate — test DNA quality against holdout transcripts
+router.post('/:id/style-dna/validate', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+  const result = await validateStyleDna(req.params.id)
+  res.json(result)
 }))
 
 // ── DELETE /api/channels/:id/style-dna — clear Style DNA

@@ -288,10 +288,94 @@ async function findSimilarTranscripts(storyEmbedding, channelId, limit = 3) {
   `
 }
 
+/**
+ * Validate Style DNA quality using holdout transcripts.
+ * Picks 3 random transcripts the DNA was built from, and asks Claude
+ * to score how accurately the DNA describes each one.
+ * @param {string} channelId
+ * @returns {Promise<object>} Validation report with per-transcript scores
+ */
+async function validateStyleDna(channelId) {
+  const channel = await db.channel.findUnique({
+    where: { id: channelId },
+    select: { id: true, nameAr: true, styleDna: true },
+  })
+  if (!channel) throw new Error('Channel not found')
+  if (!channel.styleDna) throw new Error('No Style DNA built yet — build it first')
+
+  const videos = await db.video.findMany({
+    where: { channelId, transcription: { not: null } },
+    select: { id: true, titleAr: true, titleEn: true, transcription: true },
+    orderBy: { publishedAt: 'desc' },
+    take: MAX_TRANSCRIPTS_TO_ANALYZE,
+  })
+
+  const withText = videos.filter(v => segmentsToText(v.transcription).length > 100)
+  if (withText.length < 6) {
+    throw new Error('Need at least 6 transcripts to run validation (3 holdout + 3 minimum for DNA)')
+  }
+
+  // Pick 3 random transcripts for holdout
+  const shuffled = [...withText].sort(() => Math.random() - 0.5)
+  const holdout = shuffled.slice(0, 3)
+
+  const apiKey = await registry.requireKey('anthropic')
+
+  const dnaJson = JSON.stringify(channel.styleDna, null, 2)
+
+  const system = `You are a linguistic validation expert. You will receive a "Style DNA" profile that claims to describe a YouTube channel's writing style, plus 3 actual transcripts from that channel.
+
+Your job is to rigorously evaluate how accurately the Style DNA captures the real style. Be critical — don't be generous.
+
+Output ONLY valid JSON (no markdown fences):
+{
+  "overallScore": <number 1-10>,
+  "overallVerdict": "<one sentence>",
+  "transcripts": [
+    {
+      "title": "<video title>",
+      "score": <number 1-10>,
+      "matchedClaims": ["<specific DNA claims that matched this transcript>"],
+      "missedPatterns": ["<patterns in the transcript that the DNA failed to capture>"],
+      "wrongClaims": ["<DNA claims that contradict this transcript>"]
+    }
+  ],
+  "strengths": ["<what the DNA got right overall>"],
+  "weaknesses": ["<what the DNA missed or got wrong>"],
+  "suggestions": ["<how to improve the DNA>"]
+}`
+
+  const holdoutTexts = holdout.map((v, i) => {
+    const text = segmentsToText(v.transcription).slice(0, 8000)
+    const title = v.titleAr || v.titleEn || `Video ${i + 1}`
+    return `--- TRANSCRIPT ${i + 1}: "${title}" ---\n${text}`
+  }).join('\n\n')
+
+  const userMessage = `STYLE DNA PROFILE:\n${dnaJson.slice(0, 30000)}\n\n---\n\nHOLDOUT TRANSCRIPTS (evaluate how well the DNA describes these):\n\n${holdoutTexts}`
+
+  const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [
+    { role: 'user', content: userMessage },
+  ], {
+    system,
+    maxTokens: 4096,
+    channelId,
+    action: 'Style DNA — Validation',
+  })
+
+  try {
+    const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+    return JSON.parse(cleaned)
+  } catch {
+    logger.error({ channelId, rawSlice: raw?.slice(0, 300) }, 'Failed to parse validation response')
+    throw new Error('Failed to parse validation result')
+  }
+}
+
 module.exports = {
   buildStyleDna,
   getStyleDna,
   findSimilarTranscripts,
+  validateStyleDna,
   segmentsToText,
   MIN_TRANSCRIPTS,
 }

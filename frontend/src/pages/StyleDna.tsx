@@ -107,6 +107,23 @@ interface StyleDnaResponse {
   minRequired: number;
 }
 
+interface TranscriptValidation {
+  title: string;
+  score: number;
+  matchedClaims: string[];
+  missedPatterns: string[];
+  wrongClaims: string[];
+}
+
+interface ValidationResult {
+  overallScore: number;
+  overallVerdict: string;
+  transcripts: TranscriptValidation[];
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+}
+
 function Section({ title, icon: Icon, children, defaultOpen = true }: {
   title: string;
   icon: React.ElementType;
@@ -157,6 +174,8 @@ export default function StyleDnaPage() {
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!channelId) return;
@@ -213,6 +232,29 @@ export default function StyleDnaPage() {
     }
   };
 
+  const handleValidate = async () => {
+    if (!channelId) return;
+    setValidating(true);
+    setValidation(null);
+    try {
+      const res = await fetch(`/api/channels/${channelId}/style-dna/validate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Validation failed");
+      }
+      const result = await res.json();
+      setValidation(result);
+      toast.success(`Validation complete — Score: ${result.overallScore}/10`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Validation failed");
+    } finally {
+      setValidating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -240,6 +282,25 @@ export default function StyleDnaPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {dna && (
+            <button
+              onClick={handleValidate}
+              disabled={validating}
+              className="px-3 py-1.5 text-[12px] font-medium rounded-full border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {validating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Validate
+                </>
+              )}
+            </button>
+          )}
           {dna && (
             <button
               onClick={handleDelete}
@@ -544,6 +605,101 @@ export default function StyleDnaPage() {
                   </span>
                 </>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Validation Results */}
+      {validation && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4.5 h-4.5 text-primary" strokeWidth={1.5} />
+            <h2 className="text-[16px] font-bold text-foreground">Validation Report</h2>
+          </div>
+
+          {/* Overall score */}
+          <div className="flex items-center gap-4 px-4 py-3 rounded-xl bg-card border border-border">
+            <div className="flex items-center gap-3">
+              <div className={`text-[28px] font-bold ${
+                validation.overallScore >= 8 ? "text-emerald-500" :
+                validation.overallScore >= 6 ? "text-amber-500" : "text-rose-500"
+              }`}>
+                {validation.overallScore}/10
+              </div>
+              <div>
+                <div className="text-[13px] font-medium text-foreground">Overall Accuracy</div>
+                <div className="text-[12px] text-muted-foreground">{validation.overallVerdict}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Per-transcript scores */}
+          {validation.transcripts?.map((t, i) => (
+            <div key={i} className="border border-border rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-card/50">
+                <span className="text-[13px] font-medium text-foreground truncate max-w-[70%]" dir="rtl">{t.title}</span>
+                <span className={`text-[14px] font-bold ${
+                  t.score >= 8 ? "text-emerald-500" :
+                  t.score >= 6 ? "text-amber-500" : "text-rose-500"
+                }`}>{t.score}/10</span>
+              </div>
+              <div className="px-4 py-3 space-y-2.5">
+                {t.matchedClaims?.length > 0 && (
+                  <div>
+                    <Label>Matched Claims</Label>
+                    <ul className="text-[12px] text-emerald-600 list-disc list-inside">
+                      {t.matchedClaims.map((c, j) => <li key={j}>{c}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {t.missedPatterns?.length > 0 && (
+                  <div>
+                    <Label>Missed Patterns</Label>
+                    <ul className="text-[12px] text-amber-500 list-disc list-inside">
+                      {t.missedPatterns.map((c, j) => <li key={j}>{c}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {t.wrongClaims?.length > 0 && (
+                  <div>
+                    <Label>Wrong Claims</Label>
+                    <ul className="text-[12px] text-rose-500 list-disc list-inside">
+                      {t.wrongClaims.map((c, j) => <li key={j}>{c}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Strengths & Weaknesses */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {validation.strengths?.length > 0 && (
+              <div className="border border-border rounded-xl px-4 py-3">
+                <Label>Strengths</Label>
+                <ul className="text-[12px] text-emerald-600 list-disc list-inside mt-1">
+                  {validation.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+            )}
+            {validation.weaknesses?.length > 0 && (
+              <div className="border border-border rounded-xl px-4 py-3">
+                <Label>Weaknesses</Label>
+                <ul className="text-[12px] text-amber-500 list-disc list-inside mt-1">
+                  {validation.weaknesses.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Suggestions */}
+          {validation.suggestions?.length > 0 && (
+            <div className="border border-border rounded-xl px-4 py-3">
+              <Label>Improvement Suggestions</Label>
+              <ul className="text-[12px] text-muted-foreground list-disc list-inside mt-1">
+                {validation.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+              </ul>
             </div>
           )}
         </div>
