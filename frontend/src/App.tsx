@@ -46,6 +46,7 @@ const AlbumDetail = lazyRetry(() => import("./pages/AlbumDetail"));
 const Trending = lazyRetry(() => import("./pages/Trending"));
 const DesignSystem = lazyRetry(() => import("./pages/DesignSystem"));
 const AiMonitor = lazyRetry(() => import("./pages/AiMonitor"));
+const StyleDna = lazyRetry(() => import("./pages/StyleDna"));
 const WriterDashboard = lazyRetry(() => import("./pages/WriterDashboard"));
 const WriterStoryDetail = lazyRetry(() => import("./pages/WriterStoryDetail"));
 const NotFound = lazyRetry(() => import("./pages/NotFound"));
@@ -145,6 +146,7 @@ const App = () => (
               <Route path="settings" element={<Settings />} />
               <Route path="design-system" element={<DesignSystem />} />
               <Route path="ai-monitor" element={<AiMonitor />} />
+              <Route path="style-dna" element={<StyleDna />} />
               <Route path="writer" element={<WriterDashboard />} />
               <Route path="writer/story/:id" element={<WriterStoryDetail />} />
             </Route>

@@ -7,6 +7,7 @@ const { NotFound, Forbidden, asyncWrap } = require('../middleware/errors')
 const { parseBody, parseQuery } = require('../lib/validate')
 const { fetchChannel, fetchRecentVideos } = require('../services/youtube')
 const { getQueue, addJob } = require('../queue/pipeline')
+const { buildStyleDna, getStyleDna } = require('../services/styleDna')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -373,6 +374,34 @@ router.get('/:id/niche-embedding-status', asyncWrap(async (req, res) => {
     generatedAt: profile.nicheEmbeddingGeneratedAt,
     tagCount: (profile.nicheTags || []).length + (profile.nicheTagsAr || []).length,
   })
+}))
+
+// ── GET /api/channels/:id/style-dna — read current Style DNA profile
+router.get('/:id/style-dna', asyncWrap(async (req, res) => {
+  const result = await getStyleDna(req.params.id)
+  res.json(result)
+}))
+
+// ── POST /api/channels/:id/style-dna/build — analyze transcripts and build Style DNA
+router.post('/:id/style-dna/build', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+  const channelId = req.params.id
+  const existing = await db.channel.findUnique({
+    where: { id: channelId },
+    select: { id: true },
+  })
+  if (!existing) throw new NotFound('Channel not found')
+
+  const styleDna = await buildStyleDna(channelId)
+  res.json({ ok: true, styleDna })
+}))
+
+// ── DELETE /api/channels/:id/style-dna — clear Style DNA
+router.delete('/:id/style-dna', requireRole('owner', 'admin'), asyncWrap(async (req, res) => {
+  await db.channel.update({
+    where: { id: req.params.id },
+    data: { styleDna: null, styleDnaBuiltAt: null },
+  })
+  res.json({ ok: true })
 }))
 
 // ── DELETE /api/channels/all — delete every channel (owner/admin only)

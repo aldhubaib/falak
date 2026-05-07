@@ -40,6 +40,8 @@ model Channel {
   scoreProfile    ScoreProfile?
   alerts          Alert[]
   styleGuide      Json?
+  styleDna        Json?
+  styleDnaBuiltAt DateTime?
   playlists       Playlist[]
   galleryMedia    GalleryMedia[]
   galleryAlbums   GalleryAlbum[]
