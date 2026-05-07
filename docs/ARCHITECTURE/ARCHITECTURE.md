@@ -192,6 +192,8 @@ flowchart TB
 | **Object storage** | Cloudflare R2 (S3-compat) | Media uploads, thumbnails, video files | `src/services/r2.js`, `src/routes/upload.js` |
 | **Auth** | Google OAuth 2.0 + JWT | Login, session cookies (30-day expiry) | `src/routes/auth.js`, `src/middleware/auth.js` |
 | **AI — analysis** | Anthropic Claude (Haiku + Sonnet) | Video analysis, classification, translation, scoring | `src/services/pipelineProcessor.js` |
+| **AI — style DNA** | Anthropic Claude Sonnet | Channel writing-style profiling from transcripts | `src/services/styleDna.js` |
+| **AI — script writing** | OpenAI GPT-4o | Arabic dialect script generation | `src/services/openaiChat.js` |
 | **AI — embeddings** | OpenAI text-embedding-3-small | Semantic similarity search | `src/services/embeddings.js` |
 | **AI — transcription** | OpenAI Whisper | Audio → text for uploaded videos | `src/services/whisper.js` |
 | **AI — research** | Perplexity Sonar | Background research for articles | `src/services/storyResearcher.js` |
@@ -236,6 +238,8 @@ point for the entire app; competitors are children attached via `parentChannelId
 | `color` | String | Yes | `"#3b82f6"` | Profile accent color |
 | `lastStatsRefreshAt` | DateTime | No | — | Last rescore cycle timestamp |
 | `rescoreIntervalHours` | Int | No | 24 | Hours between rescore cycles |
+| `styleDna` | Json | No | — | Deep writing-style profile (Style DNA) built from transcripts |
+| `styleDnaBuiltAt` | DateTime | No | — | When Style DNA was last generated |
 | `createdAt` | DateTime | Yes | `now()` | — |
 | `updatedAt` | DateTime | Yes | auto | — |
 
@@ -906,6 +910,9 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | PATCH | `/api/channels/:id/niche-tags` | editor+ | Update Content DNA niche tags. | Upserts ScoreProfile |
 | POST | `/api/channels/:id/generate-niche-embedding` | editor+ | Generate niche embedding from Content DNA tags. | OpenAI Embeddings → ScoreProfile.nicheEmbedding |
 | GET | `/api/channels/:id/niche-embedding-status` | Yes | Check if niche embedding exists. | — |
+| GET | `/api/channels/:id/style-dna` | Yes | Get Style DNA profile and transcript count. | — |
+| POST | `/api/channels/:id/style-dna/build` | editor+ | Build Style DNA from channel transcripts. | Claude Sonnet analysis |
+| DELETE | `/api/channels/:id/style-dna` | admin+ | Clear Style DNA profile. | — |
 | DELETE | `/api/channels/all` | admin+ | Delete ALL channels. | Cascading deletes |
 | DELETE | `/api/channels/:id` | admin+ | Delete one channel. | Cascading deletes |
 
@@ -1591,6 +1598,7 @@ Requires ≥3 outcomes.
 | `/c/:channelId/trending` | Trending | YouTube trending intelligence — country selector, category filters, history |
 | `/c/:channelId/settings` | Settings | API keys + usage dashboard |
 | `/c/:channelId/ai-monitor` | AiMonitor | AI generation log, style guide editor, script-vs-transcript diff view |
+| `/c/:channelId/style-dna` | StyleDna | Deep writing-style profile viewer — build, view, and manage Style DNA per channel |
 | `/c/:channelId/admin` | Admin | User access control |
 | `/c/:channelId/writer` | WriterDashboard | Writer's story list with stage filters (writer role only) |
 | `/c/:channelId/writer/story/:id` | WriterStoryDetail | Writer's story editor + video review + approval actions |
@@ -2462,6 +2470,8 @@ through every catch block in the pipeline and trigger `blockDependents`.
 | `storyResearcher.js` | `google_search` | SerpAPI (Google Search + Images) | Typed |
 | `firecrawl.js` | `firecrawl` | Firecrawl Scrape + Search | Typed |
 | `apify.js` | `apify` | Apify REST API | Typed |
+| `styleDna.js` | `anthropic` | Style DNA — transcript analysis | Typed |
+| `openaiChat.js` | `openai` | OpenAI Chat (GPT-4o) — dialect script writing | Typed |
 
 **Caller catch blocks patched:** `articleProcessor.js` (firecrawl, title_translate,
 score_similarity, score_ai_analysis, transcript_fetch, doStageResearch),
