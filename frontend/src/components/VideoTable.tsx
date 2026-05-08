@@ -14,8 +14,12 @@ const statusIcon: Record<string, { icon: React.ElementType; className: string; t
   done: { icon: CheckCircle2, className: "text-success", title: "Done" },
   failed: { icon: XCircle, className: "text-destructive", title: "Failed" },
   pending: { icon: Clock, className: "text-muted-foreground", title: "Pending" },
+  queued: { icon: Clock, className: "text-muted-foreground", title: "Queued" },
+  processing: { icon: Loader2, className: "text-primary animate-spin", title: "Processing" },
   analyzing: { icon: Loader2, className: "text-primary animate-spin", title: "Analyzing" },
 };
+
+const fallbackStatus = statusIcon.pending;
 
 export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTableProps) {
   return (
@@ -69,7 +73,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
                 <td className="py-2.5 px-3 border-b border-border text-[12px] font-mono text-muted-foreground">{v.likes}</td>
                 <td className="py-2.5 px-3 border-b border-border text-[11px] font-mono text-muted-foreground">{v.date}</td>
                 <td className="py-2.5 px-3 border-b border-border">
-                  {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-4 h-4 ${s.className}`} title={s.title} />; })()}
+                  {(() => { const s = statusIcon[v.status] ?? fallbackStatus; return <s.icon className={`w-4 h-4 ${s.className}`} title={s.title} />; })()}
                 </td>
                 </>
               );
@@ -114,7 +118,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
                       <Eye className="w-2.5 h-2.5" />{v.views}
                     </span>
                     <span className="text-[10px] text-muted-foreground">{v.date}</span>
-                    {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
+                    {(() => { const s = statusIcon[v.status] ?? fallbackStatus; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
                   </div>
                 </div>
               </Link>
@@ -142,7 +146,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
                     <Eye className="w-2.5 h-2.5" />{v.views}
                   </span>
                   <span className="text-[10px] text-muted-foreground">{v.date}</span>
-                  {(() => { const s = statusIcon[v.status]; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
+                  {(() => { const s = statusIcon[v.status] ?? fallbackStatus; return <s.icon className={`w-3.5 h-3.5 ${s.className}`} title={s.title} />; })()}
                 </div>
               </div>
             </div>
