@@ -913,9 +913,20 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | GET | `/api/channels/:id/style-dna` | Yes | Get Style DNA profile and transcript count. | — |
 | POST | `/api/channels/:id/style-dna/build` | editor+ | Build Style DNA from channel transcripts. | Claude Sonnet analysis |
 | DELETE | `/api/channels/:id/style-dna` | admin+ | Clear Style DNA profile. | — |
+| GET | `/api/channels/:id/narrative-preference` | Yes | Get narrative direction preference for channel. | — |
+| PATCH | `/api/channels/:id/narrative-preference` | editor+ | Set/clear narrative direction preference. | — |
 | POST | `/api/channels/:id/check-availability` | editor+ | Check which videos still exist on YouTube via oEmbed (no API key). | — |
 | DELETE | `/api/channels/all` | admin+ | Delete ALL channels. | Cascading deletes |
 | DELETE | `/api/channels/:id` | admin+ | Delete one channel. | Cascading deletes |
+
+### Narrative Directions — `/api/narrative-directions`
+
+| Method | Path | Auth | Description | Side Effects |
+|---|---|---|---|---|
+| GET | `/api/narrative-directions` | Yes | List all narrative direction archetypes. | — |
+| POST | `/api/narrative-directions` | editor+ | Create a new narrative direction. | — |
+| PATCH | `/api/narrative-directions/:id` | editor+ | Update a narrative direction. | — |
+| DELETE | `/api/narrative-directions/:id` | admin+ | Delete a narrative direction. | — |
 
 ### Videos — `/api/videos`
 
