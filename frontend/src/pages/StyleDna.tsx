@@ -383,7 +383,7 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
                   : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/30"
               }`}
             >
-              {d.nameAr}
+              {d.nameEn}
             </button>
           ))}
         </div>
@@ -402,27 +402,26 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
         {showManage && (
           <div className="mt-3 space-y-2">
             {directions.map((d) => (
-              <div key={d.id} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-muted/20 border border-border/50">
+              <div key={d.id} className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-muted/20 border border-border/50">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium text-foreground">{d.nameAr}</span>
-                    <span className="text-[11px] text-muted-foreground">({d.nameEn})</span>
+                    <span className="text-[12px] font-medium text-foreground">{d.nameEn}</span>
                     <span className="text-[10px] font-mono text-muted-foreground/60">{d.slug}</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{d.description}</p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => startEdit(d)}
-                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                    className="px-2 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
                   >
-                    <Pencil className="w-3 h-3" />
+                    Edit
                   </button>
                   <button
                     onClick={() => handleDelete(d.id)}
-                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    className="px-2 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors border border-transparent hover:border-destructive/30"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    Delete
                   </button>
                 </div>
               </div>
