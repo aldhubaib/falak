@@ -520,7 +520,6 @@ export default function StyleDnaPage() {
   const [data, setData] = useState<StyleDnaResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const validationRef = useRef<HTMLDivElement>(null);
@@ -541,10 +540,15 @@ export default function StyleDnaPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleBuild = async () => {
+  const handleRebuild = async () => {
     if (!channelId) return;
     setBuilding(true);
+    setValidation(null);
     try {
+      // Clear old DNA first
+      await fetch(`/api/channels/${channelId}/style-dna`, { method: "DELETE", credentials: "include" });
+
+      // Build new
       const res = await fetch(`/api/channels/${channelId}/style-dna/build`, {
         method: "POST",
         credentials: "include",
@@ -553,53 +557,25 @@ export default function StyleDnaPage() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Build failed");
       }
-      toast.success("Style DNA built successfully");
+      toast.success("Style DNA rebuilt successfully");
       await fetchData();
+
+      // Auto-validate after build
+      setValidating(true);
+      setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      const valRes = await fetch(`/api/channels/${channelId}/style-dna/validate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (valRes.ok) {
+        const result = await valRes.json();
+        setValidation(result);
+        setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Build failed");
     } finally {
       setBuilding(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!channelId) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/channels/${channelId}/style-dna`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Delete failed");
-      toast.success("Style DNA cleared");
-      await fetchData();
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Delete failed");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleValidate = async () => {
-    if (!channelId) return;
-    setValidating(true);
-    setValidation(null);
-    setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    try {
-      const res = await fetch(`/api/channels/${channelId}/style-dna/validate`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Validation failed");
-      }
-      const result = await res.json();
-      setValidation(result);
-      setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Validation failed");
-    } finally {
       setValidating(false);
     }
   };
@@ -631,54 +607,20 @@ export default function StyleDnaPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {dna && (
-            <button
-              onClick={handleValidate}
-              disabled={validating}
-              className="px-3 py-1.5 text-[12px] font-medium rounded-full border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {validating ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Testing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Validate
-                </>
-              )}
-            </button>
-          )}
-          {dna && (
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="px-3 py-1.5 text-[12px] font-medium rounded-full border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors disabled:opacity-50"
-            >
-              {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 inline mr-1" />}
-              Clear
-            </button>
-          )}
           <button
-            onClick={handleBuild}
-            disabled={building || !canBuild}
+            onClick={handleRebuild}
+            disabled={building || validating || !canBuild}
             className="px-4 py-1.5 text-[12px] font-medium rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
           >
             {building ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Analyzing...
-              </>
-            ) : dna ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5" />
-                Rebuild
+                {validating ? "Validating..." : "Analyzing..."}
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5" />
-                Build Style DNA
+                {dna ? <RefreshCw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {dna ? "Rebuild" : "Build Style DNA"}
               </>
             )}
           </button>

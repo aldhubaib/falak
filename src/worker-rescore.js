@@ -105,6 +105,26 @@ async function cleanupOldRecords() {
   }
 }
 
+const STYLE_DNA_REBUILD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+async function maybeRebuildStyleDna(channelId) {
+  try {
+    const channel = await db.channel.findUnique({
+      where: { id: channelId },
+      select: { styleDnaBuiltAt: true },
+    })
+    if (!channel) return
+    const lastBuilt = channel.styleDnaBuiltAt ? new Date(channel.styleDnaBuiltAt).getTime() : 0
+    if (Date.now() - lastBuilt < STYLE_DNA_REBUILD_INTERVAL_MS) return
+
+    const { buildStyleDna } = require('./services/styleDna')
+    await buildStyleDna(channelId)
+    logger.info({ channelId }, '[rescore-worker] Style DNA auto-rebuilt (weekly)')
+  } catch (e) {
+    logger.warn({ channelId, error: e.message }, '[rescore-worker] Style DNA auto-rebuild skipped')
+  }
+}
+
 async function tick() {
   if (paused) return
 
@@ -123,6 +143,7 @@ async function tick() {
           logger.error({ channelId: channel.id, error: e.message }, '[rescore-worker] channel cycle failed')
         }
       }
+      await maybeRebuildStyleDna(channel.id)
     }
   } catch (e) {
     logger.error({ error: e.message }, '[rescore-worker] tick error')
