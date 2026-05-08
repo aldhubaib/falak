@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -184,6 +184,7 @@ export default function StyleDnaPage() {
   const [deleting, setDeleting] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const validationRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
     if (!channelId) return;
@@ -244,6 +245,7 @@ export default function StyleDnaPage() {
     if (!channelId) return;
     setValidating(true);
     setValidation(null);
+    setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     try {
       const res = await fetch(`/api/channels/${channelId}/style-dna/validate`, {
         method: "POST",
@@ -255,7 +257,7 @@ export default function StyleDnaPage() {
       }
       const result = await res.json();
       setValidation(result);
-      toast.success(`Validation complete — Score: ${result.overallScore}/10`);
+      setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Validation failed");
     } finally {
@@ -652,8 +654,19 @@ export default function StyleDnaPage() {
       )}
 
       {/* Validation Results */}
-      {validation && (
-        <div className="space-y-4">
+      {(validation || validating) && (
+        <div ref={validationRef} className="space-y-4">
+          {validating && (
+            <div className="flex flex-col items-center justify-center py-12 text-center border border-border rounded-xl bg-card/50">
+              <Loader2 className="w-6 h-6 animate-spin text-primary mb-3" />
+              <div className="text-[13px] font-medium text-foreground">Running Validation</div>
+              <p className="text-[12px] text-muted-foreground mt-1 max-w-sm">
+                Testing Style DNA against 3 random holdout transcripts. Claude is critically evaluating each match...
+              </p>
+            </div>
+          )}
+          {validation && (
+          <div className="space-y-4">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4.5 h-4.5 text-primary" strokeWidth={1.5} />
             <h2 className="text-[16px] font-bold text-foreground">Validation Report</h2>
@@ -742,6 +755,8 @@ export default function StyleDnaPage() {
                 {validation.suggestions.map((s, i) => <li key={i}>{s}</li>)}
               </ul>
             </div>
+          )}
+          </div>
           )}
         </div>
       )}
