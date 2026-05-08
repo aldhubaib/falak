@@ -411,27 +411,55 @@ export default function VideoDetail() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest">Transcript</div>
                       {analysis && analysis.transcript.length > 0 && !editingTranscript && (
-                        <button
-                          onClick={() => {
-                            let text = "";
-                            try {
-                              const parsed = JSON.parse(rawTranscription);
-                              if (Array.isArray(parsed)) {
-                                text = parsed.map((s: { text?: string }) => s.text || "").join("\n");
-                              } else {
+                        <div className="flex items-center gap-2">
+                          {analysis.transcript.length > 0 && !analysis.transcript[0]?.time && (
+                            <button
+                              onClick={async () => {
+                                if (!id) return;
+                                setSavingTranscript(true);
+                                try {
+                                  const res = await fetch(`/api/videos/${id}/refetch-transcript`, {
+                                    method: "POST",
+                                    credentials: "include",
+                                  });
+                                  if (!res.ok) throw new Error("Failed");
+                                  toast.success("Transcript refetched — reloading…");
+                                  setTimeout(() => window.location.reload(), 800);
+                                } catch {
+                                  toast.error("Failed to refetch transcript");
+                                } finally {
+                                  setSavingTranscript(false);
+                                }
+                              }}
+                              disabled={savingTranscript}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
+                            >
+                              {savingTranscript ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCw className="w-3 h-3" />}
+                              Refetch with Timestamps
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              let text = "";
+                              try {
+                                const parsed = JSON.parse(rawTranscription);
+                                if (Array.isArray(parsed)) {
+                                  text = parsed.map((s: { text?: string }) => s.text || "").join("\n");
+                                } else {
+                                  text = rawTranscription;
+                                }
+                              } catch {
                                 text = rawTranscription;
                               }
-                            } catch {
-                              text = rawTranscription;
-                            }
-                            setTranscriptDraft(text);
-                            setEditingTranscript(true);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          Edit
-                        </button>
+                              setTranscriptDraft(text);
+                              setEditingTranscript(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Edit
+                          </button>
+                        </div>
                       )}
                       {editingTranscript && (
                         <div className="flex items-center gap-2">

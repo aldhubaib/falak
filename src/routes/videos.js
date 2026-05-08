@@ -84,13 +84,22 @@ router.post('/:id/refetch-transcript', strictRateLimit, async (req, res) => {
       include: { channel: true },
     })
     if (!video) return res.status(404).json({ error: 'Video not found' })
-    const ytTranscriptKey = await db.apiKey.findUnique({ where: { service: 'yt_transcript' } })
-    const text = await fetchTranscript(video.youtubeId, ytTranscriptKey)
+    const channelId = video.channel?.parentChannelId || video.channel?.id || video.channelId
+    const result = await fetchTranscript(video.youtubeId, channelId)
+    let transcription = null
+    let wordCount = 0
+    if (Array.isArray(result) && result.length > 0) {
+      transcription = JSON.stringify(result)
+      wordCount = result.reduce((n, s) => n + (s.text || '').trim().split(/\s+/).length, 0)
+    } else if (typeof result === 'string' && result) {
+      transcription = result
+      wordCount = result.trim().split(/\s+/).length
+    }
     await db.video.update({
       where: { id: video.id },
-      data: { transcription: text || null },
+      data: { transcription },
     })
-    res.json({ ok: true, wordCount: text ? text.trim().split(/\s+/).length : 0 })
+    res.json({ ok: true, wordCount, hasTimestamps: Array.isArray(result) })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
