@@ -310,6 +310,78 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
     }
   };
 
+  const renderForm = () => (
+    <div className="mt-2 px-3 py-3 rounded-lg border border-primary/30 bg-card space-y-2">
+      <div className="text-[12px] font-medium text-foreground mb-2">
+        {editingId ? "Edit Direction" : "New Direction"}
+      </div>
+      {!editingId && (
+        <div>
+          <label className="text-[10px] text-muted-foreground block mb-0.5">Slug (lowercase, dashes only)</label>
+          <input
+            value={form.slug}
+            onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+            className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 font-mono"
+            placeholder="e.g. flashback-loop"
+          />
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[10px] text-muted-foreground block mb-0.5">Name (English)</label>
+          <input
+            value={form.nameEn}
+            onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+            className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+            placeholder="Flashback Loop"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground block mb-0.5">Name (Arabic)</label>
+          <input
+            value={form.nameAr}
+            onChange={(e) => setForm({ ...form, nameAr: e.target.value })}
+            dir="rtl"
+            className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+            placeholder="حلقة الفلاش باك"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="text-[10px] text-muted-foreground block mb-0.5">Description</label>
+        <textarea
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          rows={2}
+          className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
+          placeholder="What this direction means..."
+        />
+      </div>
+      <div>
+        <label className="text-[10px] text-muted-foreground block mb-0.5">Detection Hint (tells AI how to identify this direction)</label>
+        <textarea
+          value={form.detectHint}
+          onChange={(e) => setForm({ ...form, detectHint: e.target.value })}
+          rows={2}
+          className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
+          placeholder="The presenter does X, then Y, which indicates this structure..."
+        />
+      </div>
+      <div className="flex items-center gap-2 justify-end pt-1">
+        <button onClick={cancelForm} className="px-3 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground transition-colors">
+          Cancel
+        </button>
+        <button
+          onClick={handleSaveForm}
+          disabled={formSaving}
+          className="px-4 py-1 text-[11px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {formSaving ? "Saving…" : editingId ? "Update" : "Create"}
+        </button>
+      </div>
+    </div>
+  );
+
   const breakdown = analysis?.breakdown || {};
   const totalClassified = Object.values(breakdown).reduce((a, b) => a + b, 0);
 
@@ -402,28 +474,31 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
         {showManage && (
           <div className="mt-3 space-y-2">
             {directions.map((d) => (
-              <div key={d.id} className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-muted/20 border border-border/50">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium text-foreground">{d.nameEn}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground/60">{d.slug}</span>
+              <div key={d.id}>
+                <div className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-muted/20 border border-border/50">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-medium text-foreground">{d.nameEn}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground/60">{d.slug}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{d.description}</p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{d.description}</p>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => startEdit(d)}
+                      className="px-2 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(d.id)}
+                      className="px-2 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors border border-transparent hover:border-destructive/30"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    onClick={() => startEdit(d)}
-                    className="px-2 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(d.id)}
-                    className="px-2 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors border border-transparent hover:border-destructive/30"
-                  >
-                    Delete
-                  </button>
-                </div>
+                {editingId === d.id && renderForm()}
               </div>
             ))}
 
@@ -436,77 +511,7 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
               </button>
             )}
 
-            {(adding || editingId) && (
-              <div className="px-3 py-3 rounded-lg border border-border bg-card space-y-2">
-                <div className="text-[12px] font-medium text-foreground mb-2">
-                  {editingId ? "Edit Direction" : "New Direction"}
-                </div>
-                {!editingId && (
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block mb-0.5">Slug (lowercase, dashes only)</label>
-                    <input
-                      value={form.slug}
-                      onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
-                      className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 font-mono"
-                      placeholder="e.g. flashback-loop"
-                    />
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block mb-0.5">Name (English)</label>
-                    <input
-                      value={form.nameEn}
-                      onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
-                      className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                      placeholder="Flashback Loop"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block mb-0.5">Name (Arabic)</label>
-                    <input
-                      value={form.nameAr}
-                      onChange={(e) => setForm({ ...form, nameAr: e.target.value })}
-                      dir="rtl"
-                      className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                      placeholder="حلقة الفلاش باك"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground block mb-0.5">Description</label>
-                  <textarea
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    rows={2}
-                    className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
-                    placeholder="What this direction means..."
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground block mb-0.5">Detection Hint (tells AI how to identify this direction)</label>
-                  <textarea
-                    value={form.detectHint}
-                    onChange={(e) => setForm({ ...form, detectHint: e.target.value })}
-                    rows={2}
-                    className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
-                    placeholder="The presenter does X, then Y, which indicates this structure..."
-                  />
-                </div>
-                <div className="flex items-center gap-2 justify-end pt-1">
-                  <button onClick={cancelForm} className="px-3 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground transition-colors">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveForm}
-                    disabled={formSaving}
-                    className="px-4 py-1 text-[11px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                  >
-                    {formSaving ? "Saving…" : editingId ? "Update" : "Create"}
-                  </button>
-                </div>
-              </div>
-            )}
+            {adding && renderForm()}
           </div>
         )}
       </div>
