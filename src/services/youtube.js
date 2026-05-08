@@ -130,10 +130,12 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 500, channelId, 
   const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
   if (!uploadsId) return []
 
-  // Paginate playlistItems (newest-first). Stop early when we hit known videos.
+  // Paginate playlistItems (newest-first). Skip known videos but keep paginating
+  // to catch older videos that were missed in previous incomplete imports.
   const newVideoIds = []
   let pageToken = undefined
-  let hitKnown = false
+  let consecutiveKnown = 0
+  const MAX_CONSECUTIVE_KNOWN = 100
   while (newVideoIds.length < maxResults) {
     const pageSize = Math.min(50, maxResults - newVideoIds.length)
     const params = {
@@ -147,11 +149,15 @@ async function fetchRecentVideos(youtubeChannelId, maxResults = 500, channelId, 
     if (ids.length === 0) break
 
     for (const id of ids) {
-      if (knownVideoIds.has(id)) { hitKnown = true; break }
+      if (knownVideoIds.has(id)) {
+        consecutiveKnown++
+        continue
+      }
+      consecutiveKnown = 0
       newVideoIds.push(id)
     }
 
-    if (hitKnown) break
+    if (consecutiveKnown >= MAX_CONSECUTIVE_KNOWN) break
     pageToken = plData.nextPageToken
     if (!pageToken) break
   }
