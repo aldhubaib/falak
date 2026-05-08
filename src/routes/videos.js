@@ -96,6 +96,22 @@ router.post('/:id/refetch-transcript', strictRateLimit, async (req, res) => {
   }
 })
 
+const updateTranscriptBodySchema = z.object({
+  transcription: z.string().max(500000),
+})
+
+// ── PATCH /api/videos/:id/transcript — save manually edited transcript
+router.patch('/:id/transcript', asyncWrap(async (req, res) => {
+  const video = await db.video.findUnique({ where: { id: req.params.id }, select: { id: true } })
+  if (!video) throw NotFound('Video not found')
+  const { transcription } = parseBody(req.body, updateTranscriptBodySchema)
+  await db.video.update({
+    where: { id: video.id },
+    data: { transcription },
+  })
+  res.json({ ok: true })
+}))
+
 const omitFromAnalyticsBodySchema = z.object({ omit: z.boolean().optional() })
 
 // ── POST /api/videos/:id/omit-from-analytics — set omitFromAnalytics (body: { omit: true|false }, default toggle)

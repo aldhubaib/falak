@@ -5,7 +5,8 @@ import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import type { Video } from "@/data/mock";
 import { VideoRightPanel } from "@/components/VideoRightPanel";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
-import { ArrowLeft, Info, SmilePlus, HelpCircle, Meh, CheckCircle2, XCircle, RotateCw, Clock, Loader2, Calendar, FileText, Hash, Tag, MessageSquare } from "lucide-react";
+import { ArrowLeft, Info, SmilePlus, HelpCircle, Meh, CheckCircle2, XCircle, RotateCw, Clock, Loader2, Calendar, FileText, Hash, Tag, MessageSquare, Pencil, Save, X } from "lucide-react";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
@@ -72,6 +73,10 @@ export default function VideoDetail() {
   const [panelVisible, setPanelVisible] = useState(false);
   const closePanel = useCallback(() => setPanelVisible(false), []);
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
+  const [editingTranscript, setEditingTranscript] = useState(false);
+  const [transcriptDraft, setTranscriptDraft] = useState("");
+  const [savingTranscript, setSavingTranscript] = useState(false);
+  const [rawTranscription, setRawTranscription] = useState<string>("");
 
   useEffect(() => {
     if (!id) return;
@@ -121,6 +126,8 @@ export default function VideoDetail() {
 
         // Parse transcript segments from Video.transcription (JSON array of {start,text} or plain string)
         let transcript: TranscriptSegment[] = [];
+        const rawTrans = typeof data.transcription === "string" ? data.transcription : "";
+        setRawTranscription(rawTrans);
         if (typeof data.transcription === "string" && data.transcription) {
           try {
             const parsed = JSON.parse(data.transcription);
@@ -401,8 +408,93 @@ export default function VideoDetail() {
                 {/* Transcript */}
                 <div className="rounded-lg overflow-hidden border border-border">
                   <div className="bg-card px-4 py-3">
-                    <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest mb-3">Transcript</div>
-                    {(!analysis || analysis.transcript.length === 0) ? (
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-[11px] text-muted-foreground font-mono uppercase tracking-widest">Transcript</div>
+                      {analysis && analysis.transcript.length > 0 && !editingTranscript && (
+                        <button
+                          onClick={() => {
+                            let text = "";
+                            try {
+                              const parsed = JSON.parse(rawTranscription);
+                              if (Array.isArray(parsed)) {
+                                text = parsed.map((s: { text?: string }) => s.text || "").join("\n");
+                              } else {
+                                text = rawTranscription;
+                              }
+                            } catch {
+                              text = rawTranscription;
+                            }
+                            setTranscriptDraft(text);
+                            setEditingTranscript(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          Edit
+                        </button>
+                      )}
+                      {editingTranscript && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setEditingTranscript(false)}
+                            disabled={savingTranscript}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                          >
+                            <X className="w-3 h-3" />
+                            Cancel
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!id) return;
+                              setSavingTranscript(true);
+                              try {
+                                const res = await fetch(`/api/videos/${id}/transcript`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  credentials: "include",
+                                  body: JSON.stringify({ transcription: transcriptDraft }),
+                                });
+                                if (!res.ok) throw new Error("Failed");
+                                setRawTranscription(transcriptDraft);
+                                const newSegments: TranscriptSegment[] = transcriptDraft
+                                  .split("\n")
+                                  .filter((l) => l.trim())
+                                  .map((l) => ({ text: l.trim() }));
+                                setAnalysis((prev) => prev ? { ...prev, transcript: newSegments } : prev);
+                                setEditingTranscript(false);
+                                toast.success("Transcript saved");
+                              } catch {
+                                toast.error("Failed to save transcript");
+                              } finally {
+                                setSavingTranscript(false);
+                              }
+                            }}
+                            disabled={savingTranscript}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                          >
+                            {savingTranscript ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                            Save
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {editingTranscript ? (
+                      <div>
+                        <p className="text-[11px] text-muted-foreground mb-2">
+                          Edit the transcript below. Each line becomes a separate paragraph.
+                        </p>
+                        <textarea
+                          value={transcriptDraft}
+                          onChange={(e) => setTranscriptDraft(e.target.value)}
+                          dir="rtl"
+                          className="w-full min-h-[400px] px-3 py-3 text-sm leading-relaxed bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-y font-sans"
+                          style={{ textAlign: "right" }}
+                        />
+                        <div className="mt-2 text-[10px] text-muted-foreground font-mono">
+                          {transcriptDraft.split(/\s+/).filter(Boolean).length} words · {transcriptDraft.length} characters
+                        </div>
+                      </div>
+                    ) : (!analysis || analysis.transcript.length === 0) ? (
                       <EmptyState icon={FileText} title="No transcript available yet" />
                     ) : (
                       <div className="space-y-5">
