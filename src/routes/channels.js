@@ -410,6 +410,46 @@ router.delete('/:id/style-dna', requireRole('owner', 'admin'), asyncWrap(async (
   res.json({ ok: true })
 }))
 
+// ── POST /api/channels/:id/check-availability — check which videos still exist on YouTube (oEmbed, no API key needed)
+router.post('/:id/check-availability', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+  const channelId = req.params.id
+  const videos = await db.video.findMany({
+    where: { channelId },
+    select: { id: true, youtubeId: true, titleAr: true, titleEn: true, thumbnailUrl: true },
+  })
+  if (videos.length === 0) return res.json({ unavailable: [], total: 0 })
+
+  const DELAY_MS = 300
+  const unavailable = []
+
+  for (const video of videos) {
+    try {
+      const url = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${video.youtubeId}&format=json`
+      const resp = await fetch(url)
+      if (!resp.ok) {
+        unavailable.push({
+          id: video.id,
+          youtubeId: video.youtubeId,
+          title: video.titleEn || video.titleAr || '',
+          thumbnailUrl: video.thumbnailUrl,
+        })
+      }
+    } catch {
+      unavailable.push({
+        id: video.id,
+        youtubeId: video.youtubeId,
+        title: video.titleEn || video.titleAr || '',
+        thumbnailUrl: video.thumbnailUrl,
+      })
+    }
+    if (videos.indexOf(video) < videos.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS))
+    }
+  }
+
+  res.json({ unavailable, total: videos.length })
+}))
+
 // ── DELETE /api/channels/all — delete every channel (owner/admin only)
 router.delete('/all', requireRole('owner', 'admin'), async (req, res) => {
   try {

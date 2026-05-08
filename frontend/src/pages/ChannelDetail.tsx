@@ -5,7 +5,7 @@ import { parseDuration, fmtDate, fmtDateTime } from "@/lib/utils";
 import { ChannelRightPanel } from "@/components/ChannelRightPanel";
 import { VideoTable } from "@/components/VideoTable";
 import { getCountryName } from "@/data/countries";
-import { ArrowLeft, Info, Loader2, Tag, X, Zap, ListVideo, Plus, Pencil, Trash2, Hash } from "lucide-react";
+import { ArrowLeft, Info, Loader2, Tag, X, Zap, ListVideo, Plus, Pencil, Trash2, Hash, LinkIcon, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import type { Video } from "@/data/mock";
 
@@ -643,6 +643,149 @@ function PlaylistsSection({ channelId }: { channelId: string }) {
   );
 }
 
+interface UnavailableVideo {
+  id: string;
+  youtubeId: string;
+  title: string;
+  thumbnailUrl: string | null;
+}
+
+function CheckLinksButton({ channelId, onRemoved }: { channelId: string; onRemoved: (ids: string[]) => void }) {
+  const [checking, setChecking] = useState(false);
+  const [unavailable, setUnavailable] = useState<UnavailableVideo[] | null>(null);
+  const [removing, setRemoving] = useState<Set<string>>(new Set());
+
+  const handleCheck = async () => {
+    setChecking(true);
+    setUnavailable(null);
+    try {
+      const res = await fetch(`/api/channels/${channelId}/check-availability`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setUnavailable(data.unavailable);
+      if (data.unavailable.length === 0) {
+        toast.success("All videos are still available on YouTube");
+      } else {
+        toast.warning(`${data.unavailable.length} video(s) no longer available`);
+      }
+    } catch {
+      toast.error("Failed to check video availability");
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const handleRemove = async (videoId: string) => {
+    setRemoving((prev) => new Set(prev).add(videoId));
+    try {
+      const res = await fetch(`/api/videos/${videoId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed");
+      setUnavailable((prev) => prev?.filter((v) => v.id !== videoId) ?? null);
+      onRemoved([videoId]);
+      toast.success("Video removed");
+    } catch {
+      toast.error("Failed to remove video");
+    } finally {
+      setRemoving((prev) => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
+    }
+  };
+
+  const handleRemoveAll = async () => {
+    if (!unavailable || unavailable.length === 0) return;
+    const ids = unavailable.map((v) => v.id);
+    setRemoving(new Set(ids));
+    const removed: string[] = [];
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/videos/${id}`, { method: "DELETE", credentials: "include" });
+        if (res.ok) removed.push(id);
+      } catch { /* skip */ }
+    }
+    setUnavailable((prev) => prev?.filter((v) => !removed.includes(v.id)) ?? null);
+    onRemoved(removed);
+    setRemoving(new Set());
+    if (removed.length > 0) toast.success(`Removed ${removed.length} video(s)`);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={handleCheck}
+        disabled={checking}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-full border border-border bg-card text-foreground hover:bg-card/80 transition-colors disabled:opacity-50"
+      >
+        {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
+        {checking ? "Checking…" : "Check Links"}
+      </button>
+
+      {unavailable && unavailable.length > 0 && (
+        <div className="absolute right-0 top-full mt-2 z-50 w-[380px] max-h-[400px] overflow-auto rounded-lg border border-border bg-card shadow-xl">
+          <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning" />
+              <span className="text-[12px] font-semibold text-foreground">
+                {unavailable.length} Unavailable Video{unavailable.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRemoveAll}
+                disabled={removing.size > 0}
+                className="text-[11px] font-medium text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
+              >
+                Remove All
+              </button>
+              <button
+                onClick={() => setUnavailable(null)}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="divide-y divide-border">
+            {unavailable.map((v) => (
+              <div key={v.id} className="px-4 py-2.5 flex items-center gap-3">
+                <div className="w-10 h-7 rounded bg-muted shrink-0 overflow-hidden">
+                  {v.thumbnailUrl ? (
+                    <img src={v.thumbnailUrl} alt="" className="w-full h-full object-cover opacity-50" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <X className="w-3 h-3 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] text-foreground truncate" dir="rtl">{v.title || v.youtubeId}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">{v.youtubeId}</p>
+                </div>
+                <button
+                  onClick={() => handleRemove(v.id)}
+                  disabled={removing.has(v.id)}
+                  className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                >
+                  {removing.has(v.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ChannelDetail() {
   const { id } = useParams();
   const channelPath = useChannelPath();
@@ -861,6 +1004,7 @@ export default function ChannelDetail() {
           <div className="px-6 py-5 pb-16 max-lg:px-4 max-lg:pb-20">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[12px] text-muted-foreground font-medium">Recent Videos</span>
+              <CheckLinksButton channelId={channel.id} onRemoved={(ids) => setChannelVideos(prev => prev.filter(v => !ids.includes(v.id)))} />
             </div>
             {(() => {
               const counts: Record<string, number> = {

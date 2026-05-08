@@ -182,4 +182,16 @@ router.get('/:id/logs', async (req, res) => {
   }
 })
 
+// ── DELETE /api/videos/:id — permanently remove a video and its related data
+router.delete('/:id', asyncWrap(async (req, res) => {
+  const video = await db.video.findUnique({ where: { id: req.params.id }, select: { id: true } })
+  if (!video) throw NotFound('Video not found')
+  await db.$transaction([
+    db.comment.deleteMany({ where: { videoId: video.id } }),
+    db.pipelineItem.deleteMany({ where: { videoId: video.id } }),
+    db.video.delete({ where: { id: video.id } }),
+  ])
+  res.json({ ok: true })
+}))
+
 module.exports = router
