@@ -913,6 +913,7 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | GET | `/api/channels/:id/style-dna` | Yes | Get Style DNA profile and transcript count. | — |
 | POST | `/api/channels/:id/style-dna/build` | editor+ | Build Style DNA from channel transcripts. | Claude Sonnet analysis |
 | DELETE | `/api/channels/:id/style-dna` | admin+ | Clear Style DNA profile. | — |
+| POST | `/api/channels/:id/check-availability` | editor+ | Check which videos still exist on YouTube via oEmbed (no API key). | — |
 | DELETE | `/api/channels/all` | admin+ | Delete ALL channels. | Cascading deletes |
 | DELETE | `/api/channels/:id` | admin+ | Delete one channel. | Cascading deletes |
 
@@ -925,6 +926,7 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | POST | `/api/videos/:id/refetch-transcript` | Yes (15/min) | Re-fetch transcript. | Transcript API → updates Video.transcription |
 | POST | `/api/videos/:id/omit-from-analytics` | Yes | Toggle omit flag. | — |
 | GET | `/api/videos/:id/logs` | Yes | Pipeline stage log timeline. | — |
+| DELETE | `/api/videos/:id` | Yes | Delete video and related comments/pipeline data. | Cascading deletes |
 
 ### Pipeline — `/api/pipeline`
 
