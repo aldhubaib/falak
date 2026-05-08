@@ -119,16 +119,38 @@ export default function VideoDetail() {
           pipeline: buildPipeline(pi),
         });
 
-        // Parse transcript segments from Video.transcription (JSON array of {offset,text} or {time,text})
+        // Parse transcript segments from Video.transcription (JSON array of {start,text} or plain string)
         let transcript: TranscriptSegment[] = [];
         if (typeof data.transcription === "string" && data.transcription) {
           try {
             const parsed = JSON.parse(data.transcription);
             if (Array.isArray(parsed)) {
-              transcript = parsed.map((s: Record<string, unknown>) => ({
-                time: s.time ? String(s.time) : (typeof s.offset === "number" ? formatOffset(s.offset) : undefined),
+              const raw = parsed.map((s: Record<string, unknown>) => ({
+                time: s.time ? String(s.time)
+                  : typeof s.start === "number" ? formatOffset(s.start)
+                  : typeof s.offset === "number" ? formatOffset(s.offset)
+                  : undefined,
+                offset: typeof s.start === "number" ? s.start : (typeof s.offset === "number" ? s.offset : undefined),
                 text: String(s.text || ""),
               }));
+              // Group segments into ~30s paragraphs for readability
+              const GROUP_SECS = 30;
+              let groupStart = raw[0]?.offset ?? 0;
+              let groupTime = raw[0]?.time;
+              let groupTexts: string[] = [];
+              for (const seg of raw) {
+                const secsSinceGroupStart = (seg.offset ?? groupStart) - groupStart;
+                if (secsSinceGroupStart >= GROUP_SECS && groupTexts.length > 0) {
+                  transcript.push({ time: groupTime, text: groupTexts.join(" ") });
+                  groupStart = seg.offset ?? groupStart;
+                  groupTime = seg.time;
+                  groupTexts = [];
+                }
+                groupTexts.push(seg.text);
+              }
+              if (groupTexts.length > 0) {
+                transcript.push({ time: groupTime, text: groupTexts.join(" ") });
+              }
             }
           } catch (_) {
             transcript = [{ text: data.transcription as string }];
