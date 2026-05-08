@@ -924,6 +924,7 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | GET | `/api/videos/:id` | Yes | Video with analysis, comments (top 200), pipeline status. | — |
 | POST | `/api/videos/:id/refetch-comments` | Yes (15/min) | Re-fetch top 100 comments from YouTube. | YouTube API → upserts Comments |
 | POST | `/api/videos/:id/refetch-transcript` | Yes (15/min) | Re-fetch transcript. | Transcript API → updates Video.transcription |
+| PATCH | `/api/videos/:id/transcript` | Yes | Save manually edited transcript text. | — |
 | POST | `/api/videos/:id/omit-from-analytics` | Yes | Toggle omit flag. | — |
 | GET | `/api/videos/:id/logs` | Yes | Pipeline stage log timeline. | — |
 | DELETE | `/api/videos/:id` | Yes | Delete video and related comments/pipeline data. | Cascading deletes |
