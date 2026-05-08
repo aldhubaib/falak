@@ -21,6 +21,7 @@ import {
   BarChart3,
   Globe,
   Navigation,
+  Pencil,
 } from "lucide-react";
 import { fmtDateTime } from "@/lib/utils";
 
@@ -193,16 +194,34 @@ function Label({ children }: { children: React.ReactNode }) {
   return <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">{children}</div>;
 }
 
+interface DirectionForm {
+  slug: string;
+  nameEn: string;
+  nameAr: string;
+  description: string;
+  detectHint: string;
+}
+
 function NarrativeDirectionSection({ channelId, analysis }: { channelId: string; analysis?: NarrativeDirectionAnalysis }) {
-  const [directions, setDirections] = useState<NarrativeDirectionDef[]>([]);
+  const [directions, setDirections] = useState<(NarrativeDirectionDef & { detectHint?: string })[]>([]);
   const [preference, setPreference] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showManage, setShowManage] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const emptyForm: DirectionForm = { slug: "", nameEn: "", nameAr: "", description: "", detectHint: "" };
+  const [form, setForm] = useState<DirectionForm>(emptyForm);
+  const [formSaving, setFormSaving] = useState(false);
 
-  useEffect(() => {
+  const fetchDirections = () => {
     fetch("/api/narrative-directions", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then(setDirections)
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchDirections();
     fetch(`/api/channels/${channelId}/narrative-preference`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : {}))
       .then((d: { preferredNarrativeDirection?: string | null }) => setPreference(d.preferredNarrativeDirection ?? null))
@@ -225,6 +244,69 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
       toast.error("Failed to save preference");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startEdit = (d: NarrativeDirectionDef & { detectHint?: string }) => {
+    setEditingId(d.id);
+    setAdding(false);
+    setForm({ slug: d.slug, nameEn: d.nameEn, nameAr: d.nameAr, description: d.description, detectHint: d.detectHint || "" });
+  };
+
+  const startAdd = () => {
+    setAdding(true);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const cancelForm = () => {
+    setAdding(false);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const handleSaveForm = async () => {
+    if (!form.nameEn.trim() || !form.nameAr.trim() || !form.description.trim() || !form.detectHint.trim()) return;
+    setFormSaving(true);
+    try {
+      if (editingId) {
+        const res = await fetch(`/api/narrative-directions/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ nameEn: form.nameEn, nameAr: form.nameAr, description: form.description, detectHint: form.detectHint }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+        toast.success("Direction updated");
+      } else {
+        if (!form.slug.trim()) return;
+        const res = await fetch("/api/narrative-directions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(form),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
+        toast.success("Direction created");
+      }
+      cancelForm();
+      fetchDirections();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/narrative-directions/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      toast.success("Direction deleted");
+      if (editingId === id) cancelForm();
+      fetchDirections();
+    } catch {
+      toast.error("Failed to delete");
     }
   };
 
@@ -305,6 +387,129 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Manage directions */}
+      <div className="pt-3 border-t border-border mt-3">
+        <button
+          onClick={() => setShowManage(!showManage)}
+          className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+        >
+          {showManage ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          Manage Directions ({directions.length})
+        </button>
+
+        {showManage && (
+          <div className="mt-3 space-y-2">
+            {directions.map((d) => (
+              <div key={d.id} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-muted/20 border border-border/50">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-medium text-foreground">{d.nameAr}</span>
+                    <span className="text-[11px] text-muted-foreground">({d.nameEn})</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/60">{d.slug}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{d.description}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => startEdit(d)}
+                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(d.id)}
+                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {!adding && !editingId && (
+              <button
+                onClick={startAdd}
+                className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+              >
+                + Add Direction
+              </button>
+            )}
+
+            {(adding || editingId) && (
+              <div className="px-3 py-3 rounded-lg border border-border bg-card space-y-2">
+                <div className="text-[12px] font-medium text-foreground mb-2">
+                  {editingId ? "Edit Direction" : "New Direction"}
+                </div>
+                {!editingId && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground block mb-0.5">Slug (lowercase, dashes only)</label>
+                    <input
+                      value={form.slug}
+                      onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+                      className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 font-mono"
+                      placeholder="e.g. flashback-loop"
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground block mb-0.5">Name (English)</label>
+                    <input
+                      value={form.nameEn}
+                      onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+                      className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      placeholder="Flashback Loop"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground block mb-0.5">Name (Arabic)</label>
+                    <input
+                      value={form.nameAr}
+                      onChange={(e) => setForm({ ...form, nameAr: e.target.value })}
+                      dir="rtl"
+                      className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      placeholder="حلقة الفلاش باك"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-0.5">Description</label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    rows={2}
+                    className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
+                    placeholder="What this direction means..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground block mb-0.5">Detection Hint (tells AI how to identify this direction)</label>
+                  <textarea
+                    value={form.detectHint}
+                    onChange={(e) => setForm({ ...form, detectHint: e.target.value })}
+                    rows={2}
+                    className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
+                    placeholder="The presenter does X, then Y, which indicates this structure..."
+                  />
+                </div>
+                <div className="flex items-center gap-2 justify-end pt-1">
+                  <button onClick={cancelForm} className="px-3 py-1 text-[11px] font-medium rounded-full border border-border text-muted-foreground hover:text-foreground transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveForm}
+                    disabled={formSaving}
+                    className="px-4 py-1 text-[11px] font-medium rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {formSaving ? "Saving…" : editingId ? "Update" : "Create"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Section>
   );

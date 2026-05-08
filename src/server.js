@@ -313,6 +313,22 @@ async function main() {
     // Auto-discover service descriptors for the service registry.
     try { require('./lib/serviceRegistry').autoDiscover() } catch (_) {}
 
+    // Auto-seed narrative directions if table is empty.
+    db.narrativeDirection.count().then(count => {
+      if (count > 0) return
+      const DEFAULTS = [
+        { slug: 'chronological', nameEn: 'Start to End', nameAr: 'البداية للنهاية', description: 'Hook followed by the story unfolding in chronological order from beginning to end.', detectHint: 'Events are told in the order they happened. No flashbacks or revealing the ending first.', sortOrder: 1 },
+        { slug: 'cold-open', nameEn: 'End First', nameAr: 'النهاية أولاً', description: 'Opens with the climax or outcome, then rewinds to explain how events led to that point.', detectHint: 'The video opens with the ending or climax, then says "let\'s go back to the beginning".', sortOrder: 2 },
+        { slug: 'mystery-reveal', nameEn: 'Gradual Reveal', nameAr: 'الكشف التدريجي', description: 'Key information is withheld, clues dropped gradually, truth revealed at the end.', detectHint: 'The presenter teases key information early and withholds the truth until later.', sortOrder: 3 },
+        { slug: 'back-and-forth', nameEn: 'Back & Forth', nameAr: 'ذهاب وإياب', description: 'Jumps between timelines, perspectives, or present/past.', detectHint: 'The narrative jumps between different time periods or alternates between perspectives.', sortOrder: 4 },
+        { slug: 'parallel', nameEn: 'Parallel Stories', nameAr: 'قصص متوازية', description: 'Two or more storylines told simultaneously, converging at a shared point.', detectHint: 'Two or more seemingly separate storylines are developed and then intersect.', sortOrder: 5 },
+        { slug: 'inverted-pyramid', nameEn: 'Key Facts First', nameAr: 'الأهم أولاً', description: 'Starts with the conclusion, then layers in details and context. Journalistic style.', detectHint: 'The most critical information is presented upfront, then layers of context added.', sortOrder: 6 },
+      ]
+      return db.$transaction(DEFAULTS.map(d => db.narrativeDirection.upsert({ where: { slug: d.slug }, create: d, update: {} })))
+        .then(() => logger.info('[seed] Narrative directions seeded'))
+        .catch(e => logger.warn(e, '[seed] Failed to seed narrative directions'))
+    }).catch(() => {})
+
     // Start the video pipeline worker in-process.
     // Railway runs a single service via `npm start` — there is no separate worker dyno.
     // Requiring here (not at top) avoids any circular-dep issues at module load time.
