@@ -632,21 +632,21 @@ export default function StyleDnaPage() {
 
           {/* Confidence */}
           {dna.confidence && (
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-card border border-border">
+            <div className="px-4 py-3 rounded-xl bg-card border border-border space-y-2">
               <div className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${
+                <div className={`w-2 h-2 rounded-full shrink-0 ${
                   dna.confidence.overall === "high" ? "bg-emerald-500" :
                   dna.confidence.overall === "medium" ? "bg-amber-500" : "bg-rose-500"
                 }`} />
                 <span className="text-[12px] font-medium text-foreground capitalize">{dna.confidence.overall} confidence</span>
               </div>
               {dna.confidence.weakAreas?.length > 0 && (
-                <>
-                  <div className="w-px h-4 bg-border" />
-                  <span className="text-[11px] text-muted-foreground">
-                    Weak areas: {dna.confidence.weakAreas.join(", ")}
-                  </span>
-                </>
+                <div>
+                  <Label>Weak Areas</Label>
+                  <ul className="text-[11px] text-muted-foreground list-disc list-inside mt-1 space-y-0.5">
+                    {dna.confidence.weakAreas.map((w, i) => <li key={i}>{w}</li>)}
+                  </ul>
+                </div>
               )}
             </div>
           )}
