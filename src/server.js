@@ -80,6 +80,7 @@ app.use('/api/trending',            bigintJson, require('./routes/trending'))
 app.use('/api/ai-monitor',          require('./routes/aiMonitor'))
 app.use('/api/playlists',           require('./routes/playlists'))
 app.use('/api/writer',              require('./routes/writer'))
+app.use('/api/narrative-directions', require('./routes/narrativeDirections'))
 
 // ── Public thumbnails — no auth required (used by login page) ─────────────
 app.get('/api/public/thumbnails', async (req, res) => {

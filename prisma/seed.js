@@ -54,6 +54,57 @@ const ENGINES = [
   { engine: 'openai',  dialects: DIALECTS_OPENAI },
 ]
 
+const NARRATIVE_DIRECTIONS = [
+  {
+    slug: 'chronological',
+    nameEn: 'Start to End',
+    nameAr: 'البداية للنهاية',
+    description: 'Hook followed by the story unfolding in chronological order from beginning to end. Events are narrated in the order they happened.',
+    detectHint: 'Events are told in the order they happened. The presenter starts with a hook/teaser, then introduces the characters and setting, and walks through events sequentially until the conclusion. No flashbacks or revealing the ending first.',
+    sortOrder: 1,
+  },
+  {
+    slug: 'cold-open',
+    nameEn: 'End First',
+    nameAr: 'النهاية أولاً',
+    description: 'Opens with the climax, outcome, or most dramatic moment, then rewinds to explain how events led to that point.',
+    detectHint: 'The video opens with the ending or climax (e.g. "someone was found dead", "the company collapsed"). Then the narrator says something like "let\'s go back to the beginning" or "how did we get here?" and tells the story from the start.',
+    sortOrder: 2,
+  },
+  {
+    slug: 'mystery-reveal',
+    nameEn: 'Gradual Reveal',
+    nameAr: 'الكشف التدريجي',
+    description: 'Key information is deliberately withheld. Clues are dropped throughout, building suspense until a final reveal at the end.',
+    detectHint: 'The presenter teases key information early ("but there\'s something no one knew") and withholds the truth. The story is structured around the mystery — each section reveals a new piece until the full picture emerges at the end.',
+    sortOrder: 3,
+  },
+  {
+    slug: 'back-and-forth',
+    nameEn: 'Back & Forth',
+    nameAr: 'ذهاب وإياب',
+    description: 'Jumps between timelines, perspectives, or present/past. The story alternates between different time periods or viewpoints.',
+    detectHint: 'The narrative jumps between different time periods (e.g. "meanwhile, 10 years earlier...") or alternates between different characters\' perspectives. The timeline is non-linear with deliberate jumps.',
+    sortOrder: 4,
+  },
+  {
+    slug: 'parallel',
+    nameEn: 'Parallel Stories',
+    nameAr: 'قصص متوازية',
+    description: 'Two or more separate storylines are told simultaneously, eventually converging at a shared point.',
+    detectHint: 'The narrator introduces two or more seemingly separate storylines or characters. Each is developed independently until they intersect or connect at a key moment.',
+    sortOrder: 5,
+  },
+  {
+    slug: 'inverted-pyramid',
+    nameEn: 'Key Facts First',
+    nameAr: 'الأهم أولاً',
+    description: 'Starts with the most important facts and conclusion, then layers in supporting details, context, and background. Journalistic style.',
+    detectHint: 'The most critical information is presented upfront — what happened, who was involved, the outcome. Then the narrator adds layers of context, background, and supporting details. No suspense or withholding.',
+    sortOrder: 6,
+  },
+]
+
 async function main() {
   let total = 0
   for (const { engine, dialects } of ENGINES) {
@@ -80,6 +131,22 @@ async function main() {
     console.log(`Seeded ${Object.keys(dialects).length} dialects for engine "${engine}".`)
   }
   console.log(`Total: ${total} dialect entries.`)
+
+  // Seed narrative directions
+  for (const dir of NARRATIVE_DIRECTIONS) {
+    await prisma.narrativeDirection.upsert({
+      where: { slug: dir.slug },
+      create: dir,
+      update: {
+        nameEn: dir.nameEn,
+        nameAr: dir.nameAr,
+        description: dir.description,
+        detectHint: dir.detectHint,
+        sortOrder: dir.sortOrder,
+      },
+    })
+  }
+  console.log(`Seeded ${NARRATIVE_DIRECTIONS.length} narrative directions.`)
 }
 
 main()

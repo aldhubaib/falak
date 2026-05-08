@@ -20,6 +20,7 @@ import {
   Palette,
   BarChart3,
   Globe,
+  Navigation,
 } from "lucide-react";
 import { fmtDateTime } from "@/lib/utils";
 
@@ -92,6 +93,21 @@ interface Confidence {
   weakAreas: string[];
 }
 
+interface NarrativeDirectionAnalysis {
+  perVideo?: { title: string; direction: string; confidence?: string }[];
+  breakdown?: Record<string, number>;
+  dominant?: string;
+  notes?: string;
+}
+
+interface NarrativeDirectionDef {
+  id: string;
+  slug: string;
+  nameEn: string;
+  nameAr: string;
+  description: string;
+}
+
 interface StyleDna {
   narrativeStructures: NarrativeStructure[];
   openingPatterns: Pattern[];
@@ -104,6 +120,7 @@ interface StyleDna {
   dialectMarkers: DialectMarkers;
   productionNotes: ProductionNotes;
   styleEvolution?: StyleEvolution;
+  narrativeDirectionAnalysis?: NarrativeDirectionAnalysis;
   confidence: Confidence;
   _meta: StyleDnaMeta;
 }
@@ -174,6 +191,123 @@ function Quote({ children }: { children: React.ReactNode }) {
 
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">{children}</div>;
+}
+
+function NarrativeDirectionSection({ channelId, analysis }: { channelId: string; analysis?: NarrativeDirectionAnalysis }) {
+  const [directions, setDirections] = useState<NarrativeDirectionDef[]>([]);
+  const [preference, setPreference] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/narrative-directions", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setDirections)
+      .catch(() => {});
+    fetch(`/api/channels/${channelId}/narrative-preference`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d: { preferredNarrativeDirection?: string | null }) => setPreference(d.preferredNarrativeDirection ?? null))
+      .catch(() => {});
+  }, [channelId]);
+
+  const handlePreferenceChange = async (slug: string | null) => {
+    setSaving(true);
+    setPreference(slug);
+    try {
+      const res = await fetch(`/api/channels/${channelId}/narrative-preference`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ preferredNarrativeDirection: slug }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success(slug ? "Preference saved" : "Preference cleared");
+    } catch {
+      toast.error("Failed to save preference");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const breakdown = analysis?.breakdown || {};
+  const totalClassified = Object.values(breakdown).reduce((a, b) => a + b, 0);
+
+  return (
+    <Section title="Story Direction" icon={Navigation}>
+      {/* Breakdown bar chart */}
+      {totalClassified > 0 && (
+        <div className="space-y-2">
+          <Label>Analysis from Style DNA</Label>
+          {Object.entries(breakdown)
+            .sort(([, a], [, b]) => b - a)
+            .map(([slug, count]) => {
+              const dir = directions.find((d) => d.slug === slug);
+              const pct = Math.round((count / totalClassified) * 100);
+              return (
+                <div key={slug} className="flex items-center gap-3">
+                  <span className="text-[12px] text-foreground w-28 shrink-0 truncate" title={dir?.nameEn || slug}>
+                    {dir?.nameAr || dir?.nameEn || slug}
+                  </span>
+                  <div className="flex-1 h-5 bg-muted/30 rounded-full overflow-hidden relative">
+                    <div
+                      className="h-full bg-primary/60 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-foreground">
+                      {count} ({pct}%)
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          {analysis?.notes && (
+            <p className="text-[11px] text-muted-foreground mt-2 italic">{analysis.notes}</p>
+          )}
+        </div>
+      )}
+
+      {totalClassified === 0 && (
+        <p className="text-[12px] text-muted-foreground">
+          Build or rebuild Style DNA to see story direction analysis.
+        </p>
+      )}
+
+      {/* Manual preference */}
+      <div className="pt-3 border-t border-border mt-3">
+        <Label>Manual Preference</Label>
+        <p className="text-[11px] text-muted-foreground mb-2">
+          Override for script generation. If set, new scripts will use this direction.
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => handlePreferenceChange(null)}
+            disabled={saving}
+            className={`px-3 py-1.5 text-[11px] font-medium rounded-full border transition-colors ${
+              preference === null
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/30"
+            }`}
+          >
+            Auto
+          </button>
+          {directions.map((d) => (
+            <button
+              key={d.slug}
+              onClick={() => handlePreferenceChange(d.slug)}
+              disabled={saving}
+              title={d.description}
+              className={`px-3 py-1.5 text-[11px] font-medium rounded-full border transition-colors ${
+                preference === d.slug
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              {d.nameAr}
+            </button>
+          ))}
+        </div>
+      </div>
+    </Section>
+  );
 }
 
 export default function StyleDnaPage() {
@@ -391,6 +525,14 @@ export default function StyleDnaPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Narrative Direction Section — always show when channel exists */}
+      {channelId && (
+        <NarrativeDirectionSection
+          channelId={channelId}
+          analysis={dna?.narrativeDirectionAnalysis}
+        />
       )}
 
       {/* DNA Profile */}

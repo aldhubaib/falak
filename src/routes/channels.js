@@ -410,6 +410,31 @@ router.delete('/:id/style-dna', requireRole('owner', 'admin'), asyncWrap(async (
   res.json({ ok: true })
 }))
 
+// ── GET /api/channels/:id/narrative-preference — get narrative direction preference
+router.get('/:id/narrative-preference', asyncWrap(async (req, res) => {
+  const channelId = req.params.id
+  const profile = await db.scoreProfile.upsert({
+    where: { channelId },
+    create: { channelId },
+    update: {},
+    select: { preferredNarrativeDirection: true },
+  })
+  res.json({ preferredNarrativeDirection: profile.preferredNarrativeDirection })
+}))
+
+// ── PATCH /api/channels/:id/narrative-preference — set narrative direction preference
+router.patch('/:id/narrative-preference', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+  const { preferredNarrativeDirection } = req.body
+  const channelId = req.params.id
+  const profile = await db.scoreProfile.upsert({
+    where: { channelId },
+    create: { channelId, preferredNarrativeDirection: preferredNarrativeDirection || null },
+    update: { preferredNarrativeDirection: preferredNarrativeDirection || null },
+    select: { preferredNarrativeDirection: true },
+  })
+  res.json({ preferredNarrativeDirection: profile.preferredNarrativeDirection })
+}))
+
 // ── POST /api/channels/:id/check-availability — check which videos still exist on YouTube (oEmbed, no API key needed)
 router.post('/:id/check-availability', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
   const channelId = req.params.id

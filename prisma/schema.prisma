@@ -479,6 +479,7 @@ model ScoreProfile {
   currentThreshold      Float     @default(0.30)
   lastLearnedAt         DateTime?
   storyPatterns         Json?
+  preferredNarrativeDirection String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 }
@@ -627,4 +628,19 @@ model AiGenerationLog {
   @@index([channelId, createdAt(sort: Desc)])
   @@index([storyId])
   @@index([action])
+}
+
+// ─────────────────────────────────────────────
+// NARRATIVE DIRECTIONS (story structure archetypes)
+// ─────────────────────────────────────────────
+model NarrativeDirection {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  nameEn      String
+  nameAr      String
+  description String   @db.Text
+  detectHint  String   @db.Text
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

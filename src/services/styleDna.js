@@ -115,6 +115,11 @@ async function buildStyleDna(channelId) {
     })
   }
 
+  // Load narrative directions from DB for classification
+  const narrativeDirections = await db.narrativeDirection.findMany({ orderBy: { sortOrder: 'asc' } })
+  const directionSlugs = narrativeDirections.map(d => d.slug)
+  const directionList = narrativeDirections.map(d => `- "${d.slug}": ${d.detectHint}`).join('\n')
+
   // Phase 2: Build holistic Style DNA via Claude Sonnet (batch analysis)
   // Transcripts are ordered newest-first, each tagged with date and recency label.
   const transcriptSummaries = transcriptAnalyses.map((t, i) => {
@@ -211,11 +216,28 @@ Build a comprehensive Style DNA profile. Return this EXACT JSON structure:
     "abandonedHabits": ["patterns that were common in OLDER videos but have since disappeared"],
     "consistentCore": ["patterns that have remained unchanged across all time periods — this is the channel's true identity"]
   },
+  "narrativeDirectionAnalysis": {
+    "perVideo": [
+      {
+        "title": "video title",
+        "direction": "one of the direction slugs below",
+        "confidence": "high/medium/low"
+      }
+    ],
+    "breakdown": {"slug": count},
+    "dominant": "the most common direction slug",
+    "notes": "brief observation about how the channel uses narrative direction"
+  },
   "confidence": {
     "overall": "high/medium/low based on transcript quality and quantity",
     "weakAreas": ["areas where more data would improve the profile"]
   }
-}`
+}
+
+NARRATIVE DIRECTION CLASSIFICATION — for the "narrativeDirectionAnalysis" section, classify each transcript into exactly one of these directions:
+${directionList}
+
+Allowed slug values: ${directionSlugs.join(', ')}`
 
   const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [
     { role: 'user', content: userMessage },
