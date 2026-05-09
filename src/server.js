@@ -367,6 +367,14 @@ async function main() {
     } catch (e) {
       logger.error(e, '[trending-worker] failed to start — trending data will not auto-update')
     }
+
+    // Start the script pipeline Bull worker (runs multi-agent script generation jobs).
+    try {
+      const { startScriptWorker } = require('./queue/scriptPipeline')
+      startScriptWorker()
+    } catch (e) {
+      logger.error(e, '[script-worker] failed to start — script pipeline jobs will run inline')
+    }
   })
 }
 main().catch(e => {

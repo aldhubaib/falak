@@ -477,7 +477,7 @@ async function doStageResearch(article, project) {
     log.push(lp('research', { status: 'skipped', reason: decision.reason }))
     log.push(lp('verdict', { stage: 'research', result: 'skip', reason: decision.reason, nextStage: 'done' }))
     await saveLog(article.id, log)
-    await promoteAfterResearch(article, currentAnalysis, log)
+    await promoteAfterScore(article, currentAnalysis, log)
     return { nextStage: 'done' }
   }
 
@@ -521,7 +521,7 @@ async function doStageResearch(article, project) {
       }
     }
 
-    await promoteAfterResearch(article, updatedAnalysis, log)
+    await promoteAfterScore(article, updatedAnalysis, log)
     return { nextStage: 'done' }
   } catch (e) {
     if (e.isServiceError && !e.retryable) {
@@ -535,7 +535,7 @@ async function doStageResearch(article, project) {
     log.push(lp('verdict', { stage: 'research', result: 'pass', reason: 'Research failed (non-blocking, promoting)', nextStage: 'done' }))
     await saveLog(article.id, log)
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] Research failed (non-fatal, promoting)')
-    await promoteAfterResearch(article, currentAnalysis, log)
+    await promoteAfterScore(article, currentAnalysis, log)
     return { nextStage: 'done' }
   }
 }
@@ -580,7 +580,7 @@ async function doStageTranslated(article, project) {
       where: { id: article.id },
       data: { contentAr: text, language: 'ar', analysis: arAnalysis, processingLog: log },
     })
-    await promoteAfterResearch(article, arAnalysis, log)
+    await promoteAfterScore(article, arAnalysis, log)
     return { nextStage: 'done' }
   }
 
@@ -741,11 +741,11 @@ async function doStageTranslated(article, project) {
     },
   })
 
-  await promoteAfterResearch(article, arAnalysis, log)
+  await promoteAfterScore(article, arAnalysis, log)
   return { nextStage: 'done' }
 }
 
-async function promoteAfterResearch(article, analysis, log) {
+async function promoteAfterScore(article, analysis, log) {
   const freshArticle = await db.article.findUnique({ where: { id: article.id } })
   const art = freshArticle || article
   const finalScore = art.finalScore || 0
@@ -1162,7 +1162,7 @@ ${contentForScoring.slice(0, 15000)}`
       threshold,
       totalDecisions,
     }))
-    log.push(lp('verdict', { stage: 'score', result: 'pass', reason: `Score ${finalScore.toFixed(2)} passed threshold ${threshold.toFixed(2)}`, nextStage: 'research' }))
+    log.push(lp('verdict', { stage: 'score', result: 'pass', reason: `Score ${finalScore.toFixed(2)} passed threshold ${threshold.toFixed(2)}`, nextStage: 'done' }))
     await saveLog(article.id, log)
   } catch (e) {
     log.push(lp('threshold_gate', { processor: 'server', status: 'error', error: e.message + ' (non-blocking, allowing through)' }))
@@ -1170,7 +1170,8 @@ ${contentForScoring.slice(0, 15000)}`
     logger.warn({ articleId: article.id, error: e.message }, '[articleProcessor] threshold gate error (non-fatal, allowing through)')
   }
 
-  return { nextStage: 'research' }
+  await promoteAfterScore(article, analysis, log)
+  return { nextStage: 'done' }
 }
 
 // ── Quality evaluators ───────────────────────────────────────────────────────

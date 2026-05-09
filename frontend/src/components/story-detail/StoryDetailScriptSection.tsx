@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, Loader2, Film, Smartphone, ChevronDown, Zap, BookOpen } from "lucide-react";
+import { PipelineStepper } from "./PipelineStepper";
 
 export type ScriptLength = "short" | "long";
 
@@ -19,6 +20,9 @@ export interface StoryDetailScriptSectionProps {
   onVideoFormatChange?: (format: "short" | "long") => void;
   channelAvatarUrl?: string | null;
   channelName?: string;
+  pipelineStage?: string;
+  pipelineError?: string;
+  qaResult?: { passed: boolean; issues: Array<{ type: string; severity: string; detail: string }> };
 }
 
 export function StoryDetailScriptSection({
@@ -37,6 +41,9 @@ export function StoryDetailScriptSection({
   onVideoFormatChange,
   channelAvatarUrl,
   channelName,
+  pipelineStage,
+  pipelineError,
+  qaResult,
 }: StoryDetailScriptSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -193,6 +200,10 @@ export function StoryDetailScriptSection({
             </div>
           ) : null}
         </button>
+
+        {generating && pipelineStage && (
+          <PipelineStepper stage={pipelineStage} error={pipelineError} qaResult={qaResult} />
+        )}
 
         {!collapsed && (
           <div className="px-5 max-sm:px-3 py-4 overflow-visible bg-card">

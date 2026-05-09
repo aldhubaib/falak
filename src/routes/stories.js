@@ -6,16 +6,14 @@ const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
 const { callAnthropicLogged } = require('../services/aiLogger')
-const { callOpenAILogged, callOpenAIStream } = require('../services/openaiChat')
 const { learnFromStory } = require('../services/aiLearner')
-const { getDialectForCountry, getDialectGuide } = require('../lib/dialects')
+const { getDialectForCountry } = require('../lib/dialects')
 const { fetchTranscript } = require('../services/transcript')
 const { transcribeFromR2 } = require('../services/whisper')
 const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
 const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = require('../lib/scoringConfig')
 const { getNicheEmbedding } = require('../services/embeddings')
 const registry = require('../lib/serviceRegistry')
-const { buildFactSheetFromResearch, extractFactsFallback, organizeFactSheet, buildFactSheetPrompt, validateScript } = require('../services/scriptPipeline')
 
 /**
  * Build a prompt injection block from a channel's Style DNA profile.
@@ -248,209 +246,56 @@ async function processStoryBackground(storyId) {
 
 // Run script generation in background (non-streaming). Can be invoked when moving to scripting.
 async function generateScriptForStory(storyId) {
-  const story = await db.story.findUniqueOrThrow({
-    where: { id: storyId },
-  })
+  const story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
   const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-  const articleContent = typeof brief.articleContent === 'string' && brief.articleContent !== '__SCRAPE_FAILED__' && brief.articleContent !== '__YOUTUBE__' ? brief.articleContent : ''
-  if (!articleContent || !articleContent.trim()) return
   const channelId = brief.channelId
   if (!channelId) return
+
+  const { enqueueScriptJob } = require('../queue/scriptPipeline')
+  const job = await enqueueScriptJob(storyId, { channelId, isShort: (brief.scriptLength || 'short') === 'short' })
+  if (job) return
+
+  const { runScriptPipeline } = require('../services/scriptPipeline')
+  const { buildPipelineContext, updatePipelineStatus } = require('../queue/scriptPipeline')
+
   const channel = await db.channel.findFirst({
     where: { id: channelId },
     select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true, styleDna: true },
   })
   if (!channel) return
 
-  // Fetch narrative direction preference
-  let narrativePreference = null
+  const ctx = await buildPipelineContext(story, channel)
+  const onStage = (stage, data) => updatePipelineStatus(storyId, stage, data)
+
   try {
-    const profile = await db.scoreProfile.findUnique({ where: { channelId }, select: { preferredNarrativeDirection: true } })
-    narrativePreference = profile?.preferredNarrativeDirection || null
-  } catch (_) {}
+    const result = await runScriptPipeline(story, channel, { ...ctx, onStage })
+    const parsed = parseStructuredScript(result.script)
+    const freshStory = await db.story.findUnique({ where: { id: storyId }, select: { brief: true } })
+    const currentBrief = freshStory?.brief || brief
 
-  const isShort = (brief.scriptLength || 'short') === 'short'
-  const startHook = (channel.startHook || '').trim()
-  const endHook = (channel.endHook || '').trim()
-  const dialect = await getDialectForCountry(channel.nationality)
-  const dialectGuide = getDialectGuide(channel.nationality)
-  const dialectInstruction = dialectGuide
-    ? dialectGuide
-    : dialect
-      ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
-      : 'Write the script in Arabic.'
-  const durationInstruction = isShort
-    ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. You MUST include EVERY fact from the source — do NOT skip or omit any detail, no matter how small. To keep it concise, say each fact in fewer words rather than removing facts entirely. Character backgrounds (job, location, family situation, where they work/live) are essential context — never skip them. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
-    : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
-  const hookStartBlock = startHook
-    ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
-    : ''
-  const hookEndBlock = endHook
-    ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
-    : ''
-
-  // Build style guide injection from learned corrections
-  const guide = (channel.styleGuide && typeof channel.styleGuide === 'object') ? channel.styleGuide : null
-  let styleBlock = ''
-  if (guide) {
-    const parts = []
-    if (Array.isArray(guide.corrections) && guide.corrections.length > 0) {
-      const hookCorrections = guide.corrections.filter(c => c.category === 'branded_hook')
-      const otherCorrections = guide.corrections.filter(c => c.category !== 'branded_hook')
-      if (hookCorrections.length > 0) {
-        parts.push('CRITICAL — Branded hook corrections (you got these WRONG before, use the CORRECT version):\n' +
-          hookCorrections.map(c => `- WRONG: "${c.wrong}" → CORRECT: "${c.correct}"`).join('\n'))
-      }
-      if (otherCorrections.length > 0) {
-        parts.push('Style corrections from past scripts:\n' +
-          otherCorrections.slice(-10).map(c => `- Instead of "${c.wrong}", use "${c.correct}"`).join('\n'))
-      }
-    }
-    if (guide.signatures?.startHook?.length > 0) {
-      parts.push('Real opening hook examples from this channel\'s past videos:\n' +
-        guide.signatures.startHook.slice(-3).map(h => `- "${h}"`).join('\n'))
-    }
-    if (guide.signatures?.endHook?.length > 0) {
-      parts.push('Real closing hook examples from this channel\'s past videos:\n' +
-        guide.signatures.endHook.slice(-3).map(h => `- "${h}"`).join('\n'))
-    }
-    if (Array.isArray(guide.notes) && guide.notes.length > 0) {
-      parts.push('Presenter style preferences:\n' + guide.notes.slice(-5).map(n => `- ${n}`).join('\n'))
-    }
-    if (parts.length > 0) {
-      styleBlock = '\n\n--- CHANNEL STYLE GUIDE (learned from past videos — follow these closely) ---\n' + parts.join('\n\n')
-    }
-  }
-
-  const styleDnaBlock = buildStyleDnaBlock(channel.styleDna, narrativePreference)
-  const fewShotExamples = await fetchFewShotExamples(channelId, storyId)
-  const fewShotBlock = buildFewShotBlock(fewShotExamples)
-
-  const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
-
-CRITICAL: The dialect is how you SPEAK, not where the story HAPPENED. Never change locations, countries, or dates to match the dialect. If the story happened in Egypt, say Egypt — even if you're writing in Khaleeji dialect.
-
-You will receive an IMMUTABLE FACT SHEET containing characters, locations, timeline, and facts. This fact sheet is LOCKED — every name, location, date, and detail must appear in your script EXACTLY as written. You cannot add, remove, or change any data from the fact sheet.
-
-## STORYTELLING RULES
-You are a STORYTELLER, not a news anchor. Make the viewer FEEL the story.
-
-1. **Always explain WHY** — Connect motives to actions.
-2. **Build tension** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
-3. **Show, don't list** — Weave facts into a narrative with scenes and atmosphere.
-4. **Cause-effect transitions** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
-5. **Character depth** — Describe their life, routine, what they stood to lose.
-6. **End with impact** — Connect resolution back to the opening hook.
-7. **Pace reveals** — Save the biggest twist for the right dramatic moment.
-
-## IMMUTABLE FACT SHEET RULES
-- Use EVERY character by their CANONICAL name — exact spelling from the Character Registry.
-- Use EVERY location EXACTLY as listed — never rename, translate, or relocate.
-- Use ALL dates and numbers EXACTLY as given — never round or change.
-- Use ALL facts provided — do not skip any.
-- Do NOT add any fact, detail, name, relationship, or number not in the fact sheet.
-- You CAN add atmosphere and emotional tone as reasonable inferences.
-
-## YOU ARE FORBIDDEN FROM
-- Changing any location or country (the story location is in the fact sheet — USE IT)
-- Changing any date or year
-- Renaming characters or inventing nicknames
-- Inventing relationships, financial details, or backstories not listed
-- Creating direct quotes or dialogue not in the facts
-- Changing what happened to objects or evidence
-
-Output ONLY a structured script using exactly these section headers (each on its own line). No other text.
-
-## TITLE
-(one line: suggested video title)
-
-## SCRIPT
-Write the full script as one continuous flow with timestamps:
-
-1. **Opening hook** (0:00) — compelling 10-second hook. Ask a question or present a shocking contrast.
-${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
-3. **Setup** — Introduce characters using the CHARACTER REGISTRY and BACKGROUND facts.
-4. **Rising tension** — Use MOTIVE facts. Reveal the plan and warning signs.
-5. **The incident** — Use EVENT facts. Don't rush the climax.
-6. **Investigation** — Use EVIDENCE facts. How truth came out.
-7. **Resolution** — Use OUTCOME facts. Verdict, consequences, closing thought.
-${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
-
-${durationInstruction}
-Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
-
-## SELF-VALIDATION (check BEFORE outputting)
-Before writing your final output, mentally verify:
-1. Every character name matches the CANONICAL name from the fact sheet — no nicknames, no translations.
-2. Every location is EXACTLY as listed in the fact sheet — especially the country and city.
-3. Every date/year matches the fact sheet — not changed or rounded.
-4. The dialect is correct throughout — no Egyptian words if writing in Khaleeji.
-5. No facts were invented that aren't in the fact sheet.
-6. All facts from the sheet were used — none skipped.
-If any check fails, fix it before outputting.
-
-## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix Arabic and English for SEO.)${styleBlock}${styleDnaBlock}`
-
-  // ── Stage 1: Build fact sheet (free from research, or fallback to GPT-4o-mini) ──
-  let factSheet
-  try {
-    if (brief.research && (brief.research.briefAr || brief.research.brief)) {
-      factSheet = buildFactSheetFromResearch(brief.research, articleContent)
-    } else {
-      factSheet = await extractFactsFallback(articleContent.slice(0, 120000), { channelId: story.channelId, storyId: story.id })
-    }
-  } catch (err) {
-    console.error('[stories/generateScript] Stage 1 failed:', err?.message)
-    return
-  }
-
-  // ── Stage 2: Filter + organize (pure code) ──
-  const organized = organizeFactSheet(factSheet, isShort)
-
-  // ── Stage 3: Write script from immutable fact sheet (GPT-4o) ──
-  let userMessage = buildFactSheetPrompt(organized, fewShotBlock, isShort)
-  if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
-
-  let fullScript = ''
-  try {
-    fullScript = await callOpenAILogged('gpt-4o', [{ role: 'user', content: userMessage }], {
-      system,
-      maxTokens: 8192,
-      temperature: 0.6,
-      channelId: story.channelId,
-      storyId: story.id,
-      action: 'Script Pipeline — Write Script',
+    await db.story.update({
+      where: { id: storyId },
+      data: {
+        brief: {
+          ...currentBrief,
+          suggestedTitle: parsed.suggestedTitle || currentBrief.suggestedTitle,
+          script: parsed.script || currentBrief.script,
+          youtubeTags: parsed.youtubeTags?.length > 0 ? parsed.youtubeTags : currentBrief.youtubeTags,
+          scriptLength: ctx.isShort ? 'short' : 'long',
+          scriptRaw: (result.script || '').trim() || currentBrief.scriptRaw,
+          factSheet: result.factSheet,
+          research: result.research || currentBrief.research,
+          qaResult: result.qaResult,
+          pipelineLog: result.pipelineLog,
+          pipelineStatus: { stage: 'done', updatedAt: new Date().toISOString() },
+        },
+        stage: 'scripting',
+      },
     })
   } catch (err) {
-    console.error('[stories/generateScriptForStory]', storyId, err?.message)
-    return
+    console.error('[generateScriptForStory]', storyId, err?.message)
+    await updatePipelineStatus(storyId, 'error', { error: err.message })
   }
-  const parsed = parseStructuredScript(fullScript)
-
-  // Stage 4: QA validation
-  let qaResult = { passed: true, issues: [] }
-  try {
-    const dialectName = dialect?.name || 'Arabic'
-    qaResult = await validateScript(parsed.script || fullScript, organized, dialectName, { channelId, storyId })
-  } catch (err) {
-    console.error('[generateScript] QA validation error:', err?.message)
-  }
-
-  const newBrief = {
-    ...brief,
-    suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
-    script: parsed.script || brief.script,
-    youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
-    scriptLength: isShort ? 'short' : 'long',
-    scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
-    factSheet: organized,
-    qaResult,
-  }
-  await db.story.update({
-    where: { id: storyId },
-    data: { brief: newBrief, stage: 'scripting' },
-  })
 }
 const router = express.Router()
 router.use(requireAuth)
@@ -707,279 +552,111 @@ function parseStructuredScript(text) {
 // Body: scriptLength ("short"|"long"), channelId (required).
 router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
-    const story = await db.story.findUniqueOrThrow({
-      where: { id: req.params.id },
-    })
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
     const openaiKeyRow = await db.apiKey.findUnique({ where: { service: 'embedding' } })
     if (!openaiKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'OpenAI API key not set. Add it in Settings → API Keys.' })
     }
+
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
-
-    // Build research text from the structured briefAr/brief object
-    const researchObj = brief.research?.briefAr || brief.research?.brief
-    let researchText = ''
-    if (researchObj && typeof researchObj === 'object') {
-      const parts = []
-      if (researchObj.whatHappened) parts.push(`ما حدث:\n${researchObj.whatHappened}`)
-      if (researchObj.howItHappened) parts.push(`كيف حدث:\n${researchObj.howItHappened}`)
-      if (researchObj.whatWasTheResult) parts.push(`النتيجة:\n${researchObj.whatWasTheResult}`)
-      if (Array.isArray(researchObj.keyFacts) && researchObj.keyFacts.length) {
-        parts.push(`الحقائق الرئيسية:\n${researchObj.keyFacts.map((f, i) => `${i + 1}. ${f}`).join('\n')}`)
-      }
-      if (Array.isArray(researchObj.timeline) && researchObj.timeline.length) {
-        parts.push(`التسلسل الزمني:\n${researchObj.timeline.map(t => `- ${t.date || ''}: ${t.event || ''}`).join('\n')}`)
-      }
-      if (Array.isArray(researchObj.mainCharacters) && researchObj.mainCharacters.length) {
-        parts.push(`الشخصيات الرئيسية:\n${researchObj.mainCharacters.map(c => `- ${c.name || ''}: ${c.role || ''}`).join('\n')}`)
-      }
-      if (researchObj.suggestedHook) parts.push(`خطاف مقترح:\n${researchObj.suggestedHook}`)
-      if (researchObj.competitionInsight) parts.push(`تحليل المنافسة:\n${researchObj.competitionInsight}`)
-      researchText = parts.join('\n\n')
-    } else if (typeof researchObj === 'string' && researchObj.trim()) {
-      researchText = researchObj.trim()
-    }
-
-    const fromBody = typeof req.body?.articleText === 'string' ? req.body.articleText.trim() : ''
-    const fromBrief = typeof brief.articleContent === 'string' ? brief.articleContent : ''
-    const articleContent = fromBody || (fromBrief !== '__SCRAPE_FAILED__' && fromBrief !== '__YOUTUBE__' ? fromBrief : '')
-
-    if (!researchText && !articleContent) {
-      return res.status(400).json({ error: 'No research data or article content available. Run research first.' })
-    }
     const channelId = req.body?.channelId || brief.channelId
     if (!channelId) {
       return res.status(400).json({ error: 'Select a channel in Assign to Channel to generate a script with branded hooks.' })
     }
+
+    const isShort = (req.body?.scriptLength || 'short') === 'short'
+    const forceResearch = !!req.body?.forceResearch
+
+    // Set initial pipeline status
+    await db.story.update({
+      where: { id: story.id },
+      data: {
+        brief: {
+          ...brief,
+          scriptLength: isShort ? 'short' : 'long',
+          pipelineStatus: { stage: 'queued', updatedAt: new Date().toISOString() },
+        },
+      },
+    })
+
+    const { enqueueScriptJob } = require('../queue/scriptPipeline')
+    const job = await enqueueScriptJob(story.id, { channelId, isShort, forceResearch })
+
+    if (job) {
+      return res.json({ queued: true, jobId: job.id, message: 'Script generation queued (multi-agent pipeline)' })
+    }
+
+    // Fallback: no Redis — run inline
+    const { runScriptPipeline } = require('../services/scriptPipeline')
+    const { buildPipelineContext, updatePipelineStatus } = require('../queue/scriptPipeline')
+
     const channel = await db.channel.findFirst({
       where: { id: channelId },
       select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true, styleDna: true },
     })
-    if (!channel) {
-      return res.status(400).json({ error: 'Channel not found.' })
-    }
+    if (!channel) return res.status(400).json({ error: 'Channel not found.' })
 
-    // Fetch narrative direction preference
-    let narrativePreference = null
+    const ctx = await buildPipelineContext(story, channel)
+
+    // Run inline (blocking) with progress updates
+    res.json({ queued: false, message: 'Script generation started (inline — no Redis)' })
+
+    const onStage = (stage, data) => updatePipelineStatus(story.id, stage, data)
+
     try {
-      const profile = await db.scoreProfile.findUnique({ where: { channelId }, select: { preferredNarrativeDirection: true } })
-      narrativePreference = profile?.preferredNarrativeDirection || null
-    } catch (_) {}
+      const result = await runScriptPipeline(story, channel, {
+        ...ctx,
+        isShort,
+        forceResearch,
+        onStage,
+      })
 
-    const isShort = (req.body?.scriptLength || 'short') === 'short'
-    const startHook = (channel.startHook || '').trim()
-    const endHook = (channel.endHook || '').trim()
+      const parsed = parseStructuredScript(result.script)
+      const freshStory = await db.story.findUnique({ where: { id: story.id }, select: { brief: true } })
+      const currentBrief = freshStory?.brief || brief
 
-    // Build style guide injection from learned corrections
-    const guide = (channel.styleGuide && typeof channel.styleGuide === 'object') ? channel.styleGuide : null
-    let styleBlock = ''
-    if (guide) {
-      const parts = []
-      if (Array.isArray(guide.corrections) && guide.corrections.length > 0) {
-        const hookCorrections = guide.corrections.filter(c => c.category === 'branded_hook')
-        const otherCorrections = guide.corrections.filter(c => c.category !== 'branded_hook')
-        if (hookCorrections.length > 0) {
-          parts.push('CRITICAL — Branded hook corrections (you got these WRONG before, use the CORRECT version):\n' +
-            hookCorrections.map(c => `- WRONG: "${c.wrong}" → CORRECT: "${c.correct}"`).join('\n'))
-        }
-        if (otherCorrections.length > 0) {
-          parts.push('Style corrections from past scripts:\n' +
-            otherCorrections.slice(-10).map(c => `- Instead of "${c.wrong}", use "${c.correct}"`).join('\n'))
-        }
-      }
-      if (guide.signatures?.startHook?.length > 0) {
-        parts.push('Real opening hook examples from this channel\'s past videos:\n' +
-          guide.signatures.startHook.slice(-3).map(h => `- "${h}"`).join('\n'))
-      }
-      if (guide.signatures?.endHook?.length > 0) {
-        parts.push('Real closing hook examples from this channel\'s past videos:\n' +
-          guide.signatures.endHook.slice(-3).map(h => `- "${h}"`).join('\n'))
-      }
-      if (Array.isArray(guide.notes) && guide.notes.length > 0) {
-        parts.push('Presenter style preferences:\n' + guide.notes.slice(-5).map(n => `- ${n}`).join('\n'))
-      }
-      if (parts.length > 0) {
-        styleBlock = '\n\n--- CHANNEL STYLE GUIDE (learned from past videos — follow these closely) ---\n' + parts.join('\n\n')
-      }
-    }
-
-    const dialect = await getDialectForCountry(channel.nationality)
-    const dialectGuide = getDialectGuide(channel.nationality)
-    const dialectInstruction = dialectGuide
-      ? dialectGuide
-      : dialect
-        ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
-        : 'Write the script in Arabic.'
-
-    const durationInstruction = isShort
-      ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. You MUST include EVERY fact from the source — do NOT skip or omit any detail, no matter how small. To keep it concise, say each fact in fewer words rather than removing facts entirely. Character backgrounds (job, location, family situation, where they work/live) are essential context — never skip them. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
-      : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
-    const hookStartBlock = startHook
-      ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
-      : ''
-    const hookEndBlock = endHook
-      ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
-      : ''
-
-    const styleDnaBlock = buildStyleDnaBlock(channel.styleDna, narrativePreference)
-    const fewShotExamples = await fetchFewShotExamples(channelId, story.id)
-    const fewShotBlock = buildFewShotBlock(fewShotExamples)
-
-    const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
-
-CRITICAL: The dialect is how you SPEAK, not where the story HAPPENED. Never change locations, countries, or dates to match the dialect. If the story happened in Egypt, say Egypt — even if you're writing in Khaleeji dialect.
-
-You will receive an IMMUTABLE FACT SHEET containing characters, locations, timeline, and facts. This fact sheet is LOCKED — every name, location, date, and detail must appear in your script EXACTLY as written. You cannot add, remove, or change any data from the fact sheet.
-
-## STORYTELLING RULES
-You are a STORYTELLER, not a news anchor. Make the viewer FEEL the story.
-
-1. **Always explain WHY** — Connect motives to actions.
-2. **Build tension** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
-3. **Show, don't list** — Weave facts into a narrative with scenes and atmosphere.
-4. **Cause-effect transitions** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
-5. **Character depth** — Describe their life, routine, what they stood to lose.
-6. **End with impact** — Connect resolution back to the opening hook.
-7. **Pace reveals** — Save the biggest twist for the right dramatic moment.
-
-## IMMUTABLE FACT SHEET RULES
-- Use EVERY character by their CANONICAL name — exact spelling from the Character Registry.
-- Use EVERY location EXACTLY as listed — never rename, translate, or relocate.
-- Use ALL dates and numbers EXACTLY as given — never round or change.
-- Use ALL facts provided — do not skip any.
-- Do NOT add any fact, detail, name, relationship, or number not in the fact sheet.
-- You CAN add atmosphere and emotional tone as reasonable inferences.
-
-## YOU ARE FORBIDDEN FROM
-- Changing any location or country (the story location is in the fact sheet — USE IT)
-- Changing any date or year
-- Renaming characters or inventing nicknames
-- Inventing relationships, financial details, or backstories not listed
-- Creating direct quotes or dialogue not in the facts
-- Changing what happened to objects or evidence
-
-Output ONLY a structured script using exactly these section headers (each on its own line). No other text.
-
-## TITLE
-(one line: suggested video title)
-
-## SCRIPT
-Write the full script as one continuous flow with timestamps:
-
-1. **Opening hook** (0:00) — compelling 10-second hook. Ask a question or present a shocking contrast.
-${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
-3. **Setup** — Introduce characters using the CHARACTER REGISTRY and BACKGROUND facts.
-4. **Rising tension** — Use MOTIVE facts. Reveal the plan and warning signs.
-5. **The incident** — Use EVENT facts. Don't rush the climax.
-6. **Investigation** — Use EVIDENCE facts. How truth came out.
-7. **Resolution** — Use OUTCOME facts. Verdict, consequences, closing thought.
-${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
-
-${durationInstruction}
-Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
-
-## SELF-VALIDATION (check BEFORE outputting)
-Before writing your final output, mentally verify:
-1. Every character name matches the CANONICAL name from the fact sheet — no nicknames, no translations.
-2. Every location is EXACTLY as listed in the fact sheet — especially the country and city.
-3. Every date/year matches the fact sheet — not changed or rounded.
-4. The dialect is correct throughout — no Egyptian words if writing in Khaleeji.
-5. No facts were invented that aren't in the fact sheet.
-6. All facts from the sheet were used — none skipped.
-If any check fails, fix it before outputting.
-
-## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix Arabic and English for SEO.)${styleBlock}${styleDnaBlock}`
-
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
-    res.setHeader('X-Accel-Buffering', 'no')
-    res.setHeader('Connection', 'keep-alive')
-    res.flushHeaders?.()
-
-    // ── Stage 1: Build fact sheet (free from research, or Claude fallback) ──
-    let factSheet
-    try {
-      if (brief.research && (brief.research.briefAr || brief.research.brief)) {
-        res.write(`data: ${JSON.stringify({ stage: 'facts', message: 'Building fact sheet from research...' })}\n\n`)
-        if (typeof res.flush === 'function') res.flush()
-        factSheet = buildFactSheetFromResearch(brief.research, articleContent)
-      } else {
-        res.write(`data: ${JSON.stringify({ stage: 'facts', message: 'Extracting facts with Claude...' })}\n\n`)
-        if (typeof res.flush === 'function') res.flush()
-        factSheet = await extractFactsFallback(articleContent.slice(0, 120000), { channelId, storyId: story.id })
-      }
-      res.write(`data: ${JSON.stringify({ stage: 'facts_done', factsCount: factSheet.facts.length, charactersCount: factSheet.characters.length, message: `${factSheet.facts.length} facts, ${factSheet.characters.length} characters` })}\n\n`)
-      if (typeof res.flush === 'function') res.flush()
+      await db.story.update({
+        where: { id: story.id },
+        data: {
+          brief: {
+            ...currentBrief,
+            suggestedTitle: parsed.suggestedTitle || currentBrief.suggestedTitle,
+            script: parsed.script || currentBrief.script,
+            youtubeTags: parsed.youtubeTags?.length > 0 ? parsed.youtubeTags : currentBrief.youtubeTags,
+            scriptLength: isShort ? 'short' : 'long',
+            scriptRaw: (result.script || '').trim() || currentBrief.scriptRaw,
+            factSheet: result.factSheet,
+            research: result.research || currentBrief.research,
+            qaResult: result.qaResult,
+            pipelineLog: result.pipelineLog,
+            pipelineStatus: { stage: 'done', updatedAt: new Date().toISOString() },
+          },
+          stage: 'scripting',
+        },
+      })
     } catch (err) {
-      console.error('[stories/generate-script] Stage 1 failed:', err)
-      res.write(`data: ${JSON.stringify({ error: 'Failed to build fact sheet: ' + (err.message || 'Unknown error') })}\n\n`)
-      res.end()
-      return
+      console.error('[stories/generate-script] inline pipeline failed:', err)
+      await updatePipelineStatus(story.id, 'error', { error: err.message })
     }
-
-    // ── Stage 2: Filter + organize (pure code) ──
-    const organized = organizeFactSheet(factSheet, isShort)
-    res.write(`data: ${JSON.stringify({ stage: 'organized', factsCount: organized.facts.length, message: `Using ${organized.facts.length}/${factSheet.facts.length} facts` })}\n\n`)
-    if (typeof res.flush === 'function') res.flush()
-
-    // ── Stage 3: Write script from immutable fact sheet (GPT-4o, streamed) ──
-    let userMessage = buildFactSheetPrompt(organized, fewShotBlock, isShort)
-    if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
-
-    let fullScript = ''
-    try {
-      for await (const chunk of callOpenAIStream('gpt-4o', [{ role: 'user', content: userMessage }], {
-        system,
-        maxTokens: 8192,
-        temperature: 0.6,
-        channelId: story.channelId,
-        action: 'Script Pipeline — Write Script',
-      })) {
-        fullScript += chunk
-        res.write(`data: ${JSON.stringify({ delta: { text: chunk } })}\n\n`)
-        if (typeof res.flush === 'function') res.flush()
-      }
-    } catch (streamErr) {
-      console.error('[stories/generate-script]', streamErr)
-      res.write(`data: ${JSON.stringify({ error: streamErr.message || 'Stream failed' })}\n\n`)
-      res.end()
-      return
-    }
-
-    const parsed = parseStructuredScript(fullScript)
-
-    // Stage 4: QA validation
-    let qaResult = { passed: true, issues: [] }
-    try {
-      res.write(`data: ${JSON.stringify({ stage: 'qa' })}\n\n`)
-      const dialectName = dialect?.name || 'Arabic'
-      qaResult = await validateScript(parsed.script || fullScript, organized, dialectName, { channelId, storyId: story.id })
-      res.write(`data: ${JSON.stringify({ stage: 'qa_done', passed: qaResult.passed, issues: qaResult.issues })}\n\n`)
-    } catch (err) {
-      console.error('[stories/generate-script] QA validation error:', err?.message)
-    }
-
-    const newBrief = {
-      ...brief,
-      suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
-      script: parsed.script || brief.script,
-      youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
-      scriptLength: isShort ? 'short' : 'long',
-      scriptRaw: fullScript.trim() || brief.scriptRaw,
-      factSheet: organized,
-      qaResult,
-    }
-    await db.story.update({
-      where: { id: story.id },
-      data: { brief: newBrief },
-    })
-    res.write('data: [DONE]\n\n')
-    res.end()
   } catch (e) {
     if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
     console.error('[stories/generate-script]', e)
     res.status(500).json({ error: e.message || 'Generate script failed' })
+  }
+})
+
+// ── GET /api/stories/:id/pipeline-status — poll pipeline progress ──────────
+router.get('/:id/pipeline-status', async (req, res) => {
+  try {
+    const story = await db.story.findUnique({
+      where: { id: req.params.id },
+      select: { brief: true },
+    })
+    if (!story) return res.status(404).json({ error: 'Story not found' })
+    const status = story.brief?.pipelineStatus || null
+    res.json({ status })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
   }
 })
 
@@ -1941,5 +1618,10 @@ router.post('/:id/log', requireRole('owner', 'admin', 'editor'), async (req, res
 async function addLog(storyId, userId, action, note) {
   return db.storyLog.create({ data: { storyId, userId, action, note } })
 }
+
+router.buildStyleDnaBlock = buildStyleDnaBlock
+router.fetchFewShotExamples = fetchFewShotExamples
+router.buildFewShotBlock = buildFewShotBlock
+router.parseStructuredScript = parseStructuredScript
 
 module.exports = router

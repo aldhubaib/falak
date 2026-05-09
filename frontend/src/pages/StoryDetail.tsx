@@ -1184,75 +1184,84 @@ export default function StoryDetail() {
     [id, activeStage, brief.videoR2Key]
   );
 
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
   const generateScript = useCallback(async () => {
     if (!id || !channelId) { toast.error("No story ID"); return; }
     if (generatingScript) return;
     setGeneratingScript(true);
-    toast.info("Generating script…");
+    toast.info("Generating script (multi-agent pipeline)…");
     try {
       const res = await fetch(`/api/stories/${id}/generate-script`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scriptLength,
-          channelId,
-        }),
+        body: JSON.stringify({ scriptLength, channelId }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
         toast.error(err.error || "Generation failed");
+        setGeneratingScript(false);
         return;
       }
-      const reader = res.body?.getReader();
-      if (!reader) { toast.error("No response stream"); return; }
-      const decoder = new TextDecoder();
-      let fullText = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = line.slice(6).trim();
-          if (payload === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(payload);
-            if (parsed.delta?.text) fullText += parsed.delta.text;
-            if (parsed.error) toast.error(parsed.error);
-            if (parsed.stage === 'qa_done' && !parsed.passed && Array.isArray(parsed.issues) && parsed.issues.length > 0) {
-              toast.error(`QA found ${parsed.issues.length} issue(s): ${parsed.issues.map((i: { detail: string }) => i.detail).join('; ').slice(0, 200)}`);
+
+      setBrief((b) => ({ ...b, pipelineStatus: { stage: "queued" } }));
+
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/stories/${id}/pipeline-status`, { credentials: "include" });
+          if (!statusRes.ok) return;
+          const { status } = await statusRes.json();
+          if (!status) return;
+
+          setBrief((b) => ({ ...b, pipelineStatus: status }));
+
+          if (status.stage === "done" || status.stage === "error") {
+            stopPolling();
+
+            if (status.stage === "error") {
+              toast.error(status.error || "Pipeline failed");
+              setGeneratingScript(false);
+              return;
             }
-          } catch { /* skip non-JSON lines */ }
+
+            const storyRes = await fetch(`/api/stories/${id}`, { credentials: "include" });
+            if (storyRes.ok) {
+              const storyData = await storyRes.json();
+              const updatedBrief = storyData.brief || {};
+              setBrief((b) => ({
+                ...b,
+                ...updatedBrief,
+                pipelineStatus: { stage: "done" },
+              }));
+              if (scriptEditorRef.current && updatedBrief.script) {
+                scriptEditorRef.current.setContent(updatedBrief.script);
+              }
+              if (updatedBrief.qaResult && !updatedBrief.qaResult.passed && updatedBrief.qaResult.issues?.length > 0) {
+                toast.error(`QA found ${updatedBrief.qaResult.issues.length} issue(s): ${updatedBrief.qaResult.issues.map((i: { detail: string }) => i.detail).join('; ').slice(0, 200)}`);
+              }
+            }
+            toast.success("Script generated");
+            setGeneratingScript(false);
+          }
+        } catch {
+          /* poll error — keep trying */
         }
-      }
-      const sections = parseStructuredScript(fullText);
-      const generatedScript = sections.script || fullText.trim();
-      if (scriptEditorRef.current) {
-        scriptEditorRef.current.setContent(generatedScript);
-      }
-      setBrief((b) => {
-        const next: StoryBrief = {
-          ...b,
-          suggestedTitle: sections.title || b.suggestedTitle,
-          openingHook: sections.hook || b.openingHook,
-          hookStart: sections.hookStart,
-          script: generatedScript,
-          hookEnd: sections.hookEnd,
-          scriptLength,
-          scriptRaw: fullText.trim(),
-          youtubeTags: sections.hashtags.length > 0 ? sections.hashtags : b.youtubeTags,
-        };
-        if (id) saveScript(id, next);
-        return next;
-      });
-      toast.success("Script generated");
+      }, 3000);
     } catch (err) {
       toast.error("Failed to generate script");
-    } finally {
       setGeneratingScript(false);
     }
-  }, [id, channelId, scriptLength, generatingScript, saveScript]);
+  }, [id, channelId, scriptLength, generatingScript, stopPolling]);
 
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: "عنوان الفيديو المقترح...", type: "input" },
@@ -1570,6 +1579,9 @@ export default function StoryDetail() {
                 videoFormat={brief.videoFormat || "long"}
                 channelAvatarUrl={channelInfo?.avatarUrl}
                 channelName={channelInfo?.name}
+                pipelineStage={brief.pipelineStatus?.stage}
+                pipelineError={brief.pipelineStatus?.error}
+                qaResult={brief.qaResult}
                 onScriptChange={(value) => {
                   setBrief((b) => {
                     const next: StoryBrief = { ...b, script: value };

@@ -22,7 +22,6 @@ const {
   doStageClassify,
   doStageTitleTranslate,
   doStageScore,
-  doStageResearch,
   doStageTranscript,
   doStageStoryCount,
   doStageStorySplit,
@@ -40,7 +39,7 @@ const AI_CONCURRENCY = 5
 
 const STAGES = [
   'transcript', 'story_count', 'story_split', 'imported', 'content',
-  'classify', 'title_translate', 'score', 'research',
+  'classify', 'title_translate', 'score',
 ]
 
 const STAGE_CONFIG = {
@@ -52,7 +51,6 @@ const STAGE_CONFIG = {
   classify:        { batch: 8,  pollMs: 5_000,  serial: false, ai: true  },
   title_translate: { batch: 8,  pollMs: 5_000,  serial: false, ai: true  },
   score:           { batch: 3,  pollMs: 8_000,  serial: true,  ai: true  },
-  research:        { batch: 5,  pollMs: 5_000,  serial: false, ai: true  },
 }
 
 /* ── Semaphore (limits concurrent AI calls across all stages) ── */
@@ -150,7 +148,6 @@ async function processItem(article, { force = false } = {}) {
       case 'classify':        out = await doStageClassify(article, channel); break
       case 'title_translate':  out = await doStageTitleTranslate(article, channel); break
       case 'score':           out = await doStageScore(article, channel); break
-      case 'research':        out = await doStageResearch(article, channel); break
       default: return
     }
 

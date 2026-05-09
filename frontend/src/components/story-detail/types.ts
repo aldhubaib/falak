@@ -122,6 +122,22 @@ export interface StoryBrief {
     confidence: number;
     reason: string | null;
   };
+  pipelineStatus?: {
+    stage: string;
+    updatedAt?: string;
+    message?: string;
+    error?: string;
+    factsCount?: number;
+    charactersCount?: number;
+    round?: number;
+    passed?: boolean;
+    issues?: Array<{ type: string; severity: string; detail: string }>;
+  };
+  qaResult?: {
+    passed: boolean;
+    issues: Array<{ type: string; severity: string; detail: string }>;
+    rounds?: number;
+  };
 }
 
 export interface ScriptField {
