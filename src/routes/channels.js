@@ -3,7 +3,7 @@ const { z } = require('zod')
 const db = require('../lib/db')
 const { serialise } = require('../lib/serialise')
 const { requireAuth, requireRole } = require('../middleware/auth')
-const { NotFound, Forbidden, asyncWrap } = require('../middleware/errors')
+const { NotFound, Forbidden, ValidationError, asyncWrap } = require('../middleware/errors')
 const { parseBody, parseQuery } = require('../lib/validate')
 const { fetchChannel, fetchRecentVideos } = require('../services/youtube')
 const { getQueue, addJob } = require('../queue/pipeline')
@@ -391,8 +391,15 @@ router.post('/:id/style-dna/build', requireRole('owner', 'admin', 'editor'), asy
   })
   if (!existing) throw new NotFound('Channel not found')
 
-  const styleDna = await buildStyleDna(channelId)
-  res.json({ ok: true, styleDna })
+  try {
+    const styleDna = await buildStyleDna(channelId)
+    res.json({ ok: true, styleDna })
+  } catch (err) {
+    if (err.message && err.message.startsWith('Need at least')) {
+      throw ValidationError(err.message)
+    }
+    throw err
+  }
 }))
 
 // ── POST /api/channels/:id/style-dna/validate — test DNA quality against holdout transcripts

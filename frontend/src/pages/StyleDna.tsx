@@ -559,7 +559,8 @@ export default function StyleDnaPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Build failed");
+        const msg = body.error?.message || body.error || body.message || "Build failed";
+        throw new Error(typeof msg === "string" ? msg : "Build failed");
       }
       toast.success("Style DNA rebuilt successfully");
       await fetchData();
