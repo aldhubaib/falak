@@ -6,6 +6,7 @@ const { fetchArticleText } = require('../services/articleFetcher')
 const { scrapeUrl, preClean } = require('../services/firecrawl')
 const { callAnthropic, callAnthropicStream } = require('../services/pipelineProcessor')
 const { callAnthropicLogged } = require('../services/aiLogger')
+const { callOpenAILogged, callOpenAIStream } = require('../services/openaiChat')
 const { learnFromStory } = require('../services/aiLearner')
 const { getDialectForCountry } = require('../lib/dialects')
 const { fetchTranscript } = require('../services/transcript')
@@ -86,6 +87,57 @@ function buildStyleDnaBlock(styleDna, narrativePreference) {
 
   if (parts.length === 0) return ''
   return '\n\n--- STYLE DNA (this channel\'s proven writing style — follow closely) ---\n' + parts.join('\n\n')
+}
+
+/**
+ * Fetch up to 2 past published scripts from this channel to use as few-shot
+ * examples. Returns pairs of { articleContent, script } sliced to fit in context.
+ * Excludes the current story being generated.
+ */
+async function fetchFewShotExamples(channelId, excludeStoryId, limit = 2) {
+  const stories = await db.story.findMany({
+    where: {
+      channelId,
+      id: excludeStoryId ? { not: excludeStoryId } : undefined,
+      stage: { in: ['done', 'published'] },
+      brief: { not: null },
+    },
+    select: { brief: true },
+    orderBy: { updatedAt: 'desc' },
+    take: limit * 3,
+  })
+
+  const examples = []
+  for (const s of stories) {
+    const b = s.brief && typeof s.brief === 'object' ? s.brief : {}
+    const article = typeof b.articleContent === 'string' && b.articleContent.length > 200
+      ? b.articleContent : null
+    const script = typeof b.script === 'string' && b.script.length > 100
+      ? b.script : null
+    if (article && script) {
+      examples.push({
+        article: article.slice(0, 8000),
+        script: script.slice(0, 6000),
+      })
+      if (examples.length >= limit) break
+    }
+  }
+  return examples
+}
+
+function buildFewShotBlock(examples) {
+  if (!examples || examples.length === 0) return ''
+  const blocks = examples.map((ex, i) =>
+    `--- REFERENCE SCRIPT ${i + 1} (real published script from this channel — match this style exactly) ---
+SOURCE ARTICLE:
+${ex.article}
+
+FINAL SCRIPT:
+${ex.script}`
+  ).join('\n\n')
+
+  return `\n\n${blocks}\n\n--- END OF REFERENCE SCRIPTS ---
+CRITICAL: Your output MUST match the style, tone, pacing, timestamp format, and fact-handling of the reference scripts above. They are real published scripts from this channel — treat them as the gold standard. Only the content/topic should differ.`
 }
 
 // ── Suggest best playlist for a story based on its content ─────────────────
@@ -198,8 +250,6 @@ async function generateScriptForStory(storyId) {
   const story = await db.story.findUniqueOrThrow({
     where: { id: storyId },
   })
-  const apiKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-  if (!apiKeyRow?.encryptedKey) return
   const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
   const articleContent = typeof brief.articleContent === 'string' && brief.articleContent !== '__SCRAPE_FAILED__' && brief.articleContent !== '__YOUTUBE__' ? brief.articleContent : ''
   if (!articleContent || !articleContent.trim()) return
@@ -225,7 +275,6 @@ async function generateScriptForStory(storyId) {
   const dialectInstruction = dialect
     ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
     : 'Write the script in Arabic.'
-  const apiKey = decrypt(apiKeyRow.encryptedKey)
   const durationInstruction = isShort
     ? 'Write a CONCISE script covering only the essential facts and core narrative. Keep it tight — aim for 1-3 minutes of speaking time. Cut secondary details and background context, but keep every core fact intact. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
     : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
@@ -270,6 +319,8 @@ async function generateScriptForStory(storyId) {
   }
 
   const styleDnaBlock = buildStyleDnaBlock(channel.styleDna, narrativePreference)
+  const fewShotExamples = await fetchFewShotExamples(channelId, storyId)
+  const fewShotBlock = buildFewShotBlock(fewShotExamples)
 
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
@@ -280,6 +331,15 @@ FACTUAL ACCURACY — CRITICAL RULES:
 - If the source is ambiguous or incomplete, reflect that ambiguity in the script (e.g. "حسب المصادر" / "لم يتم التأكد من...") — do NOT fill in the gaps with invented details.
 - Do NOT add dramatic details, fictional dialogue, or emotional reactions that are not in the source.
 - When shortening: cut entire secondary storylines rather than changing facts to make them fit.
+
+YOU ARE FORBIDDEN FROM:
+- Inventing family relationships not stated in the source (e.g. adding "قريبته" or "ابن عمه")
+- Adding financial details not in the source (amounts, "يبعتلهم مبالغ", salary figures)
+- Creating direct quotes or dialogue that do not appear in the source
+- Inventing specific times, dates, or durations not mentioned in the source
+- Adding character motivations or inner thoughts not explicitly stated
+- Changing what happened to objects/evidence (e.g. "left" vs "threw away")
+- Fabricating backstories for how characters met or were recruited
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
 
@@ -300,7 +360,9 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleBlock}${styleDnaBlock}`
 
-  let userMessage = `Article to turn into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n${articleContent.slice(0, 120000)}`
+  let userMessage = ''
+  if (fewShotBlock) userMessage += fewShotBlock + '\n\n'
+  userMessage += `Article to turn into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n${articleContent.slice(0, 120000)}`
 
   if (brief.research) {
     const researchParts = []
@@ -316,9 +378,10 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
   let fullScript = ''
   try {
-    fullScript = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+    fullScript = await callOpenAILogged('gpt-4o', [{ role: 'user', content: userMessage }], {
       system,
       maxTokens: 8192,
+      temperature: 0.6,
       channelId: story.channelId,
       storyId: story.id,
       action: 'Story Generate Script',
@@ -599,9 +662,9 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
     })
-    const anthropicKeyRow = await db.apiKey.findUnique({ where: { service: 'anthropic' } })
-    if (!anthropicKeyRow?.encryptedKey) {
-      return res.status(400).json({ error: 'Anthropic API key not set. Add it in Settings → API Keys.' })
+    const openaiKeyRow = await db.apiKey.findUnique({ where: { service: 'openai' } })
+    if (!openaiKeyRow?.encryptedKey) {
+      return res.status(400).json({ error: 'OpenAI API key not set. Add it in Settings → API Keys.' })
     }
     const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
 
@@ -664,7 +727,6 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
       : 'Write the script in Arabic.'
 
-    const apiKey = decrypt(anthropicKeyRow.encryptedKey)
     const durationInstruction = isShort
       ? 'Write a CONCISE script covering only the essential facts and core narrative. Keep it tight — aim for 1-3 minutes of speaking time. Cut secondary details and background context, but keep every core fact intact. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
       : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
@@ -676,6 +738,8 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       : ''
 
     const styleDnaBlock = buildStyleDnaBlock(channel.styleDna, narrativePreference)
+    const fewShotExamples = await fetchFewShotExamples(channelId, story.id)
+    const fewShotBlock = buildFewShotBlock(fewShotExamples)
 
     const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
@@ -706,7 +770,9 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleDnaBlock}`
 
-    let userMessage = `Turn this into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n`
+    let userMessage = ''
+    if (fewShotBlock) userMessage += fewShotBlock + '\n\n'
+    userMessage += `Turn this into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n`
 
     if (researchText) {
       userMessage += `--- RESEARCH ---\n${researchText}\n\n`
@@ -725,9 +791,10 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
     let fullScript = ''
     try {
-      for await (const chunk of callAnthropicStream(apiKey, 'claude-sonnet-4-6', [{ role: 'user', content: userMessage }], {
+      for await (const chunk of callOpenAIStream('gpt-4o', [{ role: 'user', content: userMessage }], {
         system,
         maxTokens: 8192,
+        temperature: 0.6,
         channelId: story.channelId,
         action: 'Story Generate Script',
       })) {

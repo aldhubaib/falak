@@ -122,10 +122,89 @@ async function callOpenAILogged(model, messages, opts = {}) {
   }
 }
 
+/**
+ * Streaming variant of callOpenAILogged — yields text deltas as they arrive.
+ * Same signature but returns an async generator instead of a string.
+ */
+async function * callOpenAIStream(model, messages, opts = {}) {
+  const {
+    system,
+    maxTokens = 4096,
+    temperature = 0.7,
+    channelId,
+    action,
+  } = opts
+
+  const apiKey = await registry.requireKey('openai')
+
+  const fullMessages = []
+  if (system) fullMessages.push({ role: 'system', content: system })
+  fullMessages.push(...messages)
+
+  const body = {
+    model: model || DEFAULT_MODEL,
+    messages: fullMessages,
+    max_tokens: maxTokens,
+    temperature,
+    stream: true,
+  }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 300_000)
+
+  let res
+  try {
+    res = await fetch(OPENAI_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    clearTimeout(timer)
+    trackUsage({ channelId, service: 'openai-chat', action, status: 'fail', error: err.message })
+    throw err
+  }
+
+  if (!res.ok) {
+    clearTimeout(timer)
+    const errBody = await res.json().catch(() => ({}))
+    const msg = errBody?.error?.message || `OpenAI ${res.status}`
+    trackUsage({ channelId, service: 'openai-chat', action, status: 'fail', error: msg })
+    throw new Error(msg)
+  }
+
+  try {
+    let buffer = ''
+    for await (const chunk of res.body) {
+      buffer += (chunk instanceof Buffer ? chunk.toString('utf-8') : String(chunk))
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const raw = line.slice(6).trim()
+        if (raw === '[DONE]') return
+        if (!raw) continue
+        try {
+          const obj = JSON.parse(raw)
+          const delta = obj.choices?.[0]?.delta?.content
+          if (delta) yield delta
+        } catch (_) {}
+      }
+    }
+  } finally {
+    clearTimeout(timer)
+    registry.markUp('openai')
+  }
+}
+
 const SERVICE_DESCRIPTOR = {
   name: 'openai',
   displayName: 'OpenAI Chat (GPT-4o)',
   keySource: 'apiKey',
 }
 
-module.exports = { callOpenAILogged, DEFAULT_MODEL, SERVICE_DESCRIPTOR }
+module.exports = { callOpenAILogged, callOpenAIStream, DEFAULT_MODEL, SERVICE_DESCRIPTOR }
