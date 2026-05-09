@@ -548,6 +548,7 @@ export default function StyleDnaPage() {
     if (!channelId) return;
     setBuilding(true);
     setValidation(null);
+    const toastId = toast.loading("Analyzing transcripts... this may take 1-2 minutes");
     try {
       // Clear old DNA first
       await fetch(`/api/channels/${channelId}/style-dna`, { method: "DELETE", credentials: "include" });
@@ -562,11 +563,12 @@ export default function StyleDnaPage() {
         const msg = body.error?.message || body.error || body.message || "Build failed";
         throw new Error(typeof msg === "string" ? msg : "Build failed");
       }
-      toast.success("Style DNA rebuilt successfully");
+      toast.success("Style DNA rebuilt successfully", { id: toastId });
       await fetchData();
 
       // Auto-validate after build
       setValidating(true);
+      toast.loading("Validating...", { id: toastId });
       setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
       const valRes = await fetch(`/api/channels/${channelId}/style-dna/validate`, {
         method: "POST",
@@ -575,10 +577,13 @@ export default function StyleDnaPage() {
       if (valRes.ok) {
         const result = await valRes.json();
         setValidation(result);
+        toast.success("Done!", { id: toastId });
         setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      } else {
+        toast.dismiss(toastId);
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Build failed");
+      toast.error(e instanceof Error ? e.message : "Build failed", { id: toastId });
     } finally {
       setBuilding(false);
       setValidating(false);
