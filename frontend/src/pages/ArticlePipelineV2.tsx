@@ -122,7 +122,6 @@ const ARTICLE_STAGES = [
   { id: "classify", label: "Classify", icon: Brain, color: "text-success", bg: "bg-success" },
   { id: "title_translate", label: "Title Translate", icon: Languages, color: "text-primary", bg: "bg-primary" },
   { id: "score", label: "Score", icon: Sparkles, color: "text-orange", bg: "bg-orange" },
-  { id: "research", label: "Research", icon: Search, color: "text-purple", bg: "bg-purple" },
 ];
 
 const OUTCOMES = [
@@ -606,13 +605,6 @@ const STAGE_STEPS: Record<string, { step: string; label: string; subtitle: strin
     { step: "score_ai_analysis", label: "AI Scoring", subtitle: "Relevance & viral scores", icon: Brain },
     { step: "score", label: "Final Score", subtitle: "Composite score", icon: Sparkles },
     { step: "threshold_gate", label: "Threshold Gate", subtitle: "Dynamic score threshold check", icon: Target },
-  ],
-  research: [
-    { step: "research_decision", label: "Decision", subtitle: "Whether research is needed", icon: Target },
-    { step: "serpapi_search", label: "Web Search", subtitle: "Related news via Google Search", icon: Search },
-    { step: "images", label: "Image Search", subtitle: "SerpAPI Google Images", icon: ImageIcon },
-    { step: "perplexity_context", label: "Background", subtitle: "Context from Perplexity", icon: Globe },
-    { step: "synthesis", label: "Synthesis", subtitle: "AI brief (hook, narrative, facts)", icon: Brain },
   ],
   import: [{ step: "import", label: "Import Video", subtitle: "Queue video for processing", icon: Download }],
   transcribe: [{ step: "transcribe", label: "Transcribe", subtitle: "YouTube transcript extraction", icon: Youtube }],
