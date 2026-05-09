@@ -1,80 +1,183 @@
 /**
  * 3-stage script generation pipeline:
- *   Stage 1 — Extract facts + weight (GPT-4o-mini)
+ *   Stage 1 — Build fact sheet from research brief (free) or extract via GPT-4o-mini (fallback)
  *   Stage 2 — Filter + organize (pure code)
  *   Stage 3 — Write script (GPT-4o, streaming or blocking)
+ *
+ * Modeled after Fanzy's immutable Fact Sheet pattern.
  */
-const { callOpenAILogged } = require('./openaiChat')
+const { callAnthropicLogged } = require('./aiLogger')
+const registry = require('../lib/serviceRegistry')
 
 const CATEGORY_ORDER = ['background', 'motive', 'event', 'evidence', 'outcome']
 
 // ───────────────────────────────────────────────
-// STAGE 1: Extract & weight facts
+// STAGE 1A: Build fact sheet from existing research brief (NO API call)
 // ───────────────────────────────────────────────
 
-const EXTRACT_SYSTEM = `You are a fact-extraction engine. You receive a news article or research brief about a real event.
+/**
+ * Convert an existing research brief into a structured fact sheet.
+ * @param {object} research - brief.research from the story
+ * @param {string} [articleContent] - raw article text for supplementary context
+ * @returns {{ characters: Array, timeline: Array, facts: Array, locations: Array }}
+ */
+function buildFactSheetFromResearch(research, articleContent) {
+  const briefObj = research.briefAr || research.brief || {}
+  const raw = typeof briefObj === 'string' ? {} : briefObj
 
-Your job is to extract EVERY distinct fact into a structured JSON array. Do not summarize — extract each fact individually.
+  // Characters registry — canonical names locked
+  const characters = []
+  if (Array.isArray(raw.mainCharacters)) {
+    raw.mainCharacters.forEach((c, i) => {
+      characters.push({
+        canonical: c.name || `شخصية ${i + 1}`,
+        role: c.role || '',
+        priority: i < 3 ? 'core' : 'supporting',
+      })
+    })
+  }
 
-For each fact, provide:
-- "fact": The fact itself in Arabic, stated clearly in one sentence.
-- "importance": A number from 1-10.
-  - 10 = absolutely essential (who died, who did it, the verdict)
-  - 7-9 = very important (motive, method, key evidence, main characters' backgrounds)
-  - 4-6 = supporting detail (secondary characters, minor timeline points)
-  - 1-3 = trivial (minor procedural details that could be cut)
-- "category": One of: "background", "motive", "event", "evidence", "outcome"
-  - "background" = character introductions, jobs, locations, family, relationships, living situations
-  - "motive" = why someone did something, what drove the action, the plan, the trigger
-  - "event" = what physically happened (the crime, the incident, the action)
-  - "evidence" = how it was discovered, investigation details, proof, confessions, surveillance
-  - "outcome" = verdict, sentence, consequences, aftermath
-- "characters": Array of character names mentioned in this fact.
+  // Timeline — ordered events with weight
+  const timeline = []
+  if (Array.isArray(raw.timeline)) {
+    raw.timeline.forEach((t, i) => {
+      timeline.push({
+        order: i,
+        date: t.date || '',
+        event: t.event || '',
+        weight: 'normal',
+      })
+    })
+  }
+
+  // Core facts from structured fields
+  const facts = []
+
+  if (raw.whatHappened) {
+    facts.push({ fact: raw.whatHappened, category: 'event', importance: 10 })
+  }
+  if (raw.howItHappened) {
+    facts.push({ fact: raw.howItHappened, category: 'motive', importance: 9 })
+  }
+  if (raw.whatWasTheResult) {
+    facts.push({ fact: raw.whatWasTheResult, category: 'outcome', importance: 10 })
+  }
+
+  if (Array.isArray(raw.keyFacts)) {
+    raw.keyFacts.forEach(f => {
+      if (typeof f === 'string' && f.trim()) {
+        facts.push({ fact: f.trim(), category: 'event', importance: 8 })
+      }
+    })
+  }
+
+  // Locations — extract from timeline if available
+  const locationSet = new Set()
+  const locations = []
+  if (Array.isArray(raw.timeline)) {
+    raw.timeline.forEach(t => {
+      const event = t.event || ''
+      const dateStr = t.date || ''
+      const combined = `${dateStr} ${event}`
+      const match = combined.match(/في\s+(.+?)(?:[،,.]|$)/)
+      if (match && !locationSet.has(match[1])) {
+        locationSet.add(match[1])
+        locations.push({ name: match[1], source: 'timeline' })
+      }
+    })
+  }
+
+  // Suggested hook
+  const suggestedHook = raw.suggestedHook || ''
+
+  // Competition insight
+  const competitionInsight = raw.competitionInsight || research.competitionInsight || ''
+
+  return {
+    characters,
+    timeline,
+    facts,
+    locations,
+    suggestedHook,
+    competitionInsight,
+    articleContent: articleContent || '',
+  }
+}
+
+// ───────────────────────────────────────────────
+// STAGE 1B: Extract via GPT-4o-mini (fallback when no research)
+// ───────────────────────────────────────────────
+
+const EXTRACT_SYSTEM = `You are a fact-extraction engine. You receive a news article about a real event.
+
+Extract EVERY distinct fact into a structured JSON object with these fields:
+
+{
+  "characters": [
+    { "canonical": "exact name from article", "role": "description", "priority": "core|supporting|background" }
+  ],
+  "timeline": [
+    { "order": 0, "date": "date if mentioned", "event": "what happened", "weight": "brief|normal|extended" }
+  ],
+  "facts": [
+    { "fact": "one fact per entry", "category": "background|motive|event|evidence|outcome", "importance": 1-10 }
+  ],
+  "locations": [
+    { "name": "exact location name from article" }
+  ]
+}
 
 Rules:
-- Extract EVERY fact. Do not merge or summarize multiple facts into one.
-- Character backgrounds (job, where they work, where they live, family) are separate facts — each one matters.
-- If a fact explains WHY something happened, category MUST be "motive" and importance MUST be >= 7.
-- Relationships between characters are "background" facts with importance >= 7.
-- The plan/plot details are "motive" facts.
-- Physical actions (killing, disposing, fleeing) are "event" facts.
-- Discovery, confessions, forensic findings are "evidence" facts.
+- Extract EVERY fact. Do not merge or summarize.
+- Character names must be EXACTLY as written in the article — never translate, adapt, or change them.
+- Locations must be EXACTLY as mentioned — never change the country or city.
+- Dates and numbers must be EXACTLY as in the source.
+- "importance" 10 = essential (who, what happened, verdict), 7-9 = very important (motive, backgrounds), 4-6 = supporting, 1-3 = trivial.
+- "weight" on timeline: "extended" for major events, "normal" for regular, "brief" for minor.
+- "priority" on characters: "core" for main characters, "supporting" for secondary, "background" for mentioned-only.
 
-Reply with ONLY a valid JSON array. No markdown fences, no explanation.`
+Reply with ONLY valid JSON. No markdown fences, no explanation.`
 
 /**
- * Stage 1: Call GPT-4o-mini to extract structured facts from source material.
- * @param {string} sourceText - article/research content
+ * Stage 1B: Fallback — call Claude to extract facts when no research brief exists.
+ * Claude excels at structured analysis and fact extraction.
+ * @param {string} sourceText
  * @param {{ channelId: string, storyId?: string }} meta
- * @returns {Promise<Array<{ fact: string, importance: number, category: string, characters: string[] }>>}
+ * @returns {Promise<object>} fact sheet
  */
-async function extractFacts(sourceText, meta) {
-  const raw = await callOpenAILogged('gpt-4o-mini', [
+async function extractFactsFallback(sourceText, meta) {
+  const apiKey = await registry.requireKey('anthropic')
+  const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-20250514', [
     { role: 'user', content: `Extract all facts from this article:\n\n${sourceText.slice(0, 120000)}` },
   ], {
     system: EXTRACT_SYSTEM,
     maxTokens: 8192,
-    temperature: 0.2,
     channelId: meta.channelId,
     storyId: meta.storyId,
-    action: 'Script Pipeline — Extract Facts',
+    action: 'Script Pipeline — Extract Facts (fallback)',
   })
 
-  let facts
+  let parsed
   try {
     const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-    facts = JSON.parse(cleaned)
+    parsed = JSON.parse(cleaned)
   } catch {
     throw new Error('Failed to parse extracted facts JSON')
   }
 
-  if (!Array.isArray(facts)) throw new Error('Extracted facts is not an array')
-  return facts.map(f => ({
-    fact: String(f.fact || ''),
-    importance: Math.min(10, Math.max(1, Number(f.importance) || 5)),
-    category: CATEGORY_ORDER.includes(f.category) ? f.category : 'event',
-    characters: Array.isArray(f.characters) ? f.characters : [],
-  }))
+  return {
+    characters: Array.isArray(parsed.characters) ? parsed.characters : [],
+    timeline: Array.isArray(parsed.timeline) ? parsed.timeline : [],
+    facts: Array.isArray(parsed.facts) ? parsed.facts.map(f => ({
+      fact: String(f.fact || ''),
+      importance: Math.min(10, Math.max(1, Number(f.importance) || 5)),
+      category: CATEGORY_ORDER.includes(f.category) ? f.category : 'event',
+    })) : [],
+    locations: Array.isArray(parsed.locations) ? parsed.locations : [],
+    suggestedHook: '',
+    competitionInsight: '',
+    articleContent: sourceText,
+  }
 }
 
 // ───────────────────────────────────────────────
@@ -84,78 +187,123 @@ async function extractFacts(sourceText, meta) {
 const PROTECTED_CATEGORIES = new Set(['motive', 'outcome'])
 
 /**
- * Stage 2: Filter facts by importance threshold and organize by story structure.
- * @param {Array} facts - from Stage 1
+ * Stage 2: Filter facts by importance and organize by story structure.
+ * @param {object} factSheet
  * @param {boolean} isShort
- * @param {number} [threshold=5] - minimum importance for short mode
- * @returns {{ included: Array, excluded: Array }}
+ * @param {number} [threshold=5]
+ * @returns {object} filtered fact sheet
  */
-function organizeFacts(facts, isShort, threshold = 5) {
-  let included, excluded
+function organizeFactSheet(factSheet, isShort, threshold = 5) {
+  const sheet = { ...factSheet }
 
   if (isShort) {
-    included = facts.filter(f =>
+    sheet.facts = factSheet.facts.filter(f =>
       f.importance >= threshold || PROTECTED_CATEGORIES.has(f.category)
     )
-    excluded = facts.filter(f =>
-      f.importance < threshold && !PROTECTED_CATEGORIES.has(f.category)
+    sheet.characters = factSheet.characters.filter(c =>
+      c.priority === 'core' || c.priority === 'supporting'
     )
-  } else {
-    included = [...facts]
-    excluded = []
+    sheet.timeline = factSheet.timeline.filter(t =>
+      t.weight !== 'brief'
+    )
   }
 
-  included.sort((a, b) => {
+  sheet.facts.sort((a, b) => {
     const ai = CATEGORY_ORDER.indexOf(a.category)
     const bi = CATEGORY_ORDER.indexOf(b.category)
     if (ai !== bi) return ai - bi
     return b.importance - a.importance
   })
 
-  return { included, excluded }
+  return sheet
 }
 
 // ───────────────────────────────────────────────
-// STAGE 3: Build the writing prompt from facts
+// STAGE 3: Build prompt from fact sheet
 // ───────────────────────────────────────────────
 
 /**
- * Build the user message for Stage 3 from organized facts.
- * @param {Array} facts - organized facts from Stage 2
+ * Format the fact sheet as an immutable prompt block for the scriptwriter.
+ * @param {object} factSheet
  * @param {string} [fewShotBlock]
  * @param {boolean} isShort
  * @returns {string}
  */
-function buildFactsUserMessage(facts, fewShotBlock, isShort) {
+function buildFactSheetPrompt(factSheet, fewShotBlock, isShort) {
   let msg = ''
   if (fewShotBlock) msg += fewShotBlock + '\n\n'
 
-  msg += `Write a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script from the following extracted facts.\n`
-  msg += `You MUST use ALL the facts below — do not skip any.\n\n`
+  msg += `Write a ${isShort ? 'short, concise' : 'detailed, comprehensive'} video script from the IMMUTABLE FACT SHEET below.\n`
+  msg += `You MUST use ALL facts. You MUST NOT add, change, or infer anything not listed.\n\n`
 
-  for (const cat of CATEGORY_ORDER) {
-    const catFacts = facts.filter(f => f.category === cat)
-    if (catFacts.length === 0) continue
-    const label = {
-      background: 'خلفية الشخصيات والأحداث (Background)',
-      motive: 'الدوافع والأسباب (Motive)',
-      event: 'الأحداث (Events)',
-      evidence: 'الأدلة والتحقيقات (Evidence)',
-      outcome: 'النتيجة والحكم (Outcome)',
-    }[cat] || cat
-    msg += `--- ${label} ---\n`
-    catFacts.forEach((f, i) => {
-      msg += `${i + 1}. [importance: ${f.importance}] ${f.fact}\n`
+  msg += `=== IMMUTABLE FACT SHEET (locked — do not modify any data) ===\n\n`
+
+  // Characters
+  if (factSheet.characters.length > 0) {
+    msg += `--- CHARACTER REGISTRY (use canonical names EXACTLY) ---\n`
+    factSheet.characters.forEach(c => {
+      msg += `• ${c.canonical} [${c.priority}]: ${c.role}\n`
     })
     msg += '\n'
+  }
+
+  // Locations
+  if (factSheet.locations.length > 0) {
+    msg += `--- LOCATIONS (use EXACTLY as written) ---\n`
+    factSheet.locations.forEach(l => {
+      msg += `• ${l.name}\n`
+    })
+    msg += '\n'
+  }
+
+  // Timeline
+  if (factSheet.timeline.length > 0) {
+    msg += `--- TIMELINE (chronological order) ---\n`
+    factSheet.timeline.forEach(t => {
+      const dateTag = t.date ? `[${t.date}] ` : ''
+      const weightTag = t.weight && t.weight !== 'normal' ? ` (${t.weight})` : ''
+      msg += `${t.order + 1}. ${dateTag}${t.event}${weightTag}\n`
+    })
+    msg += '\n'
+  }
+
+  // Facts by category
+  for (const cat of CATEGORY_ORDER) {
+    const catFacts = factSheet.facts.filter(f => f.category === cat)
+    if (catFacts.length === 0) continue
+    const label = {
+      background: 'BACKGROUND (خلفية)',
+      motive: 'MOTIVE (الدافع) — NEVER skip these',
+      event: 'EVENTS (الأحداث)',
+      evidence: 'EVIDENCE (الأدلة)',
+      outcome: 'OUTCOME (النتيجة) — NEVER skip these',
+    }[cat] || cat
+    msg += `--- ${label} ---\n`
+    catFacts.forEach(f => {
+      msg += `• ${f.fact}\n`
+    })
+    msg += '\n'
+  }
+
+  msg += `=== END FACT SHEET ===\n`
+
+  // Supplementary context (raw article for detail, but facts above take priority)
+  if (factSheet.articleContent) {
+    msg += `\n--- SUPPLEMENTARY ARTICLE (for additional detail only — fact sheet above is the source of truth) ---\n`
+    msg += factSheet.articleContent.slice(0, 60000) + '\n'
+  }
+
+  if (factSheet.suggestedHook) {
+    msg += `\n--- SUGGESTED HOOK ---\n${factSheet.suggestedHook}\n`
   }
 
   return msg
 }
 
 module.exports = {
-  extractFacts,
-  organizeFacts,
-  buildFactsUserMessage,
+  buildFactSheetFromResearch,
+  extractFactsFallback,
+  organizeFactSheet,
+  buildFactSheetPrompt,
   CATEGORY_ORDER,
 }

@@ -15,7 +15,7 @@ const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
 const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = require('../lib/scoringConfig')
 const { getNicheEmbedding } = require('../services/embeddings')
 const registry = require('../lib/serviceRegistry')
-const { extractFacts, organizeFacts, buildFactsUserMessage } = require('../services/scriptPipeline')
+const { buildFactSheetFromResearch, extractFactsFallback, organizeFactSheet, buildFactSheetPrompt } = require('../services/scriptPipeline')
 
 /**
  * Build a prompt injection block from a channel's Style DNA profile.
@@ -325,80 +325,78 @@ async function generateScriptForStory(storyId) {
 
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
-You will receive a list of pre-extracted facts organized by category (background, motive, events, evidence, outcome). Your job is to weave ALL these facts into a compelling narrative script.
+CRITICAL: The dialect is how you SPEAK, not where the story HAPPENED. Never change locations, countries, or dates to match the dialect. If the story happened in Egypt, say Egypt — even if you're writing in Khaleeji dialect.
 
-## STORYTELLING RULES — HOW TO WRITE
-You are a STORYTELLER, not a news anchor. Your job is to make the viewer FEEL the story, not just hear the facts.
+You will receive an IMMUTABLE FACT SHEET containing characters, locations, timeline, and facts. This fact sheet is LOCKED — every name, location, date, and detail must appear in your script EXACTLY as written. You cannot add, remove, or change any data from the fact sheet.
 
-1. **Always explain WHY** — Every major event must have a cause. Connect motives to actions.
-2. **Build tension and suspense** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
-3. **Show, don't list** — Weave facts into a narrative. Paint scenes: where, when, atmosphere.
-4. **Use transitions that connect cause and effect** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
-5. **Give characters depth** — Describe their life, routine, what they stood to lose.
-6. **End with impact** — Connect the resolution back to the opening hook.
-7. **Pace the reveals** — The biggest twist should come at the right dramatic moment.
+## STORYTELLING RULES
+You are a STORYTELLER, not a news anchor. Make the viewer FEEL the story.
 
-## FACT USAGE — CRITICAL
-- You MUST use EVERY fact provided. Do not skip any fact.
-- Names, dates, numbers, locations must be reproduced EXACTLY as given.
-- Do NOT add any facts, details, or information that is not in the provided list.
-- You CAN describe emotions and atmosphere as reasonable inferences from the facts.
+1. **Always explain WHY** — Connect motives to actions.
+2. **Build tension** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
+3. **Show, don't list** — Weave facts into a narrative with scenes and atmosphere.
+4. **Cause-effect transitions** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
+5. **Character depth** — Describe their life, routine, what they stood to lose.
+6. **End with impact** — Connect resolution back to the opening hook.
+7. **Pace reveals** — Save the biggest twist for the right dramatic moment.
+
+## IMMUTABLE FACT SHEET RULES
+- Use EVERY character by their CANONICAL name — exact spelling from the Character Registry.
+- Use EVERY location EXACTLY as listed — never rename, translate, or relocate.
+- Use ALL dates and numbers EXACTLY as given — never round or change.
+- Use ALL facts provided — do not skip any.
+- Do NOT add any fact, detail, name, relationship, or number not in the fact sheet.
+- You CAN add atmosphere and emotional tone as reasonable inferences.
 
 ## YOU ARE FORBIDDEN FROM
-- Inventing any detail not in the provided facts
+- Changing any location or country (the story location is in the fact sheet — USE IT)
+- Changing any date or year
+- Renaming characters or inventing nicknames
+- Inventing relationships, financial details, or backstories not listed
 - Creating direct quotes or dialogue not in the facts
-- Adding financial details, relationships, or backstories not listed
 - Changing what happened to objects or evidence
 
-Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
+Output ONLY a structured script using exactly these section headers (each on its own line). No other text.
 
 ## TITLE
 (one line: suggested video title)
 
 ## SCRIPT
-Write the full script as one continuous flow with timestamps. The structure MUST be:
+Write the full script as one continuous flow with timestamps:
 
-1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention. Ask a question or present a shocking contrast.
+1. **Opening hook** (0:00) — compelling 10-second hook. Ask a question or present a shocking contrast.
 ${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
-3. **Setup** — Introduce the characters and their world BEFORE the incident. Use the "background" facts.
-4. **Rising tension** — Build towards the main event. Use the "motive" facts. Reveal the plan and signs.
-5. **The incident** — Describe what happened using the "event" facts. Don't rush the climax.
-6. **Investigation / Unraveling** — Use the "evidence" facts. How truth came out, what was found.
-7. **Resolution & Reflection** — Use the "outcome" facts. Verdict, consequences, closing thought.
+3. **Setup** — Introduce characters using the CHARACTER REGISTRY and BACKGROUND facts.
+4. **Rising tension** — Use MOTIVE facts. Reveal the plan and warning signs.
+5. **The incident** — Use EVENT facts. Don't rush the climax.
+6. **Investigation** — Use EVIDENCE facts. How truth came out.
+7. **Resolution** — Use OUTCOME facts. Verdict, consequences, closing thought.
 ${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
 
 ${durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleBlock}${styleDnaBlock}`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix Arabic and English for SEO.)${styleBlock}${styleDnaBlock}`
 
-  // ── Stage 1: Extract facts from source material (GPT-4o-mini) ──
-  let sourceForExtraction = articleContent.slice(0, 120000)
-  if (brief.research) {
-    const researchParts = []
-    if (brief.research.briefAr || brief.research.brief) researchParts.push(brief.research.briefAr || brief.research.brief)
-    if (brief.research.competitionInsight) researchParts.push(`Competition Insight: ${brief.research.competitionInsight}`)
-    if (brief.research.keyFacts && Array.isArray(brief.research.keyFacts)) {
-      researchParts.push(`Key Facts:\n${brief.research.keyFacts.map(f => `- ${f}`).join('\n')}`)
-    }
-    if (researchParts.length) sourceForExtraction += `\n\n--- RESEARCH BRIEF ---\n${researchParts.join('\n\n')}`
-  }
-  if (brief.summary) sourceForExtraction += `\n\n--- SUMMARY ---\n${brief.summary}`
-
-  let allFacts
+  // ── Stage 1: Build fact sheet (free from research, or fallback to GPT-4o-mini) ──
+  let factSheet
   try {
-    allFacts = await extractFacts(sourceForExtraction, { channelId: story.channelId, storyId: story.id })
+    if (brief.research && (brief.research.briefAr || brief.research.brief)) {
+      factSheet = buildFactSheetFromResearch(brief.research, articleContent)
+    } else {
+      factSheet = await extractFactsFallback(articleContent.slice(0, 120000), { channelId: story.channelId, storyId: story.id })
+    }
   } catch (err) {
-    console.error('[stories/generateScript] Stage 1 (extract) failed:', err?.message)
+    console.error('[stories/generateScript] Stage 1 failed:', err?.message)
     return
   }
 
   // ── Stage 2: Filter + organize (pure code) ──
-  const { included } = organizeFacts(allFacts, isShort)
+  const organized = organizeFactSheet(factSheet, isShort)
 
-  // ── Stage 3: Write script from organized facts (GPT-4o) ──
-  let userMessage = buildFactsUserMessage(included, fewShotBlock, isShort)
+  // ── Stage 3: Write script from immutable fact sheet (GPT-4o) ──
+  let userMessage = buildFactSheetPrompt(organized, fewShotBlock, isShort)
   if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
 
   let fullScript = ''
@@ -423,7 +421,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
     scriptLength: isShort ? 'short' : 'long',
     scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
-    extractedFacts: allFacts,
+    factSheet: organized,
   }
   await db.story.update({
     where: { id: storyId },
@@ -769,59 +767,59 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
 
     const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
-You will receive a list of pre-extracted facts organized by category (background, motive, events, evidence, outcome). Your job is to weave ALL these facts into a compelling narrative script.
+CRITICAL: The dialect is how you SPEAK, not where the story HAPPENED. Never change locations, countries, or dates to match the dialect. If the story happened in Egypt, say Egypt — even if you're writing in Khaleeji dialect.
 
-## STORYTELLING RULES — HOW TO WRITE
-You are a STORYTELLER, not a news anchor. Your job is to make the viewer FEEL the story, not just hear the facts.
+You will receive an IMMUTABLE FACT SHEET containing characters, locations, timeline, and facts. This fact sheet is LOCKED — every name, location, date, and detail must appear in your script EXACTLY as written. You cannot add, remove, or change any data from the fact sheet.
 
-1. **Always explain WHY** — Every major event must have a cause. Connect motives to actions.
-2. **Build tension and suspense** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
-3. **Show, don't list** — Weave facts into a narrative. Paint scenes: where, when, atmosphere.
-4. **Use transitions that connect cause and effect** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
-5. **Give characters depth** — Describe their life, routine, what they stood to lose.
-6. **End with impact** — Connect the resolution back to the opening hook.
-7. **Pace the reveals** — The biggest twist should come at the right dramatic moment.
+## STORYTELLING RULES
+You are a STORYTELLER, not a news anchor. Make the viewer FEEL the story.
 
-## FACT USAGE — CRITICAL
-- You MUST use EVERY fact provided. Do not skip any fact.
-- Names, dates, numbers, locations must be reproduced EXACTLY as given.
-- Do NOT add any facts, details, or information that is not in the provided list.
-- You CAN describe emotions and atmosphere as reasonable inferences from the facts.
+1. **Always explain WHY** — Connect motives to actions.
+2. **Build tension** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
+3. **Show, don't list** — Weave facts into a narrative with scenes and atmosphere.
+4. **Cause-effect transitions** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
+5. **Character depth** — Describe their life, routine, what they stood to lose.
+6. **End with impact** — Connect resolution back to the opening hook.
+7. **Pace reveals** — Save the biggest twist for the right dramatic moment.
+
+## IMMUTABLE FACT SHEET RULES
+- Use EVERY character by their CANONICAL name — exact spelling from the Character Registry.
+- Use EVERY location EXACTLY as listed — never rename, translate, or relocate.
+- Use ALL dates and numbers EXACTLY as given — never round or change.
+- Use ALL facts provided — do not skip any.
+- Do NOT add any fact, detail, name, relationship, or number not in the fact sheet.
+- You CAN add atmosphere and emotional tone as reasonable inferences.
 
 ## YOU ARE FORBIDDEN FROM
-- Inventing any detail not in the provided facts
+- Changing any location or country (the story location is in the fact sheet — USE IT)
+- Changing any date or year
+- Renaming characters or inventing nicknames
+- Inventing relationships, financial details, or backstories not listed
 - Creating direct quotes or dialogue not in the facts
-- Adding financial details, relationships, or backstories not listed
 - Changing what happened to objects or evidence
 
-Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
+Output ONLY a structured script using exactly these section headers (each on its own line). No other text.
 
 ## TITLE
 (one line: suggested video title)
 
 ## SCRIPT
-Write the full script as one continuous flow with timestamps. The structure MUST be:
+Write the full script as one continuous flow with timestamps:
 
-1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention. Ask a question or present a shocking contrast.
+1. **Opening hook** (0:00) — compelling 10-second hook. Ask a question or present a shocking contrast.
 ${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
-3. **Setup** — Introduce the characters and their world BEFORE the incident. Use the "background" facts.
-4. **Rising tension** — Build towards the main event. Use the "motive" facts. Reveal the plan and signs.
-5. **The incident** — Describe what happened using the "event" facts. Don't rush the climax.
-6. **Investigation / Unraveling** — Use the "evidence" facts. How truth came out, what was found.
-7. **Resolution & Reflection** — Use the "outcome" facts. Verdict, consequences, closing thought.
+3. **Setup** — Introduce characters using the CHARACTER REGISTRY and BACKGROUND facts.
+4. **Rising tension** — Use MOTIVE facts. Reveal the plan and warning signs.
+5. **The incident** — Use EVENT facts. Don't rush the climax.
+6. **Investigation** — Use EVIDENCE facts. How truth came out.
+7. **Resolution** — Use OUTCOME facts. Verdict, consequences, closing thought.
 ${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
 
 ${durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleDnaBlock}`
-
-    // ── Stage 1: Extract facts (GPT-4o-mini) ──
-    let sourceForExtraction = ''
-    if (researchText) sourceForExtraction += researchText + '\n\n'
-    if (articleContent) sourceForExtraction += articleContent.slice(0, 120000) + '\n\n'
-    if (brief.summary) sourceForExtraction += brief.summary + '\n\n'
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix Arabic and English for SEO.)${styleDnaBlock}`
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
@@ -829,27 +827,35 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     res.setHeader('Connection', 'keep-alive')
     res.flushHeaders?.()
 
-    let allFacts
+    // ── Stage 1: Build fact sheet (free from research, or Claude fallback) ──
+    let factSheet
     try {
-      res.write(`data: ${JSON.stringify({ stage: 'extracting', message: 'Extracting facts from source...' })}\n\n`)
-      if (typeof res.flush === 'function') res.flush()
-      allFacts = await extractFacts(sourceForExtraction, { channelId, storyId: story.id })
-      res.write(`data: ${JSON.stringify({ stage: 'extracted', factsCount: allFacts.length, message: `Extracted ${allFacts.length} facts` })}\n\n`)
+      if (brief.research && (brief.research.briefAr || brief.research.brief)) {
+        res.write(`data: ${JSON.stringify({ stage: 'facts', message: 'Building fact sheet from research...' })}\n\n`)
+        if (typeof res.flush === 'function') res.flush()
+        factSheet = buildFactSheetFromResearch(brief.research, articleContent)
+      } else {
+        res.write(`data: ${JSON.stringify({ stage: 'facts', message: 'Extracting facts with Claude...' })}\n\n`)
+        if (typeof res.flush === 'function') res.flush()
+        factSheet = await extractFactsFallback(articleContent.slice(0, 120000), { channelId, storyId: story.id })
+      }
+      res.write(`data: ${JSON.stringify({ stage: 'facts_done', factsCount: factSheet.facts.length, charactersCount: factSheet.characters.length, message: `${factSheet.facts.length} facts, ${factSheet.characters.length} characters` })}\n\n`)
       if (typeof res.flush === 'function') res.flush()
     } catch (err) {
       console.error('[stories/generate-script] Stage 1 failed:', err)
-      res.write(`data: ${JSON.stringify({ error: 'Failed to extract facts: ' + (err.message || 'Unknown error') })}\n\n`)
+      res.write(`data: ${JSON.stringify({ error: 'Failed to build fact sheet: ' + (err.message || 'Unknown error') })}\n\n`)
       res.end()
       return
     }
 
     // ── Stage 2: Filter + organize (pure code) ──
-    const { included } = organizeFacts(allFacts, isShort)
-    res.write(`data: ${JSON.stringify({ stage: 'organized', includedCount: included.length, message: `Using ${included.length}/${allFacts.length} facts` })}\n\n`)
+    const organized = organizeFactSheet(factSheet, isShort)
+    res.write(`data: ${JSON.stringify({ stage: 'organized', factsCount: organized.facts.length, message: `Using ${organized.facts.length}/${factSheet.facts.length} facts` })}\n\n`)
     if (typeof res.flush === 'function') res.flush()
 
-    // ── Stage 3: Write script from organized facts (GPT-4o, streamed) ──
-    const userMessage = buildFactsUserMessage(included, fewShotBlock, isShort)
+    // ── Stage 3: Write script from immutable fact sheet (GPT-4o, streamed) ──
+    let userMessage = buildFactSheetPrompt(organized, fewShotBlock, isShort)
+    if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
 
     let fullScript = ''
     try {
@@ -879,7 +885,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
       youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
       scriptLength: isShort ? 'short' : 'long',
       scriptRaw: fullScript.trim() || brief.scriptRaw,
-      extractedFacts: allFacts,
+      factSheet: organized,
     }
     await db.story.update({
       where: { id: story.id },
