@@ -87,6 +87,7 @@ async function buildStyleDna(channelId, opts = {}) {
     where: {
       channelId,
       transcription: { not: null },
+      excludeFromStyleDna: false,
     },
     select: {
       id: true,

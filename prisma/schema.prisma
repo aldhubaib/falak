@@ -101,7 +101,8 @@ model Video {
   thumbnailUrl  String?
   transcription String?       @db.Text
   analysisResult Json?
-  omitFromAnalytics Boolean   @default(false)
+  omitFromAnalytics    Boolean   @default(false)
+  excludeFromStyleDna  Boolean   @default(false)
   embedding     Unsupported("vector(1536)")?
   pipelineItem  PipelineItem?
   producedStory Story?        @relation("StoryProducedVideo")

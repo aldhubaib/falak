@@ -51,5 +51,6 @@ export interface Video {
   commentsRaw: number;
   thumbnail?: string;
   youtubeId?: string;
+  excludeFromStyleDna?: boolean;
   pipeline: PipelineStep[];
 }

@@ -136,6 +136,21 @@ router.post('/:id/omit-from-analytics', asyncWrap(async (req, res) => {
   res.json({ omitFromAnalytics: omit })
 }))
 
+const excludeFromStyleDnaBodySchema = z.object({ exclude: z.boolean().optional() })
+
+// ── POST /api/videos/:id/exclude-from-style-dna — toggle excludeFromStyleDna flag
+router.post('/:id/exclude-from-style-dna', asyncWrap(async (req, res) => {
+  const video = await db.video.findUnique({ where: { id: req.params.id }, select: { id: true, excludeFromStyleDna: true } })
+  if (!video) throw NotFound('Video not found')
+  const parsed = parseBody(req.body, excludeFromStyleDnaBodySchema)
+  const exclude = typeof parsed.exclude === 'boolean' ? parsed.exclude : !video.excludeFromStyleDna
+  await db.video.update({
+    where: { id: video.id },
+    data: { excludeFromStyleDna: exclude },
+  })
+  res.json({ excludeFromStyleDna: exclude })
+}))
+
 // ── GET /api/videos/:id/logs — full pipeline stage logs for the video (all steps)
 router.get('/:id/logs', async (req, res) => {
   try {

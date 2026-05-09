@@ -48,6 +48,7 @@ interface ApiVideo {
   duration: string | null;
   videoType: string;
   thumbnailUrl: string | null;
+  excludeFromStyleDna?: boolean;
   pipelineItem?: { stage: string; status: string } | null;
 }
 
@@ -85,6 +86,7 @@ function mapVideo(v: ApiVideo): Video {
     likesRaw: likes,
     commentsRaw: 0,
     thumbnail: v.thumbnailUrl || undefined,
+    excludeFromStyleDna: v.excludeFromStyleDna || false,
     pipeline: [],
   };
 }
@@ -1034,7 +1036,13 @@ export default function ChannelDetail() {
               );
             })()}
 
-            <VideoTable videos={filteredVideos} getVideoHref={(vid) => channelPath(`/video/${vid}`)} />
+            <VideoTable
+              videos={filteredVideos}
+              getVideoHref={(vid) => channelPath(`/video/${vid}`)}
+              onVideoUpdate={(videoId, updates) => {
+                setChannelVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, ...updates } : v));
+              }}
+            />
           </div>
         </div>
 

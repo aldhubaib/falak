@@ -1,13 +1,15 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import type { Video } from "@/data/mock";
 import { Link } from "react-router-dom";
-import { Eye, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight } from "lucide-react";
+import { Eye, CheckCircle2, XCircle, Loader2, Clock, ArrowUpRight, Dna } from "lucide-react";
 import { VideoTypeIcon } from "@/components/VideoTypeIcon";
+import { toast } from "sonner";
 
 interface VideoTableProps {
   videos: Video[];
   onVideoClick?: (videoId: string) => void;
   getVideoHref?: (videoId: string) => string;
+  onVideoUpdate?: (videoId: string, updates: Partial<Video>) => void;
 }
 
 const statusIcon: Record<string, { icon: React.ElementType; className: string; title: string }> = {
@@ -21,7 +23,35 @@ const statusIcon: Record<string, { icon: React.ElementType; className: string; t
 
 const fallbackStatus = statusIcon.pending;
 
-export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVideoHref }: VideoTableProps) {
+async function toggleStyleDna(videoId: string, currentExcluded: boolean) {
+  const res = await fetch(`/api/videos/${videoId}/exclude-from-style-dna`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ exclude: !currentExcluded }),
+  });
+  if (!res.ok) throw new Error("Failed to update");
+  return (await res.json()).excludeFromStyleDna as boolean;
+}
+
+export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVideoHref, onVideoUpdate }: VideoTableProps) {
+  const [toggling, setToggling] = useState<Set<string>>(new Set());
+
+  const handleToggle = async (e: React.MouseEvent, v: Video) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (toggling.has(v.id)) return;
+    setToggling((s) => new Set(s).add(v.id));
+    try {
+      const newVal = await toggleStyleDna(v.id, !!v.excludeFromStyleDna);
+      onVideoUpdate?.(v.id, { excludeFromStyleDna: newVal });
+    } catch {
+      toast.error("Failed to update Style DNA setting");
+    } finally {
+      setToggling((s) => { const n = new Set(s); n.delete(v.id); return n; });
+    }
+  };
+
   return (
     <>
       {/* Desktop table */}
@@ -34,13 +64,17 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
               <th className="text-[11px] text-muted-foreground font-medium py-2.5 px-3 text-left border-b border-border">Views</th>
               <th className="text-[11px] text-muted-foreground font-medium py-2.5 px-3 text-left border-b border-border">Likes</th>
               <th className="text-[11px] text-muted-foreground font-medium py-2.5 px-3 text-left border-b border-border">Date</th>
+              <th className="text-[11px] text-muted-foreground font-medium py-2.5 px-3 text-center border-b border-border w-10" title="Include in Style DNA">
+                <Dna className="w-3.5 h-3.5 mx-auto" />
+              </th>
               <th className="text-[11px] text-muted-foreground font-medium py-2.5 px-3 text-left border-b border-border">Status</th>
             </tr>
           </thead>
           <tbody>
             {videos.map((v) => {
               const href = getVideoHref?.(v.id);
-              const Row = href ? "tr" : "tr";
+              const excluded = !!v.excludeFromStyleDna;
+              const isToggling = toggling.has(v.id);
               const rowContent = (
                 <>
                 <td className="py-2.5 px-4 border-b border-border">
@@ -72,6 +106,25 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
                 <td className="py-2.5 px-3 border-b border-border text-[12px] font-mono text-muted-foreground">{v.views}</td>
                 <td className="py-2.5 px-3 border-b border-border text-[12px] font-mono text-muted-foreground">{v.likes}</td>
                 <td className="py-2.5 px-3 border-b border-border text-[11px] font-mono text-muted-foreground">{v.date}</td>
+                <td className="py-2.5 px-3 border-b border-border text-center">
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggle(e, v)}
+                    disabled={isToggling}
+                    className={`w-4 h-4 rounded border transition-colors ${
+                      excluded
+                        ? "border-border bg-transparent"
+                        : "border-primary bg-primary"
+                    } ${isToggling ? "opacity-40" : "hover:opacity-80 cursor-pointer"}`}
+                    title={excluded ? "Excluded from Style DNA" : "Included in Style DNA"}
+                  >
+                    {!excluded && (
+                      <svg viewBox="0 0 16 16" className="w-full h-full text-white">
+                        <path d="M3.5 8L6.5 11L12.5 5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </button>
+                </td>
                 <td className="py-2.5 px-3 border-b border-border">
                   {(() => { const s = statusIcon[v.status] ?? fallbackStatus; return <s.icon className={`w-4 h-4 ${s.className}`} title={s.title} />; })()}
                 </td>
@@ -95,6 +148,27 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
       <div className="flex flex-col lg:hidden rounded-lg overflow-hidden border border-border">
         {videos.map((v) => {
           const href = getVideoHref?.(v.id);
+          const excluded = !!v.excludeFromStyleDna;
+          const isToggling = toggling.has(v.id);
+          const dnaToggle = (
+            <button
+              type="button"
+              onClick={(e) => handleToggle(e, v)}
+              disabled={isToggling}
+              className={`w-3.5 h-3.5 rounded border transition-colors shrink-0 ${
+                excluded
+                  ? "border-border bg-transparent"
+                  : "border-primary bg-primary"
+              } ${isToggling ? "opacity-40" : ""}`}
+              title={excluded ? "Excluded from Style DNA" : "Included in Style DNA"}
+            >
+              {!excluded && (
+                <svg viewBox="0 0 16 16" className="w-full h-full text-white">
+                  <path d="M3.5 8L6.5 11L12.5 5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+          );
           if (href) {
             return (
               <Link
@@ -102,6 +176,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
                 to={href}
                 className="bg-card flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 cursor-pointer no-underline"
               >
+                {dnaToggle}
                 <div className="w-10 h-7 rounded-lg bg-card shrink-0 overflow-hidden">
                   {v.thumbnail ? (
                     <img src={v.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
@@ -130,6 +205,7 @@ export const VideoTable = memo(function VideoTable({ videos, onVideoClick, getVi
               onClick={() => onVideoClick?.(v.id)}
               className={`bg-card flex items-center gap-3 px-4 py-3 hover:bg-card transition-colors border-b border-border last:border-b-0 ${onVideoClick ? "cursor-pointer" : ""}`}
             >
+              {dnaToggle}
               <div className="w-10 h-7 rounded-lg bg-card shrink-0 overflow-hidden">
                 {v.thumbnail ? (
                   <img src={v.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
