@@ -15,6 +15,7 @@ const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
 const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = require('../lib/scoringConfig')
 const { getNicheEmbedding } = require('../services/embeddings')
 const registry = require('../lib/serviceRegistry')
+const { extractFacts, organizeFacts, buildFactsUserMessage } = require('../services/scriptPipeline')
 
 /**
  * Build a prompt injection block from a channel's Style DNA profile.
@@ -324,32 +325,30 @@ async function generateScriptForStory(storyId) {
 
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
+You will receive a list of pre-extracted facts organized by category (background, motive, events, evidence, outcome). Your job is to weave ALL these facts into a compelling narrative script.
+
 ## STORYTELLING RULES — HOW TO WRITE
 You are a STORYTELLER, not a news anchor. Your job is to make the viewer FEEL the story, not just hear the facts.
 
-1. **Always explain WHY** — Every major event must have a cause. Don't just say "she planned to kill him." Explain what drove her: the affair, the greed, the opportunity. Connect motives to actions.
-2. **Build tension and suspense** — Reveal information gradually. Tease what's coming. Use cliffhangers between sections (e.g. "لكن اللي ما كانت تعرفه...").
-3. **Show, don't list** — Instead of listing facts one after another, weave them into a narrative. Paint the scene: where were they? what time was it? what was the atmosphere?
-4. **Use transitions that connect cause and effect** — Use "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه" instead of jumping between facts.
-5. **Give characters depth** — When the source describes someone, bring out what makes them interesting. A victim isn't just "a person" — describe their life, their routine, what they stood to lose.
-6. **End with impact** — The ending should make the viewer reflect. Don't just state the verdict — connect it back to the opening hook. Make the viewer feel the weight of what happened.
-7. **Pace the reveals** — The biggest twist or revelation should come at the right dramatic moment, not at the beginning.
+1. **Always explain WHY** — Every major event must have a cause. Connect motives to actions.
+2. **Build tension and suspense** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
+3. **Show, don't list** — Weave facts into a narrative. Paint scenes: where, when, atmosphere.
+4. **Use transitions that connect cause and effect** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
+5. **Give characters depth** — Describe their life, routine, what they stood to lose.
+6. **End with impact** — Connect the resolution back to the opening hook.
+7. **Pace the reveals** — The biggest twist should come at the right dramatic moment.
 
-## FACTUAL ACCURACY — CRITICAL RULES
-- You are a SCRIPTWRITER, not a journalist. You do NOT research or verify — you ONLY rewrite what is in the provided source material.
-- NEVER invent, assume, or infer facts not explicitly stated in the source material.
-- Names, dates, numbers, locations, and quotes must be reproduced EXACTLY as they appear in the source.
-- If the source is ambiguous or incomplete, reflect that ambiguity (e.g. "حسب المصادر" / "لم يتم التأكد من...") — do NOT fill in the gaps.
-- When shortening: cut entire secondary storylines rather than changing facts.
-- You CAN describe emotions, atmosphere, and tension as long as they are reasonable inferences from the facts (e.g. if someone was murdered by their spouse, you can describe the betrayal — but don't invent specific scenes or dialogue).
+## FACT USAGE — CRITICAL
+- You MUST use EVERY fact provided. Do not skip any fact.
+- Names, dates, numbers, locations must be reproduced EXACTLY as given.
+- Do NOT add any facts, details, or information that is not in the provided list.
+- You CAN describe emotions and atmosphere as reasonable inferences from the facts.
 
 ## YOU ARE FORBIDDEN FROM
-- Inventing family relationships not stated in the source
-- Adding financial details not in the source
-- Creating direct quotes or dialogue that do not appear in the source
-- Inventing specific times, dates, or durations not mentioned
-- Changing what happened to objects/evidence
-- Fabricating backstories for how characters met or were recruited
+- Inventing any detail not in the provided facts
+- Creating direct quotes or dialogue not in the facts
+- Adding financial details, relationships, or backstories not listed
+- Changing what happened to objects or evidence
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
 
@@ -359,13 +358,13 @@ Output ONLY a structured script using exactly these section headers (each on its
 ## SCRIPT
 Write the full script as one continuous flow with timestamps. The structure MUST be:
 
-1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention and makes the viewer need to know what happened. Ask a question or present a shocking contrast.
+1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention. Ask a question or present a shocking contrast.
 ${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
-3. **Setup** — Introduce the characters and their world BEFORE the incident. Make the viewer care about them.
-4. **Rising tension** — Build towards the main event. Reveal the motive, the plan, the signs that something was wrong.
-5. **The incident** — Describe what happened with detail and pacing. Don't rush through the climax.
-6. **Investigation / Unraveling** — How the truth came out. What evidence was found. The moment the facade cracked.
-7. **Resolution & Reflection** — The verdict, consequences, and a closing thought that ties back to the opening.
+3. **Setup** — Introduce the characters and their world BEFORE the incident. Use the "background" facts.
+4. **Rising tension** — Build towards the main event. Use the "motive" facts. Reveal the plan and signs.
+5. **The incident** — Describe what happened using the "event" facts. Don't rush the climax.
+6. **Investigation / Unraveling** — Use the "evidence" facts. How truth came out, what was found.
+7. **Resolution & Reflection** — Use the "outcome" facts. Verdict, consequences, closing thought.
 ${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
 
 ${durationInstruction}
@@ -374,10 +373,8 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleBlock}${styleDnaBlock}`
 
-  let userMessage = ''
-  if (fewShotBlock) userMessage += fewShotBlock + '\n\n'
-  userMessage += `Article to turn into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n${articleContent.slice(0, 120000)}`
-
+  // ── Stage 1: Extract facts from source material (GPT-4o-mini) ──
+  let sourceForExtraction = articleContent.slice(0, 120000)
   if (brief.research) {
     const researchParts = []
     if (brief.research.briefAr || brief.research.brief) researchParts.push(brief.research.briefAr || brief.research.brief)
@@ -385,9 +382,23 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     if (brief.research.keyFacts && Array.isArray(brief.research.keyFacts)) {
       researchParts.push(`Key Facts:\n${brief.research.keyFacts.map(f => `- ${f}`).join('\n')}`)
     }
-    if (researchParts.length) userMessage += `\n\n--- RESEARCH BRIEF ---\n${researchParts.join('\n\n')}`
+    if (researchParts.length) sourceForExtraction += `\n\n--- RESEARCH BRIEF ---\n${researchParts.join('\n\n')}`
   }
-  if (brief.summary) userMessage += `\n\n--- SUMMARY ---\n${brief.summary}`
+  if (brief.summary) sourceForExtraction += `\n\n--- SUMMARY ---\n${brief.summary}`
+
+  let allFacts
+  try {
+    allFacts = await extractFacts(sourceForExtraction, { channelId: story.channelId, storyId: story.id })
+  } catch (err) {
+    console.error('[stories/generateScript] Stage 1 (extract) failed:', err?.message)
+    return
+  }
+
+  // ── Stage 2: Filter + organize (pure code) ──
+  const { included } = organizeFacts(allFacts, isShort)
+
+  // ── Stage 3: Write script from organized facts (GPT-4o) ──
+  let userMessage = buildFactsUserMessage(included, fewShotBlock, isShort)
   if (brief.uniqueAngle) userMessage += `\n\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}`
 
   let fullScript = ''
@@ -398,7 +409,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
       temperature: 0.6,
       channelId: story.channelId,
       storyId: story.id,
-      action: 'Story Generate Script',
+      action: 'Script Pipeline — Write Script',
     })
   } catch (err) {
     console.error('[stories/generateScriptForStory]', storyId, err?.message)
@@ -412,6 +423,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
     scriptLength: isShort ? 'short' : 'long',
     scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
+    extractedFacts: allFacts,
   }
   await db.story.update({
     where: { id: storyId },
@@ -757,32 +769,30 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
 
     const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
+You will receive a list of pre-extracted facts organized by category (background, motive, events, evidence, outcome). Your job is to weave ALL these facts into a compelling narrative script.
+
 ## STORYTELLING RULES — HOW TO WRITE
 You are a STORYTELLER, not a news anchor. Your job is to make the viewer FEEL the story, not just hear the facts.
 
-1. **Always explain WHY** — Every major event must have a cause. Don't just say "she planned to kill him." Explain what drove her: the affair, the greed, the opportunity. Connect motives to actions.
-2. **Build tension and suspense** — Reveal information gradually. Tease what's coming. Use cliffhangers between sections (e.g. "لكن اللي ما كانت تعرفه...").
-3. **Show, don't list** — Instead of listing facts one after another, weave them into a narrative. Paint the scene: where were they? what time was it? what was the atmosphere?
-4. **Use transitions that connect cause and effect** — Use "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه" instead of jumping between facts.
-5. **Give characters depth** — When the source describes someone, bring out what makes them interesting. A victim isn't just "a person" — describe their life, their routine, what they stood to lose.
-6. **End with impact** — The ending should make the viewer reflect. Don't just state the verdict — connect it back to the opening hook. Make the viewer feel the weight of what happened.
-7. **Pace the reveals** — The biggest twist or revelation should come at the right dramatic moment, not at the beginning.
+1. **Always explain WHY** — Every major event must have a cause. Connect motives to actions.
+2. **Build tension and suspense** — Reveal information gradually. Use cliffhangers (e.g. "لكن اللي ما كانت تعرفه...").
+3. **Show, don't list** — Weave facts into a narrative. Paint scenes: where, when, atmosphere.
+4. **Use transitions that connect cause and effect** — "عشان كذا" / "وهنا بدأ" / "اللي ما كان يدري عنه".
+5. **Give characters depth** — Describe their life, routine, what they stood to lose.
+6. **End with impact** — Connect the resolution back to the opening hook.
+7. **Pace the reveals** — The biggest twist should come at the right dramatic moment.
 
-## FACTUAL ACCURACY — CRITICAL RULES
-- You are a SCRIPTWRITER, not a journalist. You do NOT research or verify — you ONLY rewrite what is in the provided source material.
-- NEVER invent, assume, or infer facts not explicitly stated in the source material.
-- Names, dates, numbers, locations, and quotes must be reproduced EXACTLY as they appear in the source.
-- If the source is ambiguous or incomplete, reflect that ambiguity (e.g. "حسب المصادر" / "لم يتم التأكد من...") — do NOT fill in the gaps.
-- When shortening: cut entire secondary storylines rather than changing facts.
-- You CAN describe emotions, atmosphere, and tension as long as they are reasonable inferences from the facts (e.g. if someone was murdered by their spouse, you can describe the betrayal — but don't invent specific scenes or dialogue).
+## FACT USAGE — CRITICAL
+- You MUST use EVERY fact provided. Do not skip any fact.
+- Names, dates, numbers, locations must be reproduced EXACTLY as given.
+- Do NOT add any facts, details, or information that is not in the provided list.
+- You CAN describe emotions and atmosphere as reasonable inferences from the facts.
 
 ## YOU ARE FORBIDDEN FROM
-- Inventing family relationships not stated in the source
-- Adding financial details not in the source
-- Creating direct quotes or dialogue that do not appear in the source
-- Inventing specific times, dates, or durations not mentioned
-- Changing what happened to objects/evidence
-- Fabricating backstories for how characters met or were recruited
+- Inventing any detail not in the provided facts
+- Creating direct quotes or dialogue not in the facts
+- Adding financial details, relationships, or backstories not listed
+- Changing what happened to objects or evidence
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
 
@@ -792,13 +802,13 @@ Output ONLY a structured script using exactly these section headers (each on its
 ## SCRIPT
 Write the full script as one continuous flow with timestamps. The structure MUST be:
 
-1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention and makes the viewer need to know what happened. Ask a question or present a shocking contrast.
+1. **Opening hook** (0:00) — a compelling 10-second hook that grabs attention. Ask a question or present a shocking contrast.
 ${hookStartBlock ? `2. **Branded hook** — ${hookStartBlock}` : ''}
-3. **Setup** — Introduce the characters and their world BEFORE the incident. Make the viewer care about them.
-4. **Rising tension** — Build towards the main event. Reveal the motive, the plan, the signs that something was wrong.
-5. **The incident** — Describe what happened with detail and pacing. Don't rush through the climax.
-6. **Investigation / Unraveling** — How the truth came out. What evidence was found. The moment the facade cracked.
-7. **Resolution & Reflection** — The verdict, consequences, and a closing thought that ties back to the opening.
+3. **Setup** — Introduce the characters and their world BEFORE the incident. Use the "background" facts.
+4. **Rising tension** — Build towards the main event. Use the "motive" facts. Reveal the plan and signs.
+5. **The incident** — Describe what happened using the "event" facts. Don't rush the climax.
+6. **Investigation / Unraveling** — Use the "evidence" facts. How truth came out, what was found.
+7. **Resolution & Reflection** — Use the "outcome" facts. Verdict, consequences, closing thought.
 ${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
 
 ${durationInstruction}
@@ -807,24 +817,39 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleDnaBlock}`
 
-    let userMessage = ''
-    if (fewShotBlock) userMessage += fewShotBlock + '\n\n'
-    userMessage += `Turn this into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n`
-
-    if (researchText) {
-      userMessage += `--- RESEARCH ---\n${researchText}\n\n`
-    }
-    if (articleContent) {
-      userMessage += `--- ARTICLE ---\n${articleContent.slice(0, 120000)}\n\n`
-    }
-    if (brief.summary) userMessage += `--- SUMMARY ---\n${brief.summary}\n\n`
-    if (brief.uniqueAngle) userMessage += `--- UNIQUE ANGLE ---\n${brief.uniqueAngle}\n\n`
+    // ── Stage 1: Extract facts (GPT-4o-mini) ──
+    let sourceForExtraction = ''
+    if (researchText) sourceForExtraction += researchText + '\n\n'
+    if (articleContent) sourceForExtraction += articleContent.slice(0, 120000) + '\n\n'
+    if (brief.summary) sourceForExtraction += brief.summary + '\n\n'
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('X-Accel-Buffering', 'no')
     res.setHeader('Connection', 'keep-alive')
     res.flushHeaders?.()
+
+    let allFacts
+    try {
+      res.write(`data: ${JSON.stringify({ stage: 'extracting', message: 'Extracting facts from source...' })}\n\n`)
+      if (typeof res.flush === 'function') res.flush()
+      allFacts = await extractFacts(sourceForExtraction, { channelId, storyId: story.id })
+      res.write(`data: ${JSON.stringify({ stage: 'extracted', factsCount: allFacts.length, message: `Extracted ${allFacts.length} facts` })}\n\n`)
+      if (typeof res.flush === 'function') res.flush()
+    } catch (err) {
+      console.error('[stories/generate-script] Stage 1 failed:', err)
+      res.write(`data: ${JSON.stringify({ error: 'Failed to extract facts: ' + (err.message || 'Unknown error') })}\n\n`)
+      res.end()
+      return
+    }
+
+    // ── Stage 2: Filter + organize (pure code) ──
+    const { included } = organizeFacts(allFacts, isShort)
+    res.write(`data: ${JSON.stringify({ stage: 'organized', includedCount: included.length, message: `Using ${included.length}/${allFacts.length} facts` })}\n\n`)
+    if (typeof res.flush === 'function') res.flush()
+
+    // ── Stage 3: Write script from organized facts (GPT-4o, streamed) ──
+    const userMessage = buildFactsUserMessage(included, fewShotBlock, isShort)
 
     let fullScript = ''
     try {
@@ -833,7 +858,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
         maxTokens: 8192,
         temperature: 0.6,
         channelId: story.channelId,
-        action: 'Story Generate Script',
+        action: 'Script Pipeline — Write Script',
       })) {
         fullScript += chunk
         res.write(`data: ${JSON.stringify({ delta: { text: chunk } })}\n\n`)
@@ -854,6 +879,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
       youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
       scriptLength: isShort ? 'short' : 'long',
       scriptRaw: fullScript.trim() || brief.scriptRaw,
+      extractedFacts: allFacts,
     }
     await db.story.update({
       where: { id: story.id },
