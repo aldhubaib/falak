@@ -372,7 +372,7 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
   };
 
   const handleSaveForm = async () => {
-    if (!form.nameEn.trim() || !form.nameAr.trim() || !form.description.trim() || !form.detectHint.trim()) return;
+    if (!form.nameEn.trim() || !form.description.trim() || !form.detectHint.trim()) return;
     setFormSaving(true);
     try {
       if (editingId) {
@@ -380,7 +380,7 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ nameEn: form.nameEn, nameAr: form.nameAr, description: form.description, detectHint: form.detectHint }),
+          body: JSON.stringify({ nameEn: form.nameEn, nameAr: form.nameEn, description: form.description, detectHint: form.detectHint }),
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
         toast.success("Direction updated");
@@ -390,7 +390,7 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, nameAr: form.nameEn }),
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed");
         toast.success("Direction created");
@@ -432,26 +432,14 @@ function NarrativeDirectionSection({ channelId, analysis }: { channelId: string;
           />
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[10px] text-muted-foreground block mb-0.5">Name (English)</label>
-          <input
-            value={form.nameEn}
-            onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
-            className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-            placeholder="Flashback Loop"
-          />
-        </div>
-        <div>
-          <label className="text-[10px] text-muted-foreground block mb-0.5">Name (Arabic)</label>
-          <input
-            value={form.nameAr}
-            onChange={(e) => setForm({ ...form, nameAr: e.target.value })}
-            dir="rtl"
-            className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-            placeholder="حلقة الفلاش باك"
-          />
-        </div>
+      <div>
+        <label className="text-[10px] text-muted-foreground block mb-0.5">Name</label>
+        <input
+          value={form.nameEn}
+          onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+          className="w-full px-2 py-1.5 text-[12px] bg-card border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+          placeholder="Flashback Loop"
+        />
       </div>
       <div>
         <label className="text-[10px] text-muted-foreground block mb-0.5">Description</label>
