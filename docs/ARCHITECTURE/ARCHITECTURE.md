@@ -193,7 +193,7 @@ flowchart TB
 | **Auth** | Google OAuth 2.0 + JWT | Login, session cookies (30-day expiry) | `src/routes/auth.js`, `src/middleware/auth.js` |
 | **AI — analysis** | Anthropic Claude (Haiku + Sonnet) | Video analysis, classification, translation, scoring | `src/services/pipelineProcessor.js` |
 | **AI — style DNA** | Anthropic Claude Sonnet | Channel writing-style profiling from transcripts; injected into script generation | `src/services/styleDna.js`, `src/routes/stories.js` |
-| **AI — script writing** | OpenAI GPT-4o + Claude Haiku (QA) | 4-stage pipeline: fact extraction → organize → write → QA validation | `src/services/scriptPipeline.js`, `src/services/openaiChat.js`, `src/routes/stories.js` |
+| **AI — script writing** | OpenAI GPT-4o + Claude Sonnet + Claude Haiku | 7-agent pipeline: researcher → fact sheet → dual writers (narrator ∥ storyteller) → editor merge → dual QA (accuracy ∥ quality) → editor final. Bull queue for scalability, QA retry loop (max 2 rounds). | `src/services/scriptPipeline.js`, `src/queue/scriptPipeline.js`, `src/services/openaiChat.js`, `src/routes/stories.js` |
 | **AI — dialect enforcement** | Code (no AI) | Rich dialect-specific vocabulary/grammar/forbidden-word guides per country | `src/lib/dialects.js` |
 | **AI — embeddings** | OpenAI text-embedding-3-small | Semantic similarity search | `src/services/embeddings.js` |
 | **AI — transcription** | OpenAI Whisper | Audio → text for uploaded videos | `src/services/whisper.js` |
@@ -429,7 +429,7 @@ via `nextCheckAt`.
 #### Article
 
 An article fetched from a source, processed through the pipeline.
-For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → research → done.
+For RSS/Apify: imported → content → classify → title_translate → score → [threshold gate] → done (promotes to story if above threshold).
 For YouTube: transcript → story_count → [story_split] → classify → ... (same downstream pipeline). `story_count` uses server-side pattern matching (no AI). Only videos flagged as multi-story reach `story_split` (AI). Videos with multiple stories get split into child articles via `parentArticleId`.
 
 | Field | Type | Required | Default | Description |
