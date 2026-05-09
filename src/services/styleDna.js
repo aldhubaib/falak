@@ -21,13 +21,13 @@ const TRANSCRIPT_SLICE = 15000
  * The frontend fetches these and renders the visual pipeline dynamically.
  */
 const PIPELINE_STAGES = [
-  { id: 'clear', label: 'Clear Old DNA', icon: 'trash-2' },
-  { id: 'load_transcripts', label: 'Load Transcripts', icon: 'file-text' },
-  { id: 'load_directions', label: 'Load Directions', icon: 'navigation' },
-  { id: 'analyze', label: 'AI Analysis', icon: 'brain' },
-  { id: 'parse', label: 'Parse Results', icon: 'code' },
-  { id: 'save', label: 'Save Profile', icon: 'save' },
-  { id: 'validate', label: 'Validate Quality', icon: 'check-circle' },
+  { id: 'clear', label: 'Clear Old DNA', icon: 'trash-2', note: 'Removes previous profile' },
+  { id: 'load_transcripts', label: 'Load Transcripts', icon: 'file-text', note: 'Collects video transcripts from DB' },
+  { id: 'load_directions', label: 'Load Directions', icon: 'navigation', note: 'Fetches narrative direction archetypes' },
+  { id: 'analyze', label: 'AI Analysis', icon: 'brain', note: 'Single holistic call — all transcripts analyzed together' },
+  { id: 'parse', label: 'Parse Results', icon: 'code', note: 'Extract structured profile from AI response' },
+  { id: 'save', label: 'Save Profile', icon: 'save', note: 'Persist to database' },
+  { id: 'validate', label: 'Validate Quality', icon: 'check-circle', note: 'Test against holdout transcripts' },
 ]
 
 /**
@@ -271,8 +271,9 @@ ${directionList}
 
 Allowed slug values: ${directionSlugs.join(', ')}`
 
-  // Stage: analyze
-  emit('analyze', 'running', `Sending ${withText.length} transcripts to Claude...`)
+  // Stage: analyze (single holistic call — all transcripts in one prompt)
+  const totalWords = transcriptAnalyses.reduce((s, t) => s + t.wordCount, 0)
+  emit('analyze', 'running', `Sending all ${withText.length} transcripts (${Math.round(totalWords / 1000)}k words) to Claude — one holistic analysis, may take 1-2 min`)
   const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [
     { role: 'user', content: userMessage },
   ], {
@@ -281,23 +282,24 @@ Allowed slug values: ${directionSlugs.join(', ')}`
     channelId,
     action: 'Style DNA — Full Analysis',
   })
-  emit('analyze', 'done')
+  emit('analyze', 'done', `Analysis complete — received ${Math.round(raw.length / 1000)}k chars`)
 
   // Stage: parse
-  emit('parse', 'running')
+  emit('parse', 'running', 'Extracting JSON from AI response...')
   let styleDna
   try {
     const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
     styleDna = JSON.parse(cleaned)
   } catch (e) {
     logger.error({ channelId, rawSlice: raw?.slice(0, 500) }, `${tag} failed to parse Style DNA response`)
-    emit('parse', 'error', 'Failed to parse AI response')
+    emit('parse', 'error', 'Failed to parse AI response — may need to rebuild')
     throw new Error('Failed to parse Style DNA analysis from AI response')
   }
-  emit('parse', 'done')
+  const sections = Object.keys(styleDna).filter(k => k !== '_meta').length
+  emit('parse', 'done', `Parsed ${sections} profile sections`)
 
   // Stage: save
-  emit('save', 'running')
+  emit('save', 'running', 'Saving Style DNA to database...')
   styleDna._meta = {
     transcriptsAnalyzed: withText.length,
     channelName: channel.nameAr,
@@ -313,7 +315,7 @@ Allowed slug values: ${directionSlugs.join(', ')}`
       styleDnaBuiltAt: new Date(),
     },
   })
-  emit('save', 'done')
+  emit('save', 'done', 'Profile saved successfully')
 
   logger.info({ channelId, transcriptsUsed: withText.length }, `${tag} Style DNA built successfully`)
   return styleDna

@@ -136,6 +136,7 @@ interface PipelineStageDef {
   id: string;
   label: string;
   icon: string;
+  note?: string;
 }
 
 interface StageStatus {
@@ -275,9 +276,11 @@ function PipelineVisual({
                 )}
                 <div className="flex-1 min-w-0">
                   <div className={`text-[13px] font-medium ${textColor}`}>{stage.label}</div>
-                  {s.detail && (
-                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">{s.detail}</div>
-                  )}
+                  {s.detail ? (
+                    <div className="text-[11px] text-muted-foreground mt-0.5">{s.detail}</div>
+                  ) : s.status === "pending" && stage.note ? (
+                    <div className="text-[11px] text-muted-foreground/60 mt-0.5">{stage.note}</div>
+                  ) : null}
                 </div>
                 {s.status === "done" && (
                   <span className="text-[10px] font-mono text-emerald-500 uppercase">Done</span>
