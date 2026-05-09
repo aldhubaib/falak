@@ -15,6 +15,79 @@ const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = requ
 const { getNicheEmbedding } = require('../services/embeddings')
 const registry = require('../lib/serviceRegistry')
 
+/**
+ * Build a prompt injection block from a channel's Style DNA profile.
+ * Returns an empty string if no Style DNA exists.
+ */
+function buildStyleDnaBlock(styleDna, narrativePreference) {
+  if (!styleDna || typeof styleDna !== 'object') return ''
+
+  const parts = []
+
+  // Narrative direction
+  const direction = narrativePreference
+    || styleDna.narrativeDirectionAnalysis?.dominant
+    || null
+  if (direction) {
+    parts.push(`NARRATIVE DIRECTION: Use "${direction}" structure for this script.`)
+  }
+
+  // Opening patterns
+  if (styleDna.openingPatterns?.length > 0) {
+    const opExamples = styleDna.openingPatterns.slice(0, 3).map(p =>
+      `- ${p.type} (${p.frequency}): "${(p.examples || [])[0] || ''}"`
+    ).join('\n')
+    parts.push(`OPENING STYLE (mimic these patterns):\n${opExamples}`)
+  }
+
+  // Closing patterns
+  if (styleDna.closingPatterns?.length > 0) {
+    const clExamples = styleDna.closingPatterns.slice(0, 2).map(p =>
+      `- ${p.type}: "${(p.examples || [])[0] || ''}"`
+    ).join('\n')
+    parts.push(`CLOSING STYLE:\n${clExamples}`)
+  }
+
+  // Tone
+  if (styleDna.tone) {
+    parts.push(`TONE: ${styleDna.tone.primary || 'neutral'}. Emotional arc: ${styleDna.tone.emotionalArc || 'steady'}.`)
+  }
+
+  // Sentence style
+  if (styleDna.sentenceStyle) {
+    parts.push(`SENTENCE STYLE: ${styleDna.sentenceStyle.rhythm || ''} Average length: ${styleDna.sentenceStyle.avgLength || 'medium'}.`)
+  }
+
+  // Transition phrases
+  if (styleDna.transitionPhrases?.length > 0) {
+    parts.push(`TRANSITION PHRASES (use these naturally): ${styleDna.transitionPhrases.slice(0, 8).join(' / ')}`)
+  }
+
+  // Vocabulary
+  if (styleDna.vocabulary?.signatureWords?.length > 0) {
+    parts.push(`SIGNATURE VOCABULARY: ${styleDna.vocabulary.signatureWords.slice(0, 10).join(', ')}`)
+  }
+
+  // Story beats
+  if (styleDna.storyBeats) {
+    const beats = styleDna.storyBeats
+    if (beats.typicalStructure?.length > 0) {
+      parts.push(`STORY BEATS: ${beats.typicalStructure.join(' → ')}`)
+    }
+    if (beats.hookTechnique) {
+      parts.push(`HOOK TECHNIQUE: ${beats.hookTechnique}`)
+    }
+  }
+
+  // Dialect markers
+  if (styleDna.dialectMarkers?.specificExpressions?.length > 0) {
+    parts.push(`DIALECT EXPRESSIONS (use naturally): ${styleDna.dialectMarkers.specificExpressions.slice(0, 6).join(', ')}`)
+  }
+
+  if (parts.length === 0) return ''
+  return '\n\n--- STYLE DNA (this channel\'s proven writing style — follow closely) ---\n' + parts.join('\n\n')
+}
+
 // ── Suggest best playlist for a story based on its content ─────────────────
 async function suggestPlaylistForStory(storyId) {
   const story = await db.story.findUniqueOrThrow({ where: { id: storyId } })
@@ -134,9 +207,17 @@ async function generateScriptForStory(storyId) {
   if (!channelId) return
   const channel = await db.channel.findFirst({
     where: { id: channelId },
-    select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true },
+    select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true, styleDna: true },
   })
   if (!channel) return
+
+  // Fetch narrative direction preference
+  let narrativePreference = null
+  try {
+    const profile = await db.scoreProfile.findUnique({ where: { channelId }, select: { preferredNarrativeDirection: true } })
+    narrativePreference = profile?.preferredNarrativeDirection || null
+  } catch (_) {}
+
   const durationMinutes = Math.max(0.5, parseFloat(brief.scriptDuration) || 3)
   const isShort = durationMinutes <= 3
   const startHook = (channel.startHook || '').trim()
@@ -189,6 +270,8 @@ async function generateScriptForStory(storyId) {
     }
   }
 
+  const styleDnaBlock = buildStyleDnaBlock(channel.styleDna, narrativePreference)
+
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
@@ -208,7 +291,7 @@ ${durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleBlock}`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleBlock}${styleDnaBlock}`
 
   let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
 
@@ -552,11 +635,19 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     }
     const channel = await db.channel.findFirst({
       where: { id: channelId },
-      select: { id: true, startHook: true, endHook: true, nationality: true },
+      select: { id: true, startHook: true, endHook: true, nationality: true, styleDna: true },
     })
     if (!channel) {
       return res.status(400).json({ error: 'Channel not found.' })
     }
+
+    // Fetch narrative direction preference
+    let narrativePreference = null
+    try {
+      const profile = await db.scoreProfile.findUnique({ where: { channelId }, select: { preferredNarrativeDirection: true } })
+      narrativePreference = profile?.preferredNarrativeDirection || null
+    } catch (_) {}
+
     const durationMinutes = Math.max(0.5, parseFloat(req.body?.durationMinutes) || 3)
     const startHook = (channel.startHook || '').trim()
     const endHook = (channel.endHook || '').trim()
@@ -577,6 +668,9 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     const hookEndBlock = endHook
       ? `End the script with the branded channel sign-off (output this line exactly as-is):\n${endHook}`
       : ''
+
+    const styleDnaBlock = buildStyleDnaBlock(channel.styleDna, narrativePreference)
+
     const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
@@ -596,7 +690,7 @@ ${durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleDnaBlock}`
 
     let userMessage = `Turn this into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n`
 

@@ -192,7 +192,7 @@ flowchart TB
 | **Object storage** | Cloudflare R2 (S3-compat) | Media uploads, thumbnails, video files | `src/services/r2.js`, `src/routes/upload.js` |
 | **Auth** | Google OAuth 2.0 + JWT | Login, session cookies (30-day expiry) | `src/routes/auth.js`, `src/middleware/auth.js` |
 | **AI — analysis** | Anthropic Claude (Haiku + Sonnet) | Video analysis, classification, translation, scoring | `src/services/pipelineProcessor.js` |
-| **AI — style DNA** | Anthropic Claude Sonnet | Channel writing-style profiling from transcripts | `src/services/styleDna.js` |
+| **AI — style DNA** | Anthropic Claude Sonnet | Channel writing-style profiling from transcripts; injected into script generation | `src/services/styleDna.js`, `src/routes/stories.js` |
 | **AI — script writing** | OpenAI GPT-4o | Arabic dialect script generation | `src/services/openaiChat.js` |
 | **AI — embeddings** | OpenAI text-embedding-3-small | Semantic similarity search | `src/services/embeddings.js` |
 | **AI — transcription** | OpenAI Whisper | Audio → text for uploaded videos | `src/services/whisper.js` |
