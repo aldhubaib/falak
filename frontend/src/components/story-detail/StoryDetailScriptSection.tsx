@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Clock, Sparkles, Loader2, Film, Smartphone, ChevronDown } from "lucide-react";
+import { Sparkles, Loader2, Film, Smartphone, ChevronDown, Zap, BookOpen } from "lucide-react";
+
+export type ScriptLength = "short" | "long";
 
 export interface StoryDetailScriptSectionProps {
-  scriptDuration: number;
-  onScriptDurationChange: (minutes: number) => void;
+  scriptLength: ScriptLength;
+  onScriptLengthChange: (length: ScriptLength) => void;
   canGenerate: boolean;
   generating: boolean;
   onGenerate: () => Promise<void>;
@@ -20,8 +22,8 @@ export interface StoryDetailScriptSectionProps {
 }
 
 export function StoryDetailScriptSection({
-  scriptDuration,
-  onScriptDurationChange,
+  scriptLength,
+  onScriptLengthChange,
   canGenerate,
   generating,
   onGenerate,
@@ -36,19 +38,8 @@ export function StoryDetailScriptSection({
   channelAvatarUrl,
   channelName,
 }: StoryDetailScriptSectionProps) {
-  const [durationInput, setDurationInput] = useState(() => String(scriptDuration));
   const [collapsed, setCollapsed] = useState(false);
-  const userClearedRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (userClearedRef.current && scriptDuration === 0) {
-      setDurationInput("");
-      userClearedRef.current = false;
-    } else {
-      setDurationInput(String(scriptDuration));
-    }
-  }, [scriptDuration]);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -132,47 +123,36 @@ export function StoryDetailScriptSection({
               style={{ cursor: "pointer" }}
             />
             <div className="inline-flex items-center bg-card rounded-full border border-border">
-              <div className="flex items-center gap-1 px-2.5 text-[11px] text-muted-foreground">
-                <Clock className="w-3 h-3 shrink-0" />
-                {readOnly ? (
-                  <span className="font-mono text-[11px]">{scriptDuration}</span>
-                ) : (
-                  <>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={durationInput}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setDurationInput(val);
-                        if (val === "" || val === "-") {
-                          userClearedRef.current = true;
-                          onScriptDurationChange(0);
-                          return;
-                        }
-                        const raw = parseFloat(val);
-                        if (!Number.isNaN(raw) && raw >= 0) {
-                          userClearedRef.current = false;
-                          onScriptDurationChange(raw);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (durationInput === "") {
-                          setDurationInput(String(scriptDuration));
-                        }
-                      }}
-                      className="w-12 bg-transparent font-mono text-[11px] text-foreground focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span className="font-mono text-[10px]">min</span>
-                  </>
-                )}
-              </div>
-
-              {showGenerateControls && !readOnly && (
+              {!readOnly && showGenerateControls ? (
                 <>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onScriptLengthChange("short"); }}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors rounded-l-full ${
+                        scriptLength === "short"
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Zap className="w-3 h-3" />
+                      Short
+                    </button>
+                    <span className="w-px h-4 bg-border" />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onScriptLengthChange("long"); }}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                        scriptLength === "long"
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      Detailed
+                    </button>
+                  </div>
                   <span className="w-px h-4 bg-border" />
-
                   <button
                     type="button"
                     onClick={(e) => {
@@ -192,6 +172,11 @@ export function StoryDetailScriptSection({
                     Generate
                   </button>
                 </>
+              ) : (
+                <span className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] text-muted-foreground font-medium">
+                  {scriptLength === "short" ? <Zap className="w-3 h-3" /> : <BookOpen className="w-3 h-3" />}
+                  {scriptLength === "short" ? "Short" : "Detailed"}
+                </span>
               )}
             </div>
           </div>

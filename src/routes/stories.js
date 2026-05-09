@@ -218,8 +218,7 @@ async function generateScriptForStory(storyId) {
     narrativePreference = profile?.preferredNarrativeDirection || null
   } catch (_) {}
 
-  const durationMinutes = Math.max(0.5, parseFloat(brief.scriptDuration) || 3)
-  const isShort = durationMinutes <= 3
+  const isShort = (brief.scriptLength || 'short') === 'short'
   const startHook = (channel.startHook || '').trim()
   const endHook = (channel.endHook || '').trim()
   const dialect = await getDialectForCountry(channel.nationality)
@@ -228,8 +227,8 @@ async function generateScriptForStory(storyId) {
     : 'Write the script in Arabic.'
   const apiKey = decrypt(apiKeyRow.encryptedKey)
   const durationInstruction = isShort
-    ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
-    : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
+    ? 'Write a CONCISE script covering only the essential facts and core narrative. Keep it tight — aim for 1-3 minutes of speaking time. Cut secondary details and background context, but keep every core fact intact. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
+    : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
   const hookStartBlock = startHook
     ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
     : ''
@@ -274,6 +273,14 @@ async function generateScriptForStory(storyId) {
 
   const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
 
+FACTUAL ACCURACY — CRITICAL RULES:
+- You are a SCRIPTWRITER, not a journalist. You do NOT research or verify — you ONLY rewrite what is in the provided source material.
+- NEVER invent, assume, or infer facts not explicitly stated in the source material.
+- Names, dates, numbers, locations, and quotes must be reproduced EXACTLY as they appear in the source. Do not round numbers, translate proper nouns, or paraphrase direct quotes.
+- If the source is ambiguous or incomplete, reflect that ambiguity in the script (e.g. "حسب المصادر" / "لم يتم التأكد من...") — do NOT fill in the gaps with invented details.
+- Do NOT add dramatic details, fictional dialogue, or emotional reactions that are not in the source.
+- When shortening: cut entire secondary storylines rather than changing facts to make them fit.
+
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
 
 ## TITLE
@@ -293,7 +300,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleBlock}${styleDnaBlock}`
 
-  let userMessage = `Article to turn into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n${articleContent.slice(0, 120000)}`
+  let userMessage = `Article to turn into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n${articleContent.slice(0, 120000)}`
 
   if (brief.research) {
     const researchParts = []
@@ -326,7 +333,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
     script: parsed.script || brief.script,
     youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
-    scriptDuration: durationMinutes,
+    scriptLength: isShort ? 'short' : 'long',
     scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
   }
   await db.story.update({
@@ -586,7 +593,7 @@ function parseStructuredScript(text) {
 }
 
 // ── POST /api/stories/:id/generate-script — AI: full script (title, hooks, script with timestamps). Requires channelId for branded hooks.
-// Body: durationMinutes (number), articleText, channelId (required).
+// Body: scriptLength ("short"|"long"), channelId (required).
 router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   try {
     const story = await db.story.findUniqueOrThrow({
@@ -648,7 +655,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       narrativePreference = profile?.preferredNarrativeDirection || null
     } catch (_) {}
 
-    const durationMinutes = Math.max(0.5, parseFloat(req.body?.durationMinutes) || 3)
+    const isShort = (req.body?.scriptLength || 'short') === 'short'
     const startHook = (channel.startHook || '').trim()
     const endHook = (channel.endHook || '').trim()
 
@@ -658,10 +665,9 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       : 'Write the script in Arabic.'
 
     const apiKey = decrypt(anthropicKeyRow.encryptedKey)
-    const isShort = durationMinutes <= 3
     const durationInstruction = isShort
-      ? `The script must be about ${durationMinutes} minute(s) of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
-      : `The script must be about ${durationMinutes} minutes of speaking time (approximately ${Math.round(durationMinutes * 150)} words). Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).`
+      ? 'Write a CONCISE script covering only the essential facts and core narrative. Keep it tight — aim for 1-3 minutes of speaking time. Cut secondary details and background context, but keep every core fact intact. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
+      : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
     const hookStartBlock = startHook
       ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
       : ''
@@ -672,6 +678,14 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     const styleDnaBlock = buildStyleDnaBlock(channel.styleDna, narrativePreference)
 
     const system = `You are an expert Arabic YouTube scriptwriter. ${dialectInstruction}
+
+FACTUAL ACCURACY — CRITICAL RULES:
+- You are a SCRIPTWRITER, not a journalist. You do NOT research or verify — you ONLY rewrite what is in the provided source material.
+- NEVER invent, assume, or infer facts not explicitly stated in the source material.
+- Names, dates, numbers, locations, and quotes must be reproduced EXACTLY as they appear in the source. Do not round numbers, translate proper nouns, or paraphrase direct quotes.
+- If the source is ambiguous or incomplete, reflect that ambiguity in the script (e.g. "حسب المصادر" / "لم يتم التأكد من...") — do NOT fill in the gaps with invented details.
+- Do NOT add dramatic details, fictional dialogue, or emotional reactions that are not in the source.
+- When shortening: cut entire secondary storylines rather than changing facts to make them fit.
 
 Output ONLY a structured script using exactly these section headers (each on its own line). No other text or explanations.
 
@@ -692,7 +706,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix of Arabic and English tags for SEO.)${styleDnaBlock}`
 
-    let userMessage = `Turn this into a ${isShort ? `short video (~${durationMinutes} min)` : `${durationMinutes}-minute video`} script:\n\n`
+    let userMessage = `Turn this into a ${isShort ? 'short, concise video' : 'detailed, comprehensive video'} script:\n\n`
 
     if (researchText) {
       userMessage += `--- RESEARCH ---\n${researchText}\n\n`
@@ -734,7 +748,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
       suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
       script: parsed.script || brief.script,
       youtubeTags: parsed.youtubeTags.length > 0 ? parsed.youtubeTags : brief.youtubeTags,
-      scriptDuration: durationMinutes,
+      scriptLength: isShort ? 'short' : 'long',
       scriptRaw: fullScript.trim() || brief.scriptRaw,
     }
     await db.story.update({

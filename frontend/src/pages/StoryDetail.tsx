@@ -1052,13 +1052,13 @@ export default function StoryDetail() {
   }, [id, brief.processingStatus]);
 
   const activeStage: Stage = story?.stage ?? "scripting";
-  const [scriptDurationMinutes, setScriptDurationMinutes] = useState(
-    () => brief.scriptDuration || 3
+  const [scriptLength, setScriptLength] = useState<"short" | "long">(
+    () => brief.scriptLength || (brief.scriptDuration && brief.scriptDuration > 3 ? "long" : "short")
   );
 
   useEffect(() => {
-    if (brief.scriptDuration) setScriptDurationMinutes(brief.scriptDuration);
-  }, [brief.scriptDuration]);
+    if (brief.scriptLength) setScriptLength(brief.scriptLength);
+  }, [brief.scriptLength]);
   const [youtubeInput, setYoutubeInput] = useState(brief.youtubeUrl || "");
   const [editingYoutubeUrl, setEditingYoutubeUrl] = useState(false);
   const [savingYoutubeUrl, setSavingYoutubeUrl] = useState(false);
@@ -1195,7 +1195,7 @@ export default function StoryDetail() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          durationMinutes: scriptDurationMinutes,
+          scriptLength,
           channelId,
         }),
       });
@@ -1236,7 +1236,7 @@ export default function StoryDetail() {
           hookStart: sections.hookStart,
           script: generatedScript,
           hookEnd: sections.hookEnd,
-          scriptDuration: scriptDurationMinutes,
+          scriptLength,
           scriptRaw: fullText.trim(),
           youtubeTags: sections.hashtags.length > 0 ? sections.hashtags : b.youtubeTags,
         };
@@ -1249,7 +1249,7 @@ export default function StoryDetail() {
     } finally {
       setGeneratingScript(false);
     }
-  }, [id, channelId, scriptDurationMinutes, generatingScript, saveScript]);
+  }, [id, channelId, scriptLength, generatingScript, saveScript]);
 
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: "عنوان الفيديو المقترح...", type: "input" },
@@ -1547,16 +1547,16 @@ export default function StoryDetail() {
             {activeStage === "scripting" && (
               <StoryDetailScriptSection
                 key={id}
-                scriptDuration={scriptDurationMinutes}
-                onScriptDurationChange={(mins) => {
-                  setScriptDurationMinutes(mins);
+                scriptLength={scriptLength}
+                onScriptLengthChange={(len) => {
+                  setScriptLength(len);
                   setBrief((b) => {
-                    const next = { ...b, scriptDuration: mins };
+                    const next = { ...b, scriptLength: len };
                     if (id) saveScript(id, next);
                     return next;
                   });
                 }}
-                canGenerate={scriptDurationMinutes > 0}
+                canGenerate
                 generating={generatingScript}
                 onGenerate={generateScript}
                 readOnly={false}
@@ -1609,16 +1609,9 @@ export default function StoryDetail() {
                 )}
                 <StoryDetailScriptSection
                   key={id}
-                  scriptDuration={scriptDurationMinutes}
-                  onScriptDurationChange={(mins) => {
-                    setScriptDurationMinutes(mins);
-                    setBrief((b) => {
-                      const next = { ...b, scriptDuration: mins };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
-                  canGenerate={scriptDurationMinutes > 0}
+                  scriptLength={scriptLength}
+                  onScriptLengthChange={() => {}}
+                  canGenerate={false}
                   generating={generatingScript}
                   onGenerate={generateScript}
                   readOnly
@@ -1652,8 +1645,8 @@ export default function StoryDetail() {
                 />
                 <StoryDetailScriptSection
                   key={id}
-                  scriptDuration={scriptDurationMinutes}
-                  onScriptDurationChange={() => {}}
+                  scriptLength={scriptLength}
+                  onScriptLengthChange={() => {}}
                   canGenerate={false}
                   generating={false}
                   onGenerate={async () => {}}

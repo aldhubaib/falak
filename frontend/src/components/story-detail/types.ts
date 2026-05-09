@@ -89,6 +89,7 @@ export interface StoryBrief {
   hookEnd?: string;
   script?: string;
   scriptDuration?: number;
+  scriptLength?: "short" | "long";
   scriptRaw?: string;
   channelId?: string;
   youtubeTags?: string[];
