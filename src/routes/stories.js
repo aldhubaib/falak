@@ -276,7 +276,7 @@ async function generateScriptForStory(storyId) {
     ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
     : 'Write the script in Arabic.'
   const durationInstruction = isShort
-    ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. NEVER cut facts that explain WHY something happened — motives, relationships, and cause-and-effect chains are essential. To shorten, trim repetitive evidence details, minor characters, or procedural steps — but keep every fact that drives the story forward. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
+    ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. You MUST include EVERY fact from the source — do NOT skip or omit any detail, no matter how small. To keep it concise, say each fact in fewer words rather than removing facts entirely. Character backgrounds (job, location, family situation, where they work/live) are essential context — never skip them. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
     : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
   const hookStartBlock = startHook
     ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
@@ -742,7 +742,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
       : 'Write the script in Arabic.'
 
     const durationInstruction = isShort
-      ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. NEVER cut facts that explain WHY something happened — motives, relationships, and cause-and-effect chains are essential. To shorten, trim repetitive evidence details, minor characters, or procedural steps — but keep every fact that drives the story forward. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
+      ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. You MUST include EVERY fact from the source — do NOT skip or omit any detail, no matter how small. To keep it concise, say each fact in fewer words rather than removing facts entirely. Character backgrounds (job, location, family situation, where they work/live) are essential context — never skip them. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
       : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
     const hookStartBlock = startHook
       ? `Then the branded channel hook (output this line exactly as-is):\n${startHook}`
