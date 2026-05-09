@@ -662,7 +662,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     const story = await db.story.findUniqueOrThrow({
       where: { id: req.params.id },
     })
-    const openaiKeyRow = await db.apiKey.findUnique({ where: { service: 'openai' } })
+    const openaiKeyRow = await db.apiKey.findUnique({ where: { service: 'embedding' } })
     if (!openaiKeyRow?.encryptedKey) {
       return res.status(400).json({ error: 'OpenAI API key not set. Add it in Settings → API Keys.' })
     }

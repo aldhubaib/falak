@@ -35,7 +35,7 @@ async function callOpenAILogged(model, messages, opts = {}) {
     action,
   } = opts
 
-  const apiKey = await registry.requireKey('openai')
+  const apiKey = await registry.requireKey('embedding')
 
   const fullMessages = []
   if (system) fullMessages.push({ role: 'system', content: system })
@@ -77,8 +77,8 @@ async function callOpenAILogged(model, messages, opts = {}) {
       const errBody = await res.json().catch(() => ({}))
       const msg = errBody?.error?.message || `OpenAI ${res.status}`
       trackUsage({ channelId, service: 'openai-chat', action, status: 'fail', error: msg })
-      const typed = registry.classifyHttpError('openai', res.status, msg, res.headers)
-      if (!typed.retryable) registry.markDown('openai', typed.code, typed.message)
+      const typed = registry.classifyHttpError('embedding', res.status, msg, res.headers)
+      if (!typed.retryable) registry.markDown('embedding', typed.code, typed.message)
       throw typed
     }
 
@@ -93,7 +93,7 @@ async function callOpenAILogged(model, messages, opts = {}) {
       tokensUsed: (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
       status: 'ok',
     })
-    registry.markUp('openai')
+    registry.markUp('embedding')
     return response
   } catch (e) {
     status = 'fail'
@@ -135,7 +135,7 @@ async function * callOpenAIStream(model, messages, opts = {}) {
     action,
   } = opts
 
-  const apiKey = await registry.requireKey('openai')
+  const apiKey = await registry.requireKey('embedding')
 
   const fullMessages = []
   if (system) fullMessages.push({ role: 'system', content: system })
@@ -197,13 +197,13 @@ async function * callOpenAIStream(model, messages, opts = {}) {
     }
   } finally {
     clearTimeout(timer)
-    registry.markUp('openai')
+    registry.markUp('embedding')
   }
 }
 
 const SERVICE_DESCRIPTOR = {
-  name: 'openai',
-  displayName: 'OpenAI Chat (GPT-4o)',
+  name: 'embedding',
+  displayName: 'OpenAI (GPT-4o / Embeddings)',
   keySource: 'apiKey',
 }
 
