@@ -910,8 +910,8 @@ complete response, token counts, and timing. Used by the AI Monitor page.
 | PATCH | `/api/channels/:id/niche-tags` | editor+ | Update Content DNA niche tags. | Upserts ScoreProfile |
 | POST | `/api/channels/:id/generate-niche-embedding` | editor+ | Generate niche embedding from Content DNA tags. | OpenAI Embeddings → ScoreProfile.nicheEmbedding |
 | GET | `/api/channels/:id/niche-embedding-status` | Yes | Check if niche embedding exists. | — |
-| GET | `/api/channels/:id/style-dna` | Yes | Get Style DNA profile and transcript count. | — |
-| POST | `/api/channels/:id/style-dna/build` | editor+ | Build Style DNA from channel transcripts. | Claude Sonnet analysis |
+| GET | `/api/channels/:id/style-dna` | Yes | Get Style DNA profile, transcript count, and pipeline stage definitions. | — |
+| POST | `/api/channels/:id/style-dna/build` | editor+ | Build Style DNA — streams SSE progress events per pipeline stage. | Claude Sonnet analysis |
 | DELETE | `/api/channels/:id/style-dna` | admin+ | Clear Style DNA profile. | — |
 | GET | `/api/channels/:id/narrative-preference` | Yes | Get narrative direction preference for channel. | — |
 | PATCH | `/api/channels/:id/narrative-preference` | editor+ | Set/clear narrative direction preference. | — |
@@ -1612,7 +1612,7 @@ Requires ≥3 outcomes.
 | `/c/:channelId/trending` | Trending | YouTube trending intelligence — country selector, category filters, history |
 | `/c/:channelId/settings` | Settings | API keys + usage dashboard |
 | `/c/:channelId/ai-monitor` | AiMonitor | AI generation log, style guide editor, script-vs-transcript diff view |
-| `/c/:channelId/style-dna` | StyleDna | Deep writing-style profile viewer — build, view, and manage Style DNA per channel |
+| `/c/:channelId/style-dna` | StyleDna | Deep writing-style profile — visual build pipeline (stages from backend), profile viewer, narrative direction management |
 | `/c/:channelId/admin` | Admin | User access control |
 | `/c/:channelId/writer` | WriterDashboard | Writer's story list with stage filters (writer role only) |
 | `/c/:channelId/writer/story/:id` | WriterStoryDetail | Writer's story editor + video review + approval actions |

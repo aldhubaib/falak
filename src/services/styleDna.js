@@ -17,6 +17,20 @@ const MAX_TRANSCRIPTS_TO_ANALYZE = 30
 const TRANSCRIPT_SLICE = 15000
 
 /**
+ * Pipeline stage definitions — single source of truth.
+ * The frontend fetches these and renders the visual pipeline dynamically.
+ */
+const PIPELINE_STAGES = [
+  { id: 'clear', label: 'Clear Old DNA', icon: 'trash-2' },
+  { id: 'load_transcripts', label: 'Load Transcripts', icon: 'file-text' },
+  { id: 'load_directions', label: 'Load Directions', icon: 'navigation' },
+  { id: 'analyze', label: 'AI Analysis', icon: 'brain' },
+  { id: 'parse', label: 'Parse Results', icon: 'code' },
+  { id: 'save', label: 'Save Profile', icon: 'save' },
+  { id: 'validate', label: 'Validate Quality', icon: 'check-circle' },
+]
+
+/**
  * Convert stored transcription (JSON segments or plain string) to plain text.
  * Duplicated from pipelineProcessor (not exported there).
  */
@@ -41,11 +55,27 @@ function wordCount(text) {
 /**
  * Build Style DNA for a channel by analyzing its video transcripts.
  * @param {string} channelId
+ * @param {object} [opts]
+ * @param {(event: object) => void} [opts.onProgress] - callback for streaming progress events
  * @returns {Promise<object>} The built Style DNA profile
  */
-async function buildStyleDna(channelId) {
+async function buildStyleDna(channelId, opts = {}) {
+  const { onProgress } = opts
+  const emit = (stage, status, detail) => {
+    if (onProgress) onProgress({ stage, status, detail })
+  }
   const tag = `[styleDna:${channelId.slice(-6)}]`
 
+  // Stage: clear
+  emit('clear', 'running')
+  await db.channel.update({
+    where: { id: channelId },
+    data: { styleDna: null, styleDnaBuiltAt: null },
+  }).catch(() => {})
+  emit('clear', 'done')
+
+  // Stage: load_transcripts
+  emit('load_transcripts', 'running')
   const channel = await db.channel.findUnique({
     where: { id: channelId },
     select: { id: true, nameAr: true, handle: true, nationality: true },
@@ -78,11 +108,11 @@ async function buildStyleDna(channelId) {
   })
 
   if (withText.length < MIN_TRANSCRIPTS) {
-    throw new Error(
-      `Need at least ${MIN_TRANSCRIPTS} transcripts to build Style DNA. ` +
-      `Found ${withText.length} for channel "${channel.nameAr}".`
-    )
+    const msg = `Need at least ${MIN_TRANSCRIPTS} transcripts to build Style DNA. Found ${withText.length} for channel "${channel.nameAr}".`
+    emit('load_transcripts', 'error', msg)
+    throw new Error(msg)
   }
+  emit('load_transcripts', 'done', `${withText.length} transcripts loaded`)
 
   logger.info({ channelId, transcriptCount: withText.length }, `${tag} analyzing transcripts`)
 
@@ -115,10 +145,12 @@ async function buildStyleDna(channelId) {
     })
   }
 
-  // Load narrative directions from DB for classification
+  // Stage: load_directions
+  emit('load_directions', 'running')
   const narrativeDirections = await db.narrativeDirection.findMany({ orderBy: { sortOrder: 'asc' } })
   const directionSlugs = narrativeDirections.map(d => d.slug)
   const directionList = narrativeDirections.map(d => `- "${d.slug}": ${d.detectHint}`).join('\n')
+  emit('load_directions', 'done', `${narrativeDirections.length} directions loaded`)
 
   // Phase 2: Build holistic Style DNA via Claude Sonnet (batch analysis)
   // Transcripts are ordered newest-first, each tagged with date and recency label.
@@ -239,6 +271,8 @@ ${directionList}
 
 Allowed slug values: ${directionSlugs.join(', ')}`
 
+  // Stage: analyze
+  emit('analyze', 'running', `Sending ${withText.length} transcripts to Claude...`)
   const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-6', [
     { role: 'user', content: userMessage },
   ], {
@@ -247,17 +281,23 @@ Allowed slug values: ${directionSlugs.join(', ')}`
     channelId,
     action: 'Style DNA — Full Analysis',
   })
+  emit('analyze', 'done')
 
+  // Stage: parse
+  emit('parse', 'running')
   let styleDna
   try {
     const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
     styleDna = JSON.parse(cleaned)
   } catch (e) {
     logger.error({ channelId, rawSlice: raw?.slice(0, 500) }, `${tag} failed to parse Style DNA response`)
+    emit('parse', 'error', 'Failed to parse AI response')
     throw new Error('Failed to parse Style DNA analysis from AI response')
   }
+  emit('parse', 'done')
 
-  // Attach metadata
+  // Stage: save
+  emit('save', 'running')
   styleDna._meta = {
     transcriptsAnalyzed: withText.length,
     channelName: channel.nameAr,
@@ -266,7 +306,6 @@ Allowed slug values: ${directionSlugs.join(', ')}`
     model: 'claude-sonnet-4-6',
   }
 
-  // Persist to channel
   await db.channel.update({
     where: { id: channelId },
     data: {
@@ -274,6 +313,7 @@ Allowed slug values: ${directionSlugs.join(', ')}`
       styleDnaBuiltAt: new Date(),
     },
   })
+  emit('save', 'done')
 
   logger.info({ channelId, transcriptsUsed: withText.length }, `${tag} Style DNA built successfully`)
   return styleDna
@@ -421,4 +461,5 @@ module.exports = {
   validateStyleDna,
   segmentsToText,
   MIN_TRANSCRIPTS,
+  PIPELINE_STAGES,
 }

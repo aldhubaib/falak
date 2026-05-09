@@ -22,6 +22,12 @@ import {
   Globe,
   Navigation,
   Pencil,
+  FileText,
+  Brain,
+  Code,
+  Save,
+  Circle,
+  Play,
 } from "lucide-react";
 import { fmtDateTime } from "@/lib/utils";
 
@@ -126,11 +132,23 @@ interface StyleDna {
   _meta: StyleDnaMeta;
 }
 
+interface PipelineStageDef {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+interface StageStatus {
+  status: "pending" | "running" | "done" | "error";
+  detail?: string;
+}
+
 interface StyleDnaResponse {
   styleDna: StyleDna | null;
   styleDnaBuiltAt: string | null;
   transcriptCount: number;
   minRequired: number;
+  pipeline?: { stages: PipelineStageDef[] };
 }
 
 interface TranscriptValidation {
@@ -192,6 +210,91 @@ function Quote({ children }: { children: React.ReactNode }) {
 
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">{children}</div>;
+}
+
+const STAGE_ICONS: Record<string, React.ElementType> = {
+  "trash-2": Trash2,
+  "file-text": FileText,
+  navigation: Navigation,
+  brain: Brain,
+  code: Code,
+  save: Save,
+  "check-circle": CheckCircle2,
+};
+
+function PipelineVisual({
+  stages,
+  stageStatuses,
+  building,
+}: {
+  stages: PipelineStageDef[];
+  stageStatuses: Record<string, StageStatus>;
+  building: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center w-full max-w-[360px] mx-auto">
+      {stages.map((stage, i) => {
+        const s = stageStatuses[stage.id] || { status: "pending" };
+        const Icon = STAGE_ICONS[stage.icon] || Circle;
+        const isLast = i === stages.length - 1;
+
+        let borderClass = "border-border/50";
+        let bgClass = "bg-card";
+        let iconColor = "text-muted-foreground/40";
+        let textColor = "text-muted-foreground";
+
+        if (s.status === "running") {
+          borderClass = "border-primary/60 ring-2 ring-primary/20";
+          bgClass = "bg-primary/5";
+          iconColor = "text-primary";
+          textColor = "text-foreground";
+        } else if (s.status === "done") {
+          borderClass = "border-emerald-500/40";
+          bgClass = "bg-emerald-500/5";
+          iconColor = "text-emerald-500";
+          textColor = "text-foreground";
+        } else if (s.status === "error") {
+          borderClass = "border-destructive/60";
+          bgClass = "bg-destructive/5";
+          iconColor = "text-destructive";
+          textColor = "text-foreground";
+        }
+
+        return (
+          <div key={stage.id} className="flex flex-col items-center w-full">
+            <div className={`w-full rounded-xl border-2 px-4 py-3 transition-all ${borderClass} ${bgClass}`}>
+              <div className="flex items-center gap-3">
+                {s.status === "running" ? (
+                  <Loader2 className="w-5 h-5 text-primary shrink-0 animate-spin" />
+                ) : s.status === "done" ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                ) : s.status === "error" ? (
+                  <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+                ) : (
+                  <Icon className={`w-5 h-5 shrink-0 ${iconColor}`} />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className={`text-[13px] font-medium ${textColor}`}>{stage.label}</div>
+                  {s.detail && (
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">{s.detail}</div>
+                  )}
+                </div>
+                {s.status === "done" && (
+                  <span className="text-[10px] font-mono text-emerald-500 uppercase">Done</span>
+                )}
+                {s.status === "error" && (
+                  <span className="text-[10px] font-mono text-destructive uppercase">Error</span>
+                )}
+              </div>
+            </div>
+            {!isLast && (
+              <div className={`w-0.5 h-4 ${s.status === "done" ? "bg-emerald-500/40" : "bg-border"} transition-colors`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 interface DirectionForm {
@@ -524,8 +627,8 @@ export default function StyleDnaPage() {
   const [data, setData] = useState<StyleDnaResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
-  const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [stageStatuses, setStageStatuses] = useState<Record<string, StageStatus>>({});
   const validationRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
@@ -548,45 +651,59 @@ export default function StyleDnaPage() {
     if (!channelId) return;
     setBuilding(true);
     setValidation(null);
-    const toastId = toast.loading("Analyzing transcripts... this may take 1-2 minutes");
-    try {
-      // Clear old DNA first
-      await fetch(`/api/channels/${channelId}/style-dna`, { method: "DELETE", credentials: "include" });
+    setStageStatuses({});
 
-      // Build new
+    try {
       const res = await fetch(`/api/channels/${channelId}/style-dna/build`, {
         method: "POST",
         credentials: "include",
       });
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const msg = body.error?.message || body.error || body.message || "Build failed";
         throw new Error(typeof msg === "string" ? msg : "Build failed");
       }
-      toast.success("Style DNA rebuilt successfully", { id: toastId });
-      await fetchData();
 
-      // Auto-validate after build
-      setValidating(true);
-      toast.loading("Validating...", { id: toastId });
-      setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-      const valRes = await fetch(`/api/channels/${channelId}/style-dna/validate`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (valRes.ok) {
-        const result = await valRes.json();
-        setValidation(result);
-        toast.success("Done!", { id: toastId });
-        setTimeout(() => validationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-      } else {
-        toast.dismiss(toastId);
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.stage) {
+              setStageStatuses((prev) => ({
+                ...prev,
+                [evt.stage]: { status: evt.status, detail: evt.detail },
+              }));
+            }
+            if (evt.type === "complete") {
+              if (evt.validation) setValidation(evt.validation);
+              toast.success("Style DNA built successfully");
+              await fetchData();
+            }
+            if (evt.type === "error") {
+              toast.error(evt.message || "Build failed");
+            }
+          } catch (_) {}
+        }
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Build failed", { id: toastId });
+      toast.error(e instanceof Error ? e.message : "Build failed");
     } finally {
       setBuilding(false);
-      setValidating(false);
     }
   };
 
@@ -602,6 +719,7 @@ export default function StyleDnaPage() {
 
   const dna = data.styleDna;
   const canBuild = data.transcriptCount >= data.minRequired;
+  const stages = data.pipeline?.stages || [];
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
@@ -619,17 +737,17 @@ export default function StyleDnaPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleRebuild}
-            disabled={building || validating || !canBuild}
+            disabled={building || !canBuild}
             className="px-4 py-1.5 text-[12px] font-medium rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
           >
             {building ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {validating ? "Validating..." : "Analyzing..."}
+                Building...
               </>
             ) : (
               <>
-                {dna ? <RefreshCw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {dna ? <RefreshCw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                 {dna ? "Rebuild" : "Build Style DNA"}
               </>
             )}
@@ -665,20 +783,29 @@ export default function StyleDnaPage() {
         )}
       </div>
 
-      {/* No DNA state */}
-      {!dna && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Dna className="w-10 h-10 text-muted-foreground/30 mb-4" />
-          <h3 className="text-[14px] font-semibold text-foreground mb-1">No Style DNA yet</h3>
-          <p className="text-[12px] text-muted-foreground max-w-md">
-            {canBuild
-              ? "Click \"Build Style DNA\" to analyze this channel's transcripts and create a deep writing-style profile."
-              : `This channel needs at least ${data.minRequired} video transcripts. Currently has ${data.transcriptCount}.`}
-          </p>
+      {/* Pipeline Visual */}
+      {(building || (!dna && stages.length > 0)) && (
+        <div className="rounded-xl border border-border bg-card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-[13px] font-semibold text-foreground">Build Pipeline</span>
+            {building && (
+              <span className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono bg-primary/10 text-primary">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                Running
+              </span>
+            )}
+          </div>
+          <PipelineVisual stages={stages} stageStatuses={stageStatuses} building={building} />
+          {!building && !dna && canBuild && (
+            <p className="text-center text-[12px] text-muted-foreground mt-5">
+              Click "Build Style DNA" to start the pipeline
+            </p>
+          )}
           {!canBuild && (
-            <div className="flex items-center gap-1.5 mt-3 text-amber-500">
+            <div className="flex items-center justify-center gap-1.5 mt-5 text-amber-500">
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-medium">Process more videos in the pipeline first</span>
+              <span className="text-[11px] font-medium">Need at least {data.minRequired} transcripts to build</span>
             </div>
           )}
         </div>
@@ -953,19 +1080,8 @@ export default function StyleDnaPage() {
       )}
 
       {/* Validation Results */}
-      {(validation || validating) && (
+      {validation && (
         <div ref={validationRef} className="space-y-4">
-          {validating && (
-            <div className="flex flex-col items-center justify-center py-12 text-center border border-border rounded-xl bg-card/50">
-              <Loader2 className="w-6 h-6 animate-spin text-primary mb-3" />
-              <div className="text-[13px] font-medium text-foreground">Running Validation</div>
-              <p className="text-[12px] text-muted-foreground mt-1 max-w-sm">
-                Testing Style DNA against 3 random holdout transcripts. Claude is critically evaluating each match...
-              </p>
-            </div>
-          )}
-          {validation && (
-          <div className="space-y-4">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4.5 h-4.5 text-primary" strokeWidth={1.5} />
             <h2 className="text-[16px] font-bold text-foreground">Validation Report</h2>
@@ -1054,8 +1170,6 @@ export default function StyleDnaPage() {
                 {validation.suggestions.map((s, i) => <li key={i}>{s}</li>)}
               </ul>
             </div>
-          )}
-          </div>
           )}
         </div>
       )}

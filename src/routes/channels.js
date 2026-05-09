@@ -7,7 +7,7 @@ const { NotFound, Forbidden, ValidationError, asyncWrap } = require('../middlewa
 const { parseBody, parseQuery } = require('../lib/validate')
 const { fetchChannel, fetchRecentVideos } = require('../services/youtube')
 const { getQueue, addJob } = require('../queue/pipeline')
-const { buildStyleDna, getStyleDna, validateStyleDna } = require('../services/styleDna')
+const { buildStyleDna, getStyleDna, validateStyleDna, PIPELINE_STAGES } = require('../services/styleDna')
 
 const router = express.Router()
 router.use(requireAuth)
@@ -376,37 +376,56 @@ router.get('/:id/niche-embedding-status', asyncWrap(async (req, res) => {
   })
 }))
 
-// ── GET /api/channels/:id/style-dna — read current Style DNA profile
+// ── GET /api/channels/:id/style-dna — read current Style DNA profile + pipeline definition
 router.get('/:id/style-dna', asyncWrap(async (req, res) => {
   const result = await getStyleDna(req.params.id)
+  result.pipeline = { stages: PIPELINE_STAGES }
   res.json(result)
 }))
 
-// ── POST /api/channels/:id/style-dna/build — analyze transcripts and build Style DNA
-router.post('/:id/style-dna/build', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
+// ── POST /api/channels/:id/style-dna/build — streams NDJSON progress events during build
+router.post('/:id/style-dna/build', requireRole('owner', 'admin', 'editor'), async (req, res) => {
   const channelId = req.params.id
   const existing = await db.channel.findUnique({
     where: { id: channelId },
     select: { id: true },
   })
-  if (!existing) throw new NotFound('Channel not found')
+  if (!existing) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Channel not found' } })
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
+  res.flushHeaders()
+
+  const send = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+    if (res.flush) res.flush()
+  }
 
   try {
-    const styleDna = await buildStyleDna(channelId)
-    res.json({ ok: true, styleDna })
-  } catch (err) {
-    if (err.message && err.message.startsWith('Need at least')) {
-      throw ValidationError(err.message)
-    }
-    throw err
-  }
-}))
+    const styleDna = await buildStyleDna(channelId, {
+      onProgress: (evt) => send(evt),
+    })
 
-// ── POST /api/channels/:id/style-dna/validate — test DNA quality against holdout transcripts
-router.post('/:id/style-dna/validate', requireRole('owner', 'admin', 'editor'), asyncWrap(async (req, res) => {
-  const result = await validateStyleDna(req.params.id)
-  res.json(result)
-}))
+    // Stage: validate
+    send({ stage: 'validate', status: 'running' })
+    try {
+      const validation = await validateStyleDna(channelId)
+      send({ stage: 'validate', status: 'done', detail: `Score: ${validation.overallScore}/10` })
+      send({ type: 'complete', styleDna, validation })
+    } catch (valErr) {
+      send({ stage: 'validate', status: 'error', detail: valErr.message })
+      send({ type: 'complete', styleDna, validation: null })
+    }
+  } catch (err) {
+    send({ type: 'error', message: err.message || 'Build failed' })
+  }
+
+  res.end()
+})
 
 // ── DELETE /api/channels/:id/style-dna — clear Style DNA
 router.delete('/:id/style-dna', requireRole('owner', 'admin'), asyncWrap(async (req, res) => {
