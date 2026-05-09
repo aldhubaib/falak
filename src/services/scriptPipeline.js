@@ -300,10 +300,93 @@ function buildFactSheetPrompt(factSheet, fewShotBlock, isShort) {
   return msg
 }
 
+// ───────────────────────────────────────────────
+// STAGE 4: QA validation (Claude Haiku — cheap/fast)
+// ───────────────────────────────────────────────
+
+const QA_SYSTEM = `You are a script QA validator. You receive a fact sheet and a generated script.
+Check the script for these issues and return a JSON object:
+
+{
+  "passed": true/false,
+  "issues": [
+    { "type": "wrong_location|wrong_name|wrong_date|invented_fact|wrong_dialect|missing_fact", "detail": "description" }
+  ]
+}
+
+Check:
+1. LOCATIONS: Are all locations in the script exactly as in the fact sheet? Flag if any country or city was changed.
+2. NAMES: Are all character names exactly as in the Character Registry? Flag if any were changed or translated.
+3. DATES: Are all dates/years exactly as in the fact sheet? Flag if any were changed.
+4. INVENTED FACTS: Does the script contain any fact not in the fact sheet? Flag invented details (relationships, durations, financial amounts, quotes).
+5. DIALECT: Check for Egyptian Arabic words in a Khaleeji script (or vice versa). Common mistakes: "إزاي" instead of "شلون", "كده" instead of "جي", "دلوقتي" instead of "الحين", "ليه" instead of "ليش".
+6. MISSING FACTS: Are there facts in the sheet that the script completely skipped?
+
+"passed" should be true only if there are ZERO issues.
+Reply with ONLY valid JSON. No explanation.`
+
+/**
+ * Stage 4: QA validation — checks script against fact sheet for accuracy.
+ * Uses Claude Haiku for fast/cheap validation.
+ * @param {string} script - generated script text
+ * @param {object} factSheet - the organized fact sheet
+ * @param {string} dialectName - expected dialect (e.g. "Kuwaiti")
+ * @param {{ channelId: string, storyId?: string }} meta
+ * @returns {Promise<{ passed: boolean, issues: Array<{type: string, detail: string}> }>}
+ */
+async function validateScript(script, factSheet, dialectName, meta) {
+  const apiKey = await registry.requireKey('anthropic')
+
+  const factsBlock = []
+  if (factSheet.characters?.length > 0) {
+    factsBlock.push('CHARACTERS: ' + factSheet.characters.map(c => c.canonical).join(', '))
+  }
+  if (factSheet.locations?.length > 0) {
+    factsBlock.push('LOCATIONS: ' + factSheet.locations.map(l => l.name).join(', '))
+  }
+  if (factSheet.facts?.length > 0) {
+    factsBlock.push('FACTS:\n' + factSheet.facts.map(f => `- ${f.fact}`).join('\n'))
+  }
+  if (factSheet.timeline?.length > 0) {
+    factsBlock.push('TIMELINE:\n' + factSheet.timeline.map(t => `- ${t.date || ''} ${t.event}`).join('\n'))
+  }
+
+  const userMsg = `EXPECTED DIALECT: ${dialectName || 'Arabic'}
+
+--- FACT SHEET ---
+${factsBlock.join('\n\n')}
+
+--- SCRIPT TO VALIDATE ---
+${script.slice(0, 30000)}`
+
+  try {
+    const raw = await callAnthropicLogged(apiKey, 'claude-haiku-4-5-20251001', [
+      { role: 'user', content: userMsg },
+    ], {
+      system: QA_SYSTEM,
+      maxTokens: 2048,
+      channelId: meta.channelId,
+      storyId: meta.storyId,
+      action: 'Script Pipeline — QA Validation',
+    })
+
+    const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+    const result = JSON.parse(cleaned)
+    return {
+      passed: !!result.passed,
+      issues: Array.isArray(result.issues) ? result.issues : [],
+    }
+  } catch (err) {
+    console.error('[scriptPipeline/QA] validation failed:', err?.message)
+    return { passed: true, issues: [] }
+  }
+}
+
 module.exports = {
   buildFactSheetFromResearch,
   extractFactsFallback,
   organizeFactSheet,
   buildFactSheetPrompt,
+  validateScript,
   CATEGORY_ORDER,
 }

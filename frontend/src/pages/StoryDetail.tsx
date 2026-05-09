@@ -1220,6 +1220,9 @@ export default function StoryDetail() {
             const parsed = JSON.parse(payload);
             if (parsed.delta?.text) fullText += parsed.delta.text;
             if (parsed.error) toast.error(parsed.error);
+            if (parsed.stage === 'qa_done' && !parsed.passed && Array.isArray(parsed.issues) && parsed.issues.length > 0) {
+              toast.error(`QA found ${parsed.issues.length} issue(s): ${parsed.issues.map((i: { detail: string }) => i.detail).join('; ').slice(0, 200)}`);
+            }
           } catch { /* skip non-JSON lines */ }
         }
       }

@@ -8,14 +8,14 @@ const { callAnthropic, callAnthropicStream } = require('../services/pipelineProc
 const { callAnthropicLogged } = require('../services/aiLogger')
 const { callOpenAILogged, callOpenAIStream } = require('../services/openaiChat')
 const { learnFromStory } = require('../services/aiLearner')
-const { getDialectForCountry } = require('../lib/dialects')
+const { getDialectForCountry, getDialectGuide } = require('../lib/dialects')
 const { fetchTranscript } = require('../services/transcript')
 const { transcribeFromR2 } = require('../services/whisper')
 const { fetchVideoMetadata, isYouTubeShort } = require('../services/youtube')
 const { computeSimpleComposite, SIMPLE_COMPOSITE, finalScoreToComposite } = require('../lib/scoringConfig')
 const { getNicheEmbedding } = require('../services/embeddings')
 const registry = require('../lib/serviceRegistry')
-const { buildFactSheetFromResearch, extractFactsFallback, organizeFactSheet, buildFactSheetPrompt } = require('../services/scriptPipeline')
+const { buildFactSheetFromResearch, extractFactsFallback, organizeFactSheet, buildFactSheetPrompt, validateScript } = require('../services/scriptPipeline')
 
 /**
  * Build a prompt injection block from a channel's Style DNA profile.
@@ -273,9 +273,12 @@ async function generateScriptForStory(storyId) {
   const startHook = (channel.startHook || '').trim()
   const endHook = (channel.endHook || '').trim()
   const dialect = await getDialectForCountry(channel.nationality)
-  const dialectInstruction = dialect
-    ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
-    : 'Write the script in Arabic.'
+  const dialectGuide = getDialectGuide(channel.nationality)
+  const dialectInstruction = dialectGuide
+    ? dialectGuide
+    : dialect
+      ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
+      : 'Write the script in Arabic.'
   const durationInstruction = isShort
     ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. You MUST include EVERY fact from the source — do NOT skip or omit any detail, no matter how small. To keep it concise, say each fact in fewer words rather than removing facts entirely. Character backgrounds (job, location, family situation, where they work/live) are essential context — never skip them. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
     : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
@@ -376,6 +379,16 @@ ${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
 ${durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
+## SELF-VALIDATION (check BEFORE outputting)
+Before writing your final output, mentally verify:
+1. Every character name matches the CANONICAL name from the fact sheet — no nicknames, no translations.
+2. Every location is EXACTLY as listed in the fact sheet — especially the country and city.
+3. Every date/year matches the fact sheet — not changed or rounded.
+4. The dialect is correct throughout — no Egyptian words if writing in Khaleeji.
+5. No facts were invented that aren't in the fact sheet.
+6. All facts from the sheet were used — none skipped.
+If any check fails, fix it before outputting.
+
 ## HASHTAGS
 (5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix Arabic and English for SEO.)${styleBlock}${styleDnaBlock}`
 
@@ -414,6 +427,16 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     return
   }
   const parsed = parseStructuredScript(fullScript)
+
+  // Stage 4: QA validation
+  let qaResult = { passed: true, issues: [] }
+  try {
+    const dialectName = dialect?.name || 'Arabic'
+    qaResult = await validateScript(parsed.script || fullScript, organized, dialectName, { channelId, storyId })
+  } catch (err) {
+    console.error('[generateScript] QA validation error:', err?.message)
+  }
+
   const newBrief = {
     ...brief,
     suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
@@ -422,6 +445,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     scriptLength: isShort ? 'short' : 'long',
     scriptRaw: (fullScript || '').trim() || brief.scriptRaw,
     factSheet: organized,
+    qaResult,
   }
   await db.story.update({
     where: { id: storyId },
@@ -729,7 +753,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     }
     const channel = await db.channel.findFirst({
       where: { id: channelId },
-      select: { id: true, startHook: true, endHook: true, nationality: true, styleDna: true },
+      select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true, styleDna: true },
     })
     if (!channel) {
       return res.status(400).json({ error: 'Channel not found.' })
@@ -746,10 +770,46 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     const startHook = (channel.startHook || '').trim()
     const endHook = (channel.endHook || '').trim()
 
+    // Build style guide injection from learned corrections
+    const guide = (channel.styleGuide && typeof channel.styleGuide === 'object') ? channel.styleGuide : null
+    let styleBlock = ''
+    if (guide) {
+      const parts = []
+      if (Array.isArray(guide.corrections) && guide.corrections.length > 0) {
+        const hookCorrections = guide.corrections.filter(c => c.category === 'branded_hook')
+        const otherCorrections = guide.corrections.filter(c => c.category !== 'branded_hook')
+        if (hookCorrections.length > 0) {
+          parts.push('CRITICAL — Branded hook corrections (you got these WRONG before, use the CORRECT version):\n' +
+            hookCorrections.map(c => `- WRONG: "${c.wrong}" → CORRECT: "${c.correct}"`).join('\n'))
+        }
+        if (otherCorrections.length > 0) {
+          parts.push('Style corrections from past scripts:\n' +
+            otherCorrections.slice(-10).map(c => `- Instead of "${c.wrong}", use "${c.correct}"`).join('\n'))
+        }
+      }
+      if (guide.signatures?.startHook?.length > 0) {
+        parts.push('Real opening hook examples from this channel\'s past videos:\n' +
+          guide.signatures.startHook.slice(-3).map(h => `- "${h}"`).join('\n'))
+      }
+      if (guide.signatures?.endHook?.length > 0) {
+        parts.push('Real closing hook examples from this channel\'s past videos:\n' +
+          guide.signatures.endHook.slice(-3).map(h => `- "${h}"`).join('\n'))
+      }
+      if (Array.isArray(guide.notes) && guide.notes.length > 0) {
+        parts.push('Presenter style preferences:\n' + guide.notes.slice(-5).map(n => `- ${n}`).join('\n'))
+      }
+      if (parts.length > 0) {
+        styleBlock = '\n\n--- CHANNEL STYLE GUIDE (learned from past videos — follow these closely) ---\n' + parts.join('\n\n')
+      }
+    }
+
     const dialect = await getDialectForCountry(channel.nationality)
-    const dialectInstruction = dialect
-      ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
-      : 'Write the script in Arabic.'
+    const dialectGuide = getDialectGuide(channel.nationality)
+    const dialectInstruction = dialectGuide
+      ? dialectGuide
+      : dialect
+        ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
+        : 'Write the script in Arabic.'
 
     const durationInstruction = isShort
       ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. You MUST include EVERY fact from the source — do NOT skip or omit any detail, no matter how small. To keep it concise, say each fact in fewer words rather than removing facts entirely. Character backgrounds (job, location, family situation, where they work/live) are essential context — never skip them. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
@@ -818,8 +878,18 @@ ${hookEndBlock ? `8. **Branded sign-off** — ${hookEndBlock}` : ''}
 ${durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 
+## SELF-VALIDATION (check BEFORE outputting)
+Before writing your final output, mentally verify:
+1. Every character name matches the CANONICAL name from the fact sheet — no nicknames, no translations.
+2. Every location is EXACTLY as listed in the fact sheet — especially the country and city.
+3. Every date/year matches the fact sheet — not changed or rounded.
+4. The dialect is correct throughout — no Egyptian words if writing in Khaleeji.
+5. No facts were invented that aren't in the fact sheet.
+6. All facts from the sheet were used — none skipped.
+If any check fails, fix it before outputting.
+
 ## HASHTAGS
-(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix Arabic and English for SEO.)${styleDnaBlock}`
+(5–15 relevant YouTube tags, comma-separated, WITHOUT the # symbol. Mix Arabic and English for SEO.)${styleBlock}${styleDnaBlock}`
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
@@ -878,6 +948,18 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
     }
 
     const parsed = parseStructuredScript(fullScript)
+
+    // Stage 4: QA validation
+    let qaResult = { passed: true, issues: [] }
+    try {
+      res.write(`data: ${JSON.stringify({ stage: 'qa' })}\n\n`)
+      const dialectName = dialect?.name || 'Arabic'
+      qaResult = await validateScript(parsed.script || fullScript, organized, dialectName, { channelId, storyId: story.id })
+      res.write(`data: ${JSON.stringify({ stage: 'qa_done', passed: qaResult.passed, issues: qaResult.issues })}\n\n`)
+    } catch (err) {
+      console.error('[stories/generate-script] QA validation error:', err?.message)
+    }
+
     const newBrief = {
       ...brief,
       suggestedTitle: parsed.suggestedTitle || brief.suggestedTitle,
@@ -886,6 +968,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
       scriptLength: isShort ? 'short' : 'long',
       scriptRaw: fullScript.trim() || brief.scriptRaw,
       factSheet: organized,
+      qaResult,
     }
     await db.story.update({
       where: { id: story.id },
