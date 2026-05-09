@@ -336,17 +336,20 @@ async function getStyleDna(channelId) {
   })
   if (!channel) throw new Error('Channel not found')
 
-  const transcriptCount = await db.video.count({
-    where: {
-      channelId,
-      transcription: { not: null },
-    },
-  })
+  const [totalTranscripts, includedTranscripts] = await Promise.all([
+    db.video.count({
+      where: { channelId, transcription: { not: null } },
+    }),
+    db.video.count({
+      where: { channelId, transcription: { not: null }, excludeFromStyleDna: false },
+    }),
+  ])
 
   return {
     styleDna: channel.styleDna || null,
     styleDnaBuiltAt: channel.styleDnaBuiltAt || null,
-    transcriptCount,
+    transcriptCount: includedTranscripts,
+    totalTranscriptCount: totalTranscripts,
     minRequired: MIN_TRANSCRIPTS,
   }
 }

@@ -148,6 +148,7 @@ interface StyleDnaResponse {
   styleDna: StyleDna | null;
   styleDnaBuiltAt: string | null;
   transcriptCount: number;
+  totalTranscriptCount?: number;
   minRequired: number;
   pipeline?: { stages: PipelineStageDef[] };
 }
@@ -751,7 +752,10 @@ export default function StyleDnaPage() {
         <div className="flex items-center gap-1.5">
           <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-[12px] text-muted-foreground">
-            {data.transcriptCount} transcripts available
+            {data.totalTranscriptCount != null && data.totalTranscriptCount !== data.transcriptCount
+              ? <>{data.transcriptCount}/{data.totalTranscriptCount} transcripts available</>
+              : <>{data.transcriptCount} transcripts available</>
+            }
             {!canBuild && (
               <span className="text-amber-500 ml-1">(need {data.minRequired}+)</span>
             )}
