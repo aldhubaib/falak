@@ -321,7 +321,7 @@ function parseJsonArrayFromResponse(text) {
   return JSON.parse(trimmed.slice(start, end))
 }
 
-async function callAnthropic(apiKey, model, messages, { system, maxTokens, channelId, action } = {}) {
+async function callAnthropic(apiKey, model, messages, { system, maxTokens, channelId, action, timeoutMs } = {}) {
   const body = {
     model,
     max_tokens: maxTokens || MAX_ANTHROPIC_TOKENS,
@@ -329,9 +329,10 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, chann
   }
   if (system) body.system = system
 
+  const effectiveTimeout = timeoutMs || ANTHROPIC_TIMEOUT_MS
   for (let attempt = 0; attempt <= ANTHROPIC_RETRY_DELAYS_MS.length; attempt++) {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), ANTHROPIC_TIMEOUT_MS)
+    const timeout = setTimeout(() => controller.abort(), effectiveTimeout)
     let res
     try {
       res = await fetch('https://api.anthropic.com/v1/messages', {

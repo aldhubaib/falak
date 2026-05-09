@@ -405,6 +405,12 @@ router.post('/:id/style-dna/build', requireRole('owner', 'admin', 'editor'), asy
     if (res.flush) res.flush()
   }
 
+  // Keep-alive heartbeat so Railway/proxies don't kill the connection during long AI calls
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n')
+    if (res.flush) res.flush()
+  }, 15_000)
+
   try {
     const styleDna = await buildStyleDna(channelId, {
       onProgress: (evt) => send(evt),
@@ -424,6 +430,7 @@ router.post('/:id/style-dna/build', requireRole('owner', 'admin', 'editor'), asy
     send({ type: 'error', message: err.message || 'Build failed' })
   }
 
+  clearInterval(heartbeat)
   res.end()
 })
 

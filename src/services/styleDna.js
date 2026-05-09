@@ -15,6 +15,7 @@ const logger = require('../lib/logger')
 const MIN_TRANSCRIPTS = 5
 const MAX_TRANSCRIPTS_TO_ANALYZE = 30
 const TRANSCRIPT_SLICE = 15000
+const STYLE_DNA_TIMEOUT_MS = 300_000 // 5 min — large prompt needs more than the default 2 min
 
 /**
  * Pipeline stage definitions — single source of truth.
@@ -281,6 +282,7 @@ Allowed slug values: ${directionSlugs.join(', ')}`
     maxTokens: 8192,
     channelId,
     action: 'Style DNA — Full Analysis',
+    timeoutMs: STYLE_DNA_TIMEOUT_MS,
   })
   emit('analyze', 'done', `Analysis complete — received ${Math.round(raw.length / 1000)}k chars`)
 
@@ -445,6 +447,7 @@ Output ONLY valid JSON (no markdown fences):
     maxTokens: 4096,
     channelId,
     action: 'Style DNA — Validation',
+    timeoutMs: STYLE_DNA_TIMEOUT_MS,
   })
 
   try {

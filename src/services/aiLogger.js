@@ -10,7 +10,7 @@ const { callAnthropic } = require('./pipelineProcessor')
  * Accepts the same arguments + an optional `storyId` in the opts.
  */
 async function callAnthropicLogged(apiKey, model, messages, opts = {}) {
-  const { system, maxTokens, channelId, action, storyId } = opts
+  const { system, maxTokens, channelId, action, storyId, timeoutMs } = opts
   const userPrompt = messages.map(m => m.content).join('\n\n---\n\n')
   const start = Date.now()
   let response = null
@@ -18,7 +18,7 @@ async function callAnthropicLogged(apiKey, model, messages, opts = {}) {
   let error = null
 
   try {
-    response = await callAnthropic(apiKey, model, messages, { system, maxTokens, channelId, action })
+    response = await callAnthropic(apiKey, model, messages, { system, maxTokens, channelId, action, timeoutMs })
     return response
   } catch (e) {
     status = 'fail'
