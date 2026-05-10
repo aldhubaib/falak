@@ -12,6 +12,8 @@ const registry = require('../lib/serviceRegistry')
 const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings'
 const DEFAULT_MODEL = 'text-embedding-3-small'
 const DIMENSIONS = 1536
+const MAX_RETRIES = 3
+const RETRY_BASE_MS = 5_000
 
 /**
  * Generate an embedding vector for the given text.
@@ -23,48 +25,61 @@ async function generateEmbedding(text, channelId) {
   const apiKey = await registry.requireKey('embedding')
   const input = text.slice(0, 8000)
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30_000)
-  let res
-  try {
-    res = await fetch(OPENAI_EMBEDDING_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ model: DEFAULT_MODEL, input, dimensions: DIMENSIONS }),
-      signal: controller.signal,
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+    let res
+    try {
+      res = await fetch(OPENAI_EMBEDDING_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model: DEFAULT_MODEL, input, dimensions: DIMENSIONS }),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      const msg = err?.error?.message || `OpenAI API ${res.status}`
+      const retryAfter = res.headers?.get('retry-after')
+      const typed = registry.classifyHttpError('embedding', res.status, msg, res.headers)
+
+      if (typed.retryable && attempt < MAX_RETRIES) {
+        const waitMs = retryAfter
+          ? parseInt(retryAfter, 10) * 1000
+          : RETRY_BASE_MS * Math.pow(2, attempt)
+        logger.warn({ attempt: attempt + 1, waitMs, msg }, '[embeddings] 429 rate limited, retrying')
+        await new Promise(r => setTimeout(r, waitMs))
+        continue
+      }
+
+      trackUsage({ channelId, service: 'openai-embedding', action: 'embed', status: 'fail', error: msg })
+      if (!typed.retryable) registry.markDown('embedding', typed.code, typed.message)
+      throw typed
+    }
+
+    const data = await res.json()
+    const embedding = data?.data?.[0]?.embedding
+    if (!embedding || embedding.length !== DIMENSIONS) {
+      throw new Error('Invalid embedding response from OpenAI')
+    }
+
+    trackUsage({
+      channelId,
+      service: 'openai-embedding',
+      action: 'embed',
+      tokensUsed: data.usage?.total_tokens,
+      status: 'ok',
     })
-  } finally {
-    clearTimeout(timeout)
+    registry.markUp('embedding')
+
+    return embedding
   }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    const msg = err?.error?.message || `OpenAI API ${res.status}`
-    trackUsage({ channelId, service: 'openai-embedding', action: 'embed', status: 'fail', error: msg })
-    const typed = registry.classifyHttpError('embedding', res.status, msg, res.headers)
-    if (!typed.retryable) registry.markDown('embedding', typed.code, typed.message)
-    throw typed
-  }
-
-  const data = await res.json()
-  const embedding = data?.data?.[0]?.embedding
-  if (!embedding || embedding.length !== DIMENSIONS) {
-    throw new Error('Invalid embedding response from OpenAI')
-  }
-
-  trackUsage({
-    channelId,
-    service: 'openai-embedding',
-    action: 'embed',
-    tokensUsed: data.usage?.total_tokens,
-    status: 'ok',
-  })
-  registry.markUp('embedding')
-
-  return embedding
 }
 
 /**
