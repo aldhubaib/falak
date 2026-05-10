@@ -693,10 +693,8 @@ async function runScriptPipeline(story, channel, opts = {}) {
   const narratorSystem = buildNarratorSystem(ctx)
   const storytellerSystem = buildStorytellerSystem(ctx)
 
-  const [draftNarrator, draftStoryteller] = await Promise.all([
-    writeScript('Writer Narrator', narratorSystem, userMessage, meta),
-    writeScript('Writer Storyteller', storytellerSystem, userMessage, meta),
-  ])
+  const draftNarrator = await writeScript('Writer Narrator', narratorSystem, userMessage, meta)
+  const draftStoryteller = await writeScript('Writer Storyteller', storytellerSystem, userMessage, meta)
 
   logStep('WRITER_NARRATOR', { status: 'ok', length: draftNarrator.length })
   logStep('WRITER_STORYTELLER', { status: 'ok', length: draftStoryteller.length })

@@ -11,6 +11,8 @@ const registry = require('../lib/serviceRegistry')
 const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions'
 const DEFAULT_MODEL = 'gpt-4o'
 const FETCH_TIMEOUT_MS = 120_000
+const MAX_RETRIES = 3
+const RETRY_BASE_MS = 5_000
 
 /**
  * Call OpenAI Chat Completions and log to AiGenerationLog.
@@ -56,45 +58,58 @@ async function callOpenAILogged(model, messages, opts = {}) {
   let usage = {}
 
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-    let res
-    try {
-      res = await fetch(OPENAI_CHAT_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      let res
+      try {
+        res = await fetch(OPENAI_CHAT_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        })
+      } finally {
+        clearTimeout(timer)
+      }
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        const msg = errBody?.error?.message || `OpenAI ${res.status}`
+        const retryAfter = res.headers?.get('retry-after')
+        const typed = registry.classifyHttpError('embedding', res.status, msg, res.headers)
+
+        if (typed.retryable && attempt < MAX_RETRIES) {
+          const waitMs = retryAfter
+            ? parseInt(retryAfter, 10) * 1000
+            : RETRY_BASE_MS * Math.pow(2, attempt)
+          trackUsage({ channelId, service: 'openai-chat', action, status: 'retry', error: `429 retry ${attempt + 1}/${MAX_RETRIES}, waiting ${waitMs}ms` })
+          await new Promise(r => setTimeout(r, waitMs))
+          continue
+        }
+
+        trackUsage({ channelId, service: 'openai-chat', action, status: 'fail', error: msg })
+        if (!typed.retryable) registry.markDown('embedding', typed.code, typed.message)
+        throw typed
+      }
+
+      const data = await res.json()
+      usage = data.usage || {}
+      const choice = data.choices?.[0]
+      response = choice?.message?.content?.trim() || ''
+      trackUsage({
+        channelId,
+        service: 'openai-chat',
+        action,
+        tokensUsed: (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
+        status: 'ok',
       })
-    } finally {
-      clearTimeout(timer)
+      registry.markUp('embedding')
+      return response
     }
-
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}))
-      const msg = errBody?.error?.message || `OpenAI ${res.status}`
-      trackUsage({ channelId, service: 'openai-chat', action, status: 'fail', error: msg })
-      const typed = registry.classifyHttpError('embedding', res.status, msg, res.headers)
-      if (!typed.retryable) registry.markDown('embedding', typed.code, typed.message)
-      throw typed
-    }
-
-    const data = await res.json()
-    usage = data.usage || {}
-    const choice = data.choices?.[0]
-    response = choice?.message?.content?.trim() || ''
-    trackUsage({
-      channelId,
-      service: 'openai-chat',
-      action,
-      tokensUsed: (usage.prompt_tokens || 0) + (usage.completion_tokens || 0),
-      status: 'ok',
-    })
-    registry.markUp('embedding')
-    return response
   } catch (e) {
     status = 'fail'
     error = e.message || String(e)
