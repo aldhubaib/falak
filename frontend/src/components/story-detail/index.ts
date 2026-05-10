@@ -34,4 +34,5 @@ export type { StoryDetailStagePublishProps } from "./StoryDetailStagePublish";
 export { VideoUpload } from "./VideoUpload";
 export { TranscriptSection } from "./TranscriptSection";
 export { FactSheetPanel } from "./FactSheetPanel";
+export { SelectionSummary } from "./SelectionSummary";
 export type { TranscriptSectionProps } from "./TranscriptSection";

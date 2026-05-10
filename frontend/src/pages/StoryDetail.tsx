@@ -21,6 +21,7 @@ import {
   VideoUpload,
   TranscriptSection,
   FactSheetPanel,
+  SelectionSummary,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
 
@@ -1249,6 +1250,73 @@ export default function StoryDetail() {
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
+  const [extractingFacts, setExtractingFacts] = useState(false);
+
+  const extractFacts = useCallback(async () => {
+    if (!id) { toast.error("No story ID"); return; }
+    if (extractingFacts) return;
+    setExtractingFacts(true);
+    toast.info("Extracting facts from story…");
+    try {
+      const res = await fetch(`/api/stories/${id}/extract-facts`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Extraction failed" }));
+        toast.error(err.error || "Extraction failed");
+        setExtractingFacts(false);
+        return;
+      }
+
+      setBrief((b) => ({ ...b, pipelineStatus: { stage: "queued" } }));
+
+      const pollStart = Date.now();
+      pollIntervalRef.current = setInterval(async () => {
+        if (Date.now() - pollStart > 5 * 60 * 1000) {
+          stopPolling();
+          toast.error("Fact extraction timed out.");
+          setExtractingFacts(false);
+          return;
+        }
+        try {
+          const statusRes = await fetch(`/api/stories/${id}/pipeline-status`, { credentials: "include" });
+          if (!statusRes.ok) return;
+          const { status } = await statusRes.json();
+          if (!status) return;
+
+          setBrief((b) => ({ ...b, pipelineStatus: status }));
+
+          if (status.stage === "facts_ready" || status.stage === "done" || status.stage === "error") {
+            stopPolling();
+
+            if (status.stage === "error") {
+              toast.error(status.error || "Fact extraction failed");
+              setExtractingFacts(false);
+              return;
+            }
+
+            const storyRes = await fetch(`/api/stories/${id}`, { credentials: "include" });
+            if (storyRes.ok) {
+              const storyData = await storyRes.json();
+              const updatedBrief = storyData.brief || {};
+              setBrief((b) => ({ ...b, ...updatedBrief, pipelineStatus: { stage: "facts_ready" } }));
+            }
+            toast.success("Facts extracted — review and select what to include");
+            setExtractingFacts(false);
+          }
+        } catch {
+          /* poll error — keep trying */
+        }
+      }, 2000);
+    } catch {
+      toast.error("Failed to extract facts");
+      setExtractingFacts(false);
+    }
+  }, [id, channelId, extractingFacts, stopPolling]);
+
   const generateScript = useCallback(async (mode?: "full" | "curated") => {
     if (!id || !channelId) { toast.error("No story ID"); return; }
     if (generatingScript) return;
@@ -1633,46 +1701,64 @@ export default function StoryDetail() {
             )}
 
 
-            {activeStage === "scripting" && brief.articleContent && (
-              <OriginalStoryToggle content={brief.articleContent} />
-            )}
-
             {activeStage === "scripting" && (
-              <>
-                <StoryDetailScriptSection
-                  key={id}
-                  scriptLength={scriptLength}
-                  onScriptLengthChange={(len) => {
-                    setScriptLength(len);
-                    setBrief((b) => {
-                      const next = { ...b, scriptLength: len };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
-                  canGenerate
-                  generating={generatingScript}
-                  onGenerate={generateScript}
-                  readOnly={false}
-                  showGenerateControls
-                  scriptValue={scriptValue}
-                  saving={saving}
-                  scriptRef={scriptEditorRef}
-                  videoFormat={brief.videoFormat || "long"}
-                  channelAvatarUrl={channelInfo?.avatarUrl}
-                  channelName={channelInfo?.name}
-                  pipelineStage={brief.pipelineStatus?.stage}
-                  pipelineError={brief.pipelineStatus?.error}
-                  qaResult={brief.qaResult}
-                  hasFactSheet={!!(brief.factSheet && brief.factSheet.facts?.length > 0)}
-                  onScriptChange={(value) => {
-                    setBrief((b) => {
-                      const next: StoryBrief = { ...b, script: value };
-                      if (id) saveScript(id, next);
-                      return next;
-                    });
-                  }}
-                />
+              <div className="space-y-4">
+                {/* Step 1: Original Story */}
+                {brief.articleContent && (
+                  <OriginalStoryToggle content={brief.articleContent} />
+                )}
+
+                {/* Step 2: Extract Facts button (shown when no fact sheet yet) */}
+                {!brief.factSheet?.facts?.length && (
+                  <div className="rounded-lg bg-card border border-border p-5 flex flex-col items-center gap-3">
+                    {extractingFacts && brief.pipelineStatus?.stage && !["facts_ready", "done", "error"].includes(brief.pipelineStatus.stage) ? (
+                      <div className="w-full">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          <span className="text-[12px] font-medium text-foreground">Extracting facts…</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {["research", "facts"].map((step) => {
+                            const current = brief.pipelineStatus?.stage || "";
+                            const isDone = step === "research"
+                              ? ["facts", "facts_done", "facts_ready"].includes(current)
+                              : ["facts_done", "facts_ready"].includes(current);
+                            const isActive = step === "research"
+                              ? ["queued", "research", "research_done"].includes(current)
+                              : ["facts"].includes(current);
+                            return (
+                              <div key={step} className="flex-1">
+                                <div className={`h-1.5 rounded-full transition-colors ${isDone ? "bg-primary" : isActive ? "bg-primary/40 animate-pulse" : "bg-muted"}`} />
+                                <span className="text-[9px] text-muted-foreground mt-1 block capitalize">{step === "research" ? "Research" : "Fact Sheet"}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <FileText className="w-8 h-8 text-muted-foreground/40" />
+                        <div className="text-center">
+                          <p className="text-[13px] font-medium text-foreground">Extract Facts</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            AI will analyze the story and extract characters, locations, events, and key facts
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={extractFacts}
+                          disabled={extractingFacts}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Extract Facts
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Fact Sheet (editable — user selects/pins) */}
                 {brief.factSheet && brief.factSheet.facts?.length > 0 && (
                   <FactSheetPanel
                     factSheet={brief.factSheet}
@@ -1686,7 +1772,54 @@ export default function StoryDetail() {
                     }}
                   />
                 )}
-              </>
+
+                {/* Step 4: Selection Summary + Generate buttons */}
+                {brief.factSheet && brief.factSheet.facts?.length > 0 && (
+                  <SelectionSummary
+                    factSheet={brief.factSheet}
+                    canGenerate={!!channelId}
+                    generating={generatingScript}
+                    onGenerate={(mode) => generateScript(mode)}
+                  />
+                )}
+
+                {/* Step 5: Script output */}
+                {(scriptValue || generatingScript) && (
+                  <StoryDetailScriptSection
+                    key={id}
+                    scriptLength={scriptLength}
+                    onScriptLengthChange={(len) => {
+                      setScriptLength(len);
+                      setBrief((b) => {
+                        const next = { ...b, scriptLength: len };
+                        if (id) saveScript(id, next);
+                        return next;
+                      });
+                    }}
+                    canGenerate={false}
+                    generating={generatingScript}
+                    onGenerate={generateScript}
+                    readOnly={false}
+                    showGenerateControls={false}
+                    scriptValue={scriptValue}
+                    saving={saving}
+                    scriptRef={scriptEditorRef}
+                    videoFormat={brief.videoFormat || "long"}
+                    channelAvatarUrl={channelInfo?.avatarUrl}
+                    channelName={channelInfo?.name}
+                    pipelineStage={brief.pipelineStatus?.stage}
+                    pipelineError={brief.pipelineStatus?.error}
+                    qaResult={brief.qaResult}
+                    onScriptChange={(value) => {
+                      setBrief((b) => {
+                        const next: StoryBrief = { ...b, script: value };
+                        if (id) saveScript(id, next);
+                        return next;
+                      });
+                    }}
+                  />
+                )}
+              </div>
             )}
 
           {/* Stage-specific content */}

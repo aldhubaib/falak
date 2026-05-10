@@ -927,8 +927,46 @@ Fix EVERY issue above. Do NOT change anything that was already correct. Output t
   }
 }
 
+async function runFactExtraction(story, opts = {}) {
+  const meta = { storyId: story.id }
+  const onStage = opts.onStage || (() => {})
+  const brief = story.brief || {}
+
+  onStage('research', { message: 'Researching story...' })
+  let research
+  try {
+    const result = await runResearcher(story, opts.channelId, { forceResearch: opts.forceResearch })
+    research = result.research
+    onStage('research_done', { skipped: result.skipped })
+  } catch (err) {
+    research = brief.research || null
+    onStage('research_done', { skipped: true, error: err.message })
+  }
+
+  onStage('facts', { message: 'Building fact sheet...' })
+  const articleContent = brief.articleContent || ''
+  let factSheet
+
+  try {
+    if (research?.brief || research?.briefAr) {
+      factSheet = buildFactSheetFromResearch(research, articleContent)
+    } else if (articleContent && articleContent !== '__SCRAPE_FAILED__' && articleContent !== '__YOUTUBE__') {
+      factSheet = await extractFactsFallback(articleContent.slice(0, 120000), meta)
+    } else {
+      throw new Error('No research data or article content available')
+    }
+  } catch (err) {
+    onStage('error', { error: err.message })
+    throw err
+  }
+
+  onStage('facts_done', { factsCount: factSheet.facts?.length || 0 })
+  return { factSheet, research }
+}
+
 module.exports = {
   runScriptPipeline,
+  runFactExtraction,
   buildFactSheetFromResearch,
   extractFactsFallback,
   organizeFactSheet,

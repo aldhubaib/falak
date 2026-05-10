@@ -647,6 +647,63 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
   }
 })
 
+// ── POST /api/stories/:id/extract-facts — run research + fact extraction only
+router.post('/:id/extract-facts', requireRole('owner', 'admin', 'editor'), async (req, res) => {
+  try {
+    const story = await db.story.findUniqueOrThrow({ where: { id: req.params.id } })
+    const brief = (story.brief && typeof story.brief === 'object') ? { ...story.brief } : {}
+    const channelId = req.body?.channelId || brief.channelId
+
+    await db.story.update({
+      where: { id: story.id },
+      data: {
+        brief: {
+          ...brief,
+          pipelineStatus: { stage: 'queued', updatedAt: new Date().toISOString() },
+        },
+      },
+    })
+
+    res.json({ started: true, message: 'Fact extraction started' })
+
+    const { runFactExtraction } = require('../services/scriptPipeline')
+    const { updatePipelineStatus } = require('../queue/scriptPipeline')
+
+    const onStage = (stage, data) => updatePipelineStatus(story.id, stage, data)
+
+    try {
+      const result = await runFactExtraction(story, {
+        channelId,
+        forceResearch: !!req.body?.forceResearch,
+        onStage,
+      })
+
+      const freshStory = await db.story.findUnique({ where: { id: story.id }, select: { brief: true } })
+      const currentBrief = freshStory?.brief || brief
+
+      await db.story.update({
+        where: { id: story.id },
+        data: {
+          brief: {
+            ...currentBrief,
+            factSheet: result.factSheet,
+            research: result.research || currentBrief.research,
+            pipelineStatus: { stage: 'facts_ready', updatedAt: new Date().toISOString() },
+          },
+          stage: 'scripting',
+        },
+      })
+    } catch (err) {
+      console.error('[stories/extract-facts] failed:', err)
+      await updatePipelineStatus(story.id, 'error', { error: err.message })
+    }
+  } catch (e) {
+    if (e.code === 'P2025') return res.status(404).json({ error: 'Story not found' })
+    console.error('[stories/extract-facts]', e)
+    res.status(500).json({ error: e.message || 'Fact extraction failed' })
+  }
+})
+
 // ── GET /api/stories/:id/pipeline-status — poll pipeline progress ──────────
 router.get('/:id/pipeline-status', async (req, res) => {
   try {
