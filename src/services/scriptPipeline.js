@@ -164,7 +164,7 @@ async function extractFactsFallback(sourceText, meta) {
   const scenes = Array.isArray(parsed.scenes) ? parsed.scenes.map((s, i) => ({
     id: s.id || `scene_${i + 1}`,
     title: String(s.title || `مشهد ${i + 1}`),
-    summary: String(s.summary || ''),
+    originalText: String(s.originalText || ''),
     factIndices: Array.isArray(s.factIndices) ? s.factIndices.filter(n => typeof n === 'number') : [],
     timelineIndices: Array.isArray(s.timelineIndices) ? s.timelineIndices.filter(n => typeof n === 'number') : [],
     characterNames: Array.isArray(s.characterNames) ? s.characterNames : [],
@@ -197,7 +197,7 @@ Extract EVERY distinct fact and entity AND group them into scenes:
     {
       "id": "scene_1",
       "title": "عنوان قصير للمشهد بالعربي — ٥ كلمات أو أقل",
-      "summary": "ملخص المشهد في جملة أو جملتين بالعربي",
+      "originalText": "انسخ الفقرات الأصلية من النص المصدر اللي تنتمي لهذا المشهد — النص الأصلي بالضبط كما هو",
       "factIndices": [0, 1, 2],
       "timelineIndices": [0, 1],
       "characterNames": ["منيف"],
@@ -230,6 +230,8 @@ Extract EVERY distinct fact and entity AND group them into scenes:
 قواعد المشاهد (scenes):
 - قسّم القصة إلى ٨-١٥ مشهد حسب طول القصة.
 - كل مشهد = جزء منطقي من القصة (مكان، حدث، لحظة).
+- "originalText" = انسخ الفقرات الأصلية من النص المصدر اللي تنتمي لهذا المشهد. لازم يكون نص أصلي مقتبس — لا تلخص ولا تعيد صياغة. اقتبس النص كما هو بالضبط.
+- مهم: "originalText" لازم يغطي كل النص الأصلي. كل فقرة لازم تكون في مشهد واحد على الأقل. لا تترك أي جزء من النص بدون مشهد.
 - "factIndices" = أرقام الحقائق في مصفوفة "facts" اللي تنتمي لهذا المشهد (0-based).
 - "timelineIndices" = أرقام الأحداث في "timeline" اللي تنتمي لهذا المشهد (0-based).
 - "characterNames" = أسماء الشخصيات المشاركة في هذا المشهد (canonical names).

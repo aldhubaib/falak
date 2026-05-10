@@ -126,7 +126,7 @@ export interface StoryBrief {
     scenes?: Array<{
       id: string;
       title: string;
-      summary: string;
+      originalText: string;
       factIndices: number[];
       timelineIndices: number[];
       characterNames: string[];
