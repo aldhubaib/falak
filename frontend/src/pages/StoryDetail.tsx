@@ -19,6 +19,7 @@ import {
   StoryDetailStageOmit,
   VideoUpload,
   TranscriptSection,
+  FactSheetPanel,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
 
@@ -1564,39 +1565,44 @@ export default function StoryDetail() {
 
 
             {activeStage === "scripting" && (
-              <StoryDetailScriptSection
-                key={id}
-                scriptLength={scriptLength}
-                onScriptLengthChange={(len) => {
-                  setScriptLength(len);
-                  setBrief((b) => {
-                    const next = { ...b, scriptLength: len };
-                    if (id) saveScript(id, next);
-                    return next;
-                  });
-                }}
-                canGenerate
-                generating={generatingScript}
-                onGenerate={generateScript}
-                readOnly={false}
-                showGenerateControls
-                scriptValue={scriptValue}
-                saving={saving}
-                scriptRef={scriptEditorRef}
-                videoFormat={brief.videoFormat || "long"}
-                channelAvatarUrl={channelInfo?.avatarUrl}
-                channelName={channelInfo?.name}
-                pipelineStage={brief.pipelineStatus?.stage}
-                pipelineError={brief.pipelineStatus?.error}
-                qaResult={brief.qaResult}
-                onScriptChange={(value) => {
-                  setBrief((b) => {
-                    const next: StoryBrief = { ...b, script: value };
-                    if (id) saveScript(id, next);
-                    return next;
-                  });
-                }}
-              />
+              <>
+                <StoryDetailScriptSection
+                  key={id}
+                  scriptLength={scriptLength}
+                  onScriptLengthChange={(len) => {
+                    setScriptLength(len);
+                    setBrief((b) => {
+                      const next = { ...b, scriptLength: len };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
+                  canGenerate
+                  generating={generatingScript}
+                  onGenerate={generateScript}
+                  readOnly={false}
+                  showGenerateControls
+                  scriptValue={scriptValue}
+                  saving={saving}
+                  scriptRef={scriptEditorRef}
+                  videoFormat={brief.videoFormat || "long"}
+                  channelAvatarUrl={channelInfo?.avatarUrl}
+                  channelName={channelInfo?.name}
+                  pipelineStage={brief.pipelineStatus?.stage}
+                  pipelineError={brief.pipelineStatus?.error}
+                  qaResult={brief.qaResult}
+                  onScriptChange={(value) => {
+                    setBrief((b) => {
+                      const next: StoryBrief = { ...b, script: value };
+                      if (id) saveScript(id, next);
+                      return next;
+                    });
+                  }}
+                />
+                {brief.factSheet && brief.factSheet.facts?.length > 0 && (
+                  <FactSheetPanel factSheet={brief.factSheet} />
+                )}
+              </>
             )}
 
           {/* Stage-specific content */}

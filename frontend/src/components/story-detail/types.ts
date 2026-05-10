@@ -122,6 +122,16 @@ export interface StoryBrief {
     confidence: number;
     reason: string | null;
   };
+  factSheet?: {
+    characters: Array<{ canonical: string; role: string; priority: string; details?: string }>;
+    locations: Array<{ name: string; type?: string; significance?: string }>;
+    timeReferences?: Array<{ reference: string; context: string }>;
+    props?: Array<{ item: string; significance: string }>;
+    animals?: Array<{ animal: string; significance: string }>;
+    timeline: Array<{ order: number; date?: string; event: string; weight?: string }>;
+    facts: Array<{ fact: string; category: string; importance: number }>;
+    suggestedHook?: string;
+  };
   pipelineStatus?: {
     stage: string;
     updatedAt?: string;
