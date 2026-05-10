@@ -194,6 +194,7 @@ export default function Stories() {
         body: JSON.stringify({
           channelId,
           headline,
+          stage: "scripting",
           brief: { articleContent: content, channelId },
         }),
       });
