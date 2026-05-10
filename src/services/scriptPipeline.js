@@ -21,7 +21,7 @@ const db = require('../lib/db')
 const logger = require('../lib/logger')
 
 const CATEGORY_ORDER = ['background', 'motive', 'event', 'evidence', 'outcome']
-const MAX_QA_ROUNDS = 2
+const MAX_QA_ROUNDS = 3
 const RESEARCH_FRESHNESS_MS = 24 * 60 * 60 * 1000
 
 const PIPELINE_STAGES = [
@@ -514,37 +514,38 @@ Merge these into ONE script. Output ## TITLE, ## SCRIPT, ## HASHTAGS.`
 // AGENT 5a: QA — ACCURACY
 // ─────────────────────────────────────────────────────────────────────────────
 
-const QA_ACCURACY_SYSTEM = `You are a script QA validator focused on FACTUAL ACCURACY.
-You receive a fact sheet and a generated script. Check for these issues and return JSON:
+const QA_ACCURACY_SYSTEM = `You are a strict script QA validator focused on FACTUAL ACCURACY.
+You receive the COMPLETE fact sheet and a generated script. Compare them LINE BY LINE and return JSON:
 
 {
   "passed": true/false,
   "issues": [
-    { "type": "wrong_location|wrong_name|wrong_date|invented_fact|missing_fact", "severity": "critical|major|minor", "detail": "description" }
+    { "type": "wrong_location|wrong_name|wrong_date|wrong_time|wrong_prop|invented_fact|missing_fact|missing_character|wrong_branded_hook", "severity": "critical|major|minor", "detail": "description — state what the fact sheet says vs what the script says", "fix": "what should be changed" }
   ]
 }
 
-Check:
-1. LOCATIONS: Are all locations exactly as in the fact sheet? Flag if any country or city was changed.
-2. NAMES: Are all character names exactly as in the Character Registry? Flag if changed or translated.
-3. DATES: Are all dates/years exactly as in the fact sheet? Flag if changed.
-4. INVENTED FACTS: Does the script contain any fact NOT in the fact sheet? Flag invented details.
-5. MISSING FACTS: Are there facts in the sheet that the script completely skipped?
+CHECK EVERY CATEGORY:
+1. LOCATIONS: Compare every location in the script against the LOCATIONS section. Flag if ANY country, city, or place was changed, moved, or invented. This is the #1 most common error.
+2. CHARACTERS: Compare every name in the script against the CHARACTER REGISTRY. Flag if ANY name was changed, translated, or a new character was invented.
+3. DATES & TIME: Compare against TIME REFERENCES. Flag if any date, year, time period, or duration was changed.
+4. PROPS & OBJECTS: Compare against PROPS section. Flag if vehicles, weapons, or objects were changed (e.g. car brand changed).
+5. INVENTED FACTS: Does the script contain ANY fact, detail, or dialogue NOT in the fact sheet?
+6. MISSING FACTS: Are there facts in the sheet that the script completely skipped? Check especially MOTIVE and OUTCOME categories.
+7. BRANDED HOOKS: If branded hooks were specified, are they present exactly as given?
 
-Severity: "critical" for wrong names/locations/dates or invented facts. "major" for missing facts. "minor" for trivial omissions.
-"passed" = true only if zero critical/major issues.
+Severity:
+- "critical" for wrong location/country (e.g. saying Kuwait when fact sheet says Egypt), wrong character names, invented facts, missing branded hooks
+- "major" for wrong dates, missing important facts, wrong props
+- "minor" for trivial omissions or minor phrasing issues
+
+"passed" = true ONLY if zero critical AND zero major issues.
 Reply with ONLY valid JSON.`
 
-async function qaAccuracy(script, factSheet, meta) {
+async function qaAccuracy(script, factSheet, factSheetBlock, meta) {
   const apiKey = await registry.requireKey('anthropic')
-  const factsBlock = []
-  if (factSheet.characters?.length > 0) factsBlock.push('CHARACTERS: ' + factSheet.characters.map(c => c.canonical).join(', '))
-  if (factSheet.locations?.length > 0) factsBlock.push('LOCATIONS: ' + factSheet.locations.map(l => l.name).join(', '))
-  if (factSheet.facts?.length > 0) factsBlock.push('FACTS:\n' + factSheet.facts.map(f => `- ${f.fact}`).join('\n'))
-  if (factSheet.timeline?.length > 0) factsBlock.push('TIMELINE:\n' + factSheet.timeline.map(t => `- ${t.date || ''} ${t.event}`).join('\n'))
 
   const raw = await callAnthropicLogged(apiKey, 'claude-haiku-4-5-20251001', [
-    { role: 'user', content: `--- FACT SHEET ---\n${factsBlock.join('\n\n')}\n\n--- SCRIPT ---\n${script.slice(0, 30000)}` },
+    { role: 'user', content: `${factSheetBlock}\n\n--- SCRIPT TO VALIDATE ---\n${script.slice(0, 30000)}` },
   ], {
     system: QA_ACCURACY_SYSTEM,
     maxTokens: 2048,
@@ -774,13 +775,27 @@ async function runScriptPipeline(story, channel, opts = {}) {
     if (qaRound === 0) {
       mergedScript = await mergeScripts(draftNarrator, draftStoryteller, factSheetBlock, ctx, meta)
     } else {
-      const revisionNotes = allQaIssues.map(i => `- [${i.severity}] ${i.type}: ${i.detail}`).join('\n')
-      const revisionMsg = `The previous merge had QA issues. Fix them and re-merge:\n\n${revisionNotes}\n\n--- DRAFT A (Narrator) ---\n${draftNarrator}\n\n--- DRAFT B (Storyteller) ---\n${draftStoryteller}\n\n--- PREVIOUS MERGE (has issues) ---\n${mergedScript}`
+      const revisionNotes = allQaIssues.map(i => {
+        const fix = i.fix ? ` → FIX: ${i.fix}` : ''
+        return `- [${i.severity}] ${i.type}: ${i.detail}${fix}`
+      }).join('\n')
+      const revisionMsg = `The previous script had QA issues. You MUST fix every issue listed below.
+
+--- QA ISSUES (MUST FIX ALL) ---
+${revisionNotes}
+
+--- FACT SHEET (source of truth — use this to correct errors) ---
+${factSheetBlock}
+
+--- PREVIOUS SCRIPT (has issues — fix them) ---
+${mergedScript}
+
+Fix EVERY issue above. Do NOT change anything that was already correct. Output the corrected script in ## TITLE / ## SCRIPT / ## HASHTAGS format.`
       const apiKey = await registry.requireKey('anthropic')
       mergedScript = await callAnthropicLogged(apiKey, 'claude-sonnet-4-20250514', [
         { role: 'user', content: revisionMsg },
       ], {
-        system: MERGE_SYSTEM + '\n\nIMPORTANT: Fix the QA issues listed above. Do NOT repeat the same mistakes.',
+        system: MERGE_SYSTEM + '\n\nIMPORTANT: You are FIXING QA issues. The fact sheet is the source of truth. Every location, name, date, and fact must match the fact sheet EXACTLY.',
         maxTokens: 8192,
         channelId: meta.channelId,
         storyId: meta.storyId,
@@ -795,7 +810,7 @@ async function runScriptPipeline(story, channel, opts = {}) {
     onStage('qa', { message: 'Running quality checks...', round: qaRound })
 
     const [accuracyResult, qualityResult] = await Promise.all([
-      qaAccuracy(mergedScript, organized, meta).catch(err => {
+      qaAccuracy(mergedScript, organized, factSheetBlock, meta).catch(err => {
         logger.warn({ err: err.message }, '[scriptPipeline] QA accuracy failed')
         return { passed: true, issues: [] }
       }),
