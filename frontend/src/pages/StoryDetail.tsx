@@ -4,7 +4,8 @@ import { useChannelPath } from "@/hooks/useChannelPath";
 import {
   Trophy, Eye, ThumbsUp, MessageSquare, Link2, ArrowLeft, Loader2,
   RefreshCw, ExternalLink, Pencil, X, Copy, Check, History,
-  Film, Smartphone, ListVideo, Hash, Sparkles, ChevronDown, Send,
+  Film, Smartphone, ListVideo, Hash, Sparkles, ChevronDown, ChevronUp, Send,
+  FileText,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
@@ -900,6 +901,58 @@ function ManualStoryWorkflow({
   );
 }
 
+function OriginalStoryToggle({ content }: { content: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="rounded-lg bg-card border border-border overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <FileText className="w-3.5 h-3.5 text-orange" />
+          <span className="text-[12px] font-medium text-foreground">Original Story</span>
+          <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-full">
+            {content.split(/\s+/).length.toLocaleString()} words
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {open && (
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(content);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground font-medium transition-colors"
+            >
+              {copied ? <Check className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
+              {copied ? "Copied" : "Copy"}
+            </span>
+          )}
+          {open ? (
+            <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+          )}
+        </div>
+      </button>
+      {open && (
+        <div className="border-t border-border px-4 py-3 max-h-[400px] overflow-y-auto">
+          <div className="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed font-mono" dir="auto">
+            {content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StoryDetail() {
   const { id, channelId } = useParams<{ id: string; channelId: string }>();
   const navigate = useNavigate();
@@ -1563,6 +1616,10 @@ export default function StoryDetail() {
               />
             )}
 
+
+            {activeStage === "scripting" && brief.articleContent && (
+              <OriginalStoryToggle content={brief.articleContent} />
+            )}
 
             {activeStage === "scripting" && (
               <>
