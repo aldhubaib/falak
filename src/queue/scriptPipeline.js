@@ -174,59 +174,65 @@ async function updatePipelineStatus(storyId, stage, data = {}) {
 async function processScriptJob(job) {
   const { storyId, channelId, isShort, forceResearch } = job.data
 
-  const story = await db.story.findUnique({ where: { id: storyId } })
-  if (!story) throw new Error(`Story not found: ${storyId}`)
+  try {
+    const story = await db.story.findUnique({ where: { id: storyId } })
+    if (!story) throw new Error(`Story not found: ${storyId}`)
 
-  const cid = channelId || story.brief?.channelId
-  if (!cid) throw new Error('No channel ID for story')
+    const cid = channelId || story.brief?.channelId
+    if (!cid) throw new Error('No channel ID for story')
 
-  const channel = await db.channel.findFirst({
-    where: { id: cid },
-    select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true, styleDna: true },
-  })
-  if (!channel) throw new Error(`Channel not found: ${cid}`)
+    const channel = await db.channel.findFirst({
+      where: { id: cid },
+      select: { id: true, startHook: true, endHook: true, nationality: true, styleGuide: true, styleDna: true },
+    })
+    if (!channel) throw new Error(`Channel not found: ${cid}`)
 
-  const ctx = await buildPipelineContext(story, channel)
+    const ctx = await buildPipelineContext(story, channel)
 
-  const onStage = (stage, data) => {
-    updatePipelineStatus(storyId, stage, data)
+    const onStage = (stage, data) => {
+      updatePipelineStatus(storyId, stage, data)
+    }
+
+    onStage('research', { message: 'Pipeline started' })
+
+    const result = await runScriptPipeline(story, channel, {
+      ...ctx,
+      isShort: isShort ?? ctx.isShort,
+      forceResearch,
+      onStage,
+    })
+
+    const { parseStructuredScript } = require('../routes/stories')
+    const parsed = parseStructuredScript(result.script)
+
+    const freshStory = await db.story.findUnique({ where: { id: storyId }, select: { brief: true } })
+    const currentBrief = freshStory?.brief || story.brief || {}
+
+    const newBrief = {
+      ...currentBrief,
+      suggestedTitle: parsed.suggestedTitle || currentBrief.suggestedTitle,
+      script: parsed.script || currentBrief.script,
+      youtubeTags: parsed.youtubeTags?.length > 0 ? parsed.youtubeTags : currentBrief.youtubeTags,
+      scriptLength: isShort ? 'short' : 'long',
+      scriptRaw: (result.script || '').trim() || currentBrief.scriptRaw,
+      factSheet: result.factSheet,
+      research: result.research || currentBrief.research,
+      qaResult: result.qaResult,
+      pipelineLog: result.pipelineLog,
+      pipelineStatus: { stage: 'done', updatedAt: new Date().toISOString() },
+    }
+
+    await db.story.update({
+      where: { id: storyId },
+      data: { brief: newBrief, stage: 'scripting' },
+    })
+
+    return { storyId, passed: result.qaResult?.passed }
+  } catch (err) {
+    logger.error({ storyId, err: err.message }, '[script-queue] pipeline job failed')
+    await updatePipelineStatus(storyId, 'error', { error: err.message || 'Pipeline failed' })
+    throw err
   }
-
-  onStage('research', { message: 'Pipeline started' })
-
-  const result = await runScriptPipeline(story, channel, {
-    ...ctx,
-    isShort: isShort ?? ctx.isShort,
-    forceResearch,
-    onStage,
-  })
-
-  const { parseStructuredScript } = require('../routes/stories')
-  const parsed = parseStructuredScript(result.script)
-
-  const freshStory = await db.story.findUnique({ where: { id: storyId }, select: { brief: true } })
-  const currentBrief = freshStory?.brief || story.brief || {}
-
-  const newBrief = {
-    ...currentBrief,
-    suggestedTitle: parsed.suggestedTitle || currentBrief.suggestedTitle,
-    script: parsed.script || currentBrief.script,
-    youtubeTags: parsed.youtubeTags?.length > 0 ? parsed.youtubeTags : currentBrief.youtubeTags,
-    scriptLength: isShort ? 'short' : 'long',
-    scriptRaw: (result.script || '').trim() || currentBrief.scriptRaw,
-    factSheet: result.factSheet,
-    research: result.research || currentBrief.research,
-    qaResult: result.qaResult,
-    pipelineLog: result.pipelineLog,
-    pipelineStatus: { stage: 'done', updatedAt: new Date().toISOString() },
-  }
-
-  await db.story.update({
-    where: { id: storyId },
-    data: { brief: newBrief, stage: 'scripting' },
-  })
-
-  return { storyId, passed: result.qaResult?.passed }
 }
 
 function startScriptWorker() {

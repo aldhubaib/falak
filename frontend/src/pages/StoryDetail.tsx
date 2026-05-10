@@ -1216,7 +1216,14 @@ export default function StoryDetail() {
 
       setBrief((b) => ({ ...b, pipelineStatus: { stage: "queued" } }));
 
+      const pollStart = Date.now();
       pollIntervalRef.current = setInterval(async () => {
+        if (Date.now() - pollStart > 10 * 60 * 1000) {
+          stopPolling();
+          toast.error("Script generation timed out. Check the story for partial results.");
+          setGeneratingScript(false);
+          return;
+        }
         try {
           const statusRes = await fetch(`/api/stories/${id}/pipeline-status`, { credentials: "include" });
           if (!statusRes.ok) return;
