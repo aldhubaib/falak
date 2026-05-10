@@ -123,13 +123,13 @@ export interface StoryBrief {
     reason: string | null;
   };
   factSheet?: {
-    characters: Array<{ canonical: string; role: string; priority: string; details?: string }>;
-    locations: Array<{ name: string; type?: string; significance?: string }>;
-    timeReferences?: Array<{ reference: string; context: string }>;
-    props?: Array<{ item: string; significance: string }>;
-    animals?: Array<{ animal: string; significance: string }>;
-    timeline: Array<{ order: number; date?: string; event: string; weight?: string }>;
-    facts: Array<{ fact: string; category: string; importance: number }>;
+    characters: Array<{ canonical: string; role: string; priority: string; details?: string; excluded?: boolean }>;
+    locations: Array<{ name: string; type?: string; significance?: string; excluded?: boolean }>;
+    timeReferences?: Array<{ reference: string; context: string; excluded?: boolean }>;
+    props?: Array<{ item: string; significance: string; excluded?: boolean }>;
+    animals?: Array<{ animal: string; significance: string; excluded?: boolean }>;
+    timeline: Array<{ order: number; date?: string; event: string; weight?: string; excluded?: boolean }>;
+    facts: Array<{ fact: string; category: string; importance: number; excluded?: boolean; pinned?: boolean }>;
     suggestedHook?: string;
   };
   pipelineStatus?: {

@@ -24,7 +24,7 @@ export {
 } from "./StoryDetailChannelSelector";
 export type { StoryDetailChannelSelectorProps } from "./StoryDetailChannelSelector";
 export { StoryDetailScriptSection } from "./StoryDetailScriptSection";
-export type { StoryDetailScriptSectionProps, ScriptLength } from "./StoryDetailScriptSection";
+export type { StoryDetailScriptSectionProps, ScriptLength, GenerateMode } from "./StoryDetailScriptSection";
 export { StoryDetailStagePassed } from "./StoryDetailStagePassed";
 export type { StoryDetailStagePassedProps } from "./StoryDetailStagePassed";
 export { StoryDetailStageOmit } from "./StoryDetailStageOmit";

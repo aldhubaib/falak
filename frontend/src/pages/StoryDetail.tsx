@@ -1249,17 +1249,33 @@ export default function StoryDetail() {
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
-  const generateScript = useCallback(async () => {
+  const generateScript = useCallback(async (mode?: "full" | "curated") => {
     if (!id || !channelId) { toast.error("No story ID"); return; }
     if (generatingScript) return;
+
+    const useCurated = mode === "curated" && brief.factSheet;
+    if (useCurated) {
+      const newBrief = { ...brief };
+      await fetch(`/api/stories/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: newBrief }),
+      });
+    }
+
     setGeneratingScript(true);
-    toast.info("Generating script (multi-agent pipeline)…");
+    toast.info(useCurated ? "Generating from selected facts…" : "Generating full draft (all facts)…");
     try {
       const res = await fetch(`/api/stories/${id}/generate-script`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scriptLength, channelId }),
+        body: JSON.stringify({
+          scriptLength: mode === "full" ? "long" : scriptLength,
+          channelId,
+          useCuratedFacts: !!useCurated,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -1322,7 +1338,7 @@ export default function StoryDetail() {
       toast.error("Failed to generate script");
       setGeneratingScript(false);
     }
-  }, [id, channelId, scriptLength, generatingScript, stopPolling]);
+  }, [id, channelId, scriptLength, generatingScript, stopPolling, brief]);
 
   const SCRIPT_FIELDS: ScriptField[] = [
     { key: "suggestedTitle", label: "Suggested Title", placeholder: "عنوان الفيديو المقترح...", type: "input" },
@@ -1648,6 +1664,7 @@ export default function StoryDetail() {
                   pipelineStage={brief.pipelineStatus?.stage}
                   pipelineError={brief.pipelineStatus?.error}
                   qaResult={brief.qaResult}
+                  hasFactSheet={!!(brief.factSheet && brief.factSheet.facts?.length > 0)}
                   onScriptChange={(value) => {
                     setBrief((b) => {
                       const next: StoryBrief = { ...b, script: value };
@@ -1657,7 +1674,17 @@ export default function StoryDetail() {
                   }}
                 />
                 {brief.factSheet && brief.factSheet.facts?.length > 0 && (
-                  <FactSheetPanel factSheet={brief.factSheet} />
+                  <FactSheetPanel
+                    factSheet={brief.factSheet}
+                    editable
+                    onChange={(updated) => {
+                      setBrief((b) => {
+                        const next = { ...b, factSheet: updated };
+                        if (id) saveScript(id, next);
+                        return next;
+                      });
+                    }}
+                  />
                 )}
               </>
             )}

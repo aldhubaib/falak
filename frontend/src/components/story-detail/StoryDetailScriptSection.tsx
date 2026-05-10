@@ -4,12 +4,14 @@ import { PipelineStepper } from "./PipelineStepper";
 
 export type ScriptLength = "short" | "long";
 
+export type GenerateMode = "full" | "curated";
+
 export interface StoryDetailScriptSectionProps {
   scriptLength: ScriptLength;
   onScriptLengthChange: (length: ScriptLength) => void;
   canGenerate: boolean;
   generating: boolean;
-  onGenerate: () => Promise<void>;
+  onGenerate: (mode?: GenerateMode) => Promise<void>;
   readOnly: boolean;
   showGenerateControls?: boolean;
   scriptValue?: string;
@@ -23,6 +25,7 @@ export interface StoryDetailScriptSectionProps {
   pipelineStage?: string;
   pipelineError?: string;
   qaResult?: { passed: boolean; issues: Array<{ type: string; severity: string; detail: string }> };
+  hasFactSheet?: boolean;
 }
 
 export function StoryDetailScriptSection({
@@ -44,6 +47,7 @@ export function StoryDetailScriptSection({
   pipelineStage,
   pipelineError,
   qaResult,
+  hasFactSheet = false,
 }: StoryDetailScriptSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -160,24 +164,63 @@ export function StoryDetailScriptSection({
                     </button>
                   </div>
                   <span className="w-px h-4 bg-border" />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (canGenerate && !generating) onGenerate();
-                    }}
-                    disabled={!canGenerate}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
-                      canGenerate ? "text-foreground hover:bg-card" : "text-muted-foreground/30 cursor-not-allowed"
-                    }`}
-                  >
-                    {generating ? (
-                      <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                    ) : (
-                      <Sparkles className="w-3 h-3" />
-                    )}
-                    Generate
-                  </button>
+                  {hasFactSheet ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (canGenerate && !generating) onGenerate("curated");
+                        }}
+                        disabled={!canGenerate}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap ${
+                          canGenerate ? "text-primary hover:bg-primary/10" : "text-muted-foreground/30 cursor-not-allowed"
+                        }`}
+                      >
+                        {generating ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                        ) : (
+                          <Sparkles className="w-3 h-3" />
+                        )}
+                        Generate
+                      </button>
+                      <span className="w-px h-4 bg-border" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (canGenerate && !generating) onGenerate("full");
+                        }}
+                        disabled={!canGenerate}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
+                          canGenerate ? "text-muted-foreground hover:text-foreground hover:bg-card" : "text-muted-foreground/30 cursor-not-allowed"
+                        }`}
+                        title="Generate from ALL facts (ignore selections)"
+                      >
+                        <BookOpen className="w-3 h-3" />
+                        Full
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (canGenerate && !generating) onGenerate();
+                      }}
+                      disabled={!canGenerate}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap rounded-r-full ${
+                        canGenerate ? "text-foreground hover:bg-card" : "text-muted-foreground/30 cursor-not-allowed"
+                      }`}
+                    >
+                      {generating ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      Generate
+                    </button>
+                  )}
                 </>
               ) : (
                 <span className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] text-muted-foreground font-medium">

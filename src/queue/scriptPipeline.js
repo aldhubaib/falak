@@ -48,6 +48,7 @@ async function enqueueScriptJob(storyId, opts = {}) {
     channelId: opts.channelId,
     isShort: opts.isShort ?? true,
     forceResearch: opts.forceResearch ?? false,
+    useCuratedFacts: opts.useCuratedFacts ?? false,
   }, { jobId })
 }
 
@@ -185,7 +186,7 @@ async function updatePipelineStatus(storyId, stage, data = {}) {
  * Process a script pipeline job.
  */
 async function processScriptJob(job) {
-  const { storyId, channelId, isShort, forceResearch } = job.data
+  const { storyId, channelId, isShort, forceResearch, useCuratedFacts } = job.data
 
   try {
     const story = await db.story.findUnique({ where: { id: storyId } })
@@ -212,6 +213,7 @@ async function processScriptJob(job) {
       ...ctx,
       isShort: isShort ?? ctx.isShort,
       forceResearch,
+      useCuratedFacts,
       onStage,
     })
 
@@ -228,7 +230,7 @@ async function processScriptJob(job) {
       youtubeTags: parsed.youtubeTags?.length > 0 ? parsed.youtubeTags : currentBrief.youtubeTags,
       scriptLength: isShort ? 'short' : 'long',
       scriptRaw: (result.script || '').trim() || currentBrief.scriptRaw,
-      factSheet: result.factSheet,
+      factSheet: useCuratedFacts ? currentBrief.factSheet : result.factSheet,
       research: result.research || currentBrief.research,
       qaResult: result.qaResult,
       pipelineLog: result.pipelineLog,

@@ -566,6 +566,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
 
     const isShort = (req.body?.scriptLength || 'short') === 'short'
     const forceResearch = !!req.body?.forceResearch
+    const useCuratedFacts = !!req.body?.useCuratedFacts
 
     // Set initial pipeline status
     await db.story.update({
@@ -580,7 +581,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
     })
 
     const { enqueueScriptJob } = require('../queue/scriptPipeline')
-    const job = await enqueueScriptJob(story.id, { channelId, isShort, forceResearch })
+    const job = await enqueueScriptJob(story.id, { channelId, isShort, forceResearch, useCuratedFacts })
 
     if (job) {
       return res.json({ queued: true, jobId: job.id, message: 'Script generation queued (multi-agent pipeline)' })
@@ -608,6 +609,7 @@ router.post('/:id/generate-script', requireRole('owner', 'admin', 'editor'), asy
         ...ctx,
         isShort,
         forceResearch,
+        useCuratedFacts,
         onStage,
       })
 

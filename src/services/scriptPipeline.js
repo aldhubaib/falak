@@ -228,7 +228,10 @@ Reply with ONLY valid JSON. No markdown fences, no explanation.`
 
 const PROTECTED_CATEGORIES = new Set(['motive', 'outcome'])
 
-function organizeFactSheet(factSheet, isShort, threshold) {
+function organizeFactSheet(factSheet, isShort, threshold, useCurated = false) {
+  if (useCurated) {
+    return applyCuratedFilters(factSheet)
+  }
   const effectiveThreshold = threshold ?? (isShort ? 7 : 5)
   const sheet = {
     ...factSheet,
@@ -248,6 +251,28 @@ function organizeFactSheet(factSheet, isShort, threshold) {
     )
   }
   sheet.facts.sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a.category)
+    const bi = CATEGORY_ORDER.indexOf(b.category)
+    if (ai !== bi) return ai - bi
+    return b.importance - a.importance
+  })
+  return sheet
+}
+
+function applyCuratedFilters(factSheet) {
+  const sheet = {
+    characters: (factSheet.characters || []).filter(c => !c.excluded),
+    locations: (factSheet.locations || []).filter(l => !l.excluded),
+    timeReferences: (factSheet.timeReferences || []).filter(t => !t.excluded),
+    props: (factSheet.props || []).filter(p => !p.excluded),
+    animals: (factSheet.animals || []).filter(a => !a.excluded),
+    timeline: (factSheet.timeline || []).filter(t => !t.excluded),
+    facts: (factSheet.facts || []).filter(f => !f.excluded),
+    suggestedHook: factSheet.suggestedHook,
+  }
+  sheet.facts.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1
+    if (!a.pinned && b.pinned) return 1
     const ai = CATEGORY_ORDER.indexOf(a.category)
     const bi = CATEGORY_ORDER.indexOf(b.category)
     if (ai !== bi) return ai - bi
@@ -317,7 +342,10 @@ function formatFactSheetBlock(factSheet) {
       outcome: 'OUTCOME (النتيجة) — NEVER skip these',
     }[cat] || cat
     msg += `--- ${label} ---\n`
-    catFacts.forEach(f => { msg += `• ${f.fact}\n` })
+    catFacts.forEach(f => {
+      const pin = f.pinned ? ' ⭐ [MUST-KEEP — give this extra depth and detail]' : ''
+      msg += `• ${f.fact}${pin}\n`
+    })
     msg += '\n'
   }
   msg += `=== END FACT SHEET ===\n`
@@ -735,23 +763,29 @@ async function runScriptPipeline(story, channel, opts = {}) {
   }
 
   // ── Stage 2: FACT SHEET ──────────────────────────────────────────────────
-  onStage('facts', { message: 'Building fact sheet...' })
+  onStage('facts', { message: opts.useCuratedFacts ? 'Using curated fact sheet...' : 'Building fact sheet...' })
   const articleContent = brief.articleContent || ''
   let factSheet
-  try {
-    if (research?.brief || research?.briefAr) {
-      factSheet = buildFactSheetFromResearch(research, articleContent)
-    } else if (articleContent && articleContent !== '__SCRAPE_FAILED__' && articleContent !== '__YOUTUBE__') {
-      factSheet = await extractFactsFallback(articleContent.slice(0, 120000), meta)
-    } else {
-      throw new Error('No research data or article content available')
+
+  if (opts.useCuratedFacts && brief.factSheet && brief.factSheet.facts?.length > 0) {
+    factSheet = brief.factSheet
+    logStep('FACT_SHEET', { status: 'ok', curated: true })
+  } else {
+    try {
+      if (research?.brief || research?.briefAr) {
+        factSheet = buildFactSheetFromResearch(research, articleContent)
+      } else if (articleContent && articleContent !== '__SCRAPE_FAILED__' && articleContent !== '__YOUTUBE__') {
+        factSheet = await extractFactsFallback(articleContent.slice(0, 120000), meta)
+      } else {
+        throw new Error('No research data or article content available')
+      }
+    } catch (err) {
+      logStep('FACT_SHEET', { status: 'error', error: err.message })
+      throw err
     }
-  } catch (err) {
-    logStep('FACT_SHEET', { status: 'error', error: err.message })
-    throw err
   }
 
-  const organized = organizeFactSheet(factSheet, opts.isShort)
+  const organized = organizeFactSheet(factSheet, opts.isShort, undefined, !!opts.useCuratedFacts)
   const factSheetBlock = formatFactSheetBlock(organized)
   logStep('FACT_SHEET', { status: 'ok', factsCount: organized.facts.length, charactersCount: organized.characters.length })
   onStage('facts_done', { factsCount: organized.facts.length, charactersCount: organized.characters.length })
@@ -760,12 +794,23 @@ async function runScriptPipeline(story, channel, opts = {}) {
   onStage('writing', { message: 'Writing drafts (narrator + storyteller)...' })
 
   const fewShotPrefix = opts.fewShotBlock ? opts.fewShotBlock + '\n\n' : ''
-  const factInstruction = opts.isShort
-    ? 'Write a SHORT video script (under 3 minutes) from the IMMUTABLE FACT SHEET below.\n' +
+  let factInstruction
+  if (opts.useCuratedFacts) {
+    const pinnedCount = organized.facts.filter(f => f.pinned).length
+    factInstruction = 'Write a video script from the CURATED FACT SHEET below.\n' +
+      'The user has HAND-PICKED these specific facts from the full story. Use ALL of them.\n' +
+      (pinnedCount > 0
+        ? `${pinnedCount} facts are marked ⭐ MUST-KEEP — give these extra detail, emotional depth, and narrative weight.\n`
+        : '') +
+      'You MUST NOT add, change, or infer anything not listed.\n'
+  } else if (opts.isShort) {
+    factInstruction = 'Write a SHORT video script (under 3 minutes) from the IMMUTABLE FACT SHEET below.\n' +
       'The fact sheet has been pre-filtered to high-importance facts only. Use them to tell a compelling, focused story.\n' +
       'You MUST NOT add, change, or infer anything not listed. Focus on emotional impact over completeness.\n'
-    : 'Write a detailed, comprehensive video script from the IMMUTABLE FACT SHEET below.\n' +
+  } else {
+    factInstruction = 'Write a detailed, comprehensive video script from the IMMUTABLE FACT SHEET below.\n' +
       'You MUST use ALL facts. You MUST NOT add, change, or infer anything not listed.\n'
+  }
   const userMessage = fewShotPrefix + factInstruction + '\n' +
     factSheetBlock +
     (brief.uniqueAngle ? `\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}\n` : '')
