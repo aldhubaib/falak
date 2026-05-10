@@ -357,7 +357,7 @@ function ManualStoryWorkflow({
           <div className="flex items-center gap-2">
             {story.origin === "manual" && (
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-orange/15 text-orange border border-orange/20">
-                Manual Video
+                {brief.articleContent ? "Manual Story" : "Manual Video"}
               </span>
             )}
             {brief.videoFormat && (
@@ -1511,7 +1511,7 @@ export default function StoryDetail() {
                   </div>
                 )}
               </>
-            ) : story.origin === "manual" ? (
+            ) : story.origin === "manual" && !brief.articleContent ? (
               <ManualStoryWorkflow
                 story={story}
                 brief={brief}
