@@ -123,6 +123,16 @@ export interface StoryBrief {
     reason: string | null;
   };
   factSheet?: {
+    scenes?: Array<{
+      id: string;
+      title: string;
+      summary: string;
+      factIndices: number[];
+      timelineIndices: number[];
+      characterNames: string[];
+      locationNames: string[];
+      excluded?: boolean;
+    }>;
     characters: Array<{ canonical: string; role: string; priority: string; details?: string; excluded?: boolean }>;
     locations: Array<{ name: string; type?: string; significance?: string; excluded?: boolean }>;
     timeReferences?: Array<{ reference: string; context: string; excluded?: boolean }>;

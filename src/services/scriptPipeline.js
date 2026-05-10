@@ -155,18 +155,31 @@ async function extractFactsFallback(sourceText, meta) {
     throw new Error('Failed to parse extracted facts JSON')
   }
 
+  const facts = Array.isArray(parsed.facts) ? parsed.facts.map(f => ({
+    fact: String(f.fact || ''),
+    importance: Math.min(10, Math.max(1, Number(f.importance) || 5)),
+    category: CATEGORY_ORDER.includes(f.category) ? f.category : 'event',
+  })) : []
+
+  const scenes = Array.isArray(parsed.scenes) ? parsed.scenes.map((s, i) => ({
+    id: s.id || `scene_${i + 1}`,
+    title: String(s.title || `مشهد ${i + 1}`),
+    summary: String(s.summary || ''),
+    factIndices: Array.isArray(s.factIndices) ? s.factIndices.filter(n => typeof n === 'number') : [],
+    timelineIndices: Array.isArray(s.timelineIndices) ? s.timelineIndices.filter(n => typeof n === 'number') : [],
+    characterNames: Array.isArray(s.characterNames) ? s.characterNames : [],
+    locationNames: Array.isArray(s.locationNames) ? s.locationNames : [],
+  })) : []
+
   return {
     characters: Array.isArray(parsed.characters) ? parsed.characters : [],
     timeline: Array.isArray(parsed.timeline) ? parsed.timeline : [],
-    facts: Array.isArray(parsed.facts) ? parsed.facts.map(f => ({
-      fact: String(f.fact || ''),
-      importance: Math.min(10, Math.max(1, Number(f.importance) || 5)),
-      category: CATEGORY_ORDER.includes(f.category) ? f.category : 'event',
-    })) : [],
+    facts,
     locations: Array.isArray(parsed.locations) ? parsed.locations : [],
     timeReferences: Array.isArray(parsed.timeReferences) ? parsed.timeReferences : [],
     props: Array.isArray(parsed.props) ? parsed.props : [],
     animals: Array.isArray(parsed.animals) ? parsed.animals : [],
+    scenes,
     suggestedHook: '',
     competitionInsight: '',
     articleContent: sourceText,
@@ -177,9 +190,20 @@ const EXTRACT_SYSTEM = `You are a fact-extraction engine. You receive a story/ar
 
 IMPORTANT: ALL output text MUST be in Arabic. Write facts, descriptions, roles, significance — everything in Arabic. Only JSON keys and enum values (like "core", "city", "background") stay in English.
 
-Extract EVERY distinct fact and entity into a structured JSON object:
+Extract EVERY distinct fact and entity AND group them into scenes:
 
 {
+  "scenes": [
+    {
+      "id": "scene_1",
+      "title": "عنوان قصير للمشهد بالعربي — ٥ كلمات أو أقل",
+      "summary": "ملخص المشهد في جملة أو جملتين بالعربي",
+      "factIndices": [0, 1, 2],
+      "timelineIndices": [0, 1],
+      "characterNames": ["منيف"],
+      "locationNames": ["المدينة الفلانية"]
+    }
+  ],
   "characters": [
     { "canonical": "الاسم بالضبط من المقال", "role": "وصف بالعربي", "priority": "core|supporting|background", "details": "العمر، الوظيفة، المظهر، العلاقات — أي شيء مذكور" }
   ],
@@ -203,7 +227,17 @@ Extract EVERY distinct fact and entity into a structured JSON object:
   ]
 }
 
-القواعد:
+قواعد المشاهد (scenes):
+- قسّم القصة إلى ٨-١٥ مشهد حسب طول القصة.
+- كل مشهد = جزء منطقي من القصة (مكان، حدث، لحظة).
+- "factIndices" = أرقام الحقائق في مصفوفة "facts" اللي تنتمي لهذا المشهد (0-based).
+- "timelineIndices" = أرقام الأحداث في "timeline" اللي تنتمي لهذا المشهد (0-based).
+- "characterNames" = أسماء الشخصيات المشاركة في هذا المشهد (canonical names).
+- "locationNames" = أسماء الأماكن في هذا المشهد.
+- كل حقيقة لازم تنتمي لمشهد واحد على الأقل.
+- رتّب المشاهد حسب ترتيبها في القصة.
+
+القواعد العامة:
 - استخرج كل حقيقة وكيان. لا تدمج ولا تلخص.
 - أسماء الشخصيات لازم تكون بالضبط كما هي مكتوبة — لا تترجم ولا تغير.
 - المواقع لازم تكون بالضبط كما مذكورة — لا تغير الدولة أو المدينة.
@@ -260,15 +294,42 @@ function organizeFactSheet(factSheet, isShort, threshold, useCurated = false) {
 }
 
 function applyCuratedFilters(factSheet) {
+  const scenes = factSheet.scenes || []
+  const excludedFactIndices = new Set()
+  const excludedTimelineIndices = new Set()
+  const excludedCharNames = new Set()
+  const excludedLocNames = new Set()
+
+  for (const scene of scenes) {
+    if (!scene.excluded) continue
+    for (const idx of (scene.factIndices || [])) excludedFactIndices.add(idx)
+    for (const idx of (scene.timelineIndices || [])) excludedTimelineIndices.add(idx)
+    for (const name of (scene.characterNames || [])) excludedCharNames.add(name)
+    for (const name of (scene.locationNames || [])) excludedLocNames.add(name)
+  }
+
+  const includedScenes = scenes.filter(s => !s.excluded)
+  const includedCharNames = new Set()
+  const includedLocNames = new Set()
+  for (const scene of includedScenes) {
+    for (const name of (scene.characterNames || [])) includedCharNames.add(name)
+    for (const name of (scene.locationNames || [])) includedLocNames.add(name)
+  }
+
   const sheet = {
-    characters: (factSheet.characters || []).filter(c => !c.excluded),
-    locations: (factSheet.locations || []).filter(l => !l.excluded),
+    characters: (factSheet.characters || []).filter(c =>
+      !c.excluded && !(excludedCharNames.has(c.canonical) && !includedCharNames.has(c.canonical))
+    ),
+    locations: (factSheet.locations || []).filter(l =>
+      !l.excluded && !(excludedLocNames.has(l.name) && !includedLocNames.has(l.name))
+    ),
     timeReferences: (factSheet.timeReferences || []).filter(t => !t.excluded),
     props: (factSheet.props || []).filter(p => !p.excluded),
     animals: (factSheet.animals || []).filter(a => !a.excluded),
-    timeline: (factSheet.timeline || []).filter(t => !t.excluded),
-    facts: (factSheet.facts || []).filter(f => !f.excluded),
+    timeline: (factSheet.timeline || []).filter((t, i) => !t.excluded && !excludedTimelineIndices.has(i)),
+    facts: (factSheet.facts || []).filter((f, i) => !f.excluded && !excludedFactIndices.has(i)),
     suggestedHook: factSheet.suggestedHook,
+    scenes: includedScenes,
   }
   sheet.facts.sort((a, b) => {
     if (a.pinned && !b.pinned) return -1

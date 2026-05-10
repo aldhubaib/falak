@@ -20,8 +20,7 @@ import {
   StoryDetailStageOmit,
   VideoUpload,
   TranscriptSection,
-  FactSheetPanel,
-  SelectionSummary,
+  SceneSelector,
 } from "@/components/story-detail";
 import type { ScriptField } from "@/components/story-detail";
 
@@ -1758,29 +1757,51 @@ export default function StoryDetail() {
                   </div>
                 )}
 
-                {/* Step 3: Fact Sheet (editable — user selects/pins) */}
+                {/* Step 3 + 4: Scene Selector or fallback generate */}
                 {brief.factSheet && brief.factSheet.facts?.length > 0 && (
-                  <FactSheetPanel
-                    factSheet={brief.factSheet}
-                    editable
-                    onChange={(updated) => {
-                      setBrief((b) => {
-                        const next = { ...b, factSheet: updated };
-                        if (id) saveScript(id, next);
-                        return next;
-                      });
-                    }}
-                  />
-                )}
-
-                {/* Step 4: Selection Summary + Generate buttons */}
-                {brief.factSheet && brief.factSheet.facts?.length > 0 && (
-                  <SelectionSummary
-                    factSheet={brief.factSheet}
-                    canGenerate={!!channelId}
-                    generating={generatingScript}
-                    onGenerate={(mode) => generateScript(mode)}
-                  />
+                  brief.factSheet.scenes?.length ? (
+                    <SceneSelector
+                      factSheet={brief.factSheet}
+                      onChange={(updated) => {
+                        setBrief((b) => {
+                          const next = { ...b, factSheet: updated };
+                          if (id) saveScript(id, next);
+                          return next;
+                        });
+                      }}
+                      canGenerate={!!channelId}
+                      generating={generatingScript}
+                      onGenerate={(mode) => generateScript(mode)}
+                    />
+                  ) : (
+                    <div className="rounded-lg bg-card border border-border p-4 flex items-center gap-3">
+                      <p className="text-[11px] text-muted-foreground flex-1">
+                        Facts extracted (legacy format). Re-extract for scene-based selection.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => generateScript("full")}
+                        disabled={!channelId || generatingScript}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-colors ${
+                          channelId && !generatingScript
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "bg-muted text-muted-foreground cursor-not-allowed"
+                        }`}
+                      >
+                        {generatingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        Generate Script
+                      </button>
+                      <button
+                        type="button"
+                        onClick={extractFacts}
+                        disabled={extractingFacts}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium border border-border text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Re-extract
+                      </button>
+                    </div>
+                  )
                 )}
 
                 {/* Step 5: Script output */}

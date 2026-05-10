@@ -35,4 +35,5 @@ export { VideoUpload } from "./VideoUpload";
 export { TranscriptSection } from "./TranscriptSection";
 export { FactSheetPanel } from "./FactSheetPanel";
 export { SelectionSummary } from "./SelectionSummary";
+export { SceneSelector } from "./SceneSelector";
 export type { TranscriptSectionProps } from "./TranscriptSection";
