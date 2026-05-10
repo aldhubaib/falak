@@ -79,7 +79,17 @@ async function buildPipelineContext(story, channel) {
   const isShort = (brief.scriptLength || 'short') === 'short'
 
   const durationInstruction = isShort
-    ? 'Write a CONCISE but COMPLETE script. Aim for 2-4 minutes of speaking time. You MUST include EVERY fact from the source — do NOT skip or omit any detail, no matter how small. To keep it concise, say each fact in fewer words rather than removing facts entirely. Character backgrounds (job, location, family situation, where they work/live) are essential context — never skip them. Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).'
+    ? `Write a SHORT, punchy script under 3 minutes of speaking time (~400-500 words).
+
+STORYTELLING STRATEGY FOR SHORT SCRIPTS:
+- Focus on the CORE NARRATIVE ARC: setup → tension → climax → resolution
+- Use only the facts provided in the fact sheet (already filtered to high-importance only)
+- Give emotional beats breathing room — do NOT rush through key moments
+- It is BETTER to tell fewer facts with full dramatic impact than to cram everything in
+- The hook, the climax, and the resolution are the most important moments — invest time in them
+- Minor details and background characters have already been removed — trust the fact sheet
+
+Include timestamps every 15–30 seconds (e.g. 0:00, 0:15, 0:30, 1:00).`
     : 'Write a COMPREHENSIVE, detailed script covering the full story with all context, background, and nuance from the source. Aim for 5-10+ minutes of speaking time. Do not skip anything important. Include timestamps at logical section breaks (e.g. 0:00, 1:00, 5:00, 10:00).'
 
   const guide = (channel.styleGuide && typeof channel.styleGuide === 'object') ? channel.styleGuide : null

@@ -217,7 +217,8 @@ Reply with ONLY valid JSON. No markdown fences, no explanation.`
 
 const PROTECTED_CATEGORIES = new Set(['motive', 'outcome'])
 
-function organizeFactSheet(factSheet, isShort, threshold = 5) {
+function organizeFactSheet(factSheet, isShort, threshold) {
+  const effectiveThreshold = threshold ?? (isShort ? 7 : 5)
   const sheet = {
     ...factSheet,
     timeReferences: factSheet.timeReferences || [],
@@ -226,12 +227,14 @@ function organizeFactSheet(factSheet, isShort, threshold = 5) {
   }
   if (isShort) {
     sheet.facts = factSheet.facts.filter(f =>
-      f.importance >= threshold || PROTECTED_CATEGORIES.has(f.category)
+      f.importance >= effectiveThreshold || PROTECTED_CATEGORIES.has(f.category)
     )
-    sheet.characters = factSheet.characters.filter(c =>
-      c.priority === 'core' || c.priority === 'supporting'
+    sheet.characters = factSheet.characters.filter(c => c.priority === 'core')
+    sheet.timeline = factSheet.timeline.filter(t => t.weight === 'extended')
+    sheet.timeReferences = (factSheet.timeReferences || []).slice(0, 5)
+    sheet.props = (factSheet.props || []).filter(p =>
+      /weapon|evidence|vehicle|key|murder|kill/i.test(p.significance)
     )
-    sheet.timeline = factSheet.timeline.filter(t => t.weight !== 'brief')
   }
   sheet.facts.sort((a, b) => {
     const ai = CATEGORY_ORDER.indexOf(a.category)
@@ -746,9 +749,13 @@ async function runScriptPipeline(story, channel, opts = {}) {
   onStage('writing', { message: 'Writing drafts (narrator + storyteller)...' })
 
   const fewShotPrefix = opts.fewShotBlock ? opts.fewShotBlock + '\n\n' : ''
-  const userMessage = fewShotPrefix +
-    `Write a ${opts.isShort ? 'short, concise' : 'detailed, comprehensive'} video script from the IMMUTABLE FACT SHEET below.\n` +
-    `You MUST use ALL facts. You MUST NOT add, change, or infer anything not listed.\n\n` +
+  const factInstruction = opts.isShort
+    ? 'Write a SHORT video script (under 3 minutes) from the IMMUTABLE FACT SHEET below.\n' +
+      'The fact sheet has been pre-filtered to high-importance facts only. Use them to tell a compelling, focused story.\n' +
+      'You MUST NOT add, change, or infer anything not listed. Focus on emotional impact over completeness.\n'
+    : 'Write a detailed, comprehensive video script from the IMMUTABLE FACT SHEET below.\n' +
+      'You MUST use ALL facts. You MUST NOT add, change, or infer anything not listed.\n'
+  const userMessage = fewShotPrefix + factInstruction + '\n' +
     factSheetBlock +
     (brief.uniqueAngle ? `\n--- UNIQUE ANGLE ---\n${brief.uniqueAngle}\n` : '')
 
@@ -821,6 +828,9 @@ Fix EVERY issue above. Do NOT change anything that was already correct. Output t
     ])
 
     allQaIssues = [...(accuracyResult.issues || []), ...(qualityResult.issues || [])]
+    if (opts.isShort) {
+      allQaIssues = allQaIssues.filter(i => i.type !== 'missing_fact')
+    }
     const hasCritical = allQaIssues.some(i => i.severity === 'critical')
     const hasMajor = allQaIssues.some(i => i.severity === 'major')
     qaPassed = accuracyResult.passed && qualityResult.passed
