@@ -257,10 +257,6 @@ function formatFactSheetBlock(factSheet) {
   }
   msg += `=== END FACT SHEET ===\n`
 
-  if (factSheet.articleContent) {
-    msg += `\n--- SUPPLEMENTARY ARTICLE (for additional detail only — fact sheet above is the source of truth) ---\n`
-    msg += factSheet.articleContent.slice(0, 60000) + '\n'
-  }
   if (factSheet.suggestedHook) {
     msg += `\n--- SUGGESTED HOOK ---\n${factSheet.suggestedHook}\n`
   }
