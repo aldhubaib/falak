@@ -346,13 +346,19 @@ CRITICAL: The dialect is how you SPEAK, not where the story HAPPENED. Never chan
 - Adding emotional editorializing beyond what the facts support
 
 ## SCRIPT STRUCTURE
-1. **Opening hook** (0:00)
-${ctx.hookStartBlock ? `2. **Branded hook** — ${ctx.hookStartBlock}` : ''}
+1. **Opening hook** (0:00) — ONE short sentence (max 2 lines) that grabs attention. Keep it under 10 seconds.
+${ctx.hookStartBlock ? `2. **Branded hook** — MUST include this EXACT phrase: "${ctx.hookStartBlock}"` : ''}
 3. **Setup** — Introduce all characters with their backgrounds
 4. **Events** — Present every event from the timeline
 5. **Evidence** — How truth came out
 6. **Resolution** — Verdict, consequences
-${ctx.hookEndBlock ? `7. **Branded sign-off** — ${ctx.hookEndBlock}` : ''}
+${ctx.hookEndBlock ? `7. **Branded sign-off** — MUST end with this EXACT phrase: "${ctx.hookEndBlock}"` : ''}
+
+HOOK RULES:
+- The opening hook MUST be SHORT — one compelling question or shocking statement, max 2 lines
+- Do NOT combine the hook with character introductions or backstory
+${ctx.hookStartBlock ? `- After the opening hook, you MUST include the branded hook "${ctx.hookStartBlock}" as a separate line` : ''}
+${ctx.hookEndBlock ? `- The script MUST end with the branded sign-off "${ctx.hookEndBlock}" as the final line` : ''}
 
 ${ctx.durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
@@ -405,14 +411,20 @@ CRITICAL: The dialect is how you SPEAK, not where the story HAPPENED. Never chan
 - Skipping facts to make the story shorter
 
 ## SCRIPT STRUCTURE
-1. **Opening hook** (0:00) — compelling question or shocking contrast
-${ctx.hookStartBlock ? `2. **Branded hook** — ${ctx.hookStartBlock}` : ''}
+1. **Opening hook** (0:00) — ONE short compelling question or shocking contrast, max 2 lines. Keep it under 10 seconds.
+${ctx.hookStartBlock ? `2. **Branded hook** — MUST include this EXACT phrase: "${ctx.hookStartBlock}"` : ''}
 3. **Setup** — Introduce characters with emotional context
 4. **Rising tension** — Reveal the plan, warning signs, betrayal
 5. **The incident** — The climax, don't rush it
 6. **Investigation** — How truth came out
 7. **Resolution & Reflection** — Verdict + closing thought
-${ctx.hookEndBlock ? `8. **Branded sign-off** — ${ctx.hookEndBlock}` : ''}
+${ctx.hookEndBlock ? `8. **Branded sign-off** — MUST end with this EXACT phrase: "${ctx.hookEndBlock}"` : ''}
+
+HOOK RULES:
+- The opening hook MUST be SHORT — one compelling question or shocking statement, max 2 lines
+- Do NOT combine the hook with character introductions or backstory
+${ctx.hookStartBlock ? `- After the opening hook, you MUST include the branded hook "${ctx.hookStartBlock}" as a separate line` : ''}
+${ctx.hookEndBlock ? `- The script MUST end with the branded sign-off "${ctx.hookEndBlock}" as the final line` : ''}
 
 ${ctx.durationInstruction}
 Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
@@ -463,7 +475,9 @@ RULES:
 - Use the same dialect as the drafts
 - Keep the same timestamp format (0:00, 0:15, 0:30...)
 - Output in the same ## TITLE / ## SCRIPT / ## HASHTAGS format
-- Prefer the more emotionally compelling version when both drafts cover the same fact`
+- Prefer the more emotionally compelling version when both drafts cover the same fact
+- The opening hook MUST be SHORT — one sentence, max 2 lines, under 10 seconds
+- If branded hooks are provided, they MUST appear exactly as given — do NOT skip or rephrase them`
 
 async function mergeScripts(draftA, draftB, factSheetBlock, ctx, meta) {
   const apiKey = await registry.requireKey('anthropic')
@@ -471,8 +485,8 @@ async function mergeScripts(draftA, draftB, factSheetBlock, ctx, meta) {
 
 ${ctx.durationInstruction}
 
-${ctx.hookStartBlock ? `Branded opening hook: ${ctx.hookStartBlock}` : ''}
-${ctx.hookEndBlock ? `Branded closing hook: ${ctx.hookEndBlock}` : ''}
+${ctx.hookStartBlock ? `MANDATORY branded opening hook (MUST include this EXACT phrase after the opening hook): "${ctx.hookStartBlock}"` : ''}
+${ctx.hookEndBlock ? `MANDATORY branded closing hook (MUST end with this EXACT phrase): "${ctx.hookEndBlock}"` : ''}
 
 --- FACT SHEET (reference for completeness check) ---
 ${factSheetBlock}
