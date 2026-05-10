@@ -213,6 +213,15 @@ Rules:
 - "weight" on timeline: "extended" for major events, "normal" for regular, "brief" for minor.
 - "priority" on characters: "core" for main characters, "supporting" for secondary, "background" for mentioned-only.
 
+CRITICAL — Anonymized/placeholder references:
+- Arabic stories often use placeholder words to keep names anonymous:
+  "الفلانية" / "الفلاني" / "فلان" = "such-and-such" (anonymous placeholder)
+  "الشركة الفلانية" = "an unnamed company", "المدينة الفلانية" = "an unnamed city"
+- When you see these, mark them as anonymous: { "name": "مدينة غير مسماة (unnamed city)", "type": "city", "significance": "..." }
+- Do NOT treat "الفلانية" as a real name. It means the narrator chose not to reveal the real name.
+- Do NOT invent or guess what the real name might be.
+- Similarly: "هذاك الشخص" (that person), "واحد من الشباب" (one of the guys) = unnamed characters. Use descriptive labels like "شاب مجهول على الطريق" (unknown young man on the road).
+
 Reply with ONLY valid JSON. No markdown fences, no explanation.`
 
 const PROTECTED_CATEGORIES = new Set(['motive', 'outcome'])
