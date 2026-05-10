@@ -126,6 +126,9 @@ function buildFactSheetFromResearch(research, articleContent) {
 
   return {
     characters, timeline, facts, locations,
+    timeReferences: [],
+    props: [],
+    animals: [],
     suggestedHook: raw.suggestedHook || '',
     competitionInsight: raw.competitionInsight || research.competitionInsight || '',
     articleContent: articleContent || '',
@@ -161,37 +164,52 @@ async function extractFactsFallback(sourceText, meta) {
       category: CATEGORY_ORDER.includes(f.category) ? f.category : 'event',
     })) : [],
     locations: Array.isArray(parsed.locations) ? parsed.locations : [],
+    timeReferences: Array.isArray(parsed.timeReferences) ? parsed.timeReferences : [],
+    props: Array.isArray(parsed.props) ? parsed.props : [],
+    animals: Array.isArray(parsed.animals) ? parsed.animals : [],
     suggestedHook: '',
     competitionInsight: '',
     articleContent: sourceText,
   }
 }
 
-const EXTRACT_SYSTEM = `You are a fact-extraction engine. You receive a news article about a real event.
+const EXTRACT_SYSTEM = `You are a fact-extraction engine. You receive a story/article about a real event.
 
-Extract EVERY distinct fact into a structured JSON object with these fields:
+Extract EVERY distinct fact and entity into a structured JSON object. Categorize them so the AI writer understands each part of the story world:
 
 {
   "characters": [
-    { "canonical": "exact name from article", "role": "description", "priority": "core|supporting|background" }
+    { "canonical": "exact name from article", "role": "description", "priority": "core|supporting|background", "details": "age, job, appearance, relationships — anything mentioned" }
+  ],
+  "locations": [
+    { "name": "exact location name", "type": "country|city|neighborhood|building|road|other", "significance": "why this place matters to the story" }
+  ],
+  "timeReferences": [
+    { "reference": "exact time/date/period mentioned", "context": "what happened at this time" }
   ],
   "timeline": [
     { "order": 0, "date": "date if mentioned", "event": "what happened", "weight": "brief|normal|extended" }
   ],
+  "props": [
+    { "item": "object name", "significance": "role in the story — weapon, evidence, vehicle, tool, etc." }
+  ],
+  "animals": [
+    { "animal": "type/name", "significance": "role in the story" }
+  ],
   "facts": [
     { "fact": "one fact per entry", "category": "background|motive|event|evidence|outcome", "importance": 1-10 }
-  ],
-  "locations": [
-    { "name": "exact location name from article" }
   ]
 }
 
 Rules:
-- Extract EVERY fact. Do not merge or summarize.
-- Character names must be EXACTLY as written in the article — never translate, adapt, or change them.
+- Extract EVERY fact and entity. Do not merge or summarize.
+- Character names must be EXACTLY as written — never translate, adapt, or change them.
 - Locations must be EXACTLY as mentioned — never change the country or city.
 - Dates and numbers must be EXACTLY as in the source.
-- "importance" 10 = essential (who, what happened, verdict), 7-9 = very important (motive, backgrounds), 4-6 = supporting, 1-3 = trivial.
+- "props" = any physical objects important to the story: vehicles (car brands, توك توك), weapons (knives, guns), phones, clothing, money, documents, food, etc.
+- "animals" = any animals mentioned (pets, livestock, wildlife). Omit if none.
+- "timeReferences" = every time marker: years, seasons, times of day, durations (e.g. "6 months", "after Fajr prayer", "end of 2024").
+- "importance" 10 = essential, 7-9 = very important, 4-6 = supporting, 1-3 = trivial.
 - "weight" on timeline: "extended" for major events, "normal" for regular, "brief" for minor.
 - "priority" on characters: "core" for main characters, "supporting" for secondary, "background" for mentioned-only.
 
@@ -200,7 +218,12 @@ Reply with ONLY valid JSON. No markdown fences, no explanation.`
 const PROTECTED_CATEGORIES = new Set(['motive', 'outcome'])
 
 function organizeFactSheet(factSheet, isShort, threshold = 5) {
-  const sheet = { ...factSheet }
+  const sheet = {
+    ...factSheet,
+    timeReferences: factSheet.timeReferences || [],
+    props: factSheet.props || [],
+    animals: factSheet.animals || [],
+  }
   if (isShort) {
     sheet.facts = factSheet.facts.filter(f =>
       f.importance >= threshold || PROTECTED_CATEGORIES.has(f.category)
@@ -223,13 +246,41 @@ function formatFactSheetBlock(factSheet) {
   let msg = `=== IMMUTABLE FACT SHEET (locked — do not modify any data) ===\n\n`
 
   if (factSheet.characters.length > 0) {
-    msg += `--- CHARACTER REGISTRY (use canonical names EXACTLY) ---\n`
-    factSheet.characters.forEach(c => { msg += `• ${c.canonical} [${c.priority}]: ${c.role}\n` })
+    msg += `--- CHARACTERS (use canonical names EXACTLY) ---\n`
+    factSheet.characters.forEach(c => {
+      const details = c.details ? ` — ${c.details}` : ''
+      msg += `• ${c.canonical} [${c.priority}]: ${c.role}${details}\n`
+    })
     msg += '\n'
   }
   if (factSheet.locations.length > 0) {
-    msg += `--- LOCATIONS (use EXACTLY as written) ---\n`
-    factSheet.locations.forEach(l => { msg += `• ${l.name}\n` })
+    msg += `--- LOCATIONS (use EXACTLY as written — do NOT change countries/cities) ---\n`
+    factSheet.locations.forEach(l => {
+      const type = l.type ? ` [${l.type}]` : ''
+      const sig = l.significance ? ` — ${l.significance}` : ''
+      msg += `• ${l.name}${type}${sig}\n`
+    })
+    msg += '\n'
+  }
+  if (factSheet.timeReferences && factSheet.timeReferences.length > 0) {
+    msg += `--- TIME REFERENCES (use EXACTLY as mentioned) ---\n`
+    factSheet.timeReferences.forEach(t => {
+      msg += `• ${t.reference}: ${t.context}\n`
+    })
+    msg += '\n'
+  }
+  if (factSheet.props && factSheet.props.length > 0) {
+    msg += `--- PROPS & OBJECTS ---\n`
+    factSheet.props.forEach(p => {
+      msg += `• ${p.item}: ${p.significance}\n`
+    })
+    msg += '\n'
+  }
+  if (factSheet.animals && factSheet.animals.length > 0) {
+    msg += `--- ANIMALS ---\n`
+    factSheet.animals.forEach(a => {
+      msg += `• ${a.animal}: ${a.significance}\n`
+    })
     msg += '\n'
   }
   if (factSheet.timeline.length > 0) {
