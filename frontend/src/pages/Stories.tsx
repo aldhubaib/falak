@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useChannelPath } from "@/hooks/useChannelPath";
-import { ArrowUpRight, Loader2, Upload } from "lucide-react";
+import { ArrowUpRight, Loader2, Upload, Plus, X } from "lucide-react";
 import { PageError } from "@/components/PageError";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -174,7 +174,45 @@ export default function Stories() {
     }
   };
 
-  
+  const [showNewStory, setShowNewStory] = useState(false);
+  const [newHeadline, setNewHeadline] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const handleCreateStory = async () => {
+    const headline = newHeadline.trim();
+    const content = newContent.trim();
+    if (!headline) { toast.error("Enter a headline"); return; }
+    if (!content) { toast.error("Paste the story content"); return; }
+    if (!channelId) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/stories", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelId,
+          headline,
+          brief: { articleContent: content, channelId },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(typeof err.error === "string" ? err.error : err.error?.message || "Failed to create story");
+      }
+      const story = await res.json();
+      setShowNewStory(false);
+      setNewHeadline("");
+      setNewContent("");
+      toast.success("Story created");
+      navigate(channelPath(`/story/${story.id}`));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create story");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -254,6 +292,13 @@ export default function Stories() {
             ) : (
               "Re-evaluate Scores"
             )}
+          </button>
+          <button
+            onClick={() => setShowNewStory(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-3 h-3" />
+            New Story
           </button>
           <button
             onClick={() => navigate(channelPath("/publish"))}
@@ -417,7 +462,60 @@ export default function Stories() {
         </div>
       </div>
 
-      
+      {showNewStory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowNewStory(false)}>
+          <div
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-xl mx-4 max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h2 className="text-[14px] font-semibold">New Story</h2>
+              <button onClick={() => setShowNewStory(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-[12px] text-muted-foreground font-medium mb-1.5">Headline</label>
+                <input
+                  type="text"
+                  value={newHeadline}
+                  onChange={(e) => setNewHeadline(e.target.value)}
+                  placeholder="Story headline…"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-[13px] text-foreground outline-none focus:border-primary transition-colors placeholder:text-muted-foreground/50"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] text-muted-foreground font-medium mb-1.5">Story Content</label>
+                <textarea
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  placeholder="Paste the full story or article content here…"
+                  dir="auto"
+                  className="w-full min-h-[200px] px-3 py-2 bg-background border border-border rounded-lg text-[13px] text-foreground leading-relaxed outline-none focus:border-primary transition-colors resize-y placeholder:text-muted-foreground/50"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
+              <button
+                onClick={() => setShowNewStory(false)}
+                className="px-4 py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateStory}
+                disabled={creating || !newHeadline.trim() || !newContent.trim()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                Create & Open
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

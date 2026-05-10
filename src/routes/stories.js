@@ -1444,15 +1444,19 @@ router.post('/', requireRole('owner', 'admin', 'editor', 'writer'), async (req, 
     if (!channelId || !headline) return res.status(400).json({ error: 'channelId and headline required' })
 
     const isWriter = req.user.role === 'writer'
-    const storyStage = isWriter ? 'writer_draft' : (stage || 'suggestion')
-    const storyOrigin = isWriter ? 'writer' : 'ai'
+    const isManual = !isWriter && brief?.articleContent && typeof brief.articleContent === 'string'
+    const storyStage = isWriter ? 'writer_draft' : (stage || (isManual ? 'scripting' : 'suggestion'))
+    const storyOrigin = isWriter ? 'writer' : (isManual ? 'manual' : 'ai')
+
+    const storyBrief = (brief && typeof brief === 'object') ? { ...brief, channelId } : { channelId }
 
     const story = await db.story.create({
       data: {
         channelId, headline,
         stage: storyStage,
         origin: storyOrigin,
-        sourceUrl, sourceName, brief,
+        sourceUrl, sourceName,
+        brief: storyBrief,
         writerId: isWriter ? req.user.id : undefined,
       }
     })
