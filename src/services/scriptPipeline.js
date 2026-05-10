@@ -135,13 +135,69 @@ function buildFactSheetFromResearch(research, articleContent) {
   }
 }
 
+function normalizeArabic(text) {
+  return text.replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+function mapScenesToOriginalText(scenes, sourceText) {
+  const normalized = normalizeArabic(sourceText)
+  let lastEndPos = 0
+
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i]
+    const startMarker = normalizeArabic(scene.startMarker || '')
+    const endMarker = normalizeArabic(scene.endMarker || '')
+
+    if (!startMarker || !endMarker) {
+      scene.originalText = ''
+      continue
+    }
+
+    let startIdx = normalized.indexOf(startMarker, lastEndPos)
+    if (startIdx < 0) startIdx = normalized.indexOf(startMarker)
+    if (startIdx < 0) {
+      const words = startMarker.split(' ').slice(0, 5).join(' ')
+      startIdx = normalized.indexOf(words, lastEndPos)
+      if (startIdx < 0) startIdx = normalized.indexOf(words)
+    }
+
+    let endIdx = -1
+    if (startIdx >= 0) {
+      endIdx = normalized.indexOf(endMarker, startIdx)
+      if (endIdx < 0) {
+        const words = endMarker.split(' ').slice(-5).join(' ')
+        endIdx = normalized.indexOf(words, startIdx)
+      }
+    }
+
+    if (startIdx >= 0 && endIdx >= 0) {
+      scene.originalText = normalized.slice(startIdx, endIdx + endMarker.length)
+      lastEndPos = endIdx + endMarker.length
+    } else if (startIdx >= 0) {
+      const nextScene = scenes[i + 1]
+      const nextStart = nextScene ? normalizeArabic(nextScene.startMarker || '') : ''
+      let cutoff = nextStart ? normalized.indexOf(nextStart, startIdx + 1) : -1
+      if (cutoff < 0) cutoff = Math.min(startIdx + 2000, normalized.length)
+      scene.originalText = normalized.slice(startIdx, cutoff)
+      lastEndPos = cutoff
+    } else {
+      scene.originalText = ''
+    }
+
+    delete scene.startMarker
+    delete scene.endMarker
+  }
+
+  return scenes
+}
+
 async function extractFactsFallback(sourceText, meta) {
   const apiKey = await registry.requireKey('anthropic')
   const raw = await callAnthropicLogged(apiKey, 'claude-sonnet-4-20250514', [
     { role: 'user', content: `Extract all facts from this article:\n\n${sourceText.slice(0, 120000)}` },
   ], {
     system: EXTRACT_SYSTEM,
-    maxTokens: 8192,
+    maxTokens: 16384,
     channelId: meta.channelId,
     storyId: meta.storyId,
     action: 'Script Pipeline — Extract Facts (fallback)',
@@ -161,15 +217,18 @@ async function extractFactsFallback(sourceText, meta) {
     category: CATEGORY_ORDER.includes(f.category) ? f.category : 'event',
   })) : []
 
-  const scenes = Array.isArray(parsed.scenes) ? parsed.scenes.map((s, i) => ({
+  let scenes = Array.isArray(parsed.scenes) ? parsed.scenes.map((s, i) => ({
     id: s.id || `scene_${i + 1}`,
     title: String(s.title || `مشهد ${i + 1}`),
-    originalText: String(s.originalText || ''),
+    startMarker: String(s.startMarker || ''),
+    endMarker: String(s.endMarker || ''),
     factIndices: Array.isArray(s.factIndices) ? s.factIndices.filter(n => typeof n === 'number') : [],
     timelineIndices: Array.isArray(s.timelineIndices) ? s.timelineIndices.filter(n => typeof n === 'number') : [],
     characterNames: Array.isArray(s.characterNames) ? s.characterNames : [],
     locationNames: Array.isArray(s.locationNames) ? s.locationNames : [],
   })) : []
+
+  scenes = mapScenesToOriginalText(scenes, sourceText)
 
   return {
     characters: Array.isArray(parsed.characters) ? parsed.characters : [],
@@ -197,7 +256,8 @@ Extract EVERY distinct fact and entity AND group them into scenes:
     {
       "id": "scene_1",
       "title": "عنوان قصير للمشهد بالعربي — ٥ كلمات أو أقل",
-      "originalText": "انسخ الفقرات الأصلية من النص المصدر اللي تنتمي لهذا المشهد — النص الأصلي بالضبط كما هو",
+      "startMarker": "أول ٨-١٢ كلمة من بداية هذا المشهد في النص الأصلي — انسخها بالضبط",
+      "endMarker": "آخر ٨-١٢ كلمة من نهاية هذا المشهد في النص الأصلي — انسخها بالضبط",
       "factIndices": [0, 1, 2],
       "timelineIndices": [0, 1],
       "characterNames": ["منيف"],
@@ -230,8 +290,10 @@ Extract EVERY distinct fact and entity AND group them into scenes:
 قواعد المشاهد (scenes):
 - قسّم القصة إلى ٨-١٥ مشهد حسب طول القصة.
 - كل مشهد = جزء منطقي من القصة (مكان، حدث، لحظة).
-- "originalText" = انسخ الفقرات الأصلية من النص المصدر اللي تنتمي لهذا المشهد. لازم يكون نص أصلي مقتبس — لا تلخص ولا تعيد صياغة. اقتبس النص كما هو بالضبط.
-- مهم: "originalText" لازم يغطي كل النص الأصلي. كل فقرة لازم تكون في مشهد واحد على الأقل. لا تترك أي جزء من النص بدون مشهد.
+- "startMarker" = انسخ أول ٨-١٢ كلمة من بداية هذا المشهد في النص الأصلي بالضبط. لازم تكون كلمات حقيقية موجودة في النص — لا تعدل ولا تلخص.
+- "endMarker" = انسخ آخر ٨-١٢ كلمة من نهاية هذا المشهد في النص الأصلي بالضبط.
+- مهم: المشاهد لازم تغطي كل النص الأصلي. كل فقرة لازم تكون في مشهد واحد على الأقل. لا تترك أي جزء من النص بدون مشهد.
+- startMarker للمشهد التالي لازم يبدأ مباشرة بعد endMarker للمشهد السابق — بدون فجوات.
 - "factIndices" = أرقام الحقائق في مصفوفة "facts" اللي تنتمي لهذا المشهد (0-based).
 - "timelineIndices" = أرقام الأحداث في "timeline" اللي تنتمي لهذا المشهد (0-based).
 - "characterNames" = أسماء الشخصيات المشاركة في هذا المشهد (canonical names).
