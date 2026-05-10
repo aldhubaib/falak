@@ -382,7 +382,7 @@ Use timestamp format like 0:00 ... then 0:15 ... then 0:30 ... etc.
 }
 
 async function writeScript(role, systemPrompt, userMessage, meta) {
-  return callOpenAILogged('gpt-4o', [
+  return callOpenAILogged('gpt-4.1-mini', [
     { role: 'user', content: userMessage },
   ], {
     system: systemPrompt,
@@ -590,7 +590,7 @@ ${qaIssues.length > 0
 
 async function editFinal(script, ctx, qaIssues, meta) {
   const system = buildFinalEditorSystem(ctx, qaIssues)
-  return callOpenAILogged('gpt-4o', [
+  return callOpenAILogged('gpt-4.1-mini', [
     { role: 'user', content: `Polish this script. Keep ALL facts intact.\n\n${script}` },
   ], {
     system,
