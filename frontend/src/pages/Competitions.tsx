@@ -114,13 +114,16 @@ export default function CompetitorsTab() {
       credentials: "include",
       body: JSON.stringify({
         input: val,
-        channelId,
+        parentChannelId: channelId,
         type: "competitor",
         ...(nationality ? { nationality } : {}),
       }),
     })
       .then((r) => {
-        if (!r.ok) return r.json().then((e) => Promise.reject(new Error(e?.error || "Failed to add")));
+        if (!r.ok) return r.json().then((e) => {
+          const msg = typeof e?.error === 'string' ? e.error : e?.error?.message || "Failed to add";
+          return Promise.reject(new Error(msg));
+        });
         return r.json();
       })
       .then(() => {
