@@ -173,54 +173,56 @@ async function extractFactsFallback(sourceText, meta) {
   }
 }
 
-const EXTRACT_SYSTEM = `You are a fact-extraction engine. You receive a story/article about a real event.
+const EXTRACT_SYSTEM = `You are a fact-extraction engine. You receive a story/article (usually in Arabic).
 
-Extract EVERY distinct fact and entity into a structured JSON object. Categorize them so the AI writer understands each part of the story world:
+IMPORTANT: ALL output text MUST be in Arabic. Write facts, descriptions, roles, significance — everything in Arabic. Only JSON keys and enum values (like "core", "city", "background") stay in English.
+
+Extract EVERY distinct fact and entity into a structured JSON object:
 
 {
   "characters": [
-    { "canonical": "exact name from article", "role": "description", "priority": "core|supporting|background", "details": "age, job, appearance, relationships — anything mentioned" }
+    { "canonical": "الاسم بالضبط من المقال", "role": "وصف بالعربي", "priority": "core|supporting|background", "details": "العمر، الوظيفة، المظهر، العلاقات — أي شيء مذكور" }
   ],
   "locations": [
-    { "name": "exact location name", "type": "country|city|neighborhood|building|road|other", "significance": "why this place matters to the story" }
+    { "name": "اسم الموقع بالضبط", "type": "country|city|neighborhood|building|road|other", "significance": "ليش هذا المكان مهم بالقصة" }
   ],
   "timeReferences": [
-    { "reference": "exact time/date/period mentioned", "context": "what happened at this time" }
+    { "reference": "الوقت/التاريخ بالضبط", "context": "شنو صار في هذا الوقت" }
   ],
   "timeline": [
-    { "order": 0, "date": "date if mentioned", "event": "what happened", "weight": "brief|normal|extended" }
+    { "order": 0, "date": "التاريخ إذا مذكور", "event": "شنو صار", "weight": "brief|normal|extended" }
   ],
   "props": [
-    { "item": "object name", "significance": "role in the story — weapon, evidence, vehicle, tool, etc." }
+    { "item": "اسم الشيء", "significance": "دوره في القصة — سلاح، دليل، سيارة، أداة، الخ" }
   ],
   "animals": [
-    { "animal": "type/name", "significance": "role in the story" }
+    { "animal": "النوع/الاسم", "significance": "دوره في القصة" }
   ],
   "facts": [
-    { "fact": "one fact per entry", "category": "background|motive|event|evidence|outcome", "importance": 1-10 }
+    { "fact": "حقيقة واحدة بالعربي", "category": "background|motive|event|evidence|outcome", "importance": 1-10 }
   ]
 }
 
-Rules:
-- Extract EVERY fact and entity. Do not merge or summarize.
-- Character names must be EXACTLY as written — never translate, adapt, or change them.
-- Locations must be EXACTLY as mentioned — never change the country or city.
-- Dates and numbers must be EXACTLY as in the source.
-- "props" = any physical objects important to the story: vehicles (car brands, توك توك), weapons (knives, guns), phones, clothing, money, documents, food, etc.
-- "animals" = any animals mentioned (pets, livestock, wildlife). Omit if none.
-- "timeReferences" = every time marker: years, seasons, times of day, durations (e.g. "6 months", "after Fajr prayer", "end of 2024").
-- "importance" 10 = essential, 7-9 = very important, 4-6 = supporting, 1-3 = trivial.
-- "weight" on timeline: "extended" for major events, "normal" for regular, "brief" for minor.
-- "priority" on characters: "core" for main characters, "supporting" for secondary, "background" for mentioned-only.
+القواعد:
+- استخرج كل حقيقة وكيان. لا تدمج ولا تلخص.
+- أسماء الشخصيات لازم تكون بالضبط كما هي مكتوبة — لا تترجم ولا تغير.
+- المواقع لازم تكون بالضبط كما مذكورة — لا تغير الدولة أو المدينة.
+- التواريخ والأرقام لازم تكون بالضبط كما في المصدر.
+- "props" = أي أشياء مادية مهمة: سيارات (ماركات، توك توك)، أسلحة (سكاكين، مسدسات)، هواتف، ملابس، فلوس، وثائق، الخ.
+- "animals" = أي حيوانات مذكورة. اتركها فاضية إذا ما في.
+- "timeReferences" = كل علامة زمنية: سنوات، فصول، أوقات اليوم، مدد (مثل "٦ شهور"، "بعد صلاة الفجر"، "نهاية ٢٠٢٤").
+- "importance" ١٠ = أساسي، ٧-٩ = مهم جداً، ٤-٦ = مساند، ١-٣ = ثانوي.
+- "weight" في timeline: "extended" للأحداث الكبيرة، "normal" للعادية، "brief" للصغيرة.
+- "priority" في characters: "core" للشخصيات الرئيسية، "supporting" للثانوية، "background" للمذكورة فقط.
 
-CRITICAL — Anonymized/placeholder references:
-- Arabic stories often use placeholder words to keep names anonymous:
-  "الفلانية" / "الفلاني" / "فلان" = "such-and-such" (anonymous placeholder)
-  "الشركة الفلانية" = "an unnamed company", "المدينة الفلانية" = "an unnamed city"
-- When you see these, mark them as anonymous: { "name": "مدينة غير مسماة (unnamed city)", "type": "city", "significance": "..." }
-- Do NOT treat "الفلانية" as a real name. It means the narrator chose not to reveal the real name.
-- Do NOT invent or guess what the real name might be.
-- Similarly: "هذاك الشخص" (that person), "واحد من الشباب" (one of the guys) = unnamed characters. Use descriptive labels like "شاب مجهول على الطريق" (unknown young man on the road).
+مهم جداً — الأسماء المستعارة/المجهولة:
+- القصص العربية تستخدم كلمات بديلة لإخفاء الأسماء الحقيقية:
+  "الفلانية" / "الفلاني" / "فلان" = اسم مجهول (placeholder)
+  "الشركة الفلانية" = شركة غير مسماة، "المدينة الفلانية" = مدينة غير مسماة
+- لما تشوف هذه الكلمات، سجلها كمجهولة: { "name": "مدينة غير مسماة", "type": "city" }
+- لا تعامل "الفلانية" كاسم حقيقي. يعني الراوي ما بغى يكشف الاسم الحقيقي.
+- لا تخترع أو تخمن الاسم الحقيقي.
+- نفس الشيء: "هذاك الشخص"، "واحد من الشباب" = شخصيات مجهولة. استخدم وصف مثل "شاب مجهول على الطريق".
 
 Reply with ONLY valid JSON. No markdown fences, no explanation.`
 
