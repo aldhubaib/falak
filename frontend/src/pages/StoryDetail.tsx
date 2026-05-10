@@ -1701,65 +1701,53 @@ export default function StoryDetail() {
 
 
             {activeStage === "scripting" && (
-              <div className="space-y-4">
-                {/* Step 1: Original Story */}
-                {brief.articleContent && (
-                  <OriginalStoryToggle content={brief.articleContent} />
-                )}
+              <div className="space-y-6">
 
-                {/* Step 2: Extract Facts button (shown when no fact sheet yet) */}
-                {!brief.factSheet?.facts?.length && (
-                  <div className="rounded-lg bg-card border border-border p-5 flex flex-col items-center gap-3">
-                    {extractingFacts && brief.pipelineStatus?.stage && !["facts_ready", "done", "error"].includes(brief.pipelineStatus.stage) ? (
-                      <div className="w-full">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                          <span className="text-[12px] font-medium text-foreground">Extracting facts…</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {["research", "facts"].map((step) => {
-                            const current = brief.pipelineStatus?.stage || "";
-                            const isDone = step === "research"
-                              ? ["facts", "facts_done", "facts_ready"].includes(current)
-                              : ["facts_done", "facts_ready"].includes(current);
-                            const isActive = step === "research"
-                              ? ["queued", "research", "research_done"].includes(current)
-                              : ["facts"].includes(current);
-                            return (
-                              <div key={step} className="flex-1">
-                                <div className={`h-1.5 rounded-full transition-colors ${isDone ? "bg-primary" : isActive ? "bg-primary/40 animate-pulse" : "bg-muted"}`} />
-                                <span className="text-[9px] text-muted-foreground mt-1 block capitalize">{step === "research" ? "Research" : "Fact Sheet"}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <FileText className="w-8 h-8 text-muted-foreground/40" />
-                        <div className="text-center">
-                          <p className="text-[13px] font-medium text-foreground">Extract Facts</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            AI will analyze the story and extract characters, locations, events, and key facts
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={extractFacts}
-                          disabled={extractingFacts}
-                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          Extract Facts
-                        </button>
-                      </>
-                    )}
+                {/* ═══════════════════════════════════════════════════════════
+                    PANEL 1: EXTRACT — Original story → Extract → Scene selection
+                    ═══════════════════════════════════════════════════════════ */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[11px] font-bold text-primary">1</div>
+                    <span className="text-[13px] font-semibold text-foreground">Extract & Select Scenes</span>
+                    {brief.factSheet?.scenes?.length ? (
+                      <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-full ml-auto">
+                        {brief.factSheet.scenes.filter(s => !s.excluded).length}/{brief.factSheet.scenes.length} selected
+                      </span>
+                    ) : null}
                   </div>
-                )}
 
-                {/* Step 3 + 4: Scene Selector or fallback generate */}
-                {brief.factSheet && brief.factSheet.facts?.length > 0 && (
-                  brief.factSheet.scenes?.length ? (
+                  {/* Original story */}
+                  {brief.articleContent && (
+                    <OriginalStoryToggle content={brief.articleContent} />
+                  )}
+
+                  {/* Extraction state */}
+                  {extractingFacts ? (
+                    <div className="rounded-lg bg-card border border-border p-5 flex flex-col items-center gap-3">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      <p className="text-[12px] font-medium text-foreground">Extracting scenes from story…</p>
+                      <p className="text-[10px] text-muted-foreground">This takes about 30-60 seconds</p>
+                    </div>
+                  ) : !brief.factSheet?.facts?.length ? (
+                    <div className="rounded-lg bg-card border border-border p-5 flex flex-col items-center gap-3">
+                      <FileText className="w-8 h-8 text-muted-foreground/40" />
+                      <div className="text-center">
+                        <p className="text-[13px] font-medium text-foreground">Extract Scenes</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          AI will break the story into scenes so you can pick which parts to include
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={extractFacts}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-semibold hover:bg-primary/90 transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Extract Scenes
+                      </button>
+                    </div>
+                  ) : brief.factSheet.scenes?.length ? (
                     <SceneSelector
                       factSheet={brief.factSheet}
                       onChange={(updated) => {
@@ -1774,83 +1762,78 @@ export default function StoryDetail() {
                       onGenerate={(mode) => generateScript(mode)}
                     />
                   ) : (
-                    <div className="rounded-lg bg-card border border-border p-4 flex flex-col items-center gap-3">
-                      {extractingFacts ? (
-                        <>
-                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                          <p className="text-[12px] font-medium text-foreground">Extracting scenes from story…</p>
-                          <p className="text-[10px] text-muted-foreground">This takes about 30-60 seconds</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-[11px] text-muted-foreground text-center">
-                            This story was extracted before scene selection was available.
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={extractFacts}
-                              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                              Extract Scenes
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => generateScript("full")}
-                              disabled={!channelId || generatingScript}
-                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium border transition-colors ${
-                                channelId && !generatingScript
-                                  ? "border-border text-muted-foreground hover:text-foreground"
-                                  : "border-border/50 text-muted-foreground/30 cursor-not-allowed"
-                              }`}
-                            >
-                              {generatingScript ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                              Generate without scenes
-                            </button>
-                          </div>
-                        </>
-                      )}
+                    <div className="rounded-lg bg-card border border-border p-4 flex items-center gap-3">
+                      <p className="text-[11px] text-muted-foreground flex-1">
+                        Extracted before scene selection was available.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={extractFacts}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Extract Scenes
+                      </button>
                     </div>
-                  )
-                )}
+                  )}
+                </div>
 
-                {/* Step 5: Script output */}
-                {(scriptValue || generatingScript) && (
-                  <StoryDetailScriptSection
-                    key={id}
-                    scriptLength={scriptLength}
-                    onScriptLengthChange={(len) => {
-                      setScriptLength(len);
-                      setBrief((b) => {
-                        const next = { ...b, scriptLength: len };
-                        if (id) saveScript(id, next);
-                        return next;
-                      });
-                    }}
-                    canGenerate={false}
-                    generating={generatingScript}
-                    onGenerate={generateScript}
-                    readOnly={false}
-                    showGenerateControls={false}
-                    scriptValue={scriptValue}
-                    saving={saving}
-                    scriptRef={scriptEditorRef}
-                    videoFormat={brief.videoFormat || "long"}
-                    channelAvatarUrl={channelInfo?.avatarUrl}
-                    channelName={channelInfo?.name}
-                    pipelineStage={brief.pipelineStatus?.stage}
-                    pipelineError={brief.pipelineStatus?.error}
-                    qaResult={brief.qaResult}
-                    onScriptChange={(value) => {
-                      setBrief((b) => {
-                        const next: StoryBrief = { ...b, script: value };
-                        if (id) saveScript(id, next);
-                        return next;
-                      });
-                    }}
-                  />
-                )}
+                {/* ═══════════════════════════════════════════════════════════
+                    PANEL 2: SCRIPT — Generated script output
+                    ═══════════════════════════════════════════════════════════ */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                      scriptValue || generatingScript ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground/40"
+                    }`}>2</div>
+                    <span className={`text-[13px] font-semibold ${
+                      scriptValue || generatingScript ? "text-foreground" : "text-muted-foreground/40"
+                    }`}>Script</span>
+                  </div>
+
+                  {generatingScript || scriptValue ? (
+                    <StoryDetailScriptSection
+                      key={id}
+                      scriptLength={scriptLength}
+                      onScriptLengthChange={(len) => {
+                        setScriptLength(len);
+                        setBrief((b) => {
+                          const next = { ...b, scriptLength: len };
+                          if (id) saveScript(id, next);
+                          return next;
+                        });
+                      }}
+                      canGenerate={false}
+                      generating={generatingScript}
+                      onGenerate={generateScript}
+                      readOnly={false}
+                      showGenerateControls={false}
+                      scriptValue={scriptValue}
+                      saving={saving}
+                      scriptRef={scriptEditorRef}
+                      videoFormat={brief.videoFormat || "long"}
+                      channelAvatarUrl={channelInfo?.avatarUrl}
+                      channelName={channelInfo?.name}
+                      pipelineStage={brief.pipelineStatus?.stage}
+                      pipelineError={brief.pipelineStatus?.error}
+                      qaResult={brief.qaResult}
+                      onScriptChange={(value) => {
+                        setBrief((b) => {
+                          const next: StoryBrief = { ...b, script: value };
+                          if (id) saveScript(id, next);
+                          return next;
+                        });
+                      }}
+                    />
+                  ) : (
+                    <div className="rounded-lg bg-muted/20 border border-border/50 p-5 flex items-center justify-center">
+                      <p className="text-[11px] text-muted-foreground/40">
+                        Select scenes above and click Generate to create the script
+                      </p>
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
 
