@@ -60,11 +60,14 @@ async function buildPipelineContext(story, channel) {
 
   const dialect = await getDialectForCountry(channel.nationality)
   const dialectGuide = getDialectGuide(channel.nationality)
-  const dialectInstruction = dialectGuide
+  const dialectBase = dialectGuide
     ? dialectGuide
     : dialect
       ? `Write the script in ${dialect.long} (${dialect.short}). Use natural spoken ${dialect.short} — not formal Modern Standard Arabic.`
       : 'Write the script in Arabic.'
+  const dialectInstruction = dialectBase +
+    '\n\nCRITICAL: The dialect is ONLY about how the narrator speaks. It has NOTHING to do with where the story happened. ' +
+    'NEVER change, move, or assume the story location based on the dialect. Use ONLY the locations from the FACT SHEET.'
   const dialectName = dialect?.name || 'Arabic'
 
   const startHook = (channel.startHook || '').trim()
