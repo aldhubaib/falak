@@ -198,6 +198,7 @@ async function extractFactsFallback(sourceText, meta) {
   ], {
     system: EXTRACT_SYSTEM,
     maxTokens: 16384,
+    timeoutMs: 240_000,
     channelId: meta.channelId,
     storyId: meta.storyId,
     action: 'Script Pipeline — Extract Facts (fallback)',
@@ -671,6 +672,7 @@ Merge these into ONE script. Output ## TITLE, ## SCRIPT, ## HASHTAGS.`
   ], {
     system: MERGE_SYSTEM,
     maxTokens: 8192,
+    timeoutMs: 240_000,
     channelId: meta.channelId,
     storyId: meta.storyId,
     action: 'Script Pipeline — Editor Merge',
@@ -985,6 +987,7 @@ Fix EVERY issue above. Do NOT change anything that was already correct. Output t
       ], {
         system: MERGE_SYSTEM + '\n\nIMPORTANT: You are FIXING QA issues. The fact sheet is the source of truth. Every location, name, date, and fact must match the fact sheet EXACTLY.',
         maxTokens: 8192,
+        timeoutMs: 240_000,
         channelId: meta.channelId,
         storyId: meta.storyId,
         action: `Script Pipeline — Editor Merge (revision ${qaRound + 1})`,

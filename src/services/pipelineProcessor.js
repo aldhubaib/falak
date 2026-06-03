@@ -11,8 +11,9 @@ const { trackUsage } = require('./usageTracker')
 const registry = require('../lib/serviceRegistry')
 const { classifyHttpError } = registry
 const MAX_ANTHROPIC_TOKENS = 4096
-const ANTHROPIC_TIMEOUT_MS = 120_000
+const ANTHROPIC_TIMEOUT_MS = 180_000
 const ANTHROPIC_RETRY_DELAYS_MS = [10_000, 30_000, 60_000] // on 429: wait 10s, 30s, 60s
+const ANTHROPIC_TIMEOUT_RETRIES = 1 // retry once on timeout before giving up
 // Small gap between sequential AI calls within one video to avoid burst
 const ANTHROPIC_INTER_CALL_DELAY_MS = 2_000
 
@@ -330,6 +331,7 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, chann
   if (system) body.system = system
 
   const effectiveTimeout = timeoutMs || ANTHROPIC_TIMEOUT_MS
+  let timeoutAttempts = 0
   for (let attempt = 0; attempt <= ANTHROPIC_RETRY_DELAYS_MS.length; attempt++) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), effectiveTimeout)
@@ -348,8 +350,14 @@ async function callAnthropic(apiKey, model, messages, { system, maxTokens, chann
     } catch (e) {
       clearTimeout(timeout)
       if (e.name === 'AbortError') {
+        timeoutAttempts++
+        if (timeoutAttempts <= ANTHROPIC_TIMEOUT_RETRIES) {
+          console.warn(`[anthropic] timeout on "${action}" (attempt ${timeoutAttempts}/${ANTHROPIC_TIMEOUT_RETRIES + 1}), retrying...`)
+          await sleep(5_000)
+          continue
+        }
         trackUsage({ channelId, service: 'anthropic', action, status: 'fail', error: 'timeout' })
-        throw new Error(`Anthropic API: request timed out after ${ANTHROPIC_TIMEOUT_MS / 1000}s`)
+        throw new Error(`Anthropic API: request timed out after ${effectiveTimeout / 1000}s (${timeoutAttempts} attempts)`)
       }
       throw e
     }
