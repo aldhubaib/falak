@@ -1252,11 +1252,21 @@ export default function StoryDetail() {
   const [extractingFacts, setExtractingFacts] = useState(false);
 
   // Resume polling on mount if the pipeline is already running (e.g. user navigated away and back)
+  // If the pipeline has been stuck for >15 min, treat it as failed.
   useEffect(() => {
     if (!id) return;
     const stage = brief.pipelineStatus?.stage;
     if (!stage || stage === "done" || stage === "error" || stage === "facts_ready") return;
     if (pollIntervalRef.current) return; // already polling
+
+    const updatedAt = brief.pipelineStatus?.updatedAt;
+    if (updatedAt) {
+      const staleMs = Date.now() - new Date(updatedAt).getTime();
+      if (staleMs > 15 * 60 * 1000) {
+        setBrief((b) => ({ ...b, pipelineStatus: { stage: "error", error: "Pipeline stalled — please retry" } }));
+        return;
+      }
+    }
 
     const isFactStage = stage === "queued" && !brief.script;
     if (isFactStage) {
@@ -1279,6 +1289,19 @@ export default function StoryDetail() {
         if (!statusRes.ok) return;
         const { status } = await statusRes.json();
         if (!status) return;
+
+        // Detect stale status from backend (process crashed without updating)
+        if (status.updatedAt) {
+          const staleMs = Date.now() - new Date(status.updatedAt).getTime();
+          if (staleMs > 15 * 60 * 1000) {
+            stopPolling();
+            setBrief((b) => ({ ...b, pipelineStatus: { stage: "error", error: "Pipeline stalled — please retry" } }));
+            toast.error("Pipeline appears stuck. Please try again.");
+            setGeneratingScript(false);
+            setExtractingFacts(false);
+            return;
+          }
+        }
 
         setBrief((b) => ({ ...b, pipelineStatus: status }));
 

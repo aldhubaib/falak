@@ -826,6 +826,7 @@ async function editFinal(script, ctx, qaIssues, meta) {
   ], {
     system,
     maxTokens: 8192,
+    timeoutMs: 240_000,
     temperature: 0.4,
     channelId: meta.channelId,
     storyId: meta.storyId,

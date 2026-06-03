@@ -10,7 +10,7 @@ const registry = require('../lib/serviceRegistry')
 
 const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions'
 const DEFAULT_MODEL = 'gpt-4o'
-const FETCH_TIMEOUT_MS = 120_000
+const FETCH_TIMEOUT_MS = 180_000
 const MAX_RETRIES = 3
 const RETRY_BASE_MS = 5_000
 
@@ -32,6 +32,7 @@ async function callOpenAILogged(model, messages, opts = {}) {
     system,
     maxTokens = 4096,
     temperature = 0.7,
+    timeoutMs,
     channelId,
     storyId,
     action,
@@ -56,11 +57,12 @@ async function callOpenAILogged(model, messages, opts = {}) {
   let status = 'ok'
   let error = null
   let usage = {}
+  const effectiveTimeout = timeoutMs || FETCH_TIMEOUT_MS
 
   try {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      const timer = setTimeout(() => controller.abort(), effectiveTimeout)
       let res
       try {
         res = await fetch(OPENAI_CHAT_URL, {
