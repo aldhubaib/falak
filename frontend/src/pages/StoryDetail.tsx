@@ -1251,6 +1251,62 @@ export default function StoryDetail() {
 
   const [extractingFacts, setExtractingFacts] = useState(false);
 
+  // Resume polling on mount if the pipeline is already running (e.g. user navigated away and back)
+  useEffect(() => {
+    if (!id) return;
+    const stage = brief.pipelineStatus?.stage;
+    if (!stage || stage === "done" || stage === "error" || stage === "facts_ready") return;
+    if (pollIntervalRef.current) return; // already polling
+
+    const isFactStage = stage === "queued" && !brief.script;
+    if (isFactStage) {
+      setExtractingFacts(true);
+    } else {
+      setGeneratingScript(true);
+    }
+
+    const pollStart = Date.now();
+    pollIntervalRef.current = setInterval(async () => {
+      if (Date.now() - pollStart > 10 * 60 * 1000) {
+        stopPolling();
+        toast.error("Pipeline timed out. Check the story for partial results.");
+        setGeneratingScript(false);
+        setExtractingFacts(false);
+        return;
+      }
+      try {
+        const statusRes = await fetch(`/api/stories/${id}/pipeline-status`, { credentials: "include" });
+        if (!statusRes.ok) return;
+        const { status } = await statusRes.json();
+        if (!status) return;
+
+        setBrief((b) => ({ ...b, pipelineStatus: status }));
+
+        if (status.stage === "done" || status.stage === "error" || status.stage === "facts_ready") {
+          stopPolling();
+
+          if (status.stage === "error") {
+            toast.error(status.error || "Pipeline failed");
+          } else {
+            const storyRes = await fetch(`/api/stories/${id}`, { credentials: "include" });
+            if (storyRes.ok) {
+              const storyData = await storyRes.json();
+              const updatedBrief = storyData.brief || {};
+              setBrief((b) => ({ ...b, ...updatedBrief, pipelineStatus: status }));
+              if (scriptEditorRef.current && updatedBrief.script) {
+                scriptEditorRef.current.setContent(updatedBrief.script);
+              }
+            }
+            toast.success(status.stage === "facts_ready" ? "Facts extracted" : "Script generated");
+          }
+          setGeneratingScript(false);
+          setExtractingFacts(false);
+        }
+      } catch { /* poll error — keep trying */ }
+    }, 3000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, brief.pipelineStatus?.stage]);
+
   const extractFacts = useCallback(async () => {
     if (!id) { toast.error("No story ID"); return; }
     if (extractingFacts) return;
