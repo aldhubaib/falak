@@ -186,7 +186,7 @@ async function updatePipelineStatus(storyId, stage, data = {}) {
  * Process a script pipeline job.
  */
 async function processScriptJob(job) {
-  const { storyId, channelId, isShort, forceResearch, useCuratedFacts } = job.data
+  const { storyId, channelId, isShort, forceResearch, useCuratedFacts, resume } = job.data
 
   try {
     const story = await db.story.findUnique({ where: { id: storyId } })
@@ -214,6 +214,7 @@ async function processScriptJob(job) {
       isShort: isShort ?? ctx.isShort,
       forceResearch,
       useCuratedFacts,
+      resume,
       onStage,
     })
 
@@ -235,6 +236,7 @@ async function processScriptJob(job) {
       qaResult: result.qaResult,
       pipelineLog: result.pipelineLog,
       pipelineStatus: { stage: 'done', updatedAt: new Date().toISOString() },
+      _mergedScript: undefined,
     }
 
     await db.story.update({

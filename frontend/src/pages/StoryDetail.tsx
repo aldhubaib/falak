@@ -1413,6 +1413,7 @@ export default function StoryDetail() {
     setGeneratingScript(true);
     toast.info(useCurated ? "Generating from selected facts…" : "Generating full draft (all facts)…");
     try {
+      const canResume = !!(brief as any)._mergedScript && (brief as any)._mergedScript.length > 200;
       const res = await fetch(`/api/stories/${id}/generate-script`, {
         method: "POST",
         credentials: "include",
@@ -1421,6 +1422,7 @@ export default function StoryDetail() {
           scriptLength: mode === "full" ? "long" : scriptLength,
           channelId,
           useCuratedFacts: !!useCurated,
+          resume: canResume,
         }),
       });
       if (!res.ok) {

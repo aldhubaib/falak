@@ -876,6 +876,29 @@ async function runScriptPipeline(story, channel, opts = {}) {
     pipelineLog.push({ agent, ts: new Date().toISOString(), ...data })
   }
 
+  // ── Resume detection: skip to polishing if we already have a merged script ──
+  const canResume = opts.resume && brief._mergedScript && brief._mergedScript.length > 200
+  if (canResume) {
+    logger.info({ storyId: story.id }, '[scriptPipeline] Resuming from polishing stage')
+    onStage('polishing', { message: 'Resuming — final polish...' })
+    const resumedMerge = brief._mergedScript
+    const qaIssues = brief.qaResult?.issues || []
+    const finalScript = await editFinal(resumedMerge, ctx, qaIssues, meta)
+    logStep('EDITOR_FINAL', { status: 'ok', length: finalScript.length, resumed: true })
+    onStage('done', { message: 'Script complete (resumed)' })
+
+    return {
+      script: finalScript,
+      factSheet: brief.factSheet || {},
+      research: brief.research || null,
+      qaResult: brief.qaResult || { passed: true, issues: [], rounds: 0 },
+      pipelineLog,
+      draftNarrator: null,
+      draftStoryteller: null,
+      mergedScript: resumedMerge,
+    }
+  }
+
   // ── Stage 1: RESEARCHER ──────────────────────────────────────────────────
   onStage('research', { message: 'Researching story...' })
   let research
@@ -1036,6 +1059,25 @@ Fix EVERY issue above. Do NOT change anything that was already correct. Output t
       break
     }
     logStep('QA_GATE', { status: 'retry', round: qaRound, reason: `${allQaIssues.length} issues found, retrying merge` })
+  }
+
+  // ── Save checkpoint before polishing (enables resume if this stage crashes) ──
+  try {
+    await db.story.update({
+      where: { id: story.id },
+      data: {
+        brief: {
+          ...brief,
+          _mergedScript: mergedScript,
+          factSheet: organized,
+          research,
+          qaResult: { passed: qaPassed, issues: allQaIssues, rounds: qaRound + 1 },
+          pipelineStatus: { stage: 'polishing', updatedAt: new Date().toISOString() },
+        },
+      },
+    })
+  } catch (e) {
+    logger.warn({ err: e.message }, '[scriptPipeline] checkpoint save failed (non-fatal)')
   }
 
   // ── Stage 6: EDITOR FINAL ────────────────────────────────────────────────
