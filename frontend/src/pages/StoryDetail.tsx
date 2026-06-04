@@ -1781,6 +1781,32 @@ export default function StoryDetail() {
             )}
 
 
+            {/* ── SUGGESTION / LIKED: show article content for review ────── */}
+            {(activeStage === "suggestion" || activeStage === "liked") && (
+              <div className="space-y-4">
+                {story.sourceUrl && (
+                  <a
+                    href={story.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-[12px] text-primary hover:underline"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    {story.sourceName || "Source"}
+                  </a>
+                )}
+                {brief.articleContent && brief.articleContent !== "__SCRAPE_FAILED__" && brief.articleContent !== "__YOUTUBE__" && (
+                  <OriginalStoryToggle content={brief.articleContent} />
+                )}
+                {!brief.articleContent && !brief.research && (
+                  <div className="rounded-lg bg-muted/20 border border-border/50 p-6 flex flex-col items-center gap-2">
+                    <FileText className="w-8 h-8 text-muted-foreground/30" />
+                    <p className="text-[12px] text-muted-foreground">No article content yet — move to Scripting to fetch and process</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeStage === "scripting" && (
               <div className="space-y-6">
 
