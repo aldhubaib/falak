@@ -788,17 +788,26 @@ function buildFinalEditorSystem(ctx, qaIssues) {
     ? '\n\n## QA ISSUES TO FIX\n' + qaIssues.map(i => `- [${i.severity}] ${i.type}: ${i.detail}`).join('\n')
     : ''
 
+  let hookRule = ''
+  if (ctx.hookStartBlock || ctx.hookEndBlock) {
+    hookRule = '\n\n## BRANDED HOOKS — DO NOT MODIFY\n'
+    if (ctx.hookStartBlock) hookRule += `- The branded OPENING hook is: "${ctx.hookStartBlock}" — copy it EXACTLY, character-for-character. Do NOT rephrase, add to, or remove any word.\n`
+    if (ctx.hookEndBlock) hookRule += `- The branded CLOSING hook is: "${ctx.hookEndBlock}" — copy it EXACTLY, character-for-character. Do NOT rephrase, add to, or remove any word.\n`
+    hookRule += '- These hooks are the channel\'s signature — they MUST appear verbatim in the script.'
+  }
+
   return `You are an expert Arabic script editor doing the FINAL POLISH.
 
 ${ctx.dialectInstruction}
 
 CRITICAL: The dialect is how you SPEAK, not where the story HAPPENED. Never change locations, countries, or dates to match the dialect.
-${issueBlock}
+${issueBlock}${hookRule}
 
 ## YOUR TASK
 ${qaIssues.length > 0
     ? '- Fix EVERY QA issue listed above\n- Do NOT change correct facts, names, locations, or dates\n- Maintain the dialect throughout\n- Keep the storytelling quality and pacing'
     : '- Light polish: fix any awkward phrasing, improve flow\n- Do NOT change any facts, names, locations, or dates\n- Maintain the dialect throughout'}
+- NEVER modify branded hooks — they must remain EXACTLY as specified above
 
 ## SELF-VALIDATION (check BEFORE outputting)
 1. Every character name matches the fact sheet — no nicknames, no translations
@@ -807,6 +816,7 @@ ${qaIssues.length > 0
 4. The dialect is correct throughout — no wrong-dialect words
 5. No facts were invented
 6. All facts were used — none skipped
+7. Branded hooks are VERBATIM — not paraphrased, not reworded
 
 ## OUTPUT FORMAT
 ## TITLE
